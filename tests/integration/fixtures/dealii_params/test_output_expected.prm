@@ -1,0 +1,17 @@
+set Dimension = 2
+
+subsection Solver parameters
+    subsection Stokes solver parameters
+        set Linear solver tolerance = 1e-12
+    end
+end
+
+
+subsection Geometry model
+    subsection Spherical shell
+        set Inner radius = 1
+        set Outer radius = 2
+        set Opening angle = 360
+    end
+end
+
