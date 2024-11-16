@@ -9,6 +9,6 @@ setup(
     ],
     author='Your Name',
     description='A brief description of your package',
-    url='https://github.com/yourusername/my_package',
+    url='https://https://github.com/lhy11009/HaMaGeoLib',
     license='MIT',
 )
