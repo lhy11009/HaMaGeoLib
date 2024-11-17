@@ -36,6 +36,7 @@ Functions:
 import json
 import os
 import re
+import subprocess
 from .dealii_param_parser import parse_parameters_to_dict
 from .exception_handler import my_assert
 from .handy_shortcuts_haoyuan import func_name
@@ -117,6 +118,19 @@ class CASE_OPTIONS:
             os.mkdir(self._img_dir)
         self.options["IMG_OUTPUT_DIR"] = os.path.abspath(self._img_dir)
 
+        # visualization file
+        self.options["VISIT_FILE"] = self.visit_file
+        self.options["PARAVIEW_FILE"] = self.paraview_file
+        # data types
+        self.options["HAS_DYNAMIC_PRESSURE"] = '0'
+        try:
+            visualization_output_variables = self.idict['Postprocess']['Visualization']['List of output variables']
+        except KeyError:
+            pass
+        else:
+            if re.match('.*nonadiabatic\ pressure', visualization_output_variables):
+                self.options["HAS_DYNAMIC_PRESSURE"] = '1'
+
         # Set model dimension and adaptive refinement options
         self.options['DIMENSION'] = int(self.idict['Dimension'])
         self.options['INITIAL_ADAPTIVE_REFINEMENT'] = self.idict['Mesh refinement'].get('Initial adaptive refinement', '0')
@@ -140,6 +154,8 @@ class CASE_OPTIONS:
             else:
                 raise ValueError("%d is not a dimension option" % self.options['DIMENSION'])
             self.options["XMAX"] = float(self.idict['Geometry model']['Box']['X extent'])
+        
+        # TODO: cases, first get a case summary for steps, restarts and checkpoints. etc
 
     def read_contents(self, *paths):
         """
@@ -198,3 +214,14 @@ class CASE_OPTIONS:
         with open(_path, 'w') as fout:
             fout.write(self.contents)
         return _path
+
+
+def parse_log_file_for_visualization_snapshots(log_file_path, output_path):
+
+    # TODO: cases, first get a case summary for steps, restarts and checkpoints. etc
+
+    awk_configuration_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "../files/awk_files/parse_snapshot_from_log_txt"))
+    
+    completed_process = subprocess.run(["awk", "-f", awk_configuration_file, log_file_path, ">", output_path],\
+                                        capture_output=True, text=True)
+
