@@ -4,7 +4,7 @@ import os
 import pytest
 import filecmp
 from shutil import copy
-from HaMaGeoLib.utils.dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
+from hamageolib.utils.dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
 
 def test_parse_parameters_to_dict(tmp_path):
     """

@@ -21,4 +21,4 @@ requirements:
 about:
   home: https://github.com/lhy11009/HaMaGeoLib
   license: MIT
-  summary: "HaMaGeoLib is a Python package designed to provide tools and models for geodynamic research, with a focus on simulating mantle convection, plate tectonics, and related geodynamic processes. Developed by researchers for researchers, HaMaGeo offers essential utilities, modeling capabilities, and visualization tools for geodynamics."
+  summary: "hamageolib is a Python package designed to provide tools and models for geodynamic research, with a focus on simulating mantle convection, plate tectonics, and related geodynamic processes. Developed by researchers for researchers, HaMaGeo offers essential utilities, modeling capabilities, and visualization tools for geodynamics."
