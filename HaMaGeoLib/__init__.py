@@ -13,16 +13,16 @@ Usage:
 """
 
 # Placeholder imports for future modules
-from . import core as core_foo  # Placeholder for the core functionality
-from . import utils as utils_foo  # Placeholder for utility functions
-from . import visualization as viz_foo  # Placeholder for visualization functions
+from . import core as hamageolib_core  # Placeholder for the core functionality
+from . import utils as hamageolib_utils  # Placeholder for utility functions
+from . import visualization as hamageolib_viz  # Placeholder for visualization functions
 
 # Define package metadata
 __author__ = "Haoyuan Li, Magali Billen"
 __version__ = "0.1.0"
 __license__ = "MIT"
 __all__ = [
-    "core_foo",
-    "utils_foo",
-    "viz_foo"
+    "hamageolib_core",
+    "hamageolib_utils",
+    "hamageolib_viz"
 ]
