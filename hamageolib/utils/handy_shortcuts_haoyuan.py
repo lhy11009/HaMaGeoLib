@@ -29,6 +29,10 @@ This file provides two utility functions:
     - func_name: Retrieves the name of the calling function.
     - check_float: Compares a float value to an expected value within a specified tolerance.
 """
+import os
+import sys
+import warnings
+
 
 def func_name():
     """
@@ -39,6 +43,7 @@ def func_name():
     """
     # Uses the inspect module to get the name of the calling function
     return inspect.currentframe().f_back.f_code.co_name
+
 
 def check_float(val, val_expected, tolerance=1e-8):
     """
@@ -54,3 +59,22 @@ def check_float(val, val_expected, tolerance=1e-8):
     """
     # Compares the relative difference between val and val_expected to the tolerance
     return (abs((val - val_expected) / val_expected) < tolerance)
+
+
+class Mute:
+    """Context manager to suppress stdout, stderr, and warnings."""
+    def __enter__(self):
+        self._stdout = sys.stdout
+        self._stderr = sys.stderr
+        self._warnings = warnings.catch_warnings()
+        self._warnings.__enter__()
+        warnings.simplefilter("ignore")
+        sys.stdout = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, 'w')
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stderr.close()
+        sys.stdout = self._stdout
+        sys.stderr = self._stderr
+        self._warnings.__exit__(exc_type, exc_val, exc_tb)

@@ -43,9 +43,12 @@ Functions:
 
 import matplotlib.pyplot as plt
 import fitz
+import numpy as np
 import os
-from PIL import Image  # Pillow for cropping and saving images
+from PIL import Image, ImageDraw, ImageFont  # Pillow for cropping and saving images
 import subprocess
+
+from utils.file_reader import read_simulation_log
 
 def scale_matplotlib_params(scaling_factor=1.0, **kwargs):
     """
@@ -225,3 +228,309 @@ def overlay_images_on_blank_canvas(
     # Save the final canvas as an image
     canvas.save(output_image_file, "PNG")
     print(f"Overlay completed. Final image saved as {output_image_file}")
+
+
+def add_text_to_image(
+    image_path: str,
+    output_path: str,
+    text: str,
+    position: tuple,
+    font_path: str,
+    font_size: int = 60,
+    text_color: str = "black",
+):
+    """
+    Adds text to a PNG image and saves the result.
+
+    Parameters:
+        image_path (str): Path to the input PNG file.
+        output_path (str): Path to save the output image with text.
+        text (str): Text to insert onto the image.
+        position (tuple): (x, y) coordinates for the text position.
+        font_path (str): Path to the TrueType (.ttf) font file.
+        font_size (int): Font size for the text. Default is 60.
+        text_color (str): Color of the text. Default is "black".
+
+    Returns:
+        None
+    """
+    try:
+        # Load the image
+        image = Image.open(image_path)
+
+        # Create a drawing context
+        draw = ImageDraw.Draw(image)
+
+        # Define the font
+        font = ImageFont.truetype(font_path, font_size)
+
+        # Add text to the image
+        draw.text(position, text, font=font, fill=text_color)
+
+        # Save the edited image
+        image.save(output_path)
+        print(f"Image saved to {output_path}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+
+def combine_images(image_matrix, output_path):
+    """
+    Combines images into a single canvas based on a 2D NumPy matrix layout.
+
+    Parameters:
+        image_matrix (numpy.ndarray): A 2D NumPy array containing file paths to the PNG images or None values.
+        output_path (str): Path to save the combined image.
+
+    Returns:
+        None
+    """
+    # Validate the matrix is 2D
+    if not isinstance(image_matrix, np.ndarray) or len(image_matrix.shape) != 2:
+        raise ValueError("The image matrix must be a 2D NumPy array.")
+
+    # Validate all entries in the first row and first column are not None
+    if any(path is None for path in image_matrix[0, :]):
+        raise ValueError("All entries in the first row must be valid file paths (not None).")
+    if any(path is None for path in image_matrix[:, 0]):
+        raise ValueError("All entries in the first column must be valid file paths (not None).")
+
+    # Validate each file exists if not None
+    for path in image_matrix.flat:
+        if path is not None and not os.path.isfile(path):
+            raise FileNotFoundError(f"File not found: {path}")
+
+    # Load images, skipping None
+    images = np.empty_like(image_matrix, dtype=object)
+    for row_idx, row in enumerate(image_matrix):
+        for col_idx, path in enumerate(row):
+            images[row_idx, col_idx] = Image.open(path) if path is not None else None
+
+    # Calculate the canvas size
+    canvas_width = sum(img.width for img in images[0, :])  # Total width is the sum of the first row's widths
+    canvas_height = sum(img.height for img in images[:, 0])  # Total height is the sum of the first column's heights
+
+    # Create a blank canvas
+    canvas = Image.new("RGBA", (canvas_width, canvas_height), (255, 255, 255, 0))  # Transparent canvas
+
+    # Place images onto the canvas, skipping None
+    y_offset = 0
+    for row_idx in range(images.shape[0]):
+        x_offset = 0
+        for col_idx in range(images.shape[1]):
+            img = images[row_idx, col_idx]
+            if img is not None:
+                canvas.paste(img, (x_offset, y_offset))
+                x_offset += img.width
+        if images[row_idx, 0] is not None:
+            y_offset += images[row_idx, 0].height
+
+    # Save the combined image
+    canvas.save(output_path)
+    print(f"Combined image saved to {output_path}")
+
+
+def plot_statistic_generic(
+    data, x_col, y_col, xlabel, ylabel, title, label, ax, color=None, **kwargs
+):
+    """
+    Generic function to create a statistic plot with units included in labels and optional annotations.
+    Supports plotting multiple lines on the same plot.
+
+    Args:
+        data (pd.DataFrame): DataFrame containing the simulation data.
+        x_col (str): Column name for the x-axis.
+        y_col (str or list): Column name(s) for the y-axis.
+        xlabel (str): Label for the x-axis (before unit addition).
+        ylabel (str): Label for the y-axis (before unit addition).
+        title (str): Title of the plot.
+        label (str or list): Legend label(s) for the data series.
+        ax (matplotlib.axes.Axes): Axes object for the plot.
+        color (str or list, optional): Color(s) for the plot line(s).
+        **kwargs: Optional arguments for plot customization, including:
+            - annotate_column (str): Column name to annotate on the plot.
+            - annotate_points (int, optional): Number of points to annotate (default: 5).
+
+    Returns:
+        None
+
+    Raises:
+        ValueError: If x_col, y_col, label, and color lengths don't match (when y_col is a list).
+        KeyError: If x_col or y_col is not found in the DataFrame.
+    """
+    # Ensure y_col, label, and color are lists for consistency
+    if isinstance(y_col, str):
+        y_col = [y_col]
+    if isinstance(label, str):
+        label = [label]
+    if isinstance(color, str) or color is None:
+        color = [color] * len(y_col)  # Repeat the same color or None for all lines
+
+    # Error handling: Ensure y_col, label, and color lengths match
+    if len(y_col) != len(label):
+        raise ValueError(f"y_col and label must have the same length. Got {len(y_col)} and {len(label)}.")
+    if color and len(color) != len(y_col):
+        raise ValueError(f"y_col and color must have the same length if color is provided. Got {len(y_col)} and {len(color)}.")
+
+    # Check that x_col exists in the DataFrame
+    if x_col not in data.columns:
+        raise KeyError(f"x_col '{x_col}' not found in the DataFrame. Available columns: {list(data.columns)}")
+
+    # Check that all y_col values exist in the DataFrame
+    missing_y_cols = [col for col in y_col if col not in data.columns]
+    if missing_y_cols:
+        raise KeyError(f"y_col(s) {missing_y_cols} not found in the DataFrame. Available columns: {list(data.columns)}")
+
+    # Retrieve optional arguments
+    annotate_column = kwargs.get("annotate_column", None)
+    annotate_points = kwargs.get("annotate_points", 5)
+
+    # Retrieve units from DataFrame metadata
+    units_map = data.attrs.get("units", {})
+    x_unit = units_map.get(x_col, None)
+    xlabel = f"{xlabel} ({x_unit})" if x_unit else xlabel
+    ylabel = f"{ylabel}"  # Do not append y_unit for multi-line plots (ambiguous)
+
+    # Plot each line
+    for y, lbl, clr in zip(y_col, label, color):
+        y_unit = units_map.get(y, None)
+        ylbl = f"{lbl} ({y_unit})" if y_unit else lbl
+        ax.plot(data[x_col], data[y], label=ylbl, color=clr)
+
+    # Set labels and titles
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend()
+    ax.grid()
+
+    # Add optional annotations for the first y_col only
+    if annotate_column:
+        num_points = len(data)
+        if num_points <= annotate_points:
+            indices_to_annotate = range(num_points)
+        else:
+            indices_to_annotate = np.linspace(0, num_points - 1, annotate_points, dtype=int)
+        for i in indices_to_annotate:
+            row = data.iloc[i]
+            ax.annotate(
+                str(row[annotate_column]),
+                (row[x_col], row[y_col[0]]),  # Annotate based on the first y_col
+                textcoords="offset points",
+                xytext=(0, 5),
+                ha="center",
+                fontsize=8,
+                color="blue",
+            )
+
+
+def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
+    """
+    Generates statistical plots from the simulation log file.
+
+    Args:
+        file_path (str): Path to the simulation log file.
+        output_dir (str): Directory to save the generated plots.
+        **kwargs: Optional arguments for plot customization passed to plot_statistic_generic.
+
+    Returns:
+        None
+    """
+    # Read the data
+    data = read_simulation_log(file_path)
+
+    # Ensure the output directory exists
+    import os
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Updated Plot configurations with cleaned column names
+    plot_configs = [
+        {
+            "x_col": "Time",
+            "y_col": "Time step number",
+            "xlabel": "Time",
+            "ylabel": "Time Step Number",
+            "title": "Time Step Number Over Time",
+            "label": "Time Step Number",
+            "color": "blue",
+            "file_name": "time_step_number_over_time.png",
+        },
+        {
+            "x_col": "Time",
+            "y_col": [
+                "Number of Stokes degrees of freedom",
+                "Number of temperature degrees of freedom",
+                "Number of degrees of freedom for all compositions",
+            ],
+            "xlabel": "Time",
+            "ylabel": "Number of Degrees of Freedom",
+            "title": "Degrees of Freedom Over Time",
+            "label": [
+                "Stokes Degrees of Freedom",
+                "Temperature Degrees of Freedom",
+                "Compositional Degrees of Freedom",
+            ],
+            "color": ["blue", "orange", "green"],
+            "file_name": "degrees_of_freedom_over_time.png",
+        },
+        {
+            "x_col": "Time",
+            "y_col": "Number of nonlinear iterations",
+            "xlabel": "Time",
+            "ylabel": "Nonlinear Iterations",
+            "title": "Nonlinear Iterations Over Time",
+            "label": "Nonlinear Iterations",
+            "color": "red",
+            "file_name": "nonlinear_iterations_over_time.png",
+        },
+        {
+            "x_col": "Time",
+            "y_col": [
+                "Minimal temperature",
+                "Average temperature",
+                "Maximal temperature",
+                "Average nondimensional temperature",
+            ],
+            "xlabel": "Time",
+            "ylabel": "Temperature",
+            "title": "Temperature Metrics Over Time",
+            "label": [
+                "Minimal Temperature",
+                "Average Temperature",
+                "Maximal Temperature",
+                "Average Nondimensional Temperature",
+            ],
+            "color": ["blue", "orange", "green", "red"],
+            "file_name": "temperature_metrics_over_time.png",
+        },
+        {
+            "x_col": "Time",
+            "y_col": ["RMS velocity", "Max. velocity"],
+            "xlabel": "Time",
+            "ylabel": "Velocity",
+            "title": "RMS and Max Velocity Over Time",
+            "label": ["RMS Velocity", "Max Velocity"],
+            "color": ["purple", "brown"],
+            "file_name": "velocity_comparison_over_time.png",
+        },
+    ]
+
+    # Generate and save plots
+    for config in plot_configs:
+        fig, ax = plt.subplots(figsize=(10, 6))
+        plot_statistic_generic(
+            data=data,
+            x_col=config["x_col"],
+            y_col=config["y_col"],
+            xlabel=config["xlabel"],
+            ylabel=config["ylabel"],
+            title=config["title"],
+            label=config["label"],
+            ax=ax,
+            color=config.get("color", None),
+            **kwargs,
+        )
+        fig.savefig(os.path.join(output_dir, config["file_name"]))
+        plt.close(fig)
+
+    print(f"Statistic plots have been saved to: {output_dir}")
