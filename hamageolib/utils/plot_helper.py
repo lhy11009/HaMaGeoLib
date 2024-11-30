@@ -48,7 +48,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont  # Pillow for cropping and saving images
 import subprocess
 
-from utils.file_reader import read_simulation_log
+from .file_reader import read_simulation_log
 
 def scale_matplotlib_params(scaling_factor=1.0, **kwargs):
     """
@@ -89,6 +89,8 @@ def scale_matplotlib_params(scaling_factor=1.0, **kwargs):
         "ytick.minor.width": base_tickwidth * scaling_factor * line_width_scaling_multiplier,       # Scale minor tick width
         "xtick.major.size": base_ticklength * scaling_factor,       # Scale major tick length
         "ytick.major.size": base_ticklength * scaling_factor,       # Scale major tick length
+        "xtick.minor.size": 0.6 * base_ticklength * scaling_factor,       # Scale minor tick length
+        "ytick.minor.size": 0.6 * base_ticklength * scaling_factor,       # Scale minor tick length
         "grid.linewidth": base_gridlinewidth * scaling_factor      # Scale grid line width
     })
 
