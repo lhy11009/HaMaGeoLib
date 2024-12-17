@@ -1,3 +1,6 @@
 *__pycache__
 .coverage
 results/
+notebooks/experiments/data_set/
+dtemp
+tmp

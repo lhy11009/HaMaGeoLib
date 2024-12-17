@@ -1,0 +1,2923 @@
+-----------------------------------------------------------------------------
+--                             This is ASPECT                              --
+-- The Advanced Solver for Planetary Evolution, Convection, and Tectonics. --
+-----------------------------------------------------------------------------
+--     . version 2.6.0-pre (master_TwoD, 48eae0e61)
+--     . using deal.II 9.5.0
+--     .       with 32 bit indices and vectorization level 2 (256 bits)
+--     . using Trilinos 13.2.0
+--     . using p4est 2.3.2
+--     . running in OPTIMIZED mode
+--     . running with 64 MPI processes
+-----------------------------------------------------------------------------
+
+Vectorization over 4 doubles = 256 bits (AVX), VECTORIZATION_LEVEL=2
+-----------------------------------------------------------------------------
+-- For information on how to cite ASPECT, see:
+--   https://aspect.geodynamics.org/citing.html?ver=2.6.0-pre&GWB=1&NewtonSolver=1&dg=1&mf=1&sha=48eae0e61&src=code
+-----------------------------------------------------------------------------
+Number of active cells: 5,120 (on 6 levels)
+Number of degrees of freedom: 252,228 (41,730+5,313+20,865+46,080+46,080+46,080+46,080)
+
+   Postprocessing:
+     Writing graphical output: output/solution/solution-00000
+     RMS, max velocity:        0 m/year, 0 m/year
+     Temperature min/avg/max:  273 K, 2194 K, 3500 K
+     Writing depth average:    output/depth_average
+     Writing heat flux map:    output/heat_flux.00000
+
+Number of active cells: 8,480 (on 7 levels)
+Number of degrees of freedom: 418,517 (69,598+8,840+34,799+76,320+76,320+76,320+76,320)
+
+   Postprocessing:
+     Writing graphical output: output/solution/solution-00001
+     RMS, max velocity:        0 m/year, 0 m/year
+     Temperature min/avg/max:  273 K, 2194 K, 3500 K
+     Writing depth average:    output/depth_average
+     Writing heat flux map:    output/heat_flux.00000
+
+Number of active cells: 12,341 (on 8 levels)
+Number of degrees of freedom: 610,980 (102,450+13,029+51,225+111,069+111,069+111,069+111,069)
+
+   Postprocessing:
+     Writing graphical output: output/solution/solution-00002
+     RMS, max velocity:        0 m/year, 0 m/year
+     Temperature min/avg/max:  273 K, 2194 K, 3500 K
+     Writing depth average:    output/depth_average
+     Writing heat flux map:    output/heat_flux.00000
+
+Number of active cells: 29,177 (on 9 levels)
+Number of degrees of freedom: 1,442,420 (241,022+30,515+120,511+262,593+262,593+262,593+262,593)
+
+   Postprocessing:
+     Writing graphical output: output/solution/solution-00003
+     RMS, max velocity:        0 m/year, 0 m/year
+     Temperature min/avg/max:  273 K, 2194 K, 3500 K
+     Writing depth average:    output/depth_average
+     Writing heat flux map:    output/heat_flux.00000
+
+Number of active cells: 58,421 (on 10 levels)
+Number of degrees of freedom: 2,892,645 (485,402+61,386+242,701+525,789+525,789+525,789+525,789)
+
+   Postprocessing:
+     Writing graphical output: output/solution/solution-00004
+     RMS, max velocity:        0 m/year, 0 m/year
+     Temperature min/avg/max:  273 K, 2194 K, 3500 K
+     Writing depth average:    output/depth_average
+     Writing heat flux map:    output/heat_flux.00000
+
+Number of active cells: 102,773 (on 11 levels)
+Number of degrees of freedom: 5,083,086 (850,668+107,256+425,334+924,957+924,957+924,957+924,957)
+
+*** Timestep 0:  t=0 years, dt=0 years
+   Solving temperature system... 0 iterations.
+   Solving spcrust system ... 1 iterations.
+   Solving spharz system ... 1 iterations.
+   Solving opcrust system ... 1 iterations.
+   Solving opharz system ... 1 iterations.
+   Initial Newton Stokes residual = 2.7503e+13, v = 2.7503e+13, p = 0
+
+   Solving Stokes system... 40+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 1, norm of the rhs: 2.7503e+13
+
+   Solving Stokes system... 54+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.24442, norm of the rhs: 6.72228e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 39+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.160503, norm of the rhs: 4.41431e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 40+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.104444, norm of the rhs: 2.87252e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 45+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.0878784, norm of the rhs: 2.41692e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.0645851, norm of the rhs: 1.77628e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 75+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.0893643, norm of the rhs: 2.45778e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 20+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.0604635, norm of the rhs: 1.66292e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 71+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.0508447, norm of the rhs: 1.39838e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 78+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.0551982, norm of the rhs: 1.51811e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.0452735, norm of the rhs: 1.24516e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 75+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.0437005, norm of the rhs: 1.20189e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 26+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.0365391, norm of the rhs: 1.00493e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 77+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.0400471, norm of the rhs: 1.10141e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.0326024, norm of the rhs: 8.96662e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 74+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.0282354, norm of the rhs: 7.76556e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 78+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.0290259, norm of the rhs: 7.98297e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 27+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.0251215, norm of the rhs: 6.90917e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 77+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.0255421, norm of the rhs: 7.02482e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.0223005, norm of the rhs: 6.13331e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 77+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.0219745, norm of the rhs: 6.04363e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 42+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.0189782, norm of the rhs: 5.21956e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 80+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.0213522, norm of the rhs: 5.87248e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 26+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.0180403, norm of the rhs: 4.96163e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 64+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.0153536, norm of the rhs: 4.22269e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 78+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.0166201, norm of the rhs: 4.57102e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 26+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.014499, norm of the rhs: 3.98766e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 77+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.0138445, norm of the rhs: 3.80765e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 46+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.0122979, norm of the rhs: 3.38228e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 89+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.0130583, norm of the rhs: 3.59141e+11, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     Writing graphical output: output/solution/solution-00005
+     RMS, max velocity:        0.0151 m/year, 0.339 m/year
+     Temperature min/avg/max:  273 K, 2194 K, 3500 K
+     Writing depth average:    output/depth_average
+     Writing heat flux map:    output/heat_flux.00000
+
+*** Timestep 1:  t=3329.11 years, dt=3329.11 years
+   Solving temperature system... 10 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.22444e+13, v = 1.22444e+13, p = 0
+
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.539311, norm of the rhs: 6.60355e+12
+
+   Solving Stokes system... 18+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.108668, norm of the rhs: 1.33058e+12, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.0776213, norm of the rhs: 9.50427e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 62+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.0734404, norm of the rhs: 8.99235e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.0646081, norm of the rhs: 7.91088e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.0556377, norm of the rhs: 6.81251e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.0473522, norm of the rhs: 5.798e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.0388184, norm of the rhs: 4.75308e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.0333521, norm of the rhs: 4.08377e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 33+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.0295594, norm of the rhs: 3.61938e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 61+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.0256063, norm of the rhs: 3.13534e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.0344641, norm of the rhs: 4.21993e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 26+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.0295217, norm of the rhs: 3.61476e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 32+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.0235866, norm of the rhs: 2.88804e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 66+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.021179, norm of the rhs: 2.59325e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 78+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.0215337, norm of the rhs: 2.63667e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 45+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.0187369, norm of the rhs: 2.29423e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 92+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.020836, norm of the rhs: 2.55124e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 30+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.0170122, norm of the rhs: 2.08304e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 94+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.0189157, norm of the rhs: 2.31612e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.0155707, norm of the rhs: 1.90654e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 79+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.0151465, norm of the rhs: 1.85461e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 49+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.0134058, norm of the rhs: 1.64146e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 93+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.015907, norm of the rhs: 1.94772e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 26+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.0130837, norm of the rhs: 1.60202e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 79+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.0122314, norm of the rhs: 1.49766e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 76+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.0114609, norm of the rhs: 1.40332e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.0114171, norm of the rhs: 1.39795e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 76+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.0104569, norm of the rhs: 1.28039e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 93+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.011147, norm of the rhs: 1.36488e+11, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0177 m/year, 0.405 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00001
+
+*** Timestep 2:  t=6113.43 years, dt=2784.32 years
+   Solving temperature system... 9 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.35961e+13, v = 1.35961e+13, p = 0
+
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.622483, norm of the rhs: 8.46331e+12
+
+   Solving Stokes system... 18+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.0672584, norm of the rhs: 9.14449e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 9+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.0454152, norm of the rhs: 6.17468e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.0328641, norm of the rhs: 4.46822e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.024306, norm of the rhs: 3.30466e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.0192967, norm of the rhs: 2.62359e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.0156206, norm of the rhs: 2.12378e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.0130574, norm of the rhs: 1.77529e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 19+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.0113226, norm of the rhs: 1.53943e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 20+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00968323, norm of the rhs: 1.31654e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 30+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00862462, norm of the rhs: 1.17261e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 31+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00750922, norm of the rhs: 1.02096e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 66+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00692062, norm of the rhs: 9.40931e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 45+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00634739, norm of the rhs: 8.62995e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 59+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00575382, norm of the rhs: 7.82293e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 60+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00520434, norm of the rhs: 7.07585e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 62+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.0047887, norm of the rhs: 6.51074e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 41+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.00431858, norm of the rhs: 5.87156e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 59+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00392548, norm of the rhs: 5.3371e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 62+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.00364353, norm of the rhs: 4.95377e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 40+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.00327488, norm of the rhs: 4.45254e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 56+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.00299931, norm of the rhs: 4.07788e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 62+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.00284439, norm of the rhs: 3.86725e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.00255622, norm of the rhs: 3.47544e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 27+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.00232803, norm of the rhs: 3.1652e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 48+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.00215153, norm of the rhs: 2.92523e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 60+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.00204907, norm of the rhs: 2.78593e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 24+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.00187157, norm of the rhs: 2.54459e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 41+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.00173236, norm of the rhs: 2.35533e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 42+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.00162347, norm of the rhs: 2.20728e+10, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0198 m/year, 0.46 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00002
+
+*** Timestep 3:  t=8569.2 years, dt=2455.76 years
+   Solving temperature system... 9 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.13835e+13, v = 1.13835e+13, p = 0
+
+   Solving Stokes system... 1+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.406059, norm of the rhs: 4.62238e+12
+
+   Solving Stokes system... 57+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.0370691, norm of the rhs: 4.21976e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 20+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.0237953, norm of the rhs: 2.70874e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 26+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.0171549, norm of the rhs: 1.95283e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 24+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.0136273, norm of the rhs: 1.55127e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 29+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.0112963, norm of the rhs: 1.28591e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 50+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00958819, norm of the rhs: 1.09147e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 69+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00838826, norm of the rhs: 9.54878e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 96+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00865914, norm of the rhs: 9.85713e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 29+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00731666, norm of the rhs: 8.32892e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 154+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00712672, norm of the rhs: 8.1127e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 74+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00604789, norm of the rhs: 6.88462e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 132+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00706551, norm of the rhs: 8.04303e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 32+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00550443, norm of the rhs: 6.26597e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 192+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00590368, norm of the rhs: 6.72045e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 42+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00479878, norm of the rhs: 5.4627e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 156+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00619255, norm of the rhs: 7.04929e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 30+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.00470376, norm of the rhs: 5.35453e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 158+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00461511, norm of the rhs: 5.25361e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 76+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.0040855, norm of the rhs: 4.65074e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.00423739, norm of the rhs: 4.82363e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 72+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.00358165, norm of the rhs: 4.07717e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 178+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.00441285, norm of the rhs: 5.02337e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 30+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.0034856, norm of the rhs: 3.96784e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 163+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.00366459, norm of the rhs: 4.17159e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 46+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.00303578, norm of the rhs: 3.45578e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 192+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.00335745, norm of the rhs: 3.82196e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 46+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.00277723, norm of the rhs: 3.16146e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 94+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.00331398, norm of the rhs: 3.77247e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 36+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.00264289, norm of the rhs: 3.00854e+10, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0205 m/year, 0.474 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00003
+
+*** Timestep 4:  t=10949.2 years, dt=2379.95 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.10792e+13, v = 1.10792e+13, p = 0
+
+   Solving Stokes system... 1+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.105802, norm of the rhs: 1.17219e+12
+
+   Solving Stokes system... 10+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.0166029, norm of the rhs: 1.83946e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 19+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.0111855, norm of the rhs: 1.23925e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00858552, norm of the rhs: 9.51202e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 29+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00701712, norm of the rhs: 7.77437e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 81+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00627244, norm of the rhs: 6.94933e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 75+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.0058231, norm of the rhs: 6.4515e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 90+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00581931, norm of the rhs: 6.44731e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 62+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00508794, norm of the rhs: 5.63701e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00516828, norm of the rhs: 5.72601e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 59+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00445271, norm of the rhs: 4.93323e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00454348, norm of the rhs: 5.03379e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 75+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00393792, norm of the rhs: 4.36288e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 159+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.0044252, norm of the rhs: 4.90275e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 46+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00370034, norm of the rhs: 4.09966e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.0037832, norm of the rhs: 4.19146e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 73+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00327505, norm of the rhs: 3.62848e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 164+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.0036174, norm of the rhs: 4.00778e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 48+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00308355, norm of the rhs: 3.41631e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.00321457, norm of the rhs: 3.56147e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 67+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.00278881, norm of the rhs: 3.08977e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.00290962, norm of the rhs: 3.22361e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 74+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.00251788, norm of the rhs: 2.78959e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 158+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.00281669, norm of the rhs: 3.12066e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 47+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.00238315, norm of the rhs: 2.64032e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.00246375, norm of the rhs: 2.72962e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 67+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.00214436, norm of the rhs: 2.37576e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.0022667, norm of the rhs: 2.51131e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 66+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.00196598, norm of the rhs: 2.17814e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 92+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.0021151, norm of the rhs: 2.34335e+10, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0205 m/year, 0.471 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00004
+
+*** Timestep 5:  t=13347.4 years, dt=2398.21 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.09591e+13, v = 1.09591e+13, p = 0
+
+   Solving Stokes system... 1+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.219949, norm of the rhs: 2.41045e+12
+
+   Solving Stokes system... 13+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.0215038, norm of the rhs: 2.35663e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.0160323, norm of the rhs: 1.75701e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.0134278, norm of the rhs: 1.47157e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.0110604, norm of the rhs: 1.21212e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00933021, norm of the rhs: 1.02251e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00804055, norm of the rhs: 8.81174e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00692279, norm of the rhs: 7.58678e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.0060783, norm of the rhs: 6.66129e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00543878, norm of the rhs: 5.96043e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00486038, norm of the rhs: 5.32656e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00439389, norm of the rhs: 4.81532e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 19+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00404545, norm of the rhs: 4.43347e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00372027, norm of the rhs: 4.0771e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00338655, norm of the rhs: 3.71137e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00313422, norm of the rhs: 3.43483e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00289896, norm of the rhs: 3.177e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 19+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.00269163, norm of the rhs: 2.94979e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00252641, norm of the rhs: 2.76873e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 32+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.00238593, norm of the rhs: 2.61478e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 52+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.00223301, norm of the rhs: 2.44718e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 93+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.00245524, norm of the rhs: 2.69073e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.00226048, norm of the rhs: 2.47729e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 20+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.0019773, norm of the rhs: 2.16695e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 24+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.00181062, norm of the rhs: 1.98428e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.00168702, norm of the rhs: 1.84883e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 29+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.00157555, norm of the rhs: 1.72667e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 40+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.00148513, norm of the rhs: 1.62757e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 48+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.00140704, norm of the rhs: 1.542e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 50+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.00133894, norm of the rhs: 1.46737e+10, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0204 m/year, 0.466 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00005
+
+*** Timestep 6:  t=15770.1 years, dt=2422.75 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.08404e+13, v = 1.08404e+13, p = 0
+
+   Solving Stokes system... 1+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.125065, norm of the rhs: 1.35576e+12
+
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.0184993, norm of the rhs: 2.00541e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.0140581, norm of the rhs: 1.52396e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.0114547, norm of the rhs: 1.24174e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00931244, norm of the rhs: 1.00951e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00813935, norm of the rhs: 8.82341e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00679797, norm of the rhs: 7.3693e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00598393, norm of the rhs: 6.48684e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.0051225, norm of the rhs: 5.55301e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00445331, norm of the rhs: 4.82758e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00393471, norm of the rhs: 4.2654e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00350415, norm of the rhs: 3.79866e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00314213, norm of the rhs: 3.4062e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 13+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.0028545, norm of the rhs: 3.09441e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 9+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00260211, norm of the rhs: 2.8208e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00239359, norm of the rhs: 2.59476e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00221761, norm of the rhs: 2.40399e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.00205638, norm of the rhs: 2.22921e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00191532, norm of the rhs: 2.07629e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.00178878, norm of the rhs: 1.93911e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 14+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.00167603, norm of the rhs: 1.81689e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.00157025, norm of the rhs: 1.70222e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 46+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.00148325, norm of the rhs: 1.60791e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 33+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.0013829, norm of the rhs: 1.49913e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 33+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.00130267, norm of the rhs: 1.41216e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 36+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.00122985, norm of the rhs: 1.33321e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 32+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.00116296, norm of the rhs: 1.2607e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 34+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.00109949, norm of the rhs: 1.1919e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 43+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.00104078, norm of the rhs: 1.12826e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 47+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000985635, norm of the rhs: 1.06847e+10, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0203 m/year, 0.461 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00006
+
+*** Timestep 7:  t=18218.3 years, dt=2448.23 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.07011e+13, v = 1.07011e+13, p = 0
+
+   Solving Stokes system... 1+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0578898, norm of the rhs: 6.19485e+11
+
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.011147, norm of the rhs: 1.19285e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00820806, norm of the rhs: 8.78353e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00644085, norm of the rhs: 6.89242e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00530806, norm of the rhs: 5.6802e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00447138, norm of the rhs: 4.78486e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00389468, norm of the rhs: 4.16774e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00335022, norm of the rhs: 3.58511e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00296587, norm of the rhs: 3.17381e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 20+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00262595, norm of the rhs: 2.81005e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00235498, norm of the rhs: 2.52008e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00215602, norm of the rhs: 2.30718e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00197689, norm of the rhs: 2.11549e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 57+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00182985, norm of the rhs: 1.95814e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 62+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00171373, norm of the rhs: 1.83388e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 69+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00161787, norm of the rhs: 1.7313e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 38+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00149641, norm of the rhs: 1.60132e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 68+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.00139934, norm of the rhs: 1.49745e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 68+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00130527, norm of the rhs: 1.39679e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 70+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.00122929, norm of the rhs: 1.31548e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 63+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.00113303, norm of the rhs: 1.21247e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 79+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.0011116, norm of the rhs: 1.18953e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 27+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.00101364, norm of the rhs: 1.0847e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 42+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000910825, norm of the rhs: 9.74682e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 68+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000900845, norm of the rhs: 9.64003e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 34+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000812339, norm of the rhs: 8.69292e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 63+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000744712, norm of the rhs: 7.96924e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 77+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000762502, norm of the rhs: 8.15961e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 29+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.00067741, norm of the rhs: 7.24903e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 42+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000616037, norm of the rhs: 6.59227e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0203 m/year, 0.457 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00007
+
+*** Timestep 8:  t=20686.9 years, dt=2468.51 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.06668e+13, v = 1.06668e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0405397, norm of the rhs: 4.3243e+11
+
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.0128147, norm of the rhs: 1.36692e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00860346, norm of the rhs: 9.17715e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00634948, norm of the rhs: 6.77287e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.0049417, norm of the rhs: 5.27122e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00404393, norm of the rhs: 4.31359e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00334088, norm of the rhs: 3.56365e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 48+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00278696, norm of the rhs: 2.9728e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 67+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00249116, norm of the rhs: 2.65727e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00209464, norm of the rhs: 2.23431e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00180584, norm of the rhs: 1.92625e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00158255, norm of the rhs: 1.68808e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 56+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00140337, norm of the rhs: 1.49695e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 75+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00126768, norm of the rhs: 1.35221e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 88+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00114208, norm of the rhs: 1.21823e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 97+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00133076, norm of the rhs: 1.41949e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 27+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00120415, norm of the rhs: 1.28444e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 21+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000999699, norm of the rhs: 1.06636e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 32+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00087178, norm of the rhs: 9.29911e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 58+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000807722, norm of the rhs: 8.61581e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 85+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000769252, norm of the rhs: 8.20547e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 96+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.00074845, norm of the rhs: 7.98357e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 52+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000682206, norm of the rhs: 7.27696e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 96+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000714847, norm of the rhs: 7.62514e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 29+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000629682, norm of the rhs: 6.7167e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 70+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000572945, norm of the rhs: 6.11149e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 83+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000571847, norm of the rhs: 6.09978e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 33+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000511223, norm of the rhs: 5.45312e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 97+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000555062, norm of the rhs: 5.92074e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 30+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000479898, norm of the rhs: 5.11899e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0203 m/year, 0.455 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00008
+
+*** Timestep 9:  t=23168.2 years, dt=2481.31 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.06837e+13, v = 1.06837e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0323067, norm of the rhs: 3.45154e+11
+
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.00864142, norm of the rhs: 9.23221e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00557816, norm of the rhs: 5.95952e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.0042268, norm of the rhs: 4.51578e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00347143, norm of the rhs: 3.70877e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00294815, norm of the rhs: 3.1497e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00255309, norm of the rhs: 2.72763e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00225174, norm of the rhs: 2.40569e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00201072, norm of the rhs: 2.14819e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 14+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00180134, norm of the rhs: 1.9245e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 14+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00162433, norm of the rhs: 1.73538e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 18+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00147034, norm of the rhs: 1.57087e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 16+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00133137, norm of the rhs: 1.4224e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.0012263, norm of the rhs: 1.31014e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00110801, norm of the rhs: 1.18376e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 44+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00102551, norm of the rhs: 1.09562e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 91+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.000955793, norm of the rhs: 1.02114e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 18+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000881426, norm of the rhs: 9.41687e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.000803836, norm of the rhs: 8.58792e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000741271, norm of the rhs: 7.91949e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 18+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000688385, norm of the rhs: 7.35448e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 29+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000642959, norm of the rhs: 6.86917e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 59+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000600905, norm of the rhs: 6.41987e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 86+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000568009, norm of the rhs: 6.06842e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 90+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000538475, norm of the rhs: 5.75289e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 52+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000507552, norm of the rhs: 5.42251e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 61+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000472116, norm of the rhs: 5.04393e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 78+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000456491, norm of the rhs: 4.877e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000426816, norm of the rhs: 4.55996e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 52+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.00039958, norm of the rhs: 4.26898e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0203 m/year, 0.453 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00009
+
+*** Timestep 10:  t=25660.5 years, dt=2492.31 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.07292e+13, v = 1.07292e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0377528, norm of the rhs: 4.05059e+11
+
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.0108712, norm of the rhs: 1.1664e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00719414, norm of the rhs: 7.71877e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00546715, norm of the rhs: 5.86584e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00446363, norm of the rhs: 4.78914e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00374398, norm of the rhs: 4.01701e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00324716, norm of the rhs: 3.48395e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00286423, norm of the rhs: 3.0731e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00255912, norm of the rhs: 2.74574e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00230315, norm of the rhs: 2.4711e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00209571, norm of the rhs: 2.24854e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.0019078, norm of the rhs: 2.04692e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00174748, norm of the rhs: 1.87491e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.0016118, norm of the rhs: 1.72934e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 9+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00149071, norm of the rhs: 1.59942e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 9+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00138229, norm of the rhs: 1.48309e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00128347, norm of the rhs: 1.37707e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 13+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.00119534, norm of the rhs: 1.28251e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00111318, norm of the rhs: 1.19436e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 13+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.0010372, norm of the rhs: 1.11284e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 9+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000966381, norm of the rhs: 1.03685e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 13+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000896534, norm of the rhs: 9.61913e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 13+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000835551, norm of the rhs: 8.96483e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 14+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000774851, norm of the rhs: 8.31357e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000723589, norm of the rhs: 7.76356e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.00067772, norm of the rhs: 7.27142e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 24+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000637348, norm of the rhs: 6.83827e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.00059779, norm of the rhs: 6.41383e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 18+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.00056203, norm of the rhs: 6.03016e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 24+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000529567, norm of the rhs: 5.68185e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0204 m/year, 0.451 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00010
+
+Number of active cells: 112,610 (on 11 levels)
+Number of degrees of freedom: 5,581,987 (939,756+118,393+469,878+1,013,490+1,013,490+1,013,490+1,013,490)
+
+
+
++-----------------------------------------------+------------+------------+
+| Total wallclock time elapsed since start      |   1.2e+03s |            |
+|                                               |            |            |
+| Section                           | no. calls |  wall time | % of total |
++-----------------------------------+-----------+------------+------------+
+| Assemble Stokes system Picard rhs |       319 |       259s |        22% |
+| Assemble Stokes system rhs        |       341 |       276s |        23% |
+| Assemble composition system       |        44 |        65s |       5.4% |
+| Assemble temperature system       |        11 |      10.1s |      0.84% |
+| Build Stokes preconditioner       |       330 |      3.14s |      0.26% |
+| Build composition preconditioner  |        44 |       4.2s |      0.35% |
+| Build temperature preconditioner  |        11 |       0.2s |         0% |
+| Initialization                    |         1 |     0.977s |         0% |
+| Postprocessing                    |        16 |       250s |        21% |
+| Refine mesh structure, part 1     |         6 |      1.33s |      0.11% |
+| Refine mesh structure, part 2     |         6 |     0.167s |         0% |
+| Setup dof systems                 |         7 |     0.867s |         0% |
+| Setup initial conditions          |         6 |      1.74s |      0.14% |
+| Setup matrices                    |         1 |     0.487s |         0% |
+| Solve Stokes system               |       330 |       318s |        26% |
+| Solve composition system          |        44 |      2.93s |      0.24% |
+| Solve temperature system          |        11 |     0.186s |         0% |
++-----------------------------------+-----------+------------+------------+
+
+-- Total wallclock time elapsed including restarts: 1203s
+*** Timestep 11:  t=28163.9 years, dt=2503.44 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 4 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.07912e+13, v = 1.07912e+13, p = 0
+
+   Solving Stokes system... 9+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.72198, norm of the rhs: 7.79104e+12
+
+   Solving Stokes system... 30+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.0225187, norm of the rhs: 2.43004e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 21+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.0121288, norm of the rhs: 1.30884e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00776147, norm of the rhs: 8.37557e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 41+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.0056394, norm of the rhs: 6.08559e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 40+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00433716, norm of the rhs: 4.68032e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 69+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00356236, norm of the rhs: 3.84422e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 32+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00301198, norm of the rhs: 3.2503e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 65+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00266586, norm of the rhs: 2.87679e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 39+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00239162, norm of the rhs: 2.58085e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 60+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00218756, norm of the rhs: 2.36064e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 41+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00199947, norm of the rhs: 2.15767e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 63+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00184576, norm of the rhs: 1.9918e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 67+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00170828, norm of the rhs: 1.84344e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 62+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00158198, norm of the rhs: 1.70715e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 69+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00148059, norm of the rhs: 1.59773e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 51+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.0013684, norm of the rhs: 1.47667e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 70+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.00128214, norm of the rhs: 1.38358e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 61+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00118924, norm of the rhs: 1.28334e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 71+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.0011174, norm of the rhs: 1.20582e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 65+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.00103778, norm of the rhs: 1.11989e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 75+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000996817, norm of the rhs: 1.07569e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 52+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.00091485, norm of the rhs: 9.87234e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 71+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000851512, norm of the rhs: 9.18885e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 83+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000819883, norm of the rhs: 8.84753e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 51+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000753999, norm of the rhs: 8.13656e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 72+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000705074, norm of the rhs: 7.60861e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 86+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.00067192, norm of the rhs: 7.25084e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 61+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000621605, norm of the rhs: 6.70788e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 86+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000601039, norm of the rhs: 6.48594e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0204 m/year, 0.446 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00011
+
+*** Timestep 12:  t=30699.8 years, dt=2535.91 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.08573e+13, v = 1.08573e+13, p = 0
+
+   Solving Stokes system... 10+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.759398, norm of the rhs: 8.24506e+12
+
+   Solving Stokes system... 27+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.0270114, norm of the rhs: 2.93272e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.015775, norm of the rhs: 1.71275e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.0109103, norm of the rhs: 1.18456e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00821676, norm of the rhs: 8.92122e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00646555, norm of the rhs: 7.01987e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00528596, norm of the rhs: 5.73915e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00444633, norm of the rhs: 4.82754e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 29+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00375238, norm of the rhs: 4.07409e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 34+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00322951, norm of the rhs: 3.50639e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 18+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00282741, norm of the rhs: 3.06982e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 32+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00250373, norm of the rhs: 2.71839e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00224286, norm of the rhs: 2.43516e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.0020449, norm of the rhs: 2.22022e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00186706, norm of the rhs: 2.02713e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 27+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00171145, norm of the rhs: 1.85818e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 33+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00158194, norm of the rhs: 1.71757e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.00146545, norm of the rhs: 1.59109e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 30+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.00136348, norm of the rhs: 1.48038e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.00126836, norm of the rhs: 1.3771e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 33+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.00119535, norm of the rhs: 1.29783e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.00111141, norm of the rhs: 1.2067e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 9+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.00104135, norm of the rhs: 1.13063e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 41+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000985517, norm of the rhs: 1.07001e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000922914, norm of the rhs: 1.00204e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 47+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000874231, norm of the rhs: 9.49183e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000821437, norm of the rhs: 8.91863e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 30+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000774918, norm of the rhs: 8.41355e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 35+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000731994, norm of the rhs: 7.94751e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000692711, norm of the rhs: 7.521e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0204 m/year, 0.444 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00012
+
+*** Timestep 13:  t=33262.7 years, dt=2562.87 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.07569e+13, v = 1.07569e+13, p = 0
+
+   Solving Stokes system... 1+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0512717, norm of the rhs: 5.51524e+11
+
+   Solving Stokes system... 9+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.00894688, norm of the rhs: 9.62408e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00681257, norm of the rhs: 7.32822e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00549973, norm of the rhs: 5.91601e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00452899, norm of the rhs: 4.87179e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00376133, norm of the rhs: 4.04603e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00326459, norm of the rhs: 3.51169e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00272523, norm of the rhs: 2.93151e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00239496, norm of the rhs: 2.57624e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00203814, norm of the rhs: 2.1924e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00178964, norm of the rhs: 1.9251e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 63+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00162878, norm of the rhs: 1.75207e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00141804, norm of the rhs: 1.52537e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 68+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00130459, norm of the rhs: 1.40333e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00114875, norm of the rhs: 1.23569e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 78+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00106858, norm of the rhs: 1.14946e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 46+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.000964712, norm of the rhs: 1.03773e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 68+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000891227, norm of the rhs: 9.58684e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 44+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.000823725, norm of the rhs: 8.86073e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 68+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000772401, norm of the rhs: 8.30864e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 42+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000718617, norm of the rhs: 7.73009e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 70+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000681744, norm of the rhs: 7.33346e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000634567, norm of the rhs: 6.82598e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 74+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.00060585, norm of the rhs: 6.51707e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000565975, norm of the rhs: 6.08814e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 67+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000538962, norm of the rhs: 5.79756e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 46+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000508637, norm of the rhs: 5.47136e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 67+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000484854, norm of the rhs: 5.21553e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 44+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000459112, norm of the rhs: 4.93862e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 67+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.00043948, norm of the rhs: 4.72744e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0203 m/year, 0.442 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00013
+
+*** Timestep 14:  t=35849.2 years, dt=2586.51 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.07384e+13, v = 1.07384e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0358902, norm of the rhs: 3.85403e+11
+
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.00925944, norm of the rhs: 9.94317e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00566814, norm of the rhs: 6.08669e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00392948, norm of the rhs: 4.21964e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00291495, norm of the rhs: 3.1302e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00232415, norm of the rhs: 2.49577e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00197016, norm of the rhs: 2.11564e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00156345, norm of the rhs: 1.6789e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00132784, norm of the rhs: 1.42589e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00112738, norm of the rhs: 1.21063e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.000995282, norm of the rhs: 1.06878e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.000877429, norm of the rhs: 9.4222e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.000804158, norm of the rhs: 8.63539e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 16+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.000719267, norm of the rhs: 7.72379e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.000656629, norm of the rhs: 7.05115e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.000603971, norm of the rhs: 6.4857e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.000557674, norm of the rhs: 5.98854e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000518072, norm of the rhs: 5.56327e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 31+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.000480679, norm of the rhs: 5.16173e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000467576, norm of the rhs: 5.02103e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000430344, norm of the rhs: 4.62121e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 54+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000398565, norm of the rhs: 4.27996e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000383612, norm of the rhs: 4.11939e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 14+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000354566, norm of the rhs: 3.80748e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 56+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000330935, norm of the rhs: 3.55372e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 61+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000313459, norm of the rhs: 3.36605e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 72+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000298338, norm of the rhs: 3.20367e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 73+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000281964, norm of the rhs: 3.02785e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 73+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.00026325, norm of the rhs: 2.82689e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 73+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000245617, norm of the rhs: 2.63754e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0203 m/year, 0.44 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00014
+
+*** Timestep 15:  t=38458.7 years, dt=2609.54 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.07324e+13, v = 1.07324e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0280608, norm of the rhs: 3.0116e+11
+
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.00846888, norm of the rhs: 9.08915e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.0053422, norm of the rhs: 5.73347e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00371363, norm of the rhs: 3.98562e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00282074, norm of the rhs: 3.02734e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00231871, norm of the rhs: 2.48854e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00192713, norm of the rhs: 2.06828e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00157832, norm of the rhs: 1.69392e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00139077, norm of the rhs: 1.49263e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00121246, norm of the rhs: 1.30126e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00109303, norm of the rhs: 1.17308e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00100308, norm of the rhs: 1.07655e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.000930025, norm of the rhs: 9.98141e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.000867763, norm of the rhs: 9.31319e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.000811746, norm of the rhs: 8.71198e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.000761728, norm of the rhs: 8.17517e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.000716516, norm of the rhs: 7.68994e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000683542, norm of the rhs: 7.33605e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.000642782, norm of the rhs: 6.8986e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000607167, norm of the rhs: 6.51637e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000578704, norm of the rhs: 6.21088e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.00055076, norm of the rhs: 5.91098e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000514817, norm of the rhs: 5.52523e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.00049096, norm of the rhs: 5.26919e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000465549, norm of the rhs: 4.99646e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 34+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000445942, norm of the rhs: 4.78603e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 49+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000424633, norm of the rhs: 4.55733e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000404159, norm of the rhs: 4.3376e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.0003815, norm of the rhs: 4.09442e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 44+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000361199, norm of the rhs: 3.87654e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0203 m/year, 0.438 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00015
+
+*** Timestep 16:  t=41091.5 years, dt=2632.8 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.07422e+13, v = 1.07422e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0238741, norm of the rhs: 2.56461e+11
+
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.00768719, norm of the rhs: 8.25777e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00488934, norm of the rhs: 5.25225e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00357921, norm of the rhs: 3.84487e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00284216, norm of the rhs: 3.05312e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00236556, norm of the rhs: 2.54114e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 10+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00202458, norm of the rhs: 2.17486e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.0017719, norm of the rhs: 1.90342e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00159958, norm of the rhs: 1.71831e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 37+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00148146, norm of the rhs: 1.59142e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00136974, norm of the rhs: 1.47141e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00127869, norm of the rhs: 1.3736e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00120784, norm of the rhs: 1.29749e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00113769, norm of the rhs: 1.22214e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00106727, norm of the rhs: 1.14648e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00100832, norm of the rhs: 1.08316e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00095364, norm of the rhs: 1.02442e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000902369, norm of the rhs: 9.69347e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.000854246, norm of the rhs: 9.17652e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000812026, norm of the rhs: 8.72298e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.00077299, norm of the rhs: 8.30364e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000731281, norm of the rhs: 7.8556e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.00069349, norm of the rhs: 7.44963e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000658255, norm of the rhs: 7.07113e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000624359, norm of the rhs: 6.70702e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 18+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000595073, norm of the rhs: 6.39242e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 30+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000565758, norm of the rhs: 6.07751e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 38+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000539389, norm of the rhs: 5.79425e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 59+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000513273, norm of the rhs: 5.5137e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 50+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000489961, norm of the rhs: 5.26328e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0202 m/year, 0.437 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00016
+
+*** Timestep 17:  t=43748.4 years, dt=2656.89 years
+   Solving temperature system... 8 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.07654e+13, v = 1.07654e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0231256, norm of the rhs: 2.48957e+11
+
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.00759922, norm of the rhs: 8.1809e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00498558, norm of the rhs: 5.3672e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00381593, norm of the rhs: 4.10802e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00312873, norm of the rhs: 3.36822e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00265235, norm of the rhs: 2.85538e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00229871, norm of the rhs: 2.47467e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.0020245, norm of the rhs: 2.17946e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 24+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.0018085, norm of the rhs: 1.94693e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 51+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00169522, norm of the rhs: 1.82498e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00151398, norm of the rhs: 1.62986e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00139832, norm of the rhs: 1.50535e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00129261, norm of the rhs: 1.39155e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00120046, norm of the rhs: 1.29235e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00112263, norm of the rhs: 1.20856e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 10+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00105269, norm of the rhs: 1.13327e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 10+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.000988927, norm of the rhs: 1.06462e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 15+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000928863, norm of the rhs: 9.99962e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.000874975, norm of the rhs: 9.41949e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000824968, norm of the rhs: 8.88114e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 19+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000780056, norm of the rhs: 8.39765e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000737259, norm of the rhs: 7.93692e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000698437, norm of the rhs: 7.51898e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000662305, norm of the rhs: 7.13001e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 21+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000627089, norm of the rhs: 6.75089e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 44+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000599068, norm of the rhs: 6.44923e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 46+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000568786, norm of the rhs: 6.12324e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 65+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000563996, norm of the rhs: 6.07167e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000517225, norm of the rhs: 5.56815e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 16+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000490911, norm of the rhs: 5.28487e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0202 m/year, 0.435 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00017
+
+*** Timestep 18:  t=46432 years, dt=2683.59 years
+   Solving temperature system... 9 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.07919e+13, v = 1.07919e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0260772, norm of the rhs: 2.81424e+11
+
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.00729269, norm of the rhs: 7.87023e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00492232, norm of the rhs: 5.31214e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00380851, norm of the rhs: 4.11012e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00309057, norm of the rhs: 3.33532e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 23+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.002595, norm of the rhs: 2.80051e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00219635, norm of the rhs: 2.37029e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00191046, norm of the rhs: 2.06175e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00168779, norm of the rhs: 1.82146e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00151804, norm of the rhs: 1.63826e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 15+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00138569, norm of the rhs: 1.49542e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00127776, norm of the rhs: 1.37895e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 21+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00115722, norm of the rhs: 1.24886e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 42+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00107827, norm of the rhs: 1.16366e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 54+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00100109, norm of the rhs: 1.08037e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 47+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.000941403, norm of the rhs: 1.01596e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.000899823, norm of the rhs: 9.71084e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000846321, norm of the rhs: 9.13345e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 12+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.000791587, norm of the rhs: 8.54275e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 48+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000752953, norm of the rhs: 8.12583e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 96+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000910937, norm of the rhs: 9.83077e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 29+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000700235, norm of the rhs: 7.55689e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 27+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000644072, norm of the rhs: 6.95078e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 20+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.00060358, norm of the rhs: 6.5138e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 24+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000567009, norm of the rhs: 6.11913e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 14+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.00053589, norm of the rhs: 5.78329e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000506362, norm of the rhs: 5.46463e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000480509, norm of the rhs: 5.18562e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 25+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000455618, norm of the rhs: 4.917e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000432204, norm of the rhs: 4.66432e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0201 m/year, 0.433 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00018
+
+*** Timestep 19:  t=49145.6 years, dt=2713.57 years
+   Solving temperature system... 9 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.08078e+13, v = 1.08078e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0318743, norm of the rhs: 3.44491e+11
+
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.00764644, norm of the rhs: 8.26414e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00507629, norm of the rhs: 5.48637e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00393492, norm of the rhs: 4.25279e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00322631, norm of the rhs: 3.48694e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 8+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00274801, norm of the rhs: 2.97e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00237754, norm of the rhs: 2.5696e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00208204, norm of the rhs: 2.25023e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 26+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.00185085, norm of the rhs: 2.00037e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00167843, norm of the rhs: 1.81402e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00153597, norm of the rhs: 1.66005e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.00140896, norm of the rhs: 1.52278e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.00130476, norm of the rhs: 1.41016e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.00121389, norm of the rhs: 1.31195e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.00113683, norm of the rhs: 1.22867e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.00107051, norm of the rhs: 1.15699e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 48+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.00101467, norm of the rhs: 1.09663e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000957286, norm of the rhs: 1.03462e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.000895304, norm of the rhs: 9.67629e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000840421, norm of the rhs: 9.08312e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 5+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000788044, norm of the rhs: 8.51704e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000741131, norm of the rhs: 8.01002e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 20+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000699488, norm of the rhs: 7.55995e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000659572, norm of the rhs: 7.12854e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 27+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000622579, norm of the rhs: 6.72873e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 26+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000588385, norm of the rhs: 6.35916e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 31+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000555169, norm of the rhs: 6.00017e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 28+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000524639, norm of the rhs: 5.67021e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 40+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000495446, norm of the rhs: 5.35469e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 50+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000472582, norm of the rhs: 5.10759e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.0201 m/year, 0.43 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00019
+
+*** Timestep 20:  t=51890.5 years, dt=2744.88 years
+   Solving temperature system... 9 iterations.
+   Solving spcrust system ... 5 iterations.
+   Solving spharz system ... 4 iterations.
+   Solving opcrust system ... 3 iterations.
+   Solving opharz system ... 3 iterations.
+   Initial Newton Stokes residual = 1.08142e+13, v = 1.08142e+13, p = 0
+
+   Solving Stokes system... 0+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 1: 0.0319183, norm of the rhs: 3.45171e+11
+
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 2: 0.00948386, norm of the rhs: 1.0256e+11, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 3: 0.00601451, norm of the rhs: 6.50422e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 4: 0.00441937, norm of the rhs: 4.7792e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 5: 0.00340616, norm of the rhs: 3.68349e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 6: 0.00269698, norm of the rhs: 2.91657e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 9+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 7: 0.00218179, norm of the rhs: 2.35943e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 8: 0.00180055, norm of the rhs: 1.94715e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 9: 0.001535, norm of the rhs: 1.65998e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 11+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 10: 0.00133033, norm of the rhs: 1.43865e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 11: 0.00118358, norm of the rhs: 1.27994e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 12: 0.0010649, norm of the rhs: 1.1516e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 13: 0.000971504, norm of the rhs: 1.0506e+10, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 10+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 14: 0.000892747, norm of the rhs: 9.65435e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 15: 0.000827717, norm of the rhs: 8.9511e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 16: 0.000771106, norm of the rhs: 8.3389e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 7+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 17: 0.000720444, norm of the rhs: 7.79103e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 17+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 18: 0.000675017, norm of the rhs: 7.29978e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 14+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 19: 0.000633267, norm of the rhs: 6.84828e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 26+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 20: 0.000600524, norm of the rhs: 6.49419e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 10+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 21: 0.000562693, norm of the rhs: 6.08508e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 6+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 22: 0.000527938, norm of the rhs: 5.70923e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 23: 0.000496402, norm of the rhs: 5.3682e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 4+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 24: 0.000468771, norm of the rhs: 5.06938e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 25: 0.000442329, norm of the rhs: 4.78343e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 2+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 26: 0.000418231, norm of the rhs: 4.52284e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 3+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 27: 0.000396086, norm of the rhs: 4.28336e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 20+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 28: 0.000375376, norm of the rhs: 4.05939e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 22+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 29: 0.000355852, norm of the rhs: 3.84826e+09, newton_derivative_scaling_factor: 0
+
+   The linear solver tolerance is set to 0.1. 
+   Solving Stokes system... 48+0 iterations.
+      Relative nonlinear residual (total Newton system) after nonlinear iteration 30: 0.000337026, norm of the rhs: 3.64467e+09, newton_derivative_scaling_factor: 0
+
+
+   Postprocessing:
+     RMS, max velocity:       0.02 m/year, 0.427 m/year
+     Temperature min/avg/max: 273 K, 2194 K, 3500 K
+     Writing depth average:   output/depth_average
+     Writing heat flux map:   output/heat_flux.00020
+
+Number of active cells: 119,810 (on 11 levels)
+Number of degrees of freedom: 5,935,535 (997,816+125,651+498,908+1,078,290+1,078,290+1,078,290+1,078,290)
+
+
+
++-----------------------------------------------+------------+------------+
+| Total wallclock time elapsed since start      |  2.08e+03s |            |
+|                                               |            |            |
+| Section                           | no. calls |  wall time | % of total |
++-----------------------------------+-----------+------------+------------+
+| Assemble Stokes system Picard rhs |       609 |       525s |        25% |
+| Assemble Stokes system rhs        |       651 |       560s |        27% |
+| Assemble composition system       |        84 |       131s |       6.3% |
+| Assemble temperature system       |        21 |      20.6s |      0.99% |
+| Build Stokes preconditioner       |       630 |       5.9s |      0.28% |
+| Build composition preconditioner  |        84 |      8.58s |      0.41% |
+| Build temperature preconditioner  |        21 |     0.364s |         0% |
+| Initialization                    |         1 |     0.977s |         0% |
+| Postprocessing                    |        26 |       307s |        15% |
+| Refine mesh structure, part 1     |         7 |      1.99s |         0% |
+| Refine mesh structure, part 2     |         7 |     0.211s |         0% |
+| Setup dof systems                 |         8 |      1.03s |         0% |
+| Setup initial conditions          |         6 |      1.74s |         0% |
+| Setup matrices                    |         2 |      1.02s |         0% |
+| Solve Stokes system               |       630 |       488s |        23% |
+| Solve composition system          |        84 |      6.06s |      0.29% |
+| Solve temperature system          |        21 |     0.374s |         0% |
++-----------------------------------+-----------+------------+------------+
