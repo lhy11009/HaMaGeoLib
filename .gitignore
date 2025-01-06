@@ -2,3 +2,4 @@
 .coverage
 results/
 notebooks/experiments/data_set/
+dtemp
