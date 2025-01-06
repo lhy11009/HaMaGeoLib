@@ -426,8 +426,10 @@ class MO_KINETICS:
                 i0 = indices[0]
                 s_span_us = np.array([s_values[0], s_values[i0]])
 
+                # print("i0 = %d" % i0) # debug
+
                 # solve for a pre-saturation subset 
-                kwargs["n_span"] = i0 + 1
+                kwargs["n_span"] = i0
                 solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, s_span_us, X_ini_nl, **kwargs)
                 
                 # parse the solution at the last time step
@@ -435,7 +437,7 @@ class MO_KINETICS:
 
                 # parse to X_array
                 X_array = np.zeros((4, n_span)) 
-                X_array[0: i0] = X_array_nd * self.X_scale_array[:, np.newaxis] # scale by the rows
+                X_array[:, 0: i0] = X_array_nd * self.X_scale_array[:, np.newaxis] # scale by the rows
                 
                 # compute the other subset with saturation conditions
                 X_array[:, i0:] = X_array[:, i0 - 1][:, np.newaxis]  # replicate the i0 - 1 column
@@ -495,16 +497,17 @@ class MO_KINETICS:
         
         return X_array, is_saturated_array
     
-
-    def solve(self, P, P_eq, t_max, n_t, n_span, **kwargs):
+    # todo_grid
+    def solve(self, P, T, t_max, n_t, n_span, **kwargs):
 
         debug = kwargs.get("debug", False)
         
         X = np.array([0.0, 0.0, 0.0, 0.0])
-
         is_saturated = False
-
         results = pd.DataFrame(columns=["t", "N", "Dn", "S", "Vtilde", "V", "is_saturated"]) # A pandas DataFrame to record results
+
+        # compute equilibrium condition
+        Peq = compute_eq_P(self.PT_eq, T)
 
         # Loop over time steps
         for i_t in range(n_t):
@@ -519,7 +522,7 @@ class MO_KINETICS:
             t_piece_max = t_max / n_t * (i_t + 1)
             t_span = np.array([t_piece_min, t_piece_max])
             
-            if P > P_eq:
+            if P > Peq:
                 # Solve the kinetics if equilibrium condition is met
                 # Note here the X_array is dimensional
                 kwargs["n_span"] = n_span
