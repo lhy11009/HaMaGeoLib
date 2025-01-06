@@ -1,8 +1,14 @@
+import sys, os
 from scipy.integrate import solve_ivp
 import numpy as np
 import pandas as pd
 
-from utils.exception_handler import my_assert
+package_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+sys.path.insert(0, package_root)
+
+from hamageolib.utils.exception_handler import my_assert
+
+# from ...utils.exception_handler import my_assert
 
 def calculate_sigma_s(I_PT, Y_PT, d_0, **kwargs):
     """
@@ -127,14 +133,142 @@ def solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **k
     solution = solve_ivp(odes, s_span, X, method='RK45', t_eval=np.linspace(s_span[0], s_span[1], n_span))
     return solution
 
-# todo_data
+def growth_rate_hosoya_06_eq2_P1(P, T, Coh):
+    """
+    Calculate the growth rate following Equation 2 in Hosoya 2006.
+
+    Parameters:
+    - P (float): Pressure in Pascals.
+    - T (float): Temperature in Kelvin.
+    - Coh (float): Concentration of water in weight parts per million (wt.ppm H2O).
+
+    Returns:
+    - float: The growth rate calculated using the given parameters.
+    """
+    R = 8.31446  # J / mol*K, universal gas constant
+
+    # Constants based on Hosoya 2006
+    A = np.exp(-18.0)  # m s-1 wt.ppmH2O^(-3.2)
+    n = 3.2
+    dHa = 274.0e3  # J / mol, activation enthalpy
+    Vstar = 3.3e-6  # m^3 / mol, activation volume
+
+    growth_rate_part = A * Coh**n * np.exp(-(dHa + P * Vstar) / (R * T))
+
+    return growth_rate_part
+
+def growth_rate_hosoya_06_eq2(P, T, P_eq, Coh):
+    """
+    Calculate the growth rate following Equation 2 in Hosoya 2006, considering 
+    pressure and temperature variations.
+
+    Parameters:
+    - P (float or np.ndarray): Pressure in Pascals.
+    - T (float or np.ndarray): Temperature in Kelvin.
+    - P_eq (float or np.ndarray): Equilibrium pressure in Pascals.
+    - Coh (float): Concentration of water in weight parts per million (wt.ppm H2O).
+
+    Returns:
+    - float or np.ndarray: The growth rate for each pressure point.
+    """
+    R = 8.31446  # J / mol*K, universal gas constant
+    dV_ol_wd = 2.4e-6  # m^3 / mol, difference in volume between phases
+    
+    if type(P) in [float, np.float64]:
+        assert(P > P_eq)
+    elif type(P) == np.ndarray:
+        assert(np.min(P - P_eq) > 0.0)
+    else:
+        raise TypeError("P must be float or ndarray")
+
+    # Determine growth rate based on pressure type (float or array)
+    dGr = dV_ol_wd * (P - P_eq)
+    growth_rate = growth_rate_hosoya_06_eq2_P1(P, T, Coh) * T * (1 - np.exp(-dGr / (R * T)))
+
+    return growth_rate
+
+def nucleation_rate_yoshioka_2015(P, T, P_eq):
+    """
+    Compute the nucleation rate using Equation (10) from Yoshioka et al. (2015).
+    
+    Parameters:
+    - T (float): Temperature in Kelvin.
+    - P (float): Pressure in Pa
+    - delta_G_v (float): Free energy change per volume in J/m^3.
+
+    Constants
+    - gamma (float): Surface energy in J/m^2 (default: 0.0506).
+    - K0 (float): Pre-exponential factor in s^-1 m^-2 K^-1 (default: 3.54e38).
+    - Q_a (float): Activation energy for growth in J/mol (default: 355e3).
+    - k (float): Boltzmann constant in J/K (default: 1.38e-23).
+    - R (float): Universal gas constant in J/(mol*K) (default: 8.314).
+    - dV_ol_wd (float): difference in mole volume between phase.
+    - V_initial (float): for olivine, estimation at 410 km, mole volume
+    
+    Returns:
+    - I (float): Nucleation rate in s^-1 m^-2.
+    """
+    gamma=0.0506; K0=3.54e38; dH_a=344e3; V_star=4e-6; k=1.38e-23; R=8.314
+    dV_ol_wd = 2.4e-6; V_initial = 35.17e-6
+
+    if type(P) in [float, np.float64]:
+        assert(P >= P_eq)
+    elif type(P) == np.ndarray:
+        assert(np.min(P - P_eq) >= 0.0)
+    else:
+        raise TypeError("P must be float or ndarray")
+
+    delta_G_v = dV_ol_wd / V_initial * (P - P_eq)
+
+    # print("P_eq = %.2f GPa, dGr_vs = %.4e" % (P_eq/1e9, delta_G_v)) # debug
+
+    # Compute the homogeneous nucleation activation energy
+    delta_G_hom = (16 * np.pi * gamma**3) / (3 * (delta_G_v)**2)
+    
+    # Compute the nucleation rate
+    Q_a = dH_a + P * V_star 
+    I = K0 * T * np.exp(-delta_G_hom / (k * T)) * np.exp(-Q_a / (R * T))
+    
+    return I
+
 def compute_eq_P(PT_dict, T):
-    # return P_eq
-    pass
+    """
+    Computes the equilibrium pressure based on the given temperature and a PT_dict containing parameters.
+    
+    Parameters:
+    - PT_dict (dict): A dictionary containing the following keys:
+        - "T" (float): Reference temperature.
+        - "cl" (float): Calibration constant or slope related to pressure-temperature relationship.
+        - "P" (float): Reference pressure.
+    - T (float): The temperature at which to compute the equilibrium pressure.
+    
+    Returns:
+    - float: The equilibrium pressure at the given temperature.
+    """
+    # Calculate equilibrium pressure using the linear relationship in PT_dict
+    P_eq = (T - PT_dict["T"]) * PT_dict["cl"] + PT_dict["P"]
+
+    return P_eq
 
 def compute_eq_T(PT_dict, P):
-    # return T_eq
-    pass
+    """
+    Computes the equilibrium temperature based on the given pressure and a PT_dict containing parameters.
+    
+    Parameters:
+    - PT_dict (dict): A dictionary containing the following keys:
+        - "T" (float): Reference temperature.
+        - "cl" (float): Calibration constant or slope related to pressure-temperature relationship.
+        - "P" (float): Reference pressure.
+    - P (float): The pressure at which to compute the equilibrium temperature.
+    
+    Returns:
+    - float: The equilibrium temperature at the given pressure.
+    """
+    # Calculate equilibrium temperature using the inverse linear relationship in PT_dict
+    T_eq = (P - PT_dict["P"]) / PT_dict["cl"] + PT_dict["T"]
+    
+    return T_eq
+
 
 
 class MO_KINETICS:
@@ -142,6 +276,8 @@ class MO_KINETICS:
     Class to handle the kinetics of phase transformations, including nucleation and growth rates.
 
     Attributes:
+    - Y_func_ori (callable): Function for the growth rate Y(P, T, Peq, Coh).
+    - I_func_ori (callable): Function for the nucleation rate I(P, T, Peq).
     - Y_func (callable): Function for the growth rate Y(t).
     - I_func (callable): Function for the nucleation rate I(t).
     - kappa (float): Thermal diffusivity (default=1e-6, m^2/s).
@@ -153,9 +289,10 @@ class MO_KINETICS:
     - last_is_saturated (bool): Indicator for site saturation in the last step.
     - Y_prime_func (callable): Function for normalized growth rate Y'(s).
     - I_prime_func (callable): Function for normalized nucleation rate I'(s).
+    - PT_eq (dict): phase transition equilibrium parameters, T, P, cl-Claypeyron slope
     """
 
-    def __init__(self, Y_func, I_func):
+    def __init__(self):
         """
         Initialize the MO_KINETICS class with growth and nucleation rate functions.
         
@@ -163,8 +300,10 @@ class MO_KINETICS:
         - Y_func (callable): Function for the growth rate Y(t).
         - I_func (callable): Function for the nucleation rate I(t).
         """
-        self.Y_func = Y_func
-        self.I_func = I_func
+        self.Y_func_ori = None
+        self.I_func_ori = None
+        self.Y_func = None
+        self.I_func = None
         self.kappa = 1e-6
         self.D = 100e3
         self.d0 = 1e-2
@@ -174,8 +313,53 @@ class MO_KINETICS:
         self.last_is_saturated = False
         self.Y_prime_func = None
         self.I_prime_func = None
-        # todo_data
         self.PT_eq = {"T": None, "P": None, "cl": None}
+
+    def set_kinetics_model(self, Y_func, I_func):
+        """
+        Set the kinetics model by assigning nucleation and growth rate functions.
+        
+        Parameters:
+        - Y_func (callable): Function for the growth rate Y(t).
+        - I_func (callable): Function for the nucleation rate I(t).
+        """
+        self.Y_func_ori = Y_func
+        self.I_func_ori = I_func
+
+    def set_kinetics_fixed(self, P, T, Coh):
+        """
+        Fix the kinetics model based on specific pressure, temperature, and cohesion values.
+
+        Parameters:
+        - P (float): Pressure value.
+        - T (float): Temperature value.
+        - Coh (float): Cohesion parameter.
+        """
+        assert(self.PT_eq is not None)
+
+        # compute equilibrium condition
+        Peq = compute_eq_P(self.PT_eq, T)
+
+        # fix value to Y_func and I_func
+        self.Y_func = lambda t: self.Y_func_ori(P, T, Peq, Coh)
+        self.I_func = lambda t: self.I_func_ori(P, T, Peq)
+    
+    def set_PT_eq(self, P0, T0, cl):
+        """
+        Set equilibrium conditions for phase transformation.
+        
+        Parameters:
+        - P0 (float): Reference pressure.
+        - T0 (float): Reference temperature.
+        - cl (float): Clapeyron slope.
+        """
+        self.PT_eq = {"T": T0, "P": P0, "cl": cl} 
+
+    class MO_INITIATION_Error(Exception):
+        """
+        Custom exception for errors in the initiation of MO_KINETICS.
+        """
+        pass
 
     def solve_modified_equation(self, t_span, X_ini, is_saturated, **kwargs):
         '''
@@ -197,6 +381,10 @@ class MO_KINETICS:
         '''
         debug = kwargs.get("debug", False)  # print debug messages
         n_span = kwargs.get("n_span", 10)
+
+        # assert previous steps have been taken 
+        my_assert(self.PT_eq is not None, self.MO_INITIATION_Error, "Initiation error: call set_PT_eq function first.")
+        assert(self.Y_func is not None and self.I_func is not None, self.MO_INITIATION_Error, "Initiation error: call one of the set_kinetics function first.")
 
         # compute scaling variables
         # The Av value is prevented from being too small. Note this will only affect
@@ -236,10 +424,10 @@ class MO_KINETICS:
             if len(indices) > 0 and indices[0] > 1:
                 # saturation is reached after at least 2 points
                 i0 = indices[0]
-                s_span_us = np.array([s_values[0], s_values[i0-1]])
+                s_span_us = np.array([s_values[0], s_values[i0]])
 
                 # solve for a pre-saturation subset 
-                kwargs["n_span"] = i0 
+                kwargs["n_span"] = i0 + 1
                 solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, s_span_us, X_ini_nl, **kwargs)
                 
                 # parse the solution at the last time step
