@@ -25,7 +25,10 @@ def calculate_sigma_s(I_PT, Y_PT, d_0, **kwargs):
     kappa = kwargs.get("kappa", 1e-6) # Thermal diffusivity (m^2/s).
     D = kwargs.get("D", 100e3) # slab thickness
     # Compute the dimensionless time
-    sigma_s = (kappa / D**2) * ((I_PT * Y_PT**2 * d_0) / 6.7)**(-1/3)
+    if I_PT == 0 or Y_PT == 0 or d_0 == 0:
+        sigma_s = float('inf')
+    else:
+        sigma_s = (kappa / D**2) * ((I_PT * Y_PT**2 * d_0) / 6.7)**(-1/3)
     return sigma_s
 
 
@@ -465,7 +468,7 @@ class MO_KINETICS:
 
             else:
                 # saturation is not reached
-                print("solving modified equations eq18") # debug
+                # print("solving modified equations eq18") # debug
                 solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, s_span, X_ini_nl, **kwargs)
 
                 # record the whole solution
@@ -497,7 +500,6 @@ class MO_KINETICS:
         
         return X_array, is_saturated_array
     
-    # todo_grid
     def solve(self, P, T, t_max, n_t, n_span, **kwargs):
 
         debug = kwargs.get("debug", False)
