@@ -317,6 +317,8 @@ class MO_KINETICS:
         self.Y_prime_func = None
         self.I_prime_func = None
         self.PT_eq = {"T": None, "P": None, "cl": None}
+        self.result_columns = ["t", "N", "Dn", "S", "Vtilde", "V", "is_saturated"]
+        self.n_col = len(self.result_columns)
 
     def set_kinetics_model(self, Y_func, I_func):
         """
@@ -506,7 +508,7 @@ class MO_KINETICS:
         
         X = np.array([0.0, 0.0, 0.0, 0.0])
         is_saturated = False
-        results = pd.DataFrame(columns=["t", "N", "Dn", "S", "Vtilde", "V", "is_saturated"]) # A pandas DataFrame to record results
+        results = np.zeros([n_t * n_span, self.n_col])
 
         # compute equilibrium condition
         Peq = compute_eq_P(self.PT_eq, T)
@@ -541,8 +543,9 @@ class MO_KINETICS:
             # Record the results in the DataFrame
             V_array = 1 - np.exp(-X_array[3, :])
             for j_s in range(n_span):
-                results.loc[i_t*n_span + j_s] = [t_piece_min + (t_piece_max - t_piece_min)/n_span*j_s,\
+                results[i_t*n_span + j_s, :] = [t_piece_min + (t_piece_max - t_piece_min)/n_span*j_s,\
                                                 X_array[0, j_s], X_array[1, j_s], X_array[2, j_s], X_array[3, j_s],\
                                                     V_array[j_s], is_saturated_array[j_s]]
+                
 
         return results
