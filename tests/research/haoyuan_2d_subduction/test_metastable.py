@@ -65,7 +65,7 @@ def test_nucleation_rate_scalar_inputs():
     P_eq = 1.4e10  # Equilibrium pressure in Pascals
 
     result = nucleation_rate_yoshioka_2015(P, T, P_eq)
-    assert result > 0, "Nucleation rate should be positive for P > P_eq"
+    assert abs(result - 596390.1390563988)/596390.1390563988 < 1e-6, "Nucleation rate should be positive for P > P_eq"
     assert isinstance(result, float), "Nucleation rate should be a float for scalar inputs"
 
 def test_nucleation_rate_array_inputs():
@@ -124,6 +124,111 @@ def test_edge_case_large_pressure_difference():
 
     result = nucleation_rate_yoshioka_2015(P, T, P_eq)
     assert result > 0, "Nucleation rate should be positive for large pressure differences"
+
+def test_avrami_number():
+    '''
+    Test of the Avrami number
+    '''
+    P = 1.5e10  # Pressure in Pascals
+    T = 1000  # Temperature in Kelvin
+    P_eq = 1.4e10  # Equilibrium pressure in Pascals
+
+    d0 = 0.01 # m
+    Coh = 1000.0
+    
+    I_max = max(1e-50, 6.0 *nucleation_rate_yoshioka_2015(P, T, P_eq) / d0) # per unit volume
+    Y_max = max(1e-50, growth_rate_hosoya_06_eq2(P, T, P_eq, Coh))
+    Av = calculate_avrami_number_yoshioka_2015(I_max, Y_max)
+
+    Av_expected = 2.550621254633427e+34
+
+    assert(abs(Av-Av_expected)/Av_expected < 1e-6)
+
+def test_solve_modified_equations_eq18():
+    '''
+    test solve_modified_equations_eq18
+    '''
+    # set the condition
+    P = 12.5e9 # Pa
+    T = 623.75 # K
+    Coh = 1000.0
+
+    # equilibrium condition
+    PT_dict = {"P": 14e9, "T": 1760.0, "cl": 4e6}
+    P_eq = (T - PT_dict["T"]) * PT_dict["cl"] + PT_dict["P"]
+
+    # scaling parameters
+    D = 100e3 # m
+    d0 = 1e-2 # m
+    kappa = 1e-6
+    t_scale = D**2.0/kappa
+
+    # compute parameters
+    I0 = 6.0 *nucleation_rate_yoshioka_2015(P, T, P_eq) / d0 # per unit volume
+    Y0 = growth_rate_hosoya_06_eq2(P, T, P_eq, Coh)
+    Av = calculate_avrami_number_yoshioka_2015(I0, Y0)
+    
+    Y_prime_func = lambda s: 1.0 
+    I_prime_func = lambda s: 1.0
+
+    # set parameters for solution
+    X_scale_array = np.array([I0**(3.0/4.0)*Y0**(-3.0/4.0), I0**(1.0/2.0)*Y0**(-1.0/2.0), I0**(1.0/4.0)*Y0**(-1.0/4.0), 1.0])
+
+    s_span = np.array([0.0000e+00, 3.1536e+12]) / t_scale
+    X = np.array([0., 0., 0., 0.])
+    kwargs = {"n_span": 10}
+
+    # compute the solution
+    solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **kwargs)
+    X_new = solution_nd.y # * X_scale_array[:, np.newaxis]
+
+    # compare with the expected value 
+    X1 = X_new[:, -1]
+    expected_X1 = np.array([1.54409765e-02, 1.19211878e-04, 1.22716521e-06, 5.95288741e-08]) 
+    assert np.allclose(X1, expected_X1, rtol=1e-6), f"solution mismatch: {X1} != {expected_X1}"
+
+def test_solve_modified_equations_eq18_1():
+    '''
+    test solve_modified_equations_eq18
+    '''
+    # set the condition
+    P = 14.75e9 # Pa
+    T = 600 + 273.15 # K
+    Coh = 1000.0
+
+    # equilibrium condition
+    PT_dict = {"P": 14e9, "T": 1760.0, "cl": 4e6}
+    P_eq = (T - PT_dict["T"]) * PT_dict["cl"] + PT_dict["P"]
+
+    # scaling parameters
+    D = 100e3 # m
+    d0 = 1e-2 # m
+    kappa = 1e-6
+    t_scale = D**2.0/kappa
+
+    # compute parameters
+    I0 = 6.0 *nucleation_rate_yoshioka_2015(P, T, P_eq) / d0 # per unit volume
+    Y0 = growth_rate_hosoya_06_eq2(P, T, P_eq, Coh)
+    Av = calculate_avrami_number_yoshioka_2015(I0, Y0)
+    
+    Y_prime_func = lambda s: 1.0 
+    I_prime_func = lambda s: 1.0
+
+    # set parameters for solution
+    X_scale_array = np.array([I0**(3.0/4.0)*Y0**(-3.0/4.0), I0**(1.0/2.0)*Y0**(-1.0/2.0), I0**(1.0/4.0)*Y0**(-1.0/4.0), 1.0])
+
+    s_span = np.array([0.0000e+00, 3.1536e+12]) / t_scale
+    X = np.array([0., 0., 0., 0.])
+    kwargs = {"n_span": 10}
+
+    # compute the solution
+    solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **kwargs)
+    X_new = solution_nd.y # * X_scale_array[:, np.newaxis]
+
+    # compare with the expected value 
+    X1 = X_new[:, -1]
+    expected_X1 = np.array([1.93416120e+06, 1.87048978e+12, 2.41188584e+18, 1.46554544e+25]) 
+    assert np.allclose(X1, expected_X1, rtol=1e-6), f"solution mismatch: {X1} != {expected_X1}"
 
 '''
 test functions for the MO_KINETICS class
@@ -221,28 +326,90 @@ def test_solve_modified_equation():
     assert X_array.shape == (4, 5)
     assert len(is_saturated_array) == 5
 
-def test_solve():
+
+def test_solve_values():
     """
-    Test solving the kinetics equations over a time span.
+    Test solving the kinetics equations over a time span and check the value
     """
-    kinetics = MO_KINETICS()
-    kinetics.set_kinetics_model(mock_growth_rate_normalized, mock_nucleation_rate_normalized)
-    kinetics.set_PT_eq(1.0, 1000.0, 0.01)
-    kinetics.set_kinetics_fixed(1.2, 1100.0, 0.5)
+    year = 3.15576e7  # seconds in a year
+    PT410 = {"P": 14e9, "T": 1760.0, "cl": 4e6} # equilibrium phase transition for 410 km
+    year = 365.0 * 24.0 * 3600.0  # Seconds in one year
+    Coh = 1000.0 # wt.ppm H2O
+
+    # Test parameters
+    P = 14.75e9  # Pa
+    T = 600 + 273.15  # K
+    t_max = 10e6 * year  # s
+    n_t = 100
+    n_span = 10
+
+    # Initialize the MO_KINETICS class
+    Mo_Kinetics = MO_KINETICS()
+    Mo_Kinetics.set_PT_eq(PT410['P'], PT410['T'], PT410['cl'])
+    Mo_Kinetics.set_kinetics_model(growth_rate_hosoya_06_eq2, nucleation_rate_yoshioka_2015)
+    Mo_Kinetics.set_kinetics_fixed(P, T, Coh)
+
+    # Solve the kinetics
+    results = Mo_Kinetics.solve(P, T, t_max, n_t, n_span, debug=False)
     
-    P = 1.5
-    P_eq = 1.0
-    t_max = 100.0
-    n_t = 10
-    n_span = 5
+    # "t" "N" "Dn" "S" "Vtilde" "V" "is_saturated"
+    assert(results.shape == (1000, 7))
+
+    # Expected result for results[10, :]
+    expected_row = np.array([
+        3.15360000e+12,  # Time
+        0.00000000e+00,  # N
+        0.00000000e+00,  # Dn
+        0.00000000e+00,  # S
+        4.22192710e+00,  # Dimensionless volume
+        9.85329654e-01,  # Volume fraction
+        1.00000000e+00   # Saturation status
+    ])
+
+    # Check results[10, :]
+    actual_row = results[10, :]
+    assert np.allclose(actual_row, expected_row, rtol=1e-6), f"Row 10 mismatch: {actual_row} != {expected_row}"
+
+def test_solve_values_low_T():
+    """
+    Test solving the kinetics equations over a time span and check the value
+    """
+    year = 3.15576e7  # seconds in a year
+    PT410 = {"P": 14e9, "T": 1760.0, "cl": 4e6} # equilibrium phase transition for 410 km
+    year = 365.0 * 24.0 * 3600.0  # Seconds in one year
+    Coh = 1000.0 # wt.ppm H2O
+
+    # Test parameters
+    P = 9e9  # Pa
+    T = 273.15  # K
+    t_max = 10e6 * year  # s
+    n_t = 100
+    n_span = 10
+
+    # Initialize the MO_KINETICS class
+    Mo_Kinetics = MO_KINETICS()
+    Mo_Kinetics.set_PT_eq(PT410['P'], PT410['T'], PT410['cl'])
+    Mo_Kinetics.set_kinetics_model(growth_rate_hosoya_06_eq2, nucleation_rate_yoshioka_2015)
+    Mo_Kinetics.set_kinetics_fixed(P, T, Coh)
+
+    # Solve the kinetics
+    results = Mo_Kinetics.solve(P, T, t_max, n_t, n_span, debug=False)
     
-    results = kinetics.solve(P, P_eq, t_max, n_t, n_span)
-    
-    assert not results.empty
-    assert "t" in results.columns
-    assert "N" in results.columns
-    assert "Dn" in results.columns
-    assert "S" in results.columns
-    assert "Vtilde" in results.columns
-    assert "V" in results.columns
-    assert "is_saturated" in results.columns
+    # "t" "N" "Dn" "S" "Vtilde" "V" "is_saturated"
+    assert(results.shape == (1000, 7))
+
+    # Expected result for results[10, :]
+    expected_row = np.array([
+        3.15360000e+12,  # Time
+        0.00000000e+00,  # N
+        0.00000000e+00,  # Dn
+        0.00000000e+00,  # S
+        0.00000000e+00,  # Dimensionless volume
+        0.00000000e+00,  # Volume fraction
+        0.00000000e+00   # Saturation status
+    ])
+
+    # Check results[10, :]
+    actual_row = results[10, :]
+    assert np.allclose(actual_row, expected_row, rtol=1e-6), f"Row 10 mismatch: {actual_row} != {expected_row}"
+        

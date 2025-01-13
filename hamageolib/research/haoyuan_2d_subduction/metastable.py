@@ -116,6 +116,8 @@ def solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **k
     Returns:
     - OdeResult: Integrated solution from solve_ivp.
     """
+    print("call function solve_modified_equations_eq18") # debug
+
     # Define the system of ODEs to solve
     def odes(s, X):
         return ode_system(s, X, Av, Y_prime_func, I_prime_func)
@@ -310,7 +312,7 @@ class MO_KINETICS:
         self.kappa = 1e-6
         self.D = 100e3
         self.d0 = 1e-2
-        self.t_scale = None
+        self.t_scale = self.D**2.0 / self.kappa
         self.Av = None
         self.last_solution = None
         self.last_is_saturated = False
@@ -391,6 +393,7 @@ class MO_KINETICS:
         my_assert(self.PT_eq is not None, self.MO_INITIATION_Error, "Initiation error: call set_PT_eq function first.")
         assert(self.Y_func is not None and self.I_func is not None, self.MO_INITIATION_Error, "Initiation error: call one of the set_kinetics function first.")
 
+
         # compute scaling variables
         # The Av value is prevented from being too small. Note this will only affect
         # the nondimensional variables. 
@@ -400,20 +403,19 @@ class MO_KINETICS:
 
         # print debug message of scaling values
         if debug:
-            print("I_max = %.4e, Y_max = %.4e, Av = %.4e" % (I_max, Y_max, self.Av))
+            print("solve_modified_equation: I_max = %.4e, Y_max = %.4e, Av = %.4e" % (I_max, Y_max, self.Av))
         
         self.Y_prime_func = lambda s: self.Y_func(s*self.t_scale) / Y_max
         self.I_prime_func = lambda s: self.I_func(s*self.t_scale) *6.0 / self.d0 / I_max
 
         # update the t scaling with local values of nucleation and growth rates
-        self.t_scale = self.D**2.0 / self.kappa
         self.X_scale_array = np.array([I_max**(3.0/4.0)*Y_max**(-3.0/4.0), I_max**(1.0/2.0)*Y_max**(-1.0/2.0), I_max**(1.0/4.0)*Y_max**(-1.0/4.0), 1.0])
         
         # nondimensionalize the time variable and calculate nondimensional constants
         s_span = t_span / self.t_scale
         s_values = np.linspace(s_span[0], s_span[1], n_span)
-        I_prime_array = self.I_prime_func(s_values)
-        Y_prime_array = self.Y_prime_func(s_values)
+        I_array = self.I_func(s_values * self.t_scale)
+        Y_array = self.Y_func(s_values * self.t_scale)
 
         # print("s_span: ", s_span) # debug
 
@@ -421,7 +423,13 @@ class MO_KINETICS:
         X_ini_nl = X_ini / self.X_scale_array
 
         # compute saturation condition for s 
-        s_saturation = calculate_sigma_s(I_prime_array, Y_prime_array, self.d0, kappa=self.kappa, D=self.D)
+        s_saturation = calculate_sigma_s(6.0*I_array/self.d0, Y_array, self.d0, kappa=self.kappa, D=self.D)
+
+        if debug:
+            print("solve_modified_equation: t_span = ", t_span)
+            print("solve_modified_equation: t_saturation = ", s_saturation*self.t_scale)
+            print("solve_modified_equation: is_saturated = ", is_saturated)
+
         if not is_saturated:
             # in case site situation is not reached for the initial condition,
             # compute a potential saturation index
@@ -447,6 +455,11 @@ class MO_KINETICS:
                 # compute the other subset with saturation conditions
                 X_array[:, i0:] = X_array[:, i0 - 1][:, np.newaxis]  # replicate the i0 - 1 column
                 X_array[3, i0:] = solve_extended_volume_post_saturation(Y_max, s_values[i0:], kappa=self.kappa, D=self.D, d0=self.d0)
+
+                if debug:
+                    print("saturation is reached after at least 2 points")
+                    print("X_array_nd[:, -1] = ", X_array_nd[:, -1])
+                    print("X_array[:, -1] = ", X_array[:, -1])
                 
                 # record saturation
                 is_saturated_array = np.full(n_span, False)
@@ -467,6 +480,10 @@ class MO_KINETICS:
                 # record the whole solution
                 self.last_solution = None
                 self.last_is_saturated = True
+
+                if debug: 
+                    print("saturation is reached at either the 0th or 1st point")
+                    print("X_array[:, -1] = ", X_array[:, -1])
 
             else:
                 # saturation is not reached
@@ -489,6 +506,11 @@ class MO_KINETICS:
                 # record the whole solution
                 self.last_solution = solution_nd
                 self.last_is_saturated = False
+
+                if debug:
+                    print("saturation is not reached.") 
+                    print("X_array_nd[:, -1] = ", X_array_nd[:, -1])
+                    print("X_array[:, -1] = ", X_array[:, -1])
         else:
             # in case site situation is already reached for the initial condition,
             # use the formulate post saturation
@@ -499,6 +521,10 @@ class MO_KINETICS:
             # record the whole solution
             self.last_solution = None
             self.last_is_saturated = True
+
+            if debug: 
+                print("saturation is already reached previously.") 
+                print("X_array[:, -1] = ", X_array[:, -1])
         
         return X_array, is_saturated_array
     
@@ -525,7 +551,6 @@ class MO_KINETICS:
             t_piece_min = t_max / n_t * i_t
             t_piece_max = t_max / n_t * (i_t + 1)
             t_span = np.array([t_piece_min, t_piece_max])
-            
             if P > Peq:
                 # Solve the kinetics if equilibrium condition is met
                 # Note here the X_array is dimensional
