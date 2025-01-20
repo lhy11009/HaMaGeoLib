@@ -48,7 +48,7 @@ import os
 from PIL import Image, ImageDraw, ImageFont  # Pillow for cropping and saving images
 import subprocess
 
-from .file_reader import read_simulation_log
+from .file_reader import read_aspect_header_file
 
 def scale_matplotlib_params(scaling_factor=1.0, **kwargs):
     """
@@ -439,7 +439,7 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
         None
     """
     # Read the data
-    data = read_simulation_log(file_path)
+    data = read_aspect_header_file(file_path)
 
     # Ensure the output directory exists
     import os

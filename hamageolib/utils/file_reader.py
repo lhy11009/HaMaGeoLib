@@ -110,7 +110,7 @@ def parse_header_from_lines(lines):
     return column_names, units_map, data_start_index
 
 
-def read_simulation_log(file_path):
+def read_aspect_header_file(file_path):
     """
     Reads a simulation log file with specific column headers and data format.
 

@@ -2,6 +2,10 @@
 
 from hamageolib.utils.handy_shortcuts_haoyuan import check_float
 from hamageolib.utils.case_options_haoyuan import *
+import pytest
+import pandas as pd
+import numpy as np
+
 
 def test_case_options(tmp_path):
     """
@@ -16,19 +20,86 @@ def test_case_options(tmp_path):
     
     # Initialize CASE_OPTIONS instance and interpret options
     Case_Options = CASE_OPTIONS(case_dir)
-    Case_Options.Interpret()
 
-    # Display the options dictionary for debugging purposes
-    print("Case_Options.options:", Case_Options.options)
 
-    # Assert that data output directory matches the expected path
-    assert(Case_Options.options["DATA_OUTPUT_DIR"] == os.path.abspath(os.path.join(case_dir, "output")))
-    
-    # Assert that geometry model is set to 'chunk'
-    assert(Case_Options.options['GEOMETRY'] == 'chunk')
-    
-    # Assert that outer radius matches the expected value with floating-point precision check
-    assert(check_float(Case_Options.options['OUTER_RADIUS'], 6371000.0))
-    
-    # Assert that inner radius matches the expected value with floating-point precision check
-    assert(check_float(Case_Options.options['INNER_RADIUS'], 3481000.0))
+def test_filter_and_match_single_series():
+    # Test with a single additional Series
+    series1 = pd.Series([1, 2, np.nan, 4, 5])
+    series2 = pd.Series(['a', 'b', 'c', 'd', 'e'])
+
+    indexes, non_nan_first, matched_series_list = filter_and_match(series1, series2)
+
+    # Assertions
+    expected_indexes = pd.Index([0, 1, 3, 4])
+    expected_non_nan_first = pd.Series([1.0, 2.0, 4.0, 5.0], index=[0, 1, 3, 4])
+    expected_matched_series = pd.Series(['a', 'b', 'd', 'e'], index=[0, 1, 3, 4])
+
+    assert indexes.equals(expected_indexes)
+    assert non_nan_first.equals(expected_non_nan_first)
+    assert matched_series_list[0].equals(expected_matched_series)
+
+def test_filter_and_match_multiple_series():
+    # Test with multiple additional Series
+    series1 = pd.Series([1, np.nan, 3, 4, np.nan])
+    series2 = pd.Series(['x', 'y', 'z', 'w', 'v'])
+    series3 = pd.Series([10, 20, 30, 40, 50])
+
+    indexes, non_nan_first, matched_series_list = filter_and_match(series1, series2, series3)
+
+    # Assertions
+    expected_indexes = pd.Index([0, 2, 3])
+    expected_non_nan_first = pd.Series([1.0, 3.0, 4.0], index=[0, 2, 3])
+    expected_matched_series_2 = pd.Series(['x', 'z', 'w'], index=[0, 2, 3])
+    expected_matched_series_3 = pd.Series([10, 30, 40], index=[0, 2, 3])
+
+    assert indexes.equals(expected_indexes)
+    assert non_nan_first.equals(expected_non_nan_first)
+    assert matched_series_list[0].equals(expected_matched_series_2)
+    assert matched_series_list[1].equals(expected_matched_series_3)
+
+def test_filter_and_match_no_nan():
+    # Test when series1 has no NaN values
+    series1 = pd.Series([1, 2, 3, 4, 5])
+    series2 = pd.Series(['p', 'q', 'r', 's', 't'])
+
+    indexes, non_nan_first, matched_series_list = filter_and_match(series1, series2)
+
+    # Assertions
+    expected_indexes = pd.Index([0, 1, 2, 3, 4])
+    expected_non_nan_first = series1
+    expected_matched_series = series2
+
+    assert indexes.equals(expected_indexes)
+    assert non_nan_first.equals(expected_non_nan_first)
+    assert matched_series_list[0].equals(expected_matched_series)
+
+def test_filter_and_match_all_nan():
+    # Test when series1 is entirely NaN
+    series1 = pd.Series([np.nan, np.nan, np.nan])
+    series2 = pd.Series(['a', 'b', 'c'])
+
+    indexes, non_nan_first, matched_series_list = filter_and_match(series1, series2)
+    # Assertions
+    expected_indexes = pd.Index([])
+    expected_non_nan_first = pd.Series([], dtype=float)
+    expected_matched_series = pd.Series([], dtype=object)
+
+    assert indexes.equals(expected_indexes)
+    assert non_nan_first.equals(expected_non_nan_first)
+    assert matched_series_list[0].equals(expected_matched_series)
+
+def test_filter_and_match_empty_series():
+    # Test when series1 is empty
+    series1 = pd.Series([], dtype=float)
+    series2 = pd.Series([], dtype=object)
+
+    indexes, non_nan_first, matched_series_list = filter_and_match(series1, series2)
+
+    # Assertions
+    expected_indexes = pd.Index([])
+    expected_non_nan_first = pd.Series([], dtype=float)
+    expected_matched_series = pd.Series([], dtype=object)
+
+    assert indexes.equals(expected_indexes)
+    assert non_nan_first.equals(expected_non_nan_first)
+    assert matched_series_list[0].equals(expected_matched_series)

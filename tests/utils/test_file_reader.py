@@ -1,6 +1,6 @@
 import os
 import pytest
-from hamageolib.utils.file_reader import parse_header_from_lines, read_simulation_log
+from hamageolib.utils.file_reader import parse_header_from_lines, read_aspect_header_file
 
 # Fixture to create a temporary test file
 @pytest.fixture
@@ -52,9 +52,9 @@ def test_parse_header_from_lines(test_file_path):
     assert units_map == expected_units_map
     assert data_start_index == expected_data_start_index
 
-def test_read_simulation_log(test_file_path):
-    """Test the read_simulation_log function."""
-    df = read_simulation_log(test_file_path)
+def test_read_aspect_header_file(test_file_path):
+    """Test the read_aspect_header_file function."""
+    df = read_aspect_header_file(test_file_path)
 
     # Check that the DataFrame contains the correct columns
     expected_columns = [
