@@ -1,0 +1,11 @@
+name: intro-to-ml
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - pandas
+  - geopandas
+  - plotly
+  - seaborn
+  - matplotlib
+  - scikit-learn
