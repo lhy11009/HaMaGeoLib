@@ -49,10 +49,10 @@ class CASE_OPTIONS:
 
     Attributes:
         _case_dir (str): Directory path of the case.
-        _output_dir (str): Directory path for output files.
+        output_dir (str): Directory path for output files.
         visit_file (str): Path to the visit file for case visualization.
         paraview_file (str): Path to the paraview file for case visualization.
-        _img_dir (str): Directory path for image outputs.
+        img_dir (str): Directory path for image outputs.
         idict (dict): Dictionary containing parsed parameters from the .prm file.
         wb_dict (dict): Dictionary containing parsed parameters from the .wb file if it exists.
         options (dict): Dictionary storing interpreted options for data output and model parameters.
@@ -68,33 +68,33 @@ class CASE_OPTIONS:
         """
         # todo_animate
         # Validate and set case directory
-        self._case_dir = case_dir
-        my_assert(os.path.isdir(self._case_dir), FileNotFoundError,
-                  'BASH_OPTIONS.__init__: case directory - %s doesn\'t exist' % self._case_dir)
+        self.case_dir = case_dir
+        my_assert(os.path.isdir(self.case_dir), FileNotFoundError,
+                  'BASH_OPTIONS.__init__: case directory - %s doesn\'t exist' % self.case_dir)
 
         # Validate and set output directory
-        self._output_dir = os.path.join(case_dir, 'output')
-        my_assert(os.path.isdir(self._output_dir), FileNotFoundError,
-                  'BASH_OPTIONS.__init__: case output directory - %s doesn\'t exist' % self._output_dir)
+        self.output_dir = os.path.join(case_dir, 'output')
+        my_assert(os.path.isdir(self.output_dir), FileNotFoundError,
+                  'BASH_OPTIONS.__init__: case output directory - %s doesn\'t exist' % self.output_dir)
 
         # Set paths for visualization files and validate access
         self.visit_file = None
-        visit_file_tmp = os.path.join(self._output_dir, 'solution.visit')
+        visit_file_tmp = os.path.join(self.output_dir, 'solution.visit')
         if os.path.isfile(visit_file_tmp):
             self.visit_file = visit_file_tmp
 
         self.paraview_file = None
-        paraview_file_tmp = os.path.join(self._output_dir, 'solution.pvd')
+        paraview_file_tmp = os.path.join(self.output_dir, 'solution.pvd')
         if os.path.isfile(paraview_file_tmp):
             self.paraview_file = paraview_file_tmp
 
         # Set or create image directory
-        self._img_dir = os.path.join(case_dir, 'img')
-        if not os.path.isdir(self._img_dir):
-            os.mkdir(self._img_dir)
+        self.img_dir = os.path.join(case_dir, 'img')
+        if not os.path.isdir(self.img_dir):
+            os.mkdir(self.img_dir)
 
         # Parse parameters from .prm file
-        prm_file = os.path.join(self._case_dir, 'case.prm')
+        prm_file = os.path.join(self.case_dir, 'case.prm')
         my_assert(os.access(prm_file, os.R_OK), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case prm file - %s cannot be read' % prm_file)
         with open(prm_file, 'r') as fin:
@@ -102,7 +102,7 @@ class CASE_OPTIONS:
 
         # Parse .wb file if available, or initialize an empty dictionary
         self.wb_dict = {}
-        wb_file = os.path.join(self._case_dir, 'case.wb')
+        wb_file = os.path.join(self.case_dir, 'case.wb')
         if os.access(wb_file, os.R_OK):
             with open(wb_file, 'r') as fin:
                 self.wb_dict = json.load(fin)
@@ -160,7 +160,50 @@ class CASE_OPTIONS:
             resampled_df.attrs["Time between graphical output"] = self.visualization_df.attrs["Time between graphical output"]
 
             return resampled_df
+    
+    def interpret(self):
 
+        # paths
+        self.options["OUTPUT_DIRECTORY"] = self.output_dir
+        self.options["IMAGE_DIRECTORY"] = self.img_dir
+
+        # dimension
+        dimension = int(self.idict['Dimension'])
+        self.options['DIMENSION'] = dimension
+
+        # geometry
+        geometry = self.idict['Geometry model']['Model name']
+        self.options['GEOMETRY'] = geometry
+
+        if geometry == 'chunk':
+            self.options["BOTTOM"]  = float(self.idict['Geometry model']['Chunk']['Chunk inner radius'])
+            self.options["TOP"]  = float(self.idict['Geometry model']['Chunk']['Chunk outer radius'])
+            self.options["LEFT"] = float(self.idict['Geometry model']['Chunk']['Chunk minimum longitude'])
+            self.options["RIGHT"] = float(self.idict['Geometry model']['Chunk']['Chunk maximum longitude'])
+            if dimension == 2:
+                self.options["FRONT"] = None
+                self.options["BACK"] = None
+            elif dimension == 3:
+                self.options["FRONT"] = float(self.idict['Geometry model']['Chunk']['Chunk minimum latitude'])
+                self.options["BACK"] = float(self.idict['Geometry model']['Chunk']['Chunk maximum latitude'])
+            else: 
+                raise ValueError("%d is not a dimension option" % self.options['DIMENSION'])
+            
+        elif geometry == 'box':
+            self.options["LEFT"] = 0.0
+            self.options["RIGHT"] = float(self.idict['Geometry model']['Box']['X extent'])
+            if dimension == 2:
+                self.options["BOTTOM"] = 0.0
+                self.options["TOP"]  = float(self.idict['Geometry model']['Box']['Y extent'])
+                self.options["FRONT"] = None
+                self.options["BACK"] = None
+            elif dimension == 3:
+                self.options["BOTTOM"] = 0.0
+                self.options["TOP"]  = float(self.idict['Geometry model']['Box']['Z extent']) 
+                self.options["FRONT"] = 0.0
+                self.options["BACK"] = float(self.idict['Geometry model']['Box']['Y extent'])
+            else: 
+                raise ValueError("%d is not a dimension option" % self.options['DIMENSION'])
 
 # Parse run time results
 def parse_log_file_for_visualization_snapshots(log_file_path, output_path, **kwargs):
