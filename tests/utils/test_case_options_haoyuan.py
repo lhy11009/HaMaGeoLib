@@ -5,6 +5,7 @@ from hamageolib.utils.case_options_haoyuan import *
 import pytest
 import pandas as pd
 import numpy as np
+import filecmp
 
 
 def test_case_options(tmp_path):
@@ -103,3 +104,32 @@ def test_filter_and_match_empty_series():
     assert indexes.equals(expected_indexes)
     assert non_nan_first.equals(expected_non_nan_first)
     assert matched_series_list[0].equals(expected_matched_series)
+
+@pytest.mark.big_test  # Optional marker for big tests
+def test_case_summary_big_test():
+    
+    case_path = os.path.join(os.path.dirname(__file__), "../../big_tests/TwoDSubduction/eba_cdpt_coh500_SA80.0_cd7.5_log_ss300.0")
+
+    o_path = os.path.join(os.path.dirname(__file__), "../../dtemp/case_summary_big_test.csv")
+    o_path_std = os.path.join(os.path.dirname(__file__), "../../big_tests/TwoDSubduction/case_summary_std.csv")
+
+    # Check if the folder exists and contains test files
+    if not os.path.exists(case_path) or not os.listdir(case_path):
+        pytest.skip("Skipping test: big test contents not found in 'big_tests/'.")
+
+    Case_Summary = CASE_SUMMARY()
+    Case_Summary.update_single_case(case_path)
+
+    Case_Summary.df.to_csv(o_path)
+
+    filecmp.cmp(o_path, o_path_std)
+
+@pytest.mark.big_test  # Optional marker for big tests
+def test_find_case_files():
+    
+    case_path = os.path.join(os.path.dirname(__file__), "../../big_tests/TwoDSubduction/eba_cdpt_coh500_SA80.0_cd7.5_log_ss300.0")
+    
+    prm_file, wb_file = find_case_files(case_path)
+
+    assert(prm_file == os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")), "big_tests/TwoDSubduction/eba_cdpt_coh500_SA80.0_cd7.5_log_ss300.0/case.prm"))
+    assert(wb_file == os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")), "big_tests/TwoDSubduction/eba_cdpt_coh500_SA80.0_cd7.5_log_ss300.0/case.wb"))

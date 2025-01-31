@@ -77,7 +77,7 @@ def parse_header_from_lines(lines):
     """
     column_names = []
     units_map = {}
-    data_start_index = 0
+    data_start_index = len(lines)
 
     for i, line in enumerate(lines):
         line = line.strip()
@@ -101,6 +101,8 @@ def parse_header_from_lines(lines):
             column_names.append(column_name)
         else:
             # Record the first line of data
+            # Otherwise the start line of data is directed to the
+            # end of the file.
             data_start_index = i
             break
 

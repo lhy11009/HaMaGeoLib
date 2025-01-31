@@ -20,6 +20,35 @@ def test_file_path(tmp_path):
     test_file.write_text(test_file_content)
     return test_file
 
+# Fixture to create a temporary test file
+@pytest.fixture
+def test_file_path_1(tmp_path):
+    """Fixture to create a temporary test file."""
+    test_file = tmp_path / "test_log_1.txt"
+    test_file_content = """\
+# 1: Time step number
+# 2: Time
+# 3: Wall Clock (s)
+
+"""
+    # Write content to the temporary file
+    test_file.write_text(test_file_content)
+    return test_file
+
+# Fixture to create a temporary test file
+@pytest.fixture
+def test_file_path_2(tmp_path):
+    """Fixture to create a temporary test file."""
+    test_file = tmp_path / "test_log_1.txt"
+    test_file_content = """\
+# 1: Time step number
+# 2: Time
+# 3: Wall Clock (s)
+"""
+    # Write content to the temporary file
+    test_file.write_text(test_file_content)
+    return test_file
+
 def test_parse_header_from_lines(test_file_path):
     """Test the parse_header_from_lines function."""
     # Read the lines from the test file
@@ -93,3 +122,33 @@ def test_read_aspect_header_file(test_file_path):
     assert pytest.approx(df.iloc[1]["Time step size"]) == 0.5
     assert df.iloc[1]["Number of mesh cells"] == 8480
     assert df.iloc[1]["Number of Stokes degrees of freedom"] == 78438
+
+def test_read_aspect_header_file_no_data(test_file_path_1):
+    """Test the read_aspect_header_file function when passing a file
+    with only headers and no data"""
+    df = read_aspect_header_file(test_file_path_1)
+
+    # Check that the DataFrame contains the correct columns
+    expected_columns = [
+        "Time step number",
+        "Time",
+        "Wall Clock"
+    ]
+    assert list(df.columns) == expected_columns
+    assert len(df) == 0
+
+
+def test_read_aspect_header_file_no_data_entry(test_file_path_2):
+    """Test the read_aspect_header_file function when passing a file
+    with only headers and no data. This time, there is even no vacant
+    line."""
+    df = read_aspect_header_file(test_file_path_2)
+
+    # Check that the DataFrame contains the correct columns
+    expected_columns = [
+        "Time step number",
+        "Time",
+        "Wall Clock"
+    ]
+    assert list(df.columns) == expected_columns
+    assert len(df) == 0

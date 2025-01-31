@@ -59,6 +59,14 @@ import hamageolib
 ```
 ---
 
+4. **Sync the big test folder from cloud service**:
+
+The `big_tests` folder contains large test files that are **not synced to GitHub** due to their size. Instead, these files are stored in a cloud-based storage solution.
+These typically include files that are case outputs.
+
+Note for myself: use the lihaoyuan81@gmail.com space for this purpose.
+
+
 ## Contributing
 
 We welcome contributions to **hamageolib**! If you’re interested in adding new features or improving existing functionality, please follow the workflow below:

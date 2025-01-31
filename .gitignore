@@ -7,3 +7,5 @@ tmp
 .vscode/
 cpp/build/
 my.patch
+big_tests/
+parse_time_info_results
