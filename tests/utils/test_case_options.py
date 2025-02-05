@@ -1,7 +1,7 @@
-# test_case_options_haoyuan.py
+# test_case_options.py
 
 from hamageolib.utils.handy_shortcuts_haoyuan import check_float
-from hamageolib.utils.case_options_haoyuan import *
+from hamageolib.utils.case_options import *
 import pytest
 import pandas as pd
 import numpy as np
