@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 """
-case_options_haoyuan.py
+case_options.py
 
 Author: Haoyuan Li
 Description: A utility for parsing and handling deal.ii parameter files 
