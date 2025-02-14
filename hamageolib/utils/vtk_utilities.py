@@ -126,4 +126,72 @@ def estimate_memory_usage(u_grid):
     return total_memory_mb
 
 
+# todo_slab
+def vtk_extract_comp(u_grid, *field_names, **kwargs):
+    """
+    Extracts the composition shape based on sum of multiple composition markers in a vtkUnstructuredGrid.
 
+    Parameters:
+        u_grid (vtk.vtkUnstructuredGrid): The input unstructured grid containing the composition fields.
+        *field_names (str): Variable-length list of field names whose sum will define the slab composition.
+                            At least one field must be provided.
+        **kwargs:
+            - threshold_value (float): The threshold value used to filter slab points (default: 0.5).
+
+    Returns:
+        vtk.vtkPolyData: A polydata object representing the extracted slab surface.
+                         Returns None if any specified field is not found.
+
+    Raises:
+        AssertionError: If any of the specified fields are missing from the dataset.
+
+    Notes:
+        - The function sums the values of all specified composition fields to define the slab.
+        - If any specified field is not found in `u_grid`, an assertion error is raised.
+    """
+
+    # Get threshold value from kwargs (default: 0.5)
+    threshold_value = kwargs.get("threshold_value", 0.5)
+
+    assert field_names, "At least one field name must be specified."
+
+    # Check if the point data exists
+    point_data = u_grid.GetPointData()
+    
+    # Verify that all requested fields exist in the dataset
+    missing_fields = [field for field in field_names if not point_data.GetArray(field)]
+    assert not missing_fields, f"Error: The following fields were not found in point data: {missing_fields}"
+
+    # Initialize a new scalar field to store the summed values
+    slab_field = vtk.vtkDoubleArray()
+    slab_field.SetName("slab_field")
+    slab_field.SetNumberOfComponents(1)
+    slab_field.SetNumberOfTuples(u_grid.GetNumberOfPoints())
+
+    # Initialize array with zeros
+    for i in range(u_grid.GetNumberOfPoints()):
+        slab_field.SetValue(i, 0.0)
+
+    # Sum up all specified fields
+    for field_name in field_names:
+        scalar_field = point_data.GetArray(field_name)
+        for i in range(u_grid.GetNumberOfPoints()):
+            slab_field.SetValue(i, slab_field.GetValue(i) + scalar_field.GetValue(i))
+    
+    # Add the computed slab field to the unstructured grid
+    point_data.AddArray(slab_field)
+    point_data.SetActiveScalars("slab_field")
+
+    # Apply threshold filter using the summed field
+    threshold_filter = vtk.vtkThreshold()
+    threshold_filter.SetInputData(u_grid)
+    threshold_filter.SetInputArrayToProcess(0, 0, 0, 0, "slab_field")  # Use computed slab field
+    threshold_filter.ThresholdByUpper(threshold_value)  # Keep values >= threshold
+    threshold_filter.Update()
+
+    # Convert to surface representation
+    geometry_filter = vtk.vtkGeometryFilter()
+    geometry_filter.SetInputData(threshold_filter.GetOutput())
+    geometry_filter.Update()
+
+    return geometry_filter.GetOutput()  # PolyData containing the slab surface

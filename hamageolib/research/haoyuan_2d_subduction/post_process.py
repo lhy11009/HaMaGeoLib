@@ -22,6 +22,7 @@ Contents:
 
 import os
 import pandas as pd
+import vtk
 
 from ...utils import case_options as C_Options
 
@@ -49,3 +50,4 @@ class CASE_SUMMARY(C_Options.CASE_SUMMARY):
     def __init__(self):
         # call init function of C_Options.CASE_SUMMARY
         C_Options.CASE_SUMMARY.__init__()
+
