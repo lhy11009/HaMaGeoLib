@@ -2,6 +2,7 @@
 .coverage
 results/
 notebooks/experiments/data_set/
+temp
 dtemp
 tmp
 .vscode/
