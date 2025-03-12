@@ -48,7 +48,7 @@ public:
                          bool is_saturated, int n_span = 10, bool debug = false);
 
     std::vector<std::vector<double>> 
-    solve(double P, double T, double t_max, int n_t, int n_span, bool debug = false);
+    solve(double P, double T, double t_min, double t_max, int n_t, int n_span, bool debug = false, std::vector<double> X = {0.0, 0.0, 0.0, 0.0}, bool is_saturated = false);
 
     class MO_INITIATION_Error : public std::runtime_error {
     public:

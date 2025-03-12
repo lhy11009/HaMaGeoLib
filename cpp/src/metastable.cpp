@@ -7,6 +7,7 @@
 #include <iostream>
 #include <limits>
 #include <numeric>
+#include <stdexcept>  // For std::invalid_argument
 
 
 
@@ -151,7 +152,7 @@ std::vector<std::vector<double>> solve_modified_equations_eq18(
     
     // Debugging output
     if (debug) {
-        std::cout << "X0 = [";
+        std::cout << "solve_modified_equations_eq18" << std::endl << "X0 = [";
         for (const auto& x : X_ini) {
             std::cout << x << " ";
         }
@@ -171,13 +172,18 @@ std::vector<std::vector<double>> solve_modified_equations_eq18(
     };
 
     // Time step size
-    double h = (s_span.second - s_span.first) / (n_span-1);
+    double h = (s_span.second - s_span.first) / n_span;
 
     // Create the solver
     IRK4Solver solver;
 
     // Solve the ODE system
     auto [t_values, X_values] = solver.solve(odes, X_ini, s_span, h, debug);
+
+    if (debug){
+        std::cout << "h = " << h << std::endl;
+        std::cout << "X_values.size() = " << X_values.size() << std::endl;
+    }
 
     // Safeguard for very small values
     const double threshold = 1e-12; // Define a small threshold
@@ -266,13 +272,13 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
 
     // Non-dimensionalize the time span
     std::pair<double, double> s_span = {t_span.first / t_scale, t_span.second / t_scale};
-    std::vector<double> s_values(n_span);
-    for (int i = 0; i < n_span; ++i) {
-        s_values[i] = s_span.first + i * (s_span.second - s_span.first) / (n_span - 1);
+    std::vector<double> s_values(n_span+1);
+    for (int i = 0; i <= n_span; ++i) {
+        s_values[i] = s_span.first + i * (s_span.second - s_span.first) / n_span;
     }
 
-    std::vector<double> I_array(n_span), Y_array(n_span);
-    for (int i = 0; i < n_span; ++i) {
+    std::vector<double> I_array(n_span+1), Y_array(n_span+1);
+    for (int i = 0; i <= n_span; ++i) {
         I_array[i] = 6.0*I_func(s_values[i] * t_scale)/d0;
         Y_array[i] = Y_func(s_values[i] * t_scale);
     }
@@ -286,8 +292,8 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
     }
 
     // Initialize result containers
-    std::vector<std::vector<double>> X_array(4, std::vector<double>(n_span, 0.0));
-    std::vector<bool> is_saturated_array(n_span, false);
+    std::vector<std::vector<double>> X_array(4, std::vector<double>(n_span+1, 0.0));
+    std::vector<bool> is_saturated_array(n_span+1, false);
 
     if (!is_saturated) {
         auto it = std::find_if(s_values.begin(), s_values.end(), [s_saturation](double s) { return s > s_saturation; });
@@ -307,7 +313,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
 
             // Post-saturation
             auto post_saturation = solve_extended_volume_post_saturation(Y_max, s_values, kappa, D, d0);
-            for (int i = i0; i < n_span; ++i) {
+            for (int i = i0; i <= n_span; ++i) {
                 X_array[3][i] = post_saturation[i];
             }
             std::fill(is_saturated_array.begin() + i0, is_saturated_array.end(), true);
@@ -315,7 +321,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
         else if (it != s_values.end() && std::distance(s_values.begin(), it) <= 1) {
             // saturation at the 0th or 1st sub-step
             auto post_saturation = solve_extended_volume_post_saturation(Y_max, s_values, kappa, D, d0);
-            for (size_t i = 0; i < n_span; ++i) {
+            for (size_t i = 0; i <= n_span; ++i) {
                 X_array[3][i] = post_saturation[i];
             }
             
@@ -339,7 +345,9 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
             for (size_t j = 0; j < solution_nd.size(); ++j) {
                 for (size_t k = 0; k < solution_nd[j].size(); ++k) {
                     // Debug print for each value
-                    // std::cout << "solution_nd[" << j << "][" << k << "] = "  << solution_nd[j][k] << ", X_scale_array[" << k << "] = " << X_scale_array[k] << std::endl;
+                    if (debug){
+                        std::cout << "solution_nd[" << j << "][" << k << "] = "  << solution_nd[j][k] << ", X_scale_array[" << k << "] = " << X_scale_array[k] << std::endl;
+                    }
                     // X_array[j][k] = 0.0;
                     X_array[k][j] = solution_nd[j][k] * X_scale_array[k];
                 }
@@ -348,7 +356,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
     } else {
         // Full saturation
         auto post_saturation = solve_extended_volume_post_saturation(Y_max, s_values, kappa, D, d0);
-        for (size_t i = 0; i < n_span; ++i) {
+        for (size_t i = 0; i <= n_span; ++i) {
             X_array[3][i] = post_saturation[i];
         }
         std::fill(is_saturated_array.begin(), is_saturated_array.end(), true);
@@ -358,11 +366,17 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
 }
 
 
-std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t_max, int n_t, int n_span, bool debug) {
+std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t_min, double t_max, int n_t, int n_span, bool debug, 
+    std::vector<double> X, bool is_saturated) {
+    // todo_metastable
+    
     // Initialize variables
-    std::vector<double> X = {0.0, 0.0, 0.0, 0.0};
-    bool is_saturated = false;
-    std::vector<std::vector<double>> results(n_t * n_span, std::vector<double>(n_col, 0.0));
+    // Check if X has exactly 4 elements
+    if (X.size() != 4) {
+        throw std::invalid_argument("Error: X must have exactly 4 elements.");
+    }
+    
+    std::vector<std::vector<double>> results(n_t * n_span+1, std::vector<double>(n_col, 0.0));
 
     // Compute equilibrium pressure
     double Peq = computeEqP(T);
@@ -374,16 +388,16 @@ std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t
         }
 
         // Define the time span for the current step
-        double t_piece_min = t_max / n_t * i_t;
-        double t_piece_max = t_max / n_t * (i_t + 1);
+        double t_piece_min = t_min + (t_max - t_min) / n_t * i_t;
+        double t_piece_max = t_min + (t_max - t_min) / n_t * (i_t + 1);
         std::pair<double, double> t_span = {t_piece_min, t_piece_max};
 
-        std::vector<std::vector<double>> X_array(4, std::vector<double>(n_span, 0.0));
-        std::vector<bool> is_saturated_array(n_span, false);
+        std::vector<std::vector<double>> X_array(4, std::vector<double>(n_span+1, 0.0));
+        std::vector<bool> is_saturated_array(n_span+1, false);
 
         if (P > Peq) {
             // Solve the kinetics if equilibrium condition is met
-            auto solution = solveModifiedEquation(t_span, X, is_saturated, n_span, debug);
+            auto solution = solveModifiedEquation(t_span, X, is_saturated, n_span, false); // debug
             X_array = solution.first;
             is_saturated_array = solution.second;
             X = {X_array[0].back(), X_array[1].back(), X_array[2].back(), X_array[3].back()};
@@ -395,8 +409,8 @@ std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t
         }
 
         // Compute results for each step in the current time span
-        std::vector<double> V_array(n_span);
-        for (int j = 0; j < n_span; ++j) {
+        std::vector<double> V_array(n_span+1);
+        for (int j = 0; j <= n_span; ++j) {
             double threshold = 50.0; // Define a threshold for large values
             if (X_array[3][j] > threshold) {
                 // If X_array[3][j] is too large, directly set V_array[j] to 1
@@ -406,6 +420,8 @@ std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t
                 V_array[j] = 1.0 - std::exp(-X_array[3][j]);
             }
 
+            // note i_t * n_span + j would have the same value
+            // for the last node the piece and the first node in the consequtive piece
             results[i_t * n_span + j] = {
                 t_piece_min + (t_piece_max - t_piece_min) / n_span * j,
                 X_array[0][j],

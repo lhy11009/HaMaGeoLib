@@ -73,7 +73,7 @@ void generate_results_diagram(const std::string& output_file) {
             if (current_iteration == 126){
               debug = true;
             }
-            auto results = Mo_Kinetics.solve(P, T, t_max, n_t, n_span, debug);
+            auto results = Mo_Kinetics.solve(P, T, 0.0, t_max, n_t, n_span, debug);
 
             // Write results to the file
             for (const auto& row : results) {

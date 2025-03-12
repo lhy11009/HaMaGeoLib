@@ -221,10 +221,10 @@ void test_solve_values() {
     Mo_Kinetics.setKineticsFixed(P, T, Coh);
 
     // Solve the kinetics
-    auto results = Mo_Kinetics.solve(P, T, t_max, n_t, n_span, false);
+    auto results = Mo_Kinetics.solve(P, T, 0.0, t_max, n_t, n_span, false);
 
     // Check the shape of the results
-    assert(results.size() == static_cast<size_t>(n_t * n_span));
+    assert(results.size() == static_cast<size_t>(n_t * n_span+1));
     assert(results[0].size() == 7);
 
     // Expected result for results[10]
@@ -250,8 +250,7 @@ void test_solve_values() {
             assert(false && "Row 10 mismatch");
         }
     }
-
-    std::cout << "Test passed: solve() produces the expected results.\n";
+    std::cout << "Test passed: solve_values produces the expected results.\n";
 }
 
 // test solve at a given P and T
@@ -279,10 +278,10 @@ void test_solve_values_lowT() {
     Mo_Kinetics.setKineticsFixed(P, T, Coh);
 
     // Solve the kinetics
-    auto results = Mo_Kinetics.solve(P, T, t_max, n_t, n_span, false);
+    auto results = Mo_Kinetics.solve(P, T, 0.0, t_max, n_t, n_span, false);
 
-    // Check the shape of the results
-    assert(results.size() == static_cast<size_t>(n_t * n_span));
+    // // Check the shape of the results
+    assert(results.size() == static_cast<size_t>(n_t * n_span + 1));
     assert(results[0].size() == 7);
 
     // Expected result for results[10]
@@ -300,6 +299,69 @@ void test_solve_values_lowT() {
     auto actual_row = results[10];
 
     // Verify each element in the row matches the expected value
+    bool assert_result = true;
+    for (size_t i = 0; i < expected_row.size(); ++i) {
+        if (!isClose(actual_row[i], expected_row[i])) {
+            std::cerr << "Mismatch in row 10 at index " << i
+                      << ": expected " << expected_row[i]
+                      << ", got " << actual_row[i] << std::endl;
+            assert_result = false;
+        }
+    }
+    if (!assert_result){
+        assert(false);
+    }
+
+    std::cout << "Test passed: solve_values_lowT produces the expected results.\n";
+}
+
+// test solve at a given P and T
+void test_solve_values_test_aspect() {
+    // Define constants
+    // outputs at line outputs 2017 in the test case
+    const double year = 365.0 * 24.0 * 3600.0; // Seconds in one year
+    const double Coh = 1000.0; // wt.ppm H2O
+
+    // Phase transition parameters for equilibrium
+    const double PT410_P = 14e9;   // Equilibrium pressure (Pa)
+    const double PT410_T = 1760.0; // Equilibrium temperature (K)
+    const double PT410_cl = 4e6;   // Clapeyron slope
+
+    // Test parameters
+    const double P = 2.66654e+10;       // Pressure (Pa)
+    const double T = 917.658;  // Temperature (K)
+    const double t_max = 1000.0 * year; // Maximum time (s)
+    const int n_t = 1;            // Number of time intervals
+    const int n_span = 10;          // Number of steps within each interval
+
+    // Initialize the MO_KINETICS class
+    MO_KINETICS Mo_Kinetics;
+    Mo_Kinetics.setPTEq(PT410_P, PT410_T, PT410_cl);
+    Mo_Kinetics.setKineticsModel(metastable_hosoya_06_eq2, nucleation_rate_yoshioka_2015);
+    Mo_Kinetics.setKineticsFixed(P, T, Coh);
+
+    // Solve the kinetics
+    auto results = Mo_Kinetics.solve(P, T, 0.0, t_max, n_t, n_span, false);
+
+    // Check the shape of the results
+    assert(results.size() == static_cast<size_t>(n_t * n_span + 1));
+    assert(results[0].size() == 7);
+
+    // Expected result for results[10]
+    std::vector<double> expected_row = {
+        t_max,  // Time
+        0.00000000e+00,  // N
+        0.00000000e+00,  // Dn
+        0.00000000e+00,  // S
+        0.0029002494292562743,  // Dimensionless volume
+        0.0028960477688162456,  // Volume fraction
+        1.0   // Saturation status
+    };
+
+    // Extract the actual row from results[10]
+    auto actual_row = results[10];
+
+    // Verify each element in the row matches the expected value
     for (size_t i = 0; i < expected_row.size(); ++i) {
         if (!isClose(actual_row[i], expected_row[i])) {
             std::cerr << "Mismatch in row 10 at index " << i
@@ -309,7 +371,7 @@ void test_solve_values_lowT() {
         }
     }
 
-    std::cout << "Test passed: solve() produces the expected results.\n";
+    std::cout << "Test passed: solve_values_test_aspect() produces the expected results.\n";
 }
 
 
@@ -321,6 +383,7 @@ int main() {
     test_solve_modified_equations_eq18_1();
     test_solve_values();
     test_solve_values_lowT();
+    test_solve_values_test_aspect();
     std::cout << "All tests passed successfully!" << std::endl;
     return 0;
 }

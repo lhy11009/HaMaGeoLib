@@ -323,8 +323,8 @@ def test_solve_modified_equation():
     
     X_array, is_saturated_array = kinetics.solve_modified_equation(t_span, X_ini, is_saturated, n_span=5)
     
-    assert X_array.shape == (4, 5)
-    assert len(is_saturated_array) == 5
+    assert X_array.shape == (4, 6)
+    assert len(is_saturated_array) == 6
 
 
 def test_solve_values():
@@ -353,7 +353,7 @@ def test_solve_values():
     results = Mo_Kinetics.solve(P, T, t_max, n_t, n_span, debug=False)
     
     # "t" "N" "Dn" "S" "Vtilde" "V" "is_saturated"
-    assert(results.shape == (1000, 7))
+    assert(results.shape == (1001, 7))
 
     # Expected result for results[10, :]
     expected_row = np.array([
@@ -396,7 +396,7 @@ def test_solve_values_low_T():
     results = Mo_Kinetics.solve(P, T, t_max, n_t, n_span, debug=False)
     
     # "t" "N" "Dn" "S" "Vtilde" "V" "is_saturated"
-    assert(results.shape == (1000, 7))
+    assert(results.shape == (1001, 7))
 
     # Expected result for results[10, :]
     expected_row = np.array([

@@ -32,10 +32,12 @@ IRK4Solver::solve(const std::function<std::vector<double>(double, const std::vec
     std::vector<double> y = y0;
     double t = t0;
 
-    while (t < t_end) {
-        if (t + h > t_end) {
-            h = t_end - t;  // Adjust step size for the last step
-        }
+    const double epsilon = 1e-6;
+
+    while (t + h < t_end * (1.0 + epsilon)) {
+       
+        //increase t
+        t += h;
 
         size_t n = y.size();
         size_t stages = b.size();
@@ -118,10 +120,10 @@ IRK4Solver::solve(const std::function<std::vector<double>(double, const std::vec
         for (size_t k = 0; k < n; ++k) {
             y[k] += h * dy[k];
         }
-
-        t += h;
+        
         t_values.push_back(t);
         y_values.push_back(y);
+
     }
 
     return {t_values, y_values};

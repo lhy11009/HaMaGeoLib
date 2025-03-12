@@ -25,6 +25,11 @@ set(SOURCES_METASTABLE_DIAGRAM
 # Create the executable
 add_executable(metastable_diagram ${SOURCES_METASTABLE_DIAGRAM})
 
+# Enable debugging with gdb
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address -g -O0")
+    add_definitions(-DDEBUG)  # Define DEBUG macro
+endif()
 
-
-# Link libraries
+# Generate compile_commands.json, for better support with IntelliSense support in VS Code
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
