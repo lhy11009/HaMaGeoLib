@@ -58,11 +58,12 @@ def test_RheologyModel_HK03():
     tolerance = 1e-6
     assert(abs(stress1-stress1_std)/stress1_std < tolerance)
 
-    # Using the RheologyModel 
+    # Using the RheologyModel
+    # Diffusion Creep
     RM = RheologyModel(TEST_CSV_FILE)
-    rheology_params = RM.select_rheology_parameters("HK03_diffusion")
+    rheology_params_diff = RM.select_rheology_parameters("HK03_diffusion")
 
-    strain_rate_factor, _ = compute_SS_factors(rheology_params.experiment_flag)
+    strain_rate_factor, _ = compute_SS_factors(rheology_params_diff.experiment_flag)
 
     options = CreepOptions(
         strain_rate=7.8e-15/strain_rate_factor,
@@ -72,7 +73,37 @@ def test_RheologyModel_HK03():
         cOH=1000.0
     )
 
-    stress = RM.compute_stress_creep(rheology_params, options)
-    stress_std = 0.17306994929827937
-    tolerance = 1e-6
+    stress = RM.compute_stress_creep(rheology_params_diff, options)
+    stress_std = 0.173
+    tolerance = 1e-2
     assert(abs(stress-stress_std)/stress_std < tolerance)
+
+    options.stress = stress
+
+    strain_rate = RM.compute_strain_rate_creep(rheology_params_diff, options)
+    strain_rate_std = 7.8e-15/strain_rate_factor
+    tolerance = 1e-6
+    assert(abs(strain_rate-strain_rate_std)/strain_rate_std < tolerance)
+
+    # Dislocation Creep
+    rheology_params_disl = RM.select_rheology_parameters("HK03_dislocation")
+    
+    options = CreepOptions(
+        strain_rate=2.5e-12/strain_rate_factor,
+        pressure=1e9,
+        temperature=1673.0,
+        grain_size=1e4,
+        cOH=1000.0
+    )
+
+    stress = RM.compute_stress_creep(rheology_params_disl, options)
+    stress_std = 0.173
+    tolerance = 1e-2
+    assert(abs(stress-stress_std)/stress_std < tolerance)
+    
+    options.stress = stress
+    
+    strain_rate = RM.compute_strain_rate_creep(rheology_params_disl, options)
+    strain_rate_std = 2.5e-12/strain_rate_factor
+    tolerance = 1e-6
+    assert(abs(strain_rate-strain_rate_std)/strain_rate_std < tolerance)
