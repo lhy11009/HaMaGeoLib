@@ -14,13 +14,13 @@ Description:
 import os
 import pytest
 import pandas as pd
-from hamageolib.core.Rheology import RheologyModel  # Adjust imports if needed
+from hamageolib.core.Rheology import RheologyModel, CreepOptions, compute_stress_vectorized, compute_SS_factors  # Adjust imports if needed
 
 # Define test data directory
 TEST_DATA_DIR = os.path.join(os.path.dirname(__file__), "../../files/csv/")
 TEST_CSV_FILE = os.path.join(TEST_DATA_DIR, "rheology.csv")
 
-def test_HK03():
+def test_RheologyModel_init_RheologyParams():
     '''
     test RheologyModel.__init__();
     test contents of RheologyParams from function select_rheology_parameters
@@ -46,3 +46,33 @@ def test_HK03():
     assert rheology_params.mechanism_flag == 2  # Expected from MECHANISM_MAPPING
     assert rheology_params.unit_flag == 0       # Expected from UNIT_MAPPING
     assert rheology_params.wet_flag == 2        # Expected from WET_MAPPING
+
+
+def test_RheologyModel_HK03():
+    '''
+    test RheologyModel and compute HK03 rheology
+    '''
+    # Compute directly
+    stress1 = compute_stress_vectorized(1000000.0, 3.0, 1.0, 1.0, 335e3, 4e-6, 8.314, 7.8e-15, 1e9, 1673.15, 1e4, 1000.0)
+    stress1_std = 0.2991116739021758
+    tolerance = 1e-6
+    assert(abs(stress1-stress1_std)/stress1_std < tolerance)
+
+    # Using the RheologyModel 
+    RM = RheologyModel(TEST_CSV_FILE)
+    rheology_params = RM.select_rheology_parameters("HK03_diffusion")
+
+    strain_rate_factor, _ = compute_SS_factors(rheology_params.experiment_flag)
+
+    options = CreepOptions(
+        strain_rate=7.8e-15/strain_rate_factor,
+        pressure=1e9,
+        temperature=1673.0,
+        grain_size=1e4,
+        cOH=1000.0
+    )
+
+    stress = RM.compute_stress_creep(rheology_params, options)
+    stress_std = 0.17306994929827937
+    tolerance = 1e-6
+    assert(abs(stress-stress_std)/stress_std < tolerance)
