@@ -53,8 +53,9 @@ class RheologyModel:
     }
     
     WET_MAPPING = {
-        "coh": 1,
-        "constant-coh": 2
+        "wet": 1,
+        "constant-coh": 2,
+        "dry": 3,
     }
     
     EXPERIMENT_MAPPING = {
@@ -85,6 +86,34 @@ class RheologyModel:
                                                 + ["experiment_flag"])
         else:
             raise FileNotFoundError(f"Rheology parameter is empty: {csv_file}")
+        
+    def set_trivial_rheology_parameters(self):
+        '''
+        Return a set of rheology parameters with trivial values.
+        '''
+        # todo_vary
+        # Initialize an object with NaN/default values
+        trivial_rheology_params = self.RheologyParams(
+            name=None,              # String fields set to None
+            target=None,
+            mechanism=None,
+            experiment=None,
+            unit=None,
+            unit_water=None,
+            wet=None,
+            pre_factor=1.0,      # Numerical fields set to NaN
+            grain_size_exponent=0.0,
+            water_fugacity_exponent=0.0,
+            stress_exponent=0.0,
+            activation_energy=0.0,
+            activation_volume=0.0,
+            mechanism_flag=0,       # Flags default to 0 (or NaN if preferred)
+            unit_flag=0,
+            wet_flag=0,
+            experiment_flag=0
+        )
+
+        return trivial_rheology_params
     
     def select_rheology_parameters(self, model_name: str):
         """
@@ -111,6 +140,29 @@ class RheologyModel:
                self.WET_MAPPING.get(wet_str, 0), self.EXPERIMENT_MAPPING.get(experiment_str, 0)]
 
         return self.RheologyParams(*ordered_values)  # Use pre-defined NamedTuple
+    
+    def vary_rheology_parameters(self, rheology_params, rheology_params_variations, options):
+        '''
+        Vary the rheology parameters and refit the prefactor given by experimental options
+        Args:
+            rheology_params (NamedTuple): Rheology parameters.
+            rheology_params_variations (NamedTuple): Rheology parameters variations
+            options (class CreepOptions): Options for creep rheology.
+        '''
+        # todo_vary
+
+        rheology_params_new = rheology_params
+        
+        correction_factor = self.compute_strain_rate_creep(rheology_params_variations, options)
+
+        rheology_params_new = rheology_params_new._replace(pre_factor=rheology_params.pre_factor / correction_factor,\
+                                        grain_size_exponent=rheology_params.grain_size_exponent + rheology_params_variations.grain_size_exponent,
+                                        water_fugacity_exponent=rheology_params.water_fugacity_exponent + rheology_params_variations.water_fugacity_exponent,
+                                        stress_exponent=rheology_params.stress_exponent + rheology_params_variations.stress_exponent,
+                                        activation_energy=rheology_params.activation_energy + rheology_params_variations.activation_energy,
+                                        activation_volume=rheology_params.activation_volume + rheology_params_variations.activation_volume)
+        
+        return rheology_params_new
 
     def compute_stress_creep(self, rheology_params, options, **kwargs) -> float:
         """
@@ -124,11 +176,13 @@ class RheologyModel:
         Returns:
             float: Computed stress (Pa or MPa, depending on the unit of A).
         """
+        assert(not np.isnan(options.strain_rate))
+
         F_factor = compute_F_factor(rheology_params.experiment_flag, rheology_params.stress_exponent)
         
         # Compute the modified pre-exponential factor
         A_modified = F_factor * rheology_params.pre_factor
-    
+ 
         # Debug mode: Print related variables from `options`
         if kwargs.get("debug", False):
             print("DEBUG MODE: Computing stress")
@@ -138,21 +192,37 @@ class RheologyModel:
             print(f"  Temperature: {options.temperature:.2f} K")
             print(f"  Grain Size: {options.grain_size:.2e} m")
             print(f"  cOH (Water Fugacity/Cohesion): {options.cOH:.2e}")
-    
-        return compute_stress_vectorized(
-            A_modified,
-            rheology_params.grain_size_exponent,
-            rheology_params.water_fugacity_exponent,
-            rheology_params.stress_exponent,
-            rheology_params.activation_energy,
-            rheology_params.activation_volume,
-            self.gas_constant,  # Universal gas constant
-            options.strain_rate,
-            options.pressure,
-            options.temperature,
-            options.grain_size,
-            options.cOH
-        )
+
+        if rheology_params.wet_flag == 3:
+            # dry
+            return compute_stress_vectorized_dry(
+                A_modified,
+                rheology_params.grain_size_exponent,
+                rheology_params.stress_exponent,
+                rheology_params.activation_energy,
+                rheology_params.activation_volume,
+                self.gas_constant,  # Universal gas constant
+                options.strain_rate,
+                options.pressure,
+                options.temperature,
+                options.grain_size
+            )
+        else:
+            # wet
+            return compute_stress_vectorized(
+                A_modified,
+                rheology_params.grain_size_exponent,
+                rheology_params.water_fugacity_exponent,
+                rheology_params.stress_exponent,
+                rheology_params.activation_energy,
+                rheology_params.activation_volume,
+                self.gas_constant,  # Universal gas constant
+                options.strain_rate,
+                options.pressure,
+                options.temperature,
+                options.grain_size,
+                options.cOH
+            )
 
     def compute_strain_rate_creep(self, rheology_params, options, **kwargs) -> float:
         """
@@ -170,52 +240,123 @@ class RheologyModel:
         
         # Compute the modified pre-exponential factor
         A_modified = F_factor * rheology_params.pre_factor
+        
+        assert(not np.isnan(options.stress))
     
         # Debug mode: Print related variables from `options`
         if kwargs.get("debug", False):
             print("DEBUG MODE: Computing strain rate")
-            print(f"  A_modified: {A_modified}")
-            print(f"  Stress: {options.stress:.2e} Pa")
+            print("  A_modified: ", A_modified, "\n")
+            print("  Stress: ", options.stress, "\n")
+            print("  Pressure: ", options.pressure,"\n")
+            print("  Temperature: ", options.temperature, "\n")
+            print("  Grain Size: ", options.grain_size, "\n")
+            print("  cOH (Water Fugacity/Cohesion): ", options.cOH, "\n")
+    
+        if rheology_params.wet_flag == 3:
+            # dry
+            return compute_strain_rate_vectorized_dry(
+                A_modified,
+                rheology_params.grain_size_exponent,
+                rheology_params.stress_exponent,
+                rheology_params.activation_energy,
+                rheology_params.activation_volume,
+                self.gas_constant,  # Universal gas constant
+                options.stress,
+                options.pressure,
+                options.temperature,
+                options.grain_size
+            )
+        else:
+            # wet
+            return compute_strain_rate_vectorized(
+                A_modified,
+                rheology_params.grain_size_exponent,
+                rheology_params.water_fugacity_exponent,
+                rheology_params.stress_exponent,
+                rheology_params.activation_energy,
+                rheology_params.activation_volume,
+                self.gas_constant,  # Universal gas constant
+                options.stress,
+                options.pressure,
+                options.temperature,
+                options.grain_size,
+                options.cOH
+            )
+    
+    def compute_viscosity_creep(self, rheology_params, options, **kwargs) -> float:
+        """
+        Compute stress using the modified power-law rheology equation.
+    
+        Args:
+            rheology_params (NamedTuple): Rheology parameters from select_rheology_parameters().
+            options (class CreepOptions): Options for creep rheology.
+            **kwargs: Additional keyword arguments (e.g., debug=True to print variables).
+    
+        Returns:
+            float: Computed viscosity (Pa s).
+        """
+        if type(options.strain_rate) == np.ndarray:
+            assert not np.isnan(options.strain_rate).any(), "strain_rate contains NaN"
+        else:
+            assert not np.isnan(options.strain_rate), "strain_rate is NaN"
+
+        F_factor = compute_F_factor(rheology_params.experiment_flag, rheology_params.stress_exponent)
+        unit_factor = compute_unit_factor(rheology_params.unit_flag, rheology_params.stress_exponent, rheology_params.grain_size_exponent)
+        
+        # Compute the modified pre-exponential factor
+        A_modified = F_factor *  unit_factor * rheology_params.pre_factor
+    
+        # Debug mode: Print related variables from `options`
+        if kwargs.get("debug", False):
+            print("DEBUG MODE: Computing stress")
+            print(f"  A_modified: {A_modified:.2e}")
+            print(f"  Strain Rate: {options.strain_rate:.2e} s^-1")
             print(f"  Pressure: {options.pressure:.2e} Pa")
             print(f"  Temperature: {options.temperature:.2f} K")
             print(f"  Grain Size: {options.grain_size:.2e} m")
             print(f"  cOH (Water Fugacity/Cohesion): {options.cOH:.2e}")
     
-        return compute_strain_rate_vectorized(
-            A_modified,
-            rheology_params.grain_size_exponent,
-            rheology_params.water_fugacity_exponent,
-            rheology_params.stress_exponent,
-            rheology_params.activation_energy,
-            rheology_params.activation_volume,
-            self.gas_constant,  # Universal gas constant
-            options.stress,
-            options.pressure,
-            options.temperature,
-            options.grain_size,
-            options.cOH
+        if rheology_params.wet_flag == 3:
+            # dry
+            return compute_viscosity_vectorized_dry(
+                A_modified,
+                rheology_params.grain_size_exponent,
+                rheology_params.stress_exponent,
+                rheology_params.activation_energy,
+                rheology_params.activation_volume,
+                self.gas_constant,  # Universal gas constant
+                options.strain_rate,
+                options.pressure,
+                options.temperature,
+                options.grain_size)
+        else:
+            # wet
+            return compute_viscosity_vectorized(
+                A_modified,
+                rheology_params.grain_size_exponent,
+                rheology_params.water_fugacity_exponent,
+                rheology_params.stress_exponent,
+                rheology_params.activation_energy,
+                rheology_params.activation_volume,
+                self.gas_constant,  # Universal gas constant
+                options.strain_rate,
+                options.pressure,
+                options.temperature,
+                options.grain_size,
+                options.cOH
         )
 
-    
-class CreepOptions:
-    """
-    Stores environmental conditions and computed stress for creep calculations.
 
-    Attributes:
-        strain_rate (float): Strain rate (1/s), default NaN.
-        pressure (float): Pressure (Pa), default NaN.
-        temperature (float): Temperature (K), default NaN.
-        grain_size (float): Grain size (m), default NaN.
-        cOH (float): H/10^6 Si, default NaN.
-        stress (float): Computed stress (Pa), default NaN.
-    """
-    def __init__(self, strain_rate=np.nan, pressure=np.nan, temperature=np.nan, grain_size=np.nan, cOH=np.nan, stress=np.nan):
-        self.strain_rate = strain_rate
-        self.pressure = pressure
-        self.temperature = temperature
-        self.grain_size = grain_size
-        self.cOH = cOH
-        self.stress = stress  # Computed stress will be stored here
+# Define the namedtuple class with fields
+CreepOptions = namedtuple("CreepOptions", [
+    "strain_rate",
+    "pressure",
+    "temperature",
+    "grain_size",
+    "cOH",
+    "stress"
+])
 
 
 def compute_stress_vectorized(A, p, r, n, E, V, R, strain_rate, pressure, temperature, grain_size, cOH):
@@ -270,6 +411,112 @@ def compute_strain_rate_vectorized(A, p, r, n, E, V, R, stress, pressure, temper
 
     return strain_rate
 
+def compute_viscosity_vectorized(A, p, r, n, E, V, R, strain_rate, pressure, temperature, grain_size, cOH):
+    """
+    Compute viscosity (η) using the rheology equation.
+
+    Args:
+        A (float): Pre-exponential factor.
+        p (float): Grain size exponent.
+        r (float): Water fugacity exponent.
+        n (float): Stress exponent.
+        E (float): Activation energy (J/mol).
+        V (float): Activation volume (m³/mol).
+        R (float): Universal gas constant (J/mol/K).
+        strain_rate (float or np.ndarray): Strain rate (1/s).
+        pressure (float or np.ndarray): Pressure (Pa).
+        temperature (float or np.ndarray): Temperature (K).
+        grain_size (float or np.ndarray): Grain size (m).
+        cOH (float or np.ndarray): Water fugacity or cohesion.
+
+    Returns:
+        float or np.ndarray: Computed viscosity (Pa·s).
+    """
+    # Compute rheological prefactor B
+    B = A * (grain_size ** (-p)) * (cOH ** r)
+
+    # Compute viscosity η
+    eta = (1 / 2.0) * (strain_rate ** (1.0 / n - 1)) * (B ** (-1.0 / n)) \
+          * np.exp((E + pressure * V) / (n * R * temperature)) * 1e6  # Convert to MPa·s
+    
+    return eta
+
+def compute_stress_vectorized_dry(A, p, n, E, V, R, strain_rate, pressure, temperature, grain_size):
+    """
+    Compute stress for vectorized inputs using NumPy.
+    
+    Args:
+        A (float): Pre-exponential factor.
+        p (float): Grain size exponent.
+        n (float): Stress exponent.
+        E (float): Activation energy (J/mol).
+        V (float): Activation volume (m³/mol).
+        R (float): Universal gas constant (J/mol/K).
+        strain_rate (float or np.ndarray): Stress (s^-1).
+        pressure (float or np.ndarray): Pressure (Pa).
+        temperature (float or np.ndarray): Temperature (K).
+        grain_size (float or np.ndarray): Grain size (m).
+    """
+    B = A * (grain_size ** (-p))
+    stress = (strain_rate / B) ** (1.0 / n) * np.exp((E + pressure * V) / (n * R * temperature))
+    return stress
+
+
+def compute_strain_rate_vectorized_dry(A, p, n, E, V, R, stress, pressure, temperature, grain_size):
+    """
+    Compute strain rate for vectorized inputs using NumPy.
+
+    Args:
+        A (float): Pre-exponential factor.
+        p (float): Grain size exponent.
+        n (float): Stress exponent.
+        E (float): Activation energy (J/mol).
+        V (float): Activation volume (m³/mol).
+        R (float): Universal gas constant (J/mol/K).
+        stress (float or np.ndarray): Stress (Pa or MPa, depending on unit in A).
+        pressure (float or np.ndarray): Pressure (Pa).
+        temperature (float or np.ndarray): Temperature (K).
+        grain_size (float or np.ndarray): Grain size (m).
+
+    Returns:
+        float or np.ndarray: Computed strain rate (1/s).
+    """
+    # Compute rheological prefactor B
+    B = A * (grain_size ** (-p))
+
+    # Compute strain rate
+    strain_rate = B * (stress ** n) * np.exp(-(E + pressure * V) / (R * temperature))
+
+    return strain_rate
+
+def compute_viscosity_vectorized_dry(A, p, n, E, V, R, strain_rate, pressure, temperature, grain_size):
+    """
+    Compute viscosity (η) using the rheology equation.
+
+    Args:
+        A (float): Pre-exponential factor.
+        p (float): Grain size exponent.
+        n (float): Stress exponent.
+        E (float): Activation energy (J/mol).
+        V (float): Activation volume (m³/mol).
+        R (float): Universal gas constant (J/mol/K).
+        strain_rate (float or np.ndarray): Strain rate (1/s).
+        pressure (float or np.ndarray): Pressure (Pa).
+        temperature (float or np.ndarray): Temperature (K).
+        grain_size (float or np.ndarray): Grain size (m).
+
+    Returns:
+        float or np.ndarray: Computed viscosity (Pa·s).
+    """
+    # Compute rheological prefactor B
+    B = A * (grain_size ** (-p))
+
+    # Compute viscosity η
+    eta = (1 / 2.0) * (strain_rate ** (1.0 / n - 1)) * (B ** (-1.0 / n)) \
+          * np.exp((E + pressure * V) / (n * R * temperature)) * 1e6  # Convert to MPa·s
+    
+    return eta
+
 
 def compute_SS_factors(experiment_flag: int) -> float:
     """
@@ -313,3 +560,23 @@ def compute_F_factor(experiment_flag: int, stress_exponent: float) -> float:
         return 2.0**(stress_exponent - 1.0)  # Common correction factor for shear experiments
     else:
         raise ValueError(f"Unknown experiment_flag: {experiment_flag}")
+
+
+def compute_unit_factor(unit_flag: int, stress_exponent: float, grain_size_exponent: float) -> float:
+    """
+    Compute the F_factor based on the experiment_flag and stress exponent.
+
+    Args:
+        experiment_flag (int): Integer flag indicating the experiment type.
+        stress_exponent (float): Stress exponent (n) from rheology parameters.
+        grain_size_exponent (float): grain_size_exponent (p) from rheology parameters.
+
+    Returns:
+        float: Computed F_factor.
+    """
+    if unit_flag == 0:  # Already calibrated
+        return 1.0
+    elif unit_flag == 1:  # um^p * mPa^(-n)
+        return 10**(-6*(stress_exponent + grain_size_exponent))
+    else:
+        raise ValueError(f"Unknown experiment_flag: {unit_flag}")

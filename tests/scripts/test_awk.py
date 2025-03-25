@@ -5,7 +5,7 @@ import filecmp
 base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../"))
 
 def test_parse_block_newton():
-    awk_script_path = os.path.join(base_dir, "scripts", "parse_block_newton.awk")
+    awk_script_path = os.path.join(base_dir, "scripts", "awk", "parse_block_newton.awk")
     input_file = os.path.join(base_dir, "tests/fixtures/scripts/awk/mock_aspect_log.txt")
     expected_output = os.path.join(base_dir, "tests/fixtures/scripts/awk/expected_newton_output.txt")
     actual_dir = os.path.join(base_dir, "tmp/awk_tests")
@@ -34,7 +34,7 @@ def test_parse_block_newton():
 
 def test_parse_snapshots():
     # in this case, there is no snapshots saved
-    awk_script_path = os.path.join(base_dir, "scripts", "parse_snapshots.awk")
+    awk_script_path = os.path.join(base_dir, "scripts", "awk", "parse_snapshots.awk")
     input_file = os.path.join(base_dir, "tests/fixtures/scripts/awk/mock_aspect_log.txt")
     expected_output = os.path.join(base_dir, "tests/fixtures/scripts/awk/expected_snapshots_output.txt")
     actual_dir = os.path.join(base_dir, "tmp/awk_tests")
@@ -63,7 +63,7 @@ def test_parse_snapshots():
 
 def test_parse_snapshots():
     # in this case, there are two snapshots saved
-    awk_script_path = os.path.join(base_dir, "scripts", "parse_snapshots.awk")
+    awk_script_path = os.path.join(base_dir, "scripts", "awk", "parse_snapshots.awk")
     input_file = os.path.join(base_dir, "tests/fixtures/scripts/awk/mock_aspect_log_1.txt")
     expected_output = os.path.join(base_dir, "tests/fixtures/scripts/awk/expected_snapshots_output_1.txt")
     actual_dir = os.path.join(base_dir, "tmp/awk_tests")
@@ -93,7 +93,7 @@ def test_parse_snapshots():
 
 def test_parse_time_info():
     # in this case, there are two snapshots saved
-    awk_script_path = os.path.join(base_dir, "scripts", "parse_block_output.awk")
+    awk_script_path = os.path.join(base_dir, "scripts", "awk", "parse_block_output.awk")
     input_file = os.path.join(base_dir, "tests/fixtures/scripts/awk/mock_aspect_log_1.txt")
     expected_output = os.path.join(base_dir, "tests/fixtures/scripts/awk/expected_time_info.txt")
     actual_dir = os.path.join(base_dir, "tmp/awk_tests")

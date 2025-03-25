@@ -1,3 +1,13 @@
-name,mechanism,experiment,unit,wet,pre_factor,grain_size_exponent,water_fugacity_exponent,stress_exponent,activation_energy,activation_volume
-HK03_dislocation,dislocation,axial_compression,p-MPa_d-mum,constant-coh,90,0.0,1.2,3.5,480000,1.1e-05
-HK03_diffusion,diffusion,axial_compression,p-MPa_d-mum,constant-coh,1000000.0,3.0,1.0,1.0,335000,4e-06 
+name,target,mechanism,experiment,unit,unit_water,wet,pre_factor,grain_size_exponent,water_fugacity_exponent,stress_exponent,activation_energy,activation_volume
+HK03_dislocation,olivine,dislocation,axial_compression,p-MPa_d-mum,ppm-H-per-Si,constant-coh,90.0,0.0,1.2,3.5,480000.0,1.1e-05
+HK03_diffusion,olivine,diffusion,axial_compression,p-MPa_d-mum,ppm-H-per-Si,constant-coh,1000000.0,3.0,1.0,1.0,335000.0,4e-06
+WH23_dry_dislocation,olivine,dislocation,axial_compression,p-MPa_d-mum,,dry,110000.0,0.0,,3.5,530000.0,1.5e-05
+WH23_wet_dislocation,olivine,dislocation,axial_compression,p-MPa_d-mum,ppm-H-per-Si,wet,20.0,0.0,1.2,3.5,480000.0,1.1e-05
+WH23_wet_dislocation_ppm_H2O,olivine,dislocation,axial_compression,p-MPa_d-mum,ppm-H2O,wet,570.0,0.0,1.2,3.5,480000.0,1.1e-05
+WH23_dry_gbs,olivine,GBS,,p-MPa_d-mum,,dry,63095.7344480193,2.9,0.7,,445000.0,1.5e-05
+WH23_dry_diffusion_HK03,olivine,diffusion,axial_compression,p-MPa_d-mum,,dry,1500000000.0,1.0,3.0,,375000.0,6e-06
+WH23_dry_diffusion_HZK11,olivine,diffusion,axial_compression,p-MPa_d-mum,ppm-H-per-Si,dry,39810717.05534969,1.0,3.0,,375000.0,6e-06
+WH23_wet_diffusion,olivine,diffusion,axial_compression,p-MPa_d-mum,ppm-H-per-Si,wet,290000.0,1.0,3.0,1.0,335000.0,1.9e-06
+WH23_wet_diffusion_ppm_H2O,olivine,diffusion,axial_compression,p-MPa_d-mum,ppm-H2O,wet,4700000.0,1.0,3.0,1.0,335000.0,1.9e-06
+WH23_opx_dislocation,orthopyroxene,dislocation,,p-MPa_d-mum,,dry,398107170.5534969,3.0,0.0,,600000.0,
+WH23_cpx_dislocation,clinopyroxene,dislocation,,p-MPa_d-mum,,dry,6309573444.801943,4.7,0.0,,760000.0,

@@ -407,7 +407,7 @@ def parse_log_file_for_time_info(log_file_path, output_path, **kwargs):
     """
     debug = kwargs.get("debug", False)
 
-    awk_configuration_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts/parse_block_output.awk"))
+    awk_configuration_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts/awk/parse_block_output.awk"))
     assert(os.path.isfile(awk_configuration_file))
 
     with open(output_path, "w") as fout: 
@@ -507,7 +507,7 @@ def parse_log_file_for_visualization_snapshots(log_file_path, output_path, **kwa
     """
     debug = kwargs.get("debug", False)
 
-    awk_configuration_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts/parse_snapshots.awk"))
+    awk_configuration_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts/awk/parse_snapshots.awk"))
     assert(os.path.isfile(awk_configuration_file))
 
     with open(output_path, "w") as fout: 

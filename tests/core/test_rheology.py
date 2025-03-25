@@ -13,6 +13,7 @@ Description:
 
 import os
 import pytest
+import numpy as np
 import pandas as pd
 from hamageolib.core.Rheology import RheologyModel, CreepOptions, compute_stress_vectorized, compute_SS_factors  # Adjust imports if needed
 
@@ -67,6 +68,7 @@ def test_RheologyModel_HK03():
 
     options = CreepOptions(
         strain_rate=7.8e-15/strain_rate_factor,
+        stress=np.nan,
         pressure=1e9,
         temperature=1673.0,
         grain_size=1e4,
@@ -78,18 +80,24 @@ def test_RheologyModel_HK03():
     tolerance = 1e-2
     assert(abs(stress-stress_std)/stress_std < tolerance)
 
-    options.stress = stress
+    options = options._replace(stress=stress)
 
     strain_rate = RM.compute_strain_rate_creep(rheology_params_diff, options)
     strain_rate_std = 7.8e-15/strain_rate_factor
     tolerance = 1e-6
     assert(abs(strain_rate-strain_rate_std)/strain_rate_std < tolerance)
 
+    viscosity = RM.compute_viscosity_creep(rheology_params_diff, options)
+    viscosity_std = 1.28e+19
+    tolerance = 1e-2
+    assert(abs(viscosity-viscosity_std)/viscosity_std < tolerance)
+
     # Dislocation Creep
     rheology_params_disl = RM.select_rheology_parameters("HK03_dislocation")
     
     options = CreepOptions(
         strain_rate=2.5e-12/strain_rate_factor,
+        stress=np.nan,
         pressure=1e9,
         temperature=1673.0,
         grain_size=1e4,
@@ -101,9 +109,14 @@ def test_RheologyModel_HK03():
     tolerance = 1e-2
     assert(abs(stress-stress_std)/stress_std < tolerance)
     
-    options.stress = stress
+    options = options._replace(stress=stress)
     
     strain_rate = RM.compute_strain_rate_creep(rheology_params_disl, options)
     strain_rate_std = 2.5e-12/strain_rate_factor
     tolerance = 1e-6
     assert(abs(strain_rate-strain_rate_std)/strain_rate_std < tolerance)
+    
+    viscosity = RM.compute_viscosity_creep(rheology_params_disl, options)
+    viscosity_std = 4.01e+16 
+    tolerance = 1e-2
+    assert(abs(viscosity-viscosity_std)/viscosity_std < tolerance)
