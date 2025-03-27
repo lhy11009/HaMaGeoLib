@@ -49,6 +49,7 @@ from PIL import Image, ImageDraw, ImageFont  # Pillow for cropping and saving im
 import subprocess
 
 from .file_reader import read_aspect_header_file
+from .exception_handler import my_assert
 
 def scale_matplotlib_params(scaling_factor=1.0, **kwargs):
     """
@@ -536,3 +537,63 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
         plt.close(fig)
 
     print(f"Statistic plots have been saved to: {output_dir}")
+
+# generate_solver_plot
+def generate_solver_plot_history(file_path, output_dir="plots", **kwargs):
+    """
+    Generates statistical plots from the simulation log file.
+
+    Args:
+        file_path (str): Path to the simulation log file.
+        output_dir (str): Directory to save the generated plots.
+        **kwargs: Optional arguments for plot customization passed to plot_statistic_generic.
+
+    Returns:
+        None
+    """
+    # todo_solver
+    pass
+    # Read the data
+    # data = read_aspect_header_file(file_path)
+
+    # time_steps = data["Time step number"]
+    # residuals = data[""]
+    # # Get a range of steps to plot
+    # trailer = None  # used for file names
+    # time_step_range = kwargs.get('time_step_range', None)
+    # if time_step_range == None:
+    #     s_mask = (time_steps >= 0)
+    # else:
+    #     my_assert(type(time_step_range) == list and len(time_step_range) == 2, TypeError, "%s: time_step_range must be a list of 2." % Utilities.func_name())
+    #     s_mask = ((time_steps >= time_step_range[0]) & (time_steps <= time_step_range[1]))  # this is hard coded to be 0 for now
+    #     trailer = "%d_%d" % (time_step_range[0], time_step_range[1])
+
+    # # Ensure the output directory exists
+    # os.makedirs(output_dir, exist_ok=True)
+
+    # # Figure 1: residual and number of interations
+    # fig, ax = plt.subplot(figsize=(5, 8))
+    # # line 1: residual
+    # color = 'tab:blue'
+    # ax.semilogy(time_steps[s_mask], residuals[s_mask], '-', linewidth=1.5, color=color, label='Residuals')
+    # ax.set_ylabel('Relative non-linear residual', color=color)
+    # ax.set_xlabel('Steps')
+    # ax.set_title('Solver History')
+    # ax.tick_params(axis='y', labelcolor=color)
+    # ax.legend()
+    # # line 2: iterations
+    # ax2 = ax.twinx()
+    # color = 'tab:red'
+    # ax2.plot(time_steps[s_mask], number_of_iterations[s_mask], '.', color=color, label='Numbers of Iterations')
+    # ax2.set_ylabel('Numbers of Iterations', color=color)
+    # ax2.tick_params(axis='y', labelcolor=color)
+
+    # if trailer is None:
+    #     file_name = "solver_history.png"
+    # else:
+    #     file_name = "solver_history_%s.png" % trailer
+    # fig_path = os.path.join(output_dir, file_name)
+    # fig.savefig(fig_path)
+    # print("%s: Generate figure %s" % (func_name(), fig_path))
+
+    # print(data) # debug

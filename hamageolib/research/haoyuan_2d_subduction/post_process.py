@@ -32,8 +32,6 @@ path_ = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 if path_ not in sys.path:
     sys.path.append(path_)
 
-print(sys.path) # debug
-
 from hamageolib.utils import case_options as C_Options
 from hamageolib.utils.geometry_utilities import convert_to_unified_coordinates_2d
 

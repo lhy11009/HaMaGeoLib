@@ -40,7 +40,7 @@ import subprocess
 import pandas as pd
 from .dealii_param_parser import parse_parameters_to_dict
 from .exception_handler import my_assert
-from .handy_shortcuts_haoyuan import func_name
+from .handy_shortcuts_haoyuan import func_name, strip_and_split
 from .file_reader import read_aspect_header_file
 
 class CASE_OPTIONS:
@@ -121,6 +121,14 @@ class CASE_OPTIONS:
         my_assert(os.access(log_file_path, os.R_OK), FileNotFoundError,
                   'BASH_OPTIONS.__init__: log file - %s cannot be read' % log_file_path)
         self.time_df = parse_log_file_for_time_info_to_pd(log_file_path)
+        # todo_awk
+        # header infomation: versions
+        results = parse_log_file_for_header_info(log_file_path)
+        self.aspect_version = results[0]
+        self.dealii_version = results[1]
+        self.world_builder_version = results[2]
+        self.n_mpi = int(results[3])
+    
 
         # Read visualization files
         # parse information of the output file
@@ -422,6 +430,109 @@ def parse_log_file_for_time_info(log_file_path, output_path, **kwargs):
         print(f"Executed command:", completed_process.args)  # Debug: show the executed command
         # print(f"Output:\n", completed_process.stdout)  # Debug: show the captured output
         print(f"Error:\n", completed_process.stderr)  # Debug: show the captured output
+
+
+def parse_log_file_for_header_info(log_file_path, **kwargs):
+    """
+    Parses a log file to extract header information using an AWK script.
+
+    Args:
+        log_file_path (str): Path to the input log file containing snapshot data.
+        **kwargs: Additional optional arguments:
+            - debug (bool): If True, prints the executed command and its output for debugging purposes. Defaults to False.
+
+    Details:
+        - The function uses an AWK script to process the log file. The script's path is determined relative
+          to the script's directory.
+        - The `subprocess.run` command executes the AWK script with the provided log file and output path.
+        - If `debug` is enabled, the executed command and the captured output are printed.
+
+    Notes:
+        - Ensure the AWK script (`parse_snapshots.awk`) exists at the expected relative location.
+        - The output path should be writable, and the input log file should be readable.
+
+    Example:
+        parse_log_file_for_header_info(
+            log_file_path="/path/to/log_file.log",
+            debug=True
+        )
+    """
+    debug = kwargs.get("debug", False)
+
+    awk_configuration_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "awk", "parse_block_header.awk"))
+    assert(os.path.isfile(awk_configuration_file))
+
+    completed_process = subprocess.run(
+        ["awk", "-f", awk_configuration_file, log_file_path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE, 
+        text=True
+    )
+
+    results = completed_process.stdout.split("\n")[1]
+    
+    if debug: 
+        print(f"Executed command:", completed_process.args)  # Debug: show the executed command
+        print(f"Output:\n", completed_process.stdout)  # Debug: show the captured output
+        print(f"Error:\n", completed_process.stderr)  # Debug: show the captured output
+
+    return strip_and_split(results)
+
+
+# todo_awk
+def parse_log_file_for_solver_info(log_file_path, output_path, **kwargs):
+    """
+    Parses a log file to solver information using an awk script.
+
+    Args:
+        log_file_path (str): Path to the input log file containing snapshot data.
+        output_path (str): Path to save the extracted snapshot information.
+        **kwargs: Additional optional arguments:
+            - debug (bool): If True, prints the executed command and its output for debugging purposes. Defaults to False.
+
+    Details:
+        - The function uses an AWK script to process the log file. The script's path is determined relative
+          to the script's directory.
+        - The `subprocess.run` command executes the AWK script with the provided log file and output path.
+        - If `debug` is enabled, the executed command and the captured output are printed.
+
+    Notes:
+        - Ensure the AWK script exists at the expected relative location.
+        - The output path should be writable, and the input log file should be readable.
+
+    Example:
+        parse_log_file_for_solver_info(
+            log_file_path="/path/to/log_file.log",
+            output_path="/path/to/output.txt",
+            debug=True
+        )
+    """
+    debug = kwargs.get("debug", False)
+    major_version = kwargs.get("major_version", 2)
+
+    awk_configuration_file = None
+    if major_version == 2:
+        awk_configuration_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "awk", "parse_block_newton_v2_6_0.awk"))
+    elif major_version == 3:
+        awk_configuration_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts", "awk", "parse_block_newton_v3_1_0.awk"))
+    else:
+        raise NotImplementedError()
+
+    assert(os.path.isfile(awk_configuration_file))
+
+    with open(output_path, "w") as fout: 
+        completed_process = subprocess.run(
+            ["awk", "-f", awk_configuration_file, log_file_path],
+            stdout=fout,
+            stderr=subprocess.PIPE, 
+            text=True
+        )
+
+    if debug: 
+        print(f"Executed command:", completed_process.args)  # Debug: show the executed command
+        # print(f"Output:\n", completed_process.stdout)  # Debug: show the captured output
+        print(f"Error:\n", completed_process.stderr)  # Debug: show the captured output
+
 
 
 def parse_log_file_for_time_info_to_pd(log_file_path, **kwargs):

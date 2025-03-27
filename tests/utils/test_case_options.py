@@ -22,6 +22,11 @@ def test_case_options(tmp_path):
     # Initialize CASE_OPTIONS instance and interpret options
     Case_Options = CASE_OPTIONS(case_dir)
 
+    assert(Case_Options.aspect_version == '2.6.0-pre')
+    assert(Case_Options.dealii_version == '9.5.0')
+    assert(Case_Options.world_builder_version == 'nan')
+    assert(Case_Options.n_mpi == 32)
+
 
 def test_filter_and_match_single_series():
     # Test with a single additional Series

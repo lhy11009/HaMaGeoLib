@@ -33,7 +33,6 @@ import os
 import sys
 import warnings
 
-
 def func_name():
     """
     Returns the name of the calling function.
@@ -59,6 +58,19 @@ def check_float(val, val_expected, tolerance=1e-8):
     """
     # Compares the relative difference between val and val_expected to the tolerance
     return (abs((val - val_expected) / val_expected) < tolerance)
+
+
+def strip_and_split(info_str):
+    """
+    Parse a space-separated inputs into a list.
+
+    Args:
+        info_str (str): A string with space-separated version fields.
+
+    Returns:
+        list[str]: A list of extracted values.
+    """
+    return info_str.strip().split()
 
 
 class Mute:
