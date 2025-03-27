@@ -121,7 +121,6 @@ class CASE_OPTIONS:
         my_assert(os.access(log_file_path, os.R_OK), FileNotFoundError,
                   'BASH_OPTIONS.__init__: log file - %s cannot be read' % log_file_path)
         self.time_df = parse_log_file_for_time_info_to_pd(log_file_path)
-        # todo_awk
         # header infomation: versions
         results = parse_log_file_for_header_info(log_file_path)
         self.aspect_version = results[0]
@@ -479,7 +478,6 @@ def parse_log_file_for_header_info(log_file_path, **kwargs):
     return strip_and_split(results)
 
 
-# todo_awk
 def parse_log_file_for_solver_info(log_file_path, output_path, **kwargs):
     """
     Parses a log file to solver information using an awk script.
