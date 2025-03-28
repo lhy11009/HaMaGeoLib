@@ -1,0 +1,71 @@
+{
+    "rheologies" : [
+        {
+            "diffusion": "HK03_dry",
+            "dislocation": "HK03_dry",
+            "grain size": 3e3,
+            "strain rate": 1e-13
+        },
+        {
+            "diffusion": "HK03",
+            "dislocation": "HK03",
+            "grain size": 3e3,
+            "strain rate": 1e-13
+        },
+        {
+            "diffusion": "Dimanov_Dresen_An50Di35D_dry",
+            "dislocation": "Dimanov_Dresen_An50Di35D_dry",
+            "grain size": 3e3
+        },
+        {
+            "diffusion": "Dimanov_Dresen_An50Di35D_dry",
+            "dislocation": "Dimanov_Dresen_An50Di35D_dry",
+            "grain size": 35.0
+        },
+        {
+            "diffusion": "Dimanov_Dresen_An50Di35D_dry",
+            "dislocation": "Dimanov_Dresen_An50Di35D_dry",
+            "diffusion prefactor difference ratio": 4.13221149e-2,
+            "diffusion activation energy difference" : 37e3,
+            "grain size": 35.0
+        },
+        {
+            "diffusion": "Dimanov_Dresen_An50Di35D_dry",
+            "dislocation": "Dimanov_Dresen_An50Di35D_dry",
+            "diffusion prefactor difference ratio": 22.7355371,
+            "diffusion activation energy difference" : -37e3,
+            "grain size": 35.0
+        },
+        {
+            "diffusion": "Dimanov_Dresen_An50Di35D_dry",
+            "dislocation": "Dimanov_Dresen_An50Di35D_dry",
+            "grain size": 100.0
+        },
+        {
+            "dislocation": "ST1981_basalt"
+        }
+    ],
+    "plots" : [
+        {
+            "type": "strain rate vs stress",
+            "T": 400.0
+        },
+        {
+            "type": "strain rate vs stress",
+            "T": 875.0
+        },
+        {
+            "type": "strain rate vs stress",
+            "T": 925.0
+        },
+        {
+            "type": "viscosity vs temperature",
+            "strain rates": [1e-13]
+        },
+        {
+            "type": "viscosity vs temperature",
+            "strain rates": [1e-15]
+        }
+    ],
+    "figure path": "${ASPECT_LAB_DIR}/.test/test_rheology_json/test_rheology_summary.png"
+}

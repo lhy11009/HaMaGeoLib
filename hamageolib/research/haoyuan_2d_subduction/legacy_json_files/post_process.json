@@ -1,0 +1,364 @@
+{
+    "Statistics":{
+        "canvas": [3, 3],
+        "types": [
+            "Time",
+            "Number_of_Cells",
+            "Iterations_for_Stokes_solver",
+            "Iterations_for_temperature_solver",
+            "Number_of_nonlinear_iterations",
+            ["Heat_Flux_1", "Heat_Flux_2", "Heat_Flux_3"],
+            ["RMS_Velocity", "Max_Velocity"],
+            ["Average_Temperature", "Minimal_Temperature", "Maximal_Temperature"],
+            "Global_mass_for_composition_C_1"
+        ],
+        "size": [15, 15],
+        "Average_Temperature":{
+            "name": "Average_Temperature", 
+            "xname": "Time", 
+            "yname": "Average_temperature", 
+            "color": "r", 
+            "line": ".",
+            "label": "Average Temperature"
+        },
+        "Global_mass_for_composition_C_1":{
+            "name": "Global_mass_for_composition_C_1", 
+            "xname": "Time", 
+            "yname": "Global_mass_for_composition_C_1", 
+            "color": "b", 
+            "line": ".",
+            "label": "Global mass for composition C 1"
+        },
+        "Heat_Flux_0":{
+            "name": "Statistics_Heat_Flux_0",
+            "xname": "Time",
+            "yname": "Outward_heat_flux_through_boundary_with_indicator_0",
+            "color": "y",
+            "line": ".",
+            "label": "Heat Flux 0"
+        },
+        "Heat_Flux_1":
+        {
+            "name": "Statistics_Heat_Flux_1",
+            "xname": "Time",
+            "yname": "Outward_heat_flux_through_boundary_with_indicator_1",
+            "color": "g",
+            "line": ".",
+            "label": "Heat Flux 1"
+        },
+        "Heat_Flux_2":
+        {
+            "name": "Statistics_Heat_Flux_2",
+            "xname": "Time",
+            "yname": "Outward_heat_flux_through_boundary_with_indicator_2",
+            "color": "r",
+            "line": ".",
+            "label": "Heat Flux 2"
+        },
+        "Heat_Flux_3":
+        {
+            "name": "Statistics_Heat_Flux_3",
+            "xname": "Time",
+            "yname": "Outward_heat_flux_through_boundary_with_indicator_3",
+            "color": "b",
+            "line": ".",
+            "label": "Heat Flux 3"
+        },
+        "Iterations_for_Stokes_solver":
+        {
+            "name": "Iterations_for_Stokes_solver",
+            "xname": "Time_step_number",
+            "yname": "Iterations_for_Stokes_solver",
+            "color": "g",
+            "line": ".",
+            "label": "Iterations for Stokes solver"
+        },
+        "Iterations_for_temperature_solver":
+        {
+            "name": "Iterations_for_temperature_solver",
+            "xname": "Time_step_number",
+            "yname": "Iterations_for_temperature_solver",
+            "color": "b",
+            "line": ".",
+            "label": "Iterations for temperature solver"
+        },
+        "Maximal_Temperature":
+        {
+            "name": "Maximal_Temperature", 
+            "xname": "Time", 
+            "yname": "Maximal_temperature", 
+            "color": "b", 
+            "line": ".",
+            "label": "Maximal Temperature"
+        },
+        "Max_Velocity":
+        {
+            "name": "Max_Velocity", 
+            "xname": "Time", 
+            "yname": "Max._velocity", 
+            "color": "b", 
+            "line": ".",
+            "label": "Max Velocity"
+        },
+        "Minimal_Temperature":
+        {
+            "name": "Minimal_Temperature", 
+            "xname": "Time", 
+            "yname": "Minimal_temperature", 
+            "color": "g", 
+            "line": ".",
+            "label": "Minimal Temperature"
+        },
+        "Number_of_Cells":
+        {
+            "name": "Number_of_Cells",
+            "xname": "Time_step_number",
+            "yname": "Number_of_mesh_cells",
+            "color": "b",
+            "line": ".",
+            "label": "Number of Mesh Cell"
+        },
+        "Number_of_nonlinear_iterations":
+        {
+            "name": "Number_of_nonlinear_iterations",
+            "xname": "Time_step_number",
+            "yname": "Number_of_nonlinear_iterations",
+            "color": "r",
+            "line": ".",
+            "label": "Number of nonlinear iterations"
+        },
+        "RMS_Velocity":
+        {
+            "name": "RMS_Velocity", 
+            "xname": "Time", 
+            "yname": "RMS_velocity", 
+            "color": "r", 
+            "line": ".",
+            "label": "RMS Velocity"
+        },
+        "Time":
+        {
+            "name": "Time",
+            "xname": "Time_step_number",
+            "yname": "Time",
+            "yunit": "myr",
+            "color": "k",
+            "line": ".",
+            "label": "Time"
+        }
+
+    },
+    "DepthAverage":{
+        "canvas": [2, 2],
+        "types": [
+            ["temperature", "adiabatic_temperature", "super_adiabatic_temperature"],
+            "viscosity",
+            "velocity_magnitude",
+            "vertical_heat_flux"
+        ],
+        "size": [10, 10],
+        "super_adiabatic_temperature":
+        {
+            "name": "super_adiabatic_temperature",
+            "xname": "super_adiabatic_temperature",
+            "xunit": "K",
+            "yname": "depth",
+            "yunit": "km",
+            "invert_y": 1,
+            "color": "c",
+            "line": ".-",
+            "label": "Super-Adiabatic"
+        },
+        "adiabatic_temperature":
+        {
+            "name": "adiabatic_temperature",
+            "xname": "adiabatic_temperature",
+            "xunit": "K",
+            "yname": "depth",
+            "yunit": "km",
+            "invert_y": 1,
+            "color": "b",
+            "line": ".-",
+            "label": "Adiabat"
+        },
+        "temperature":
+        {
+            "name": "temperature",
+            "xname": "temperature",
+            "xunit": "K",
+            "yname": "depth",
+            "yunit": "km",
+            "invert_y": 1,
+            "color": "r",
+            "line": ".-",
+            "label": "Temperature"
+        },
+        "velocity_magnitude":
+        {
+            "name": "velocity_magnitude",
+            "xname": "velocity_magnitude",
+            "xunit": "cm/yr",
+            "yname": "depth",
+            "yunit": "km",
+            "invert_y": 1,
+            "color": "b",
+            "line": ".-",
+            "label": "Velocity Magnitude"
+        },
+        "vertical_heat_flux":
+        {
+            "name": "vertical_heat_flux",
+            "xname": "vertical_heat_flux",
+            "yname": "depth",
+            "yunit": "km",
+            "invert_y": 1,
+            "color": "purple",
+            "line": ".-",
+            "label": "Vertical Heat Flux"
+        },
+        "viscosity":
+        {
+            "name": "viscosity",
+            "xname": "viscosity",
+            "log_x": 1,
+            "yname": "depth",
+            "yunit": "km",
+            "invert_y": 1,
+            "color": "k",
+            "line": ".-",
+            "label": "Viscosity"
+        },
+        "density":
+        {
+            "name": "density",
+            "xname": "adiabatic_density",
+            "yname": "depth",
+            "yunit": "km",
+            "invert_y": 1,
+            "color": "b",
+            "line": ".-",
+            "label": "adiabatic_density"
+        }
+    },
+    "NewtonSolver":
+    {
+        "canvas": [1, 3],
+        "types": [
+            "Relative_nonlinear_residual",
+            "Norms_of_the_rhs",
+            "Newton_Derivative_Scaling_Factor"
+        ],
+        "size": [15, 5],
+        "Newton_Derivative_Scaling_Factor":
+        {
+            "name": "Newton Derivative Scaling Factor",
+            "xname": "Number_of_nonlinear_iteration",
+            "yname": "Newton_Derivative_Scaling_Factor",
+            "color": "b",
+            "line": ".-",
+            "label": "ndsf"
+        },
+        "Norms_of_the_rhs":
+        {
+            "name": "Norms of the rhs",
+            "xname": "Number_of_nonlinear_iteration",
+            "yname": "Norms_of_the_rhs",
+            "log_y": 1,
+            "color": "r",
+            "line": ".-",
+            "label": "nor"
+        },
+        "Relative_nonlinear_residual":
+        {
+            "name": "Relative nonlinear residual",
+            "xname": "Number_of_nonlinear_iteration",
+            "yname": "Relative_nonlinear_residual",
+            "log_y": 1,
+            "color": "k",
+            "line": ".-",
+            "label": "rnr"
+        }
+    },
+    "NewtonSolverStep":
+    {
+        "canvas": [1, 3],
+        "types": [
+            "Relative_nonlinear_residual",
+            "Norms_of_the_rhs",
+            "Newton_Derivative_Scaling_Factor"
+        ],
+        "size": [15, 5],
+        "Newton_Derivative_Scaling_Factor":
+        {
+            "name": "Newton Derivative Scaling Factor",
+            "xname": "Index_of_nonlinear_iteration",
+            "yname": "Newton_Derivative_Scaling_Factor",
+            "color": "b",
+            "line": ".-",
+            "label": "ndsf"
+        },
+        "Norms_of_the_rhs":
+        {
+            "name": "Norms of the rhs",
+            "xname": "Index_of_nonlinear_iteration",
+            "yname": "Norms_of_the_rhs",
+            "log_y": 1,
+            "color": "r",
+            "line": ".-",
+            "label": "nor"
+        },
+        "Relative_nonlinear_residual":
+        {
+            "name": "Relative nonlinear residual",
+            "xname": "Index_of_nonlinear_iteration",
+            "yname": "Relative_nonlinear_residual",
+            "log_y": 1,
+            "color": "k",
+            "line": ".-",
+            "label": "rnr"
+        }
+    },
+    "MachineTime":
+    {
+        "canvas": [2, 2],
+        "types": [
+            "Machine_Time",
+            "Core_Time",
+            "Machine_Model_Time",
+            "Core_Model_Time"
+        ],
+        "size": [10, 10],
+        "Core_Model_Time":
+        {
+            "name": "Core vs Model Time", 
+            "xname": "Time", 
+            "yname": "Core_time", 
+            "color": "r", 
+            "line": "-"
+        },
+        "Core_Time":
+        {
+            "name": "Core Time", 
+            "xname": "Time_step_number", 
+            "yname": "Core_time", 
+            "color": "r", 
+            "line": "-"
+        },
+        "Machine_Model_Time":
+        {
+            "name": "Machine vs Model Time", 
+            "xname": "Time", 
+            "yname": "Machine_time", 
+            "color": "b", 
+            "line": "-"
+        },
+        "Machine_Time":
+        {
+            "name": "Machine Time", 
+            "xname": "Time_step_number", 
+            "yname": "Machine_time", 
+            "color": "b", 
+            "line": "-"
+        }
+    }
+}

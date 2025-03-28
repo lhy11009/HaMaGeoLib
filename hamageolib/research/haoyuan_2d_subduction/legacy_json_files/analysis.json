@@ -1,0 +1,95 @@
+{
+    "analysis_newton_solver_CFL" :
+    {
+        "case_dirs": ["non_linear/non_linearULV3.000e+01testC1.000e-01" , "isosurf_global2/isosurfULV3.000e+01testS14", "non_linear/non_linearULV3.000e+01testC1.000e+00"],
+        "images": ["NewtonSolver.png", "MachineTime.png"]
+    },
+    "analysis_newton_solver_maximum_viscosity" :
+    {
+        "case_dirs": ["non_linear2/non_linearULV3.000e+01testMV1.000e+22" , "non_linear2/non_linearULV3.000e+01testMV1.000e+23", "isosurf_global2/isosurfULV3.000e+01testS14"],
+        "images": ["NewtonSolver.png", "MachineTime.png"]
+    },
+    "analysis_newton_solver_nonlinear_interations" :
+    {
+        "case_dirs": ["isosurf_global2/isosurfULV3.000e+01testS14", "non_linear3/non_linearULV3.000e+01testMNI50", "non_linear3/non_linearULV3.000e+01testMNI75"],
+        "images": ["NewtonSolver.png", "MachineTime.png"]
+    },
+    "analysis_newton_solver_reset_EW" :
+    {
+        "case_dirs": ["isosurf_global2/isosurfULV3.000e+01testS14", "non_linear4/non_linear_reset_EWULV3.000e+01testMNI25"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png"]
+    },
+    "analysis_newton_solver_reset_EW1" :
+    {
+        "case_dirs": ["non_linear3/non_linearULV3.000e+01testMNI75", "non_linear4/non_linear_reset_EWULV3.000e+01testMNI75"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png"]
+    },
+    "analysis_newton_solver_picard_only" :
+    {
+        "case_dirs": ["non_linear6/non_linear_picardULV3.000e+01testMV1.000e+22", "non_linear6/non_linear_picardULV3.000e+01testMV1.000e+23", "non_linear_picardULV3.000e+01testMV1.000e+24"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png"]
+    },
+    "analysis_newton_solver_picard_only1" :
+    {
+        "case_dirs": ["non_linear6/non_linear_picardULV3.000e+01testMV1.000e+23", "non_linear2/non_linearULV3.000e+01testMV1.000e+23"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png"]
+    },
+    "analysis_newton_solver_Newton_takeover" :
+    {
+        "case_dirs": ["non_linear2/non_linearULV3.000e+01testMV1.000e+23", "non_linear7/non_linearULV3.000e+01testMPNI0MV1.000e+23", "non_linear7/non_linearULV3.000e+01testMPNI5MV1.000e+23"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png"]
+    },
+    "analysis_small_linear_tolerence" :
+    {
+        "case_dirs": ["non_linear9/non_linear75ULV3.000e+01testMLT5.000e-02MV1.000e+23", "non_linear8/non_linear75ULV3.000e+01testMLT1.000e-04MV1.000e+23", "non_linear8/non_linear75ULV3.000e+01testMLT1.000e-06MV1.000e+23"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png"]
+    },
+    "analysis_small_linear_tolerence1" :
+    {
+        "case_dirs": ["non_linear3/non_linearULV3.000e+01testMNI75", "non_linear11/non_linear75ULV3.000e+01testMLT1.000e-02MV1.000e+24", "non_linear11/non_linear75ULV3.000e+01testMLT1.000e-03MV1.000e+24", "non_linear10/non_linear75ULV3.000e+01testMLT1.000e-04MV1.000e+24", "non_linear10/non_linear75ULV3.000e+01testMLT1.000e-06MV1.000e+24"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png"]
+    },
+    "analysis_machine_time" :
+    {
+        "case_dirs": ["non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P2", "non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P4",
+                      "non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P8", "non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P16",
+                      "non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P32","non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P64",
+                      "non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P128","non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P256",
+                      "non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P512"],
+        "extra_analysis": {"machine_time": {"step":10, "attach_pdf":1}}
+    },
+    "analysis_machine_time1" :
+    {
+        "case_dirs": ["non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P32", "non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P64", "non_linear12/non_linear_time_testULV3.000e+01testMV1.000e+24P128",
+                      "non_linear13/non_linear_time_testULV3.000e+01testD1MV1.000e+24P64", "non_linear13/non_linear_time_testULV3.000e+01testD1MV1.000e+24P128"],
+        "extra_analysis": {"machine_time": {"step":10, "attach_pdf":1}}
+    },
+    "analysis_different_newton_schemes" :
+    {
+        "case_dirs": ["non_linear14/non_linear1MaULV3.000e+01testMLT5.000e-02MV1.000e+24NST5.000e-05", "non_linear14/non_linear1MaULV3.000e+01testMLT1.000e-02MV1.000e+24NST2.000e-05", "non_linear14/non_linear1MaULV3.000e+01testMLT1.000e-03MV1.000e+24NST4.000e-06", "non_linear14/non_linear1MaULV3.000e+01testMLT5.000e-02MV1.000e+24NST5.000e-05P1"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png",
+                    "slab_viscosity_snap000006.png", "um_viscosity_snap000006.png",
+                   "slab_viscosity_snap000007.png", "um_viscosity_snap000007.png"]
+    },
+    "analysis_different_newton_schemes_linear_tolerance" :
+    {
+        "case_dirs": ["non_linear14/non_linear1MaULV3.000e+01testMLT9.000e-01MV1.000e+24NST5.000e-05","non_linear14/non_linear1MaULV3.000e+01testMLT7.000e-01MV1.000e+24NST5.000e-05", "non_linear14/non_linear1MaULV3.000e+01testMLT5.000e-01MV1.000e+24NST5.000e-05", "non_linear14/non_linear1MaULV3.000e+01testMLT5.000e-02MV1.000e+24NST5.000e-05"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png",
+                    "slab_viscosity_snap000006.png", "um_viscosity_snap000006.png",
+                   "slab_viscosity_snap000007.png", "um_viscosity_snap000007.png"]
+    },
+    "analysis_different_newton_schemes_switch" :
+    {
+        "case_dirs": ["non_linear15/non_linear1MaULV3.000e+01testMLT9.000e-01MV1.000e+24NSS1.000e-01NST5.000e-05", "non_linear15/non_linear1MaULV3.000e+01testMLT9.000e-01MV1.000e+24NSS1.000e-02NST5.000e-05", "non_linear14/non_linear1MaULV3.000e+01testMLT9.000e-01MV1.000e+24NST5.000e-05"],
+        "images": ["NewtonSolver.png", "NewtonSolverStep", "MachineTime.png",
+                    "slab_viscosity_snap000006.png", "um_viscosity_snap000006.png",
+                   "slab_viscosity_snap000007.png", "um_viscosity_snap000007.png"]
+    },
+    "analysis_different_stokes_linear_tolerance" :
+    {
+        "case_dirs": ["non_linear16/non_linear2e-1MaULV3.000e+01testLST1.000e-01MLT9.000e-01MV1.000e+24NSS1.000e-01NST5.000e-05", "non_linear16/non_linear2e-1MaULV3.000e+01testLST3.000e-03MLT9.000e-01MV1.000e+24NSS1.000e-01NST5.000e-05", "non_linear16/non_linear2e-1MaULV3.000e+01testLST1.000e-04MLT9.000e-01MV1.000e+24NSS1.000e-01NST5.000e-05", "non_linear15/non_linear1MaULV3.000e+01testMLT9.000e-01MV1.000e+24NSS1.000e-01NST5.000e-05"],
+        "images": ["NewtonSolver.png", "MachineTime.png",
+                    "slab_viscosity_snap000006.png", "um_viscosity_snap000006.png",
+                   "slab_viscosity_snap000007.png", "um_viscosity_snap000007.png"]
+    }
+}

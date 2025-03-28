@@ -1,0 +1,7 @@
+{
+	"case_root": "${ASPECT_LAB_DIR}/tests/integration/fixtures/cases/test_multiple_cases",
+	"cases": ["wb_sph_cdd50_substract_T", "wb_cart_cdd50_substract_T"],
+	"plots": ["um_temperature000005.png", "um_temperature000006.png", ""],
+	"same_for_all" : 1,
+	"output directory": "${ASPECT_LAB_DIR}/.test"
+}

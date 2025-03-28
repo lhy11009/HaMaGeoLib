@@ -1,0 +1,18 @@
+{
+    "test directory": "${ASPECT_LAB_DIR}/.test/test_affinity/test_affinity_additional_json",
+    "base files": ["${ASPECT_LAB_DIR}/tests/integration/fixtures/cases/test_affinity/test_affinity_additional_json/case.json", "${ASPECT_LAB_DIR}/tests/integration/fixtures/cases/test_affinity/test_affinity_additional_json/case1.json"],
+    "slurm file": "${ASPECT_LAB_DIR}/files/slurm_files/221018/job_normal.sh",
+    "server": "stampede2",
+    "openmpi version": "",
+    "tasks per node": 68,
+    "refinement levels": [1, 2, 3],
+    "minimum cores for refinement": [4, 68, 68],
+    "maximum cores for refinement": [1000, 2000, 2000],
+    "project": "ThDSubduction",
+    "build directory": "master_TwoD_knl",
+    "end step": 5,
+    "node list": [],
+    "flag": "knl",
+    "use mpirun": 0,
+    "bind to": ""
+}

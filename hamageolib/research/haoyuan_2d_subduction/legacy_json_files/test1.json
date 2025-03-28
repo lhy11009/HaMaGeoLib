@@ -1,0 +1,82 @@
+{
+    "_comments":
+    [
+        "This is the settings for aspectLib.",
+        "project: project to add to",
+        "server: user name @ server address",
+        "slurm: settings for headers of slurm scripts"
+    ],
+    "project": "TwoDSubduction",
+    "server": "lochy@peloton.cse.ucdavis.edu",
+    "slurm":
+    {
+        "_comments":
+        [
+            "This is the settings for headers of slurm scripts.",
+            "nodes: number of nodes",
+            "ntasks: total processes",
+            "partition: submit to this partition",
+            "mail-user: email for job alerts",
+            "time-in-hour: user defined, time limit, but in hour, more handy",
+            "modules_to_load: load module before job starts",
+            "modules_to_unload: unload module before job starts",
+            "pathes_to_include: include path before job starts"
+        ],
+        "nodes": 1,
+        "ntasks": 64,
+        "partition": "med2",
+        "mail-user": "hylli@ucdavis.edu",
+        "time-in-hour": 24,
+        "modules_to_unload": ["openmpi", "openmpi1"],
+        "modules_to_load": [],
+        "pathes_to_include": ["/home/rudolph/sw/openmpi-4.0.5/bin"]
+    },
+    "configs":
+    {
+        "_comments":
+        [
+            "This is the settings for shilofue python modules",
+            "Names of cases will be generated automatically from",
+            "settings in this section."
+        ],
+        "group": "test",
+        "_comments_lithosphere":
+        [
+            "settings for lithosphere includes:",
+            "slab_phi_c: phi value at the trench, default is 0.628319",
+            "Rc: radius of initial slab, default is 6.371e6 m",
+            "slab_to: initial slab is set down to this depth, default is 4.0e5 m",
+            "depth_crust_subducting: depth of lower boundary of subducting crust, default is 7.5e3 m",
+            "depth_harzburgite_subducting: depth of lower boundary of subducting harzburgite, default is 3.52e4 m",
+            "depth_crust_overiding: depth of lower boundary of overiding crust, default is 7.5e3 m",
+            "depth_harzburgite_overiding: depth of lower boundary of overiding harzburgite, default is 3.52e4 m"
+        ]
+    },
+    "extras":
+    {
+        "_comments":
+        [
+            "This is the settings for shilofue python modules",
+            "But names of cases will not be generated automatically from",
+            "settings in this section."
+        ],
+        "slab_phi_c": 0.628319,
+        "R0" : 6.371e6 ,
+        "Rc" : 4.0e5,
+        "slab_to": 2.0e5,
+        "depth_crust_subducting": 7.5e3,
+        "depth_harzburgite_subducting": 3.52e4,
+        "dept_crust_overiding": 7.5e3,
+        "depth_harzburgite_overiding": 3.52e4
+    },
+    "tests":
+    {
+        "_comments":
+        [
+            "This is the settings for shilofue python modules",
+            "Names of cases will be generated automatically from",
+            "settings in this section. However, those from this section",
+            "will be listed at the end, starting with 'test'."
+        ]
+    }
+}

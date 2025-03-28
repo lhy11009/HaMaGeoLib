@@ -1,0 +1,10 @@
+{
+    "_comment" : "This is configuration for combining results of time run (time, step, dofs ...)",
+    "case_root": "/mnt/lochy0/ASPECT_DATA/TwoDSubduction/EBA_CDPT8",
+    "cases": ["eba_cdpt_SA80.0_OA40.0_pc_szsd_nocf_gr11_solver_m0.1", "eba_cdpt_SA80.0_OA40.0_pc_szsd_nocf_gr11_solver_scheme"],
+    "output directory": {
+        "relative": 0,
+        "path": "/mnt/lochy0/ASPECT_DATA/TwoDSubduction/EBA_CDPT8/compare_runtime"
+    },
+    "width": -1.0
+}

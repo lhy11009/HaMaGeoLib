@@ -1,0 +1,22 @@
+{
+    "_commemnts": [
+        "Todo add some comments about operations",
+        "T660, P660, lowerV(avtivation volume)are used for computing upper/lower mantle viscosity. The grain size of the lower mantle is what I change"
+    ],
+    "name": "test_group",
+    "basename": "test1",
+    "config":
+    {
+        "upper_lower_viscosity": [30.0, 100.0]
+    },
+    "test":
+    {
+        "initial_adaptive_refinement": [6, 8]
+    },
+    "extra":
+    {   
+        "T660": 1663.0,
+        "P660": 21e9,
+        "LowerV": 1.5e-6
+    }
+}

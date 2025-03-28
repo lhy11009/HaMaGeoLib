@@ -1,0 +1,9 @@
+{
+    "statistics": {
+        "canvas": [1, 2],
+        "ptype" : [
+            "RMS_Velocity",
+            "Number_of_Cells"
+        ]
+    }
+}

@@ -1,0 +1,14 @@
+{
+    "test directory": "${ThDSubduction_DIR}/peloton_affinity_test_base",
+    "base file": "${ASPECT_LAB_DIR}/files/AffinityTest/spherical_shell_expensive_solver.prm",
+    "slurm file": "${ASPECT_LAB_DIR}/files/TwoDSubduction/220810/job_p-billen.sh",
+    "server": "peloton-rome",
+    "openmpi version": "4.1.0",
+    "tasks per node": 128,
+    "refinement levels": [2, 3, 4, 5],
+    "minimum cores for refinement": [],
+    "maximum cores for refinement": [1000, 1000, 1000, 1000],
+    "project": "",
+    "build directory": "master_TwoD",
+    "node list": []
+}

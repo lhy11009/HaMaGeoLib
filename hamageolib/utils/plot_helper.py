@@ -551,7 +551,6 @@ def generate_solver_plot_history(file_path, output_dir="plots", **kwargs):
     Returns:
         None
     """
-    # todo_solver
     pass
     # Read the data
     # data = read_aspect_header_file(file_path)

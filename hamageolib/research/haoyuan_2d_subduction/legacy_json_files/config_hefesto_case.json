@@ -1,0 +1,22 @@
+{
+    "HeFESTo repository": "/home/lochy/software/HeFESTo/HeFESToRepository",
+    "slurm path": "${ASPECT_LAB_DIR}/files/slurm_files/231009/job_p-billen.sh",
+    "prm directory": "/home/lochy/software/HeFESTo/HeFESTo_Parameters_310516",
+    "control path": "${ASPECT_LAB_DIR}/files/HeFESTo_file/231004/control",
+    "output directory": "/home/lochy/ASPECT_PROJECT/HeFESTo_DIR",
+    "case name": "test_hefesto_parallel1",
+    "nproc": 3,
+    "T":
+    {
+        "variable": "entropy",
+        "T1": 2.0,
+        "T2": 3.0,
+        "nT": 2
+    },
+    "P":
+    {
+        "P1": 0.0,
+        "P2": 30.0,
+        "nP": 10
+    }
+}
