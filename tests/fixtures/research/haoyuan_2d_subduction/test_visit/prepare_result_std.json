@@ -1,0 +1,69 @@
+{
+    "figures": [
+        {
+            "path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/um_temperature000000.png"
+        },
+        {
+            "path": "/home/lochy/Documents/papers/documented_files/TwoDSubduction/upper_mantle_frame/upper_mantle_frame_transparent_scaled.png",
+            "operation": "paste",
+            "mask": 1,
+            "resize": 1.0,
+            "position": [124, 397],
+            "save path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/temp000000.png",
+            "temp" : 1
+        },
+        {
+            "path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/temp000000.png",
+            "operation": "crop",
+            "position": [150, 450, 1000, 900],
+            "save path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/temperature000000.png"
+        },
+        {
+            "path": "/home/lochy/Documents/papers/documented_files/TwoDSubduction/color_tables/temperature_0_1900.png",
+            "operation": "paste",
+            "mask": 1,
+            "resize": 1.0,
+            "position": [200, 420],
+            "method": "use_new_one",
+            "save path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/temperature000000.png"
+        },
+        {
+            "path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/um_viscosity_snap000000.png"
+        },
+        {
+            "path": "/home/lochy/Documents/papers/documented_files/TwoDSubduction/upper_mantle_frame/upper_mantle_frame_transparent_scaled.png",
+            "operation": "paste",
+            "mask": 1,
+            "resize": 1.0,
+            "position": [124, 397],
+            "save path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/temp000000_1.png",
+            "temp" : 1
+        },
+        {
+            "path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/temp000000_1.png",
+            "operation": "crop",
+            "position": [150, 450, 1000, 900],
+            "save path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/viscosity000000.png"
+        },
+        {
+            "path": "/home/lochy/Documents/papers/documented_files/TwoDSubduction/color_tables/viscosity_18_24.png",
+            "operation": "paste",
+            "mask": 1,
+            "resize": 1.0,
+            "position": [220, 420],
+            "method": "use_new_one",
+            "save path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/viscosity000000.png"
+        },
+        {
+            "path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/temperature000000.png"
+        },
+        {
+            "path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/viscosity000000.png",
+            "operation": "paste",
+            "method": "use_new_one",
+            "mask": 0,
+            "position": [0, 530],
+            "save path": "/home/lochy/ASPECT_PROJECT/aspectLib/tests/integration/fixtures/cases/test_visit/img/results/step000000.png"
+        }
+    ]
+}
