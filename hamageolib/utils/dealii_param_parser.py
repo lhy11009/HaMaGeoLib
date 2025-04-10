@@ -35,6 +35,7 @@ Functions:
 
 import re
 
+
 def parse_parameters_to_dict(file_input):
     """
     Parses a deal.ii parameter file and returns a dictionary of parameters.
@@ -129,4 +130,5 @@ def save_parameters_from_dict(fout, parameters_dict, indent_level=0):
             # Raise an error if the value type is unsupported
             raise ValueError('Value in dictionary must be str or dict, received:\n key: '\
                              + key + "\n type of value: " + str(type(value)) + "\n value: " + str(value))
+
 

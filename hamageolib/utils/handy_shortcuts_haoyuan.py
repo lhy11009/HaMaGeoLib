@@ -32,6 +32,7 @@ This file provides two utility functions:
 import os
 import sys
 import warnings
+import inspect
 
 def func_name():
     """
