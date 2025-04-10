@@ -226,4 +226,38 @@ def convert_to_unified_coordinates_reference_2d(point, is_spherical, reference_v
     else:
         # Cartesian 2D → Ignore z
         return (x, y)  # Keep only (x, y) for 2D Cartesian
-  
+
+def offset_profile(Xs, Ys, offset_distance):
+    """
+    Compute a new profile offset from the original (X, Y) profile
+    by a given perpendicular distance.
+
+    Args:
+        Xs (array-like): Original X coordinates of the profile
+        Ys (array-like): Original Y coordinates of the profile
+        offset_distance (float): Distance to offset (positive = left of profile)
+
+    Returns:
+        offset_Xs (np.ndarray), offset_Ys (np.ndarray): Offset profile coordinates
+    """
+    Xs = np.asarray(Xs)
+    Ys = np.asarray(Ys)
+
+    # Compute segment tangents
+    dx = np.gradient(Xs)
+    dy = np.gradient(Ys)
+
+    # Normalize to get unit tangent vectors
+    lengths = np.sqrt(dx**2 + dy**2)
+    dx /= lengths
+    dy /= lengths
+
+    # Normal vector is perpendicular (dy, -dx)
+    nx = -dy
+    ny = dx
+
+    # Apply offset
+    offset_Xs = Xs + offset_distance * nx
+    offset_Ys = Ys + offset_distance * ny
+
+    return offset_Xs, offset_Ys
