@@ -59,11 +59,12 @@ from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.optimize import minimize
 from joblib import Parallel, delayed
 from .legacy_utilities import JsonOptions, ReadHeader, CODESUB, cart2sph, SphBound, clamp, ggr2cart, point2dist, UNITCONVERT, ReadHeader2,\
-ggr2cart, var_subs, JSON_OPT
+ggr2cart, var_subs, JSON_OPT, string2list, re_neat_word
 from ...utils.exception_handler import my_assert
 from ...utils.handy_shortcuts_haoyuan import func_name
 from ...utils.dealii_param_parser import parse_parameters_to_dict
 from ...utils.world_builder_param_parser import find_wb_feature
+from ...utils.geometry_utilities import offset_profile
 
 JSON_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_json_files")
 LEGACY_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_files")
@@ -330,7 +331,7 @@ class CASE_OPTIONS(CODESUB):
         pass
 
 
-class VISIT_OPTIONS(CASE_OPTIONS):
+class VISIT_OPTIONS_BASE(CASE_OPTIONS):
     """
     parse .prm file to a option file that bash can easily read
     """
@@ -560,6 +561,408 @@ class VISIT_OPTIONS(CASE_OPTIONS):
         '''
         index = np.argmin(np.abs(np.array(self.all_graphical_times) - _time))
         return self.all_graphical_times[index], self.all_graphical_timesteps[index], self.all_graphical_snaps[index] - int(self.options['INITIAL_ADAPTIVE_REFINEMENT'])
+
+class COMPOSITION():
+    """
+    store value like
+      'background:4.0e-6|1.5e-6, spcrust:0.0, spharz:4.0e-6, opcrust:4.0e-6, opharz:4.0e-6 '
+    or parse value back
+    """
+    def __init__(self, in_var):
+        # parse the format:
+        # key1: val1|val2, key2: val3|val4
+        # to a dictionary data where
+        # data[key1] = [val1, val2]
+        if type(in_var) == str:
+            self.data = {}
+            parts = in_var.split(',')
+            for part in parts:
+                key_str = part.split(':')[0]
+                key = re_neat_word(key_str)
+                values_str = part.split(':')[1].split('|')
+                # convert string to float
+                try:
+                    values = [float(re_neat_word(val)) for val in values_str]
+                except ValueError:
+                    values = [re_neat_word(val) for val in values_str]
+                self.data[key] = values
+        elif type(in_var) == type(self):
+            self.data = in_var.data.copy()
+        else:
+            raise NotImplementedError()
+
+    def parse_back(self):
+        """
+        def parse_back(self)
+
+        parse data back to a string
+        """
+        line = ''
+        j = 0
+        for key, values in self.data.items():
+            # construct the format:
+            # key1: val1|val2, key2: val3|val4
+            if j > 0:
+                part_of_line = ', ' + key + ':'
+            else:
+                part_of_line = key + ':'
+            i = 0
+            for val in values:
+                if i == 0:
+                    if type(val) == float:
+                        part_of_line += '%.4e' % val
+                    elif type(val) == str:
+                        part_of_line += val
+                else:
+                    if type(val) == float:
+                        part_of_line += '|' + '%.4e' % val
+                    elif type(val) == str:
+                        part_of_line += val
+                i += 1
+            line += part_of_line
+            j += 1
+        return line
+
+
+class VISIT_OPTIONS(VISIT_OPTIONS_BASE):
+    """
+    parse .prm file to a option file that bash can easily read
+    """
+    def Interpret(self, **kwargs):
+        """
+        Interpret the inputs, to be reloaded in children
+        kwargs: options
+            last_step(list): plot the last few steps
+        """
+        # call function from parent
+        VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
+
+        # default settings
+        self.options['IF_PLOT_SHALLOW'] = kwargs.get('if_plot_shallow', "False") # plot the shallow part of the slab.
+        self.options["PLOT_TYPES"] = str(kwargs.get('plot_types', ["upper_mantle"]))
+        self.options['IF_EXPORT_SLAB_MORPH'] = 'False'
+        self.options['IF_PLOT_SLAB'] = 'True'
+        self.options['GLOBAL_UPPER_MANTLE_VIEW_BOX'] = 0.0
+        self.options['ROTATION_ANGLE'] = 0.0
+
+        # additional inputs
+        rotation_plus = kwargs.get("rotation_plus", 0.0) # additional rotation
+
+        # try using the value for the background
+        try:
+            self.options['ETA_MIN'] =\
+                string2list(self.idict['Material model']['Visco Plastic TwoD']['Minimum viscosity'], float)[0]
+        except ValueError:
+            eta_min_inputs =\
+                COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Minimum viscosity']) 
+            self.options['ETA_MIN'] = eta_min_inputs.data['background'][0] # use phases
+        try:
+            self.options['ETA_MAX'] =\
+                string2list(self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity'], float)[0]
+        except ValueError:
+            eta_max_inputs =\
+                COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity']) 
+            self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
+        # self.options['IF_DEFORM_MECHANISM'] = value.get('deform_mechanism', 0)
+        self.options['IF_DEFORM_MECHANISM'] = 1
+        # crustal layers
+        # todo_2l
+        is_crust_2l = False
+        composition_fields = []
+        temp_list = self.idict['Compositional fields']['Names of fields'].split(",")
+        for temp in temp_list:
+            temp1 = re_neat_word(temp)
+            if temp1 != "":
+                composition_fields.append(temp1)
+        if "spcrust_up" in composition_fields:
+            is_crust_2l = True
+        # currently only works for chunk geometry
+        if self.options['GEOMETRY'] == 'chunk':
+            sp_age = -1.0
+            ov_age = -1.0
+            Ro = 6371e3
+            try:
+                index = find_wb_feature(self.wb_dict, "Subducting plate")
+                index1 = find_wb_feature(self.wb_dict, "Overiding plate")
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                sp_age = -1.0
+                ov_age = -1.0
+            else:
+                feature_sp = self.wb_dict['features'][index]
+                feature_ov = self.wb_dict['features'][index1]
+                trench_angle = feature_sp["coordinates"][2][0]
+                spreading_velocity = feature_sp["temperature models"][0]["spreading velocity"]
+                sp_age = trench_angle * np.pi / 180.0 * Ro/ spreading_velocity 
+                ov_age = feature_ov["temperature models"][0]["plate age"]
+            self.options['SP_AGE'] = sp_age
+            self.options['OV_AGE'] =  ov_age
+        elif self.options['GEOMETRY'] == 'box':
+            sp_age = -1.0
+            ov_age = -1.0
+            try:
+                # todo_ptable
+                index = find_wb_feature(self.wb_dict, 'Subducting plate')
+                index1 = find_wb_feature(self.wb_dict, "Overiding plate")
+                feature_sp = self.wb_dict['features'][index]
+                feature_ov = self.wb_dict['features'][index1]
+                trench_x = feature_sp["coordinates"][2][0]
+                spreading_velocity = feature_sp["temperature models"][0]["spreading velocity"]
+                sp_age = trench_x / spreading_velocity 
+                ov_age = feature_ov["temperature models"][0]["plate age"]
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                sp_age = -1.0
+                ov_age = -1.0
+                pass
+            self.options['SP_AGE'] = sp_age
+            self.options['OV_AGE'] =  ov_age
+        else:
+            raise ValueError("Geometry should be \"chunk\" or \"box\"")
+        # rotation of the domain
+        if self.options['GEOMETRY'] == 'chunk':
+            try:
+                index = find_wb_feature(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                rotation_angle = 52.0 + rotation_plus
+            else:
+                # rotate to center on the slab
+                feature_sp = self.wb_dict['features'][index]
+                rotation_angle = 90.0 - feature_sp["coordinates"][2][0] - 2.0 + rotation_plus
+            self.options['ROTATION_ANGLE'] = rotation_angle
+        elif self.options['GEOMETRY'] == 'box':
+            try:
+                index = find_wb_feature(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                trench_x = 4e6
+            else:
+                # reset the view point
+                feature_sp = self.wb_dict['features'][index]
+                trench_x = feature_sp["coordinates"][2][0]
+            window_width = 1.8e6
+            self.options['GLOBAL_UPPER_MANTLE_VIEW_BOX'] =\
+            "(%.4e, %.4e, 1.9e6, 2.9e6)" % (trench_x - window_width/2.0, trench_x + window_width/2.0)
+        else:
+            raise ValueError("Geometry should be \"chunk\" or \"box\"")
+        # Slab configuration
+        index = find_wb_feature(self.wb_dict, 'Subducting plate')
+        feature_sp = self.wb_dict['features'][index]
+        # shear zone:
+        #   the initial thickness is parsed from the wb file
+        #   parse the cutoff depth if the viscosity is decoupled from the eclogite transition
+        use_lookup_table_morb = self.idict['Material model']['Visco Plastic TwoD'].get("Use lookup table morb", 'false')
+        sz_method = 0
+        if use_lookup_table_morb == 'true':
+            phase_rheology_mixing_models_str = self.idict['Material model']['Visco Plastic TwoD'].get('Phase rheology mixing models', "0, 0, 0, 0, 0")
+            phase_rheology_mixing_models = string2list(phase_rheology_mixing_models_str, int)
+            sz_method = phase_rheology_mixing_models[1]
+        elif use_lookup_table_morb == 'false':
+            pass
+        else:
+            raise ValueError()
+        self.options["SHEAR_ZONE_METHOD"] = sz_method
+        self.options["INITIAL_SHEAR_ZONE_THICKNESS"] = feature_sp["composition models"][0]["max depth"]
+        decoupling_eclogite_viscosity = self.idict['Material model']['Visco Plastic TwoD'].get('Decoupling eclogite viscosity', 'false')
+        if decoupling_eclogite_viscosity == 'true':
+            self.options["SHEAR_ZONE_CUTOFF_DEPTH"] = float(self.idict['Material model']['Visco Plastic TwoD']["Eclogite decoupled viscosity"]["Decoupled depth"])
+        else:
+            self.options["SHEAR_ZONE_CUTOFF_DEPTH"] = -1.0
+        #  the shear zone constant viscosity is calculated from the prefactor of spcrust
+        A_diff_inputs = COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Prefactors for diffusion creep'])
+        # todo_2l
+        if is_crust_2l:
+            self.options["N_CRUST"] = 2
+            self.options["SHEAR_ZONE_CONSTANT_VISCOSITY"] = 1.0 / 2.0 / A_diff_inputs.data['spcrust_up'][0] # use phases
+        else:
+            self.options["N_CRUST"] = 1
+            self.options["SHEAR_ZONE_CONSTANT_VISCOSITY"] = 1.0 / 2.0 / A_diff_inputs.data['spcrust'][0] # use phases
+        # yield stress
+        try:
+            self.options["MAXIMUM_YIELD_STRESS"] = float(self.idict['Material model']['Visco Plastic TwoD']["Maximum yield stress"])
+        except KeyError:
+            self.options["MAXIMUM_YIELD_STRESS"] = 1e8
+
+        # peierls rheology
+        try:
+            include_peierls_rheology = self.idict['Material model']['Visco Plastic TwoD']['Include Peierls creep']
+            if include_peierls_rheology == 'true':
+                self.options['INCLUDE_PEIERLS_RHEOLOGY'] = True
+            else:
+                self.options['INCLUDE_PEIERLS_RHEOLOGY'] = False
+        except KeyError:
+            self.options['INCLUDE_PEIERLS_RHEOLOGY'] = False
+
+        # todo_shallow
+        # reference trench point
+        self.options['THETA_REF_TRENCH'] = 0.0  # initial value
+        if self.options['GEOMETRY'] == 'chunk':
+            try:
+                index = find_wb_feature(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                theta_ref_trench = 0.63
+            else:
+                # rotate to center on the slab
+                feature_sp = self.wb_dict['features'][index]
+                theta_ref_trench = feature_sp["coordinates"][2][0] / 180.0 * np.pi
+        elif self.options['GEOMETRY'] == 'box':
+            try:
+                index = find_wb_feature(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                # for the box geometry, this is the x distance of the trench
+                theta_ref_trench = 4000000.0
+            else:
+                # rotate to center on the slab
+                feature_sp = self.wb_dict['features'][index]
+                theta_ref_trench = feature_sp["coordinates"][2][0]        
+        else:
+            raise ValueError("Value of geometry must be either \"chunk\" or \"box\"")
+        self.options['THETA_REF_TRENCH'] = theta_ref_trench
+
+    def vtk_options(self, **kwargs):
+        '''
+        options of vtk scripts
+        '''
+        # call function from parent
+        VISIT_OPTIONS_BASE.vtk_options(self, **kwargs)
+        # reference trench point
+        self.options['THETA_REF_TRENCH'] = 0.0  # initial value
+        if self.options['GEOMETRY'] == 'chunk':
+            try:
+                index = find_wb_feature(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                theta_ref_trench = 0.63
+            else:
+                # rotate to center on the slab
+                feature_sp = self.wb_dict['features'][index]
+                theta_ref_trench = feature_sp["coordinates"][2][0] / 180.0 * np.pi
+        elif self.options['GEOMETRY'] == 'box':
+            try:
+                index = find_wb_feature(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                # for the box geometry, this is the x distance of the trench
+                theta_ref_trench = 4000000.0
+            else:
+                # rotate to center on the slab
+                feature_sp = self.wb_dict['features'][index]
+                theta_ref_trench = feature_sp["coordinates"][2][0]        
+        else:
+            raise ValueError("Value of geometry must be either \"chunk\" or \"box\"")
+        self.options['THETA_REF_TRENCH'] = theta_ref_trench
+
+
+    def get_snaps_for_slab_morphology(self, **kwargs):
+        '''
+        get the snaps for processing slab morphology
+        kwargs (dict):
+            time_interval (float)
+        '''
+        ptime_start = kwargs.get('time_start', None)
+        ptime_interval = kwargs.get('time_interval', None)
+        ptime_end = kwargs.get('time_end', None)
+        assert(ptime_interval is None or type(ptime_interval) == float)      
+        # steps for processing slab morphology
+        snaps, times, _ = GetSnapsSteps(self._case_dir, 'graphical')
+        psnaps = []
+        ptimes = []
+        last_time = -1e8  # initiate as a small value, so first step is included
+        # loop within all the available steps, find steps satisfying the time interval requirement.
+        for i in range(len(times)):
+            time = times[i]
+            snap = snaps[i]
+            if ptime_start is not None and time < ptime_start:
+                # check on the start
+                continue
+            if ptime_end is not None and time > ptime_end:
+                # check on the end
+                break
+            if type(ptime_interval) == float:
+                if (time - last_time) < ptime_interval:
+                    continue  # continue if interval is not reached
+            pvtu_file_path = os.path.join(self.options["DATA_OUTPUT_DIR"], "solution", "solution-%05d.pvtu" % snap)
+            if os.path.isfile(pvtu_file_path):
+                # append if the file is found
+                last_time = time
+                psnaps.append(snap)
+                ptimes.append(time)
+        return psnaps
+
+    def get_times_for_slab_morphology(self, **kwargs):
+        '''
+        get the snaps for processing slab morphology
+        kwargs (dict):
+            time_interval (float)
+        '''
+        ptime_start = kwargs.get('time_start', None)
+        ptime_interval = kwargs.get('time_interval', None)
+        ptime_end = kwargs.get('time_end', None)
+        assert(ptime_interval is None or type(ptime_interval) == float)      
+        # steps for processing slab morphology
+        snaps, times, _ = GetSnapsSteps(self._case_dir, 'graphical')
+        psnaps = []
+        ptimes = []
+        last_time = -1e8  # initiate as a small value, so first step is included
+        # loop within all the available steps, find steps satisfying the time interval requirement.
+        for i in range(len(times)):
+            time = times[i]
+            snap = snaps[i]
+            if ptime_start is not None and time < ptime_start:
+                # check on the start
+                continue
+            if ptime_end is not None and time > ptime_end:
+                # check on the end
+                break
+            if type(ptime_interval) == float:
+                if (time - last_time) < ptime_interval:
+                    continue  # continue if interval is not reached
+            pvtu_file_path = os.path.join(self.options["DATA_OUTPUT_DIR"], "solution", "solution-%05d.pvtu" % snap)
+            if os.path.isfile(pvtu_file_path):
+                # append if the file is found
+                last_time = time
+                psnaps.append(snap)
+                ptimes.append(time)
+        return ptimes
+    
+    def get_snaps_for_slab_morphology_outputs(self, **kwargs):
+        '''
+        get the snaps for processing slab morphology, look for existing outputs
+        kwargs (dict):
+            time_interval (float)
+        '''
+        ptime_start = kwargs.get('time_start', None)
+        ptime_interval = kwargs.get('time_interval', None)
+        ptime_end = kwargs.get('time_end', None)
+        assert(ptime_interval is None or type(ptime_interval) == float)      
+        # steps for processing slab morphology
+        snaps, times, _ = GetSnapsSteps(self._case_dir, 'graphical')
+        psnaps = []
+        ptimes = []
+        last_time = -1e8  # initiate as a small value, so first step is included
+        # loop within all the available steps, find steps satisfying the time interval requirement.
+        for i in range(len(times)):
+            time = times[i]
+            snap = snaps[i]
+            if ptime_start is not None and time < ptime_start:
+                # check on the start
+                continue
+            if ptime_end is not None and time > ptime_end:
+                # check on the end
+                break
+            if type(ptime_interval) == float:
+                if (time - last_time) < ptime_interval:
+                    continue  # continue if interval is not reached
+            center_profile_file_path = os.path.join(self._case_dir, "vtk_outputs", "slab_morph_s%06d.txt" % snap)
+            if os.path.isfile(center_profile_file_path):
+                # append if the file is found
+                last_time = time
+                psnaps.append(snap)
+                ptimes.append(time)
+        return ptimes, psnaps
 
 
 class LINEARPLOT():
@@ -1623,7 +2026,6 @@ def PlotNewtonSolverHistory(temp_path, fig_path_base, **kwargs):
     print("New figure (new): %s" % fig_path)
     return fig_path
 
-# todo_temp
 #==================================================
 # CodeSection: slab morpholog and temperature, using vtk pakage
 #================================================== 
@@ -4639,7 +5041,6 @@ def SlabPressures(VtkP, slab_envelop, **kwargs):
 class mohoExtractionIndexError(Exception):
     pass
 
-# todo_temp
 def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     '''
     Perform analysis on the slab, this would output a file including the
@@ -4652,7 +5053,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
             output_slab - output slab file
             use_dT - use temperature difference as the criteria for the slab surface.
     '''
-    # assert something
+    # parameters
     debug = kwargs.get('debug', False)
     indent = kwargs.get("indent", 0)  # indentation for outputs
     print("%s%s: Start" % (indent*" ", func_name()))
@@ -4660,8 +5061,6 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     output_poly_data = kwargs.get('output_poly_data', True)
     slab_envelop_interval = kwargs.get("slab_envelop_interval", 5e3)
     max_depth = kwargs.get("max_depth", 660e3)
-
-    # todo_T
     fix_shallow = kwargs.get("fix_shallow", False)
     ofile_surface = kwargs.get("ofile_surface", None)
     ofile_moho = kwargs.get("ofile_moho", None)
@@ -4671,6 +5070,10 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     filein = os.path.join(case_dir, "output", "solution",\
          "solution-%05d.pvtu" % (vtu_snapshot))
     assert(os.path.isfile(filein))
+    # offsets
+    offsets = kwargs.get("offsets", [])
+    assert(isinstance(offsets, (list)))
+
     # get parameters
     Visit_Options = VISIT_OPTIONS(case_dir)
     Visit_Options.Interpret()
@@ -4781,19 +5184,20 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     n_out = int((end-start) / ip_interval)
     depths_out = np.arange(start, end, ip_interval)
 
+    # interpolate T for surface
     slab_Xs = interp1d(depths, slab_envelop_rs[:, 0], kind='cubic')(depths_out)
     slab_Ys = interp1d(depths, slab_envelop_rs[:, 1], kind='cubic')(depths_out)
+    
+    slab_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((slab_Xs, slab_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
+    env_Ttops  = vtk_to_numpy(slab_env_polydata.GetPointData().GetArray('T'))
 
+    # interpolate T for moho
     mask_moho = ((depths_out > depths_moho[0]) & (depths_out < depths_moho[id_valid]))
     moho_Xs = np.zeros(depths_out.shape)
     moho_Ys = np.zeros(depths_out.shape)
     moho_Xs[mask_moho] = interp1d(depths_moho[0: id_valid+1], moho_envelop_rs[0: id_valid+1, 0], kind='cubic')(depths_out[mask_moho])
     moho_Ys[mask_moho] = interp1d(depths_moho[0: id_valid+1], moho_envelop_rs[0: id_valid+1, 1], kind='cubic')(depths_out[mask_moho])
 
-    # interpolate the T 
-    slab_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((slab_Xs, slab_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
-    env_Ttops  = vtk_to_numpy(slab_env_polydata.GetPointData().GetArray('T'))
-    
     moho_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((moho_Xs, moho_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
     env_Tbots = vtk_to_numpy(moho_env_polydata.GetPointData().GetArray('T'))
     
@@ -4802,22 +5206,55 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     if debug:
         print("env_Tbots")  # screen outputs
         print(env_Tbots)
+    
+    offset_Xs_array=[]; offset_Ys_array=[]; env_Toffsets_array = []
+    # interpolate T for offest profiles
+    for i, offset in enumerate(offsets):
+        offset_Xs, offset_Ys = offset_profile(slab_Xs, slab_Ys, offset)
+        offset_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((offset_Xs, offset_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
+        env_Toffsets = vtk_to_numpy(offset_env_polydata.GetPointData().GetArray('T'))
+    
+        mask = (env_Toffsets < 1.0) # fix the non-sense values
+        env_Toffsets[mask] = -np.finfo(np.float32).max
+
+        offset_Xs_array.append(offset_Xs)
+        offset_Ys_array.append(offset_Ys)
+        env_Toffsets_array.append(env_Toffsets)
 
     # output 
     if ofile is not None:
         # write output if a valid path is given
-        data_env0 = np.zeros((depths_out.size, 7)) # output: x, y, Tbot, Ttop
+        data_env0 = np.zeros((depths_out.size, 7+len(offsets)*3)) # output: x, y, Tbot, Ttop
         data_env0[:, 0] = depths_out
+        # coordinates
         data_env0[:, 1] = slab_Xs
         data_env0[:, 2] = slab_Ys
         data_env0[:, 3] = moho_Xs
         data_env0[:, 4] = moho_Ys
-        data_env0[:, 5] = env_Tbots
-        data_env0[:, 6] = env_Ttops
-        c_out = data_env0.shape[1]
+        idx = 4
+        idx1 = idx
+        for i in range(len(offsets)):
+            data_env0[:, idx+2*i+1] = offset_Xs_array[i]
+            data_env0[:, idx+2*i+2] = offset_Ys_array[i]
+        idx += len(offsets)*2
+        idx2 = idx
+        # temperatures
+        data_env0[:, idx+1] = env_Tbots
+        data_env0[:, idx+2] = env_Ttops
+        idx += 2
+        idx3 = idx
+        for i in range(len(offsets)):
+            data_env0[:, idx+i+1] = env_Toffsets_array[i]
+        idx += len(offsets)
+
         # interpolate data to regular grid & prepare outputs
-        for j in range(c_out):
-            header = "# 1: depth (m)\n# 2: x (m)\n# 3: y (m)\n# 4: x bot (m)\n# 5: y bot (m)\n# 6: Tbot (K)\n# 7: Ttop (K)\n"
+        # add additional headers if offset profiles are required
+        header = "# 1: depth (m)\n# 2: x (m)\n# 3: y (m)\n# 4: x bot (m)\n# 5: y bot (m)\n"
+        for i in range(len(offsets)):
+            header += "# %d: x offset %d (m)\n# %d: y offset %d (m)\n" % (idx1+2*i+2,i,idx1+2*i+3,i)
+        header += "# %d: Tbot (K)\n# %d: Ttop (K)\n" % (idx2+2, idx2+3)
+        for i in range(len(offsets)):
+            header += "# %d: Toffset %d (K)\n" % (idx3+i+2, i)
         with open(ofile, 'w') as fout:
             fout.write(header)
         with open(ofile, 'a') as fout: 
