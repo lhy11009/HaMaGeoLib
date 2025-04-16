@@ -44,6 +44,7 @@ Functions:
 import matplotlib.pyplot as plt
 import fitz
 import numpy as np
+import pandas as pd
 import os
 from PIL import Image, ImageDraw, ImageFont  # Pillow for cropping and saving images
 import subprocess
@@ -596,3 +597,67 @@ def generate_solver_plot_history(file_path, output_dir="plots", **kwargs):
     # print("%s: Generate figure %s" % (func_name(), fig_path))
 
     # print(data) # debug
+
+def fix_wallclock_time(df):
+    """
+    Fixes the wall clock time in an ASPECT output DataFrame by correcting for restarts.
+    
+    If the time step number decreases or repeats, it is treated as a restart event,
+    and subsequent wall clock times are adjusted to ensure continuity.
+    
+    Args:
+        df (pd.DataFrame): DataFrame with columns 'Time step number', 'Time', 'Wall Clock'.
+    
+    Returns:
+        pd.DataFrame: Corrected DataFrame with continuous wall clock time.
+    """
+    
+    # Extract columns from input DataFrame
+    steps = df["Time step number"].to_numpy()
+    times = df["Time"].to_numpy()
+    wallclocks = df["Wall Clock"].to_numpy()
+
+    # Identify restart points where step number decreases or repeats
+    re_inds = []  # indices where restarts occur
+    steps_fixed = np.array([])       # initialize corrected arrays (will use original if no restart)
+    times_fixed = np.array([])
+    wallclocks_fixed = np.array([])
+    
+    last_step = -1
+    i = 0
+    for step in steps:
+        if step <= last_step:
+            re_inds.append(i)  # a decrease or repeat in step number indicates a restart
+        last_step = step
+        i += 1
+
+    if re_inds != []:
+        # If restarts were detected, adjust wall clock segments
+        for i in range(len(re_inds) - 1):
+            re_ind = re_inds[i]
+            re_ind_next = re_inds[i + 1]
+            # Add previous segment's final wall clock time to this segment
+            wallclocks[re_ind:re_ind_next] += wallclocks[re_ind - 1]
+
+        # Adjust the final segment
+        re_ind = re_inds[-1]
+        wallclocks[re_ind:] += wallclocks[re_ind - 1]
+
+        # Assign corrected arrays
+        steps_fixed = steps
+        times_fixed = times
+        wallclocks_fixed = wallclocks
+    else:
+        # No restarts: keep original arrays
+        steps_fixed = steps
+        times_fixed = times
+        wallclocks_fixed = wallclocks
+
+    # Return corrected DataFrame
+    df = pd.DataFrame({
+        "Time step number": steps_fixed,
+        "Time": times_fixed,
+        "Wall Clock": wallclocks_fixed
+    })
+
+    return df
