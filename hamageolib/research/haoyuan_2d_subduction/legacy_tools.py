@@ -5132,7 +5132,6 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     rs_idx = range(0, n_point, rs_n)
     slab_envelop_rs_raw = slab_envelop1[np.ix_(rs_idx, [0, 1])]  # for slab surface
     
-    # todo_T
     if fix_shallow:
         # append the shallow trench point
         outputs_shallow = VtkP.PrepareSlabShallow(Visit_Options.options['THETA_REF_TRENCH'])
@@ -5161,7 +5160,6 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         raise Exception("the last index to extract is %d, while the shape of the moho_envelop is %d"\
         % (rs_idx_last, moho_envelop_rs_raw_length)) from e
     
-    # todo_T
     if fix_shallow:
         # append the shallow trench point
         r, theta, phi = cart2sph(*outputs_shallow["corrected"]["points"])
@@ -5262,7 +5260,6 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         print("%s%s: write output %s" % (' '*indent, func_name(), ofile))
     if ofile_surface is not None:
         # write output of surface and moho profile
-        # todo_T
         ExportPolyDataFromRaw(slab_Xs, slab_Ys, None, None, ofile_surface) # write the polydata
     if ofile_moho is not None:
         ExportPolyDataFromRaw(moho_Xs, moho_Ys, None, None, ofile_moho) # write the polydata
@@ -5285,7 +5282,6 @@ def SlabTemperature1(case_dir, vtu_snapshot, **kwargs):
     if not os.path.isdir(output_path):
         os.mkdir(output_path)
 
-    # todo_T 
     ofile = os.path.join(output_path, "slab_temperature_%05d.txt" % (vtu_step))
     ofile_surface = os.path.join(output_path, "slab_surface_%05d.vtp" % (vtu_step))
     ofile_moho = os.path.join(output_path, "slab_moho_%05d.vtp" % (vtu_step))
@@ -5496,6 +5492,8 @@ def SlabTemperatureCase(case_dir, **kwargs):
     # get all available snapshots
     # the interval is choosen so there is no high frequency noises
     time_interval_for_slab_morphology = kwargs.get("time_interval", 0.5e6)
+    run_parallel = kwargs.get("run_parallel", True)
+
     Visit_Options = VISIT_OPTIONS(case_dir)
     Visit_Options.Interpret()
     # call get_snaps_for_slab_morphology, this prepare the snaps with a time interval in between.
@@ -5505,21 +5503,31 @@ def SlabTemperatureCase(case_dir, **kwargs):
     vtk_output_dir = os.path.join(case_dir, 'vtk_outputs')
     if not os.path.isdir(vtk_output_dir):
         os.mkdir(vtk_output_dir)
-    # Initiation Wrapper class for parallel computation
+
     # todo_T
-    ParallelWrapper = PARALLEL_WRAPPER_FOR_VTK('slab_temperature', SlabTemperature1, if_rewrite=True, assemble=False, output_poly_data=False, fix_shallow=True)
-    ParallelWrapper.configure(case_dir)  # assign case directory
-    # Remove previous file
-    print("%s: Delete old slab_temperature.txt file." % func_name())
-    ParallelWrapper.delete_temp_files(available_pvtu_snapshots)  # delete intermediate file if rewrite
-    num_cores = multiprocessing.cpu_count()
-    # loop for all the steps to plot
-    Parallel(n_jobs=num_cores)(delayed(ParallelWrapper)(pvtu_snapshot)\
-    for pvtu_snapshot in available_pvtu_snapshots)  # first run in parallel and get stepwise output
-    ParallelWrapper.clear()
-    # for pvtu_snapshot in available_pvtu_snapshots:  # then run in on cpu to assemble these results
-    #    ParallelWrapper(pvtu_snapshot)
-    # pvtu_steps_o, outputs = ParallelWrapper.assemble()
+    # process the slab temperature
+    options = {}
+    options["if_rewrite"] = True
+    options["assemble"] = False
+    options["output_poly_data"] = False
+    options["fix_shallow"] = True
+
+    # Method 1: run in serial
+    # Method 2: run in parallel
+    if not run_parallel:
+        for pvtu_snapshot in available_pvtu_snapshots:
+            SlabTemperature1(case_dir, pvtu_snapshot, **options)
+    else:
+        ParallelWrapper = PARALLEL_WRAPPER_FOR_VTK('slab_temperature', SlabTemperature1, **options)
+        ParallelWrapper.configure(case_dir)  # assign case directory
+        # Remove previous file
+        print("%s: Delete old slab_temperature.txt file." % func_name())
+        ParallelWrapper.delete_temp_files(available_pvtu_snapshots)  # delete intermediate file if rewrite
+        num_cores = multiprocessing.cpu_count()
+        # loop for all the steps to plot
+        Parallel(n_jobs=num_cores)(delayed(ParallelWrapper)(pvtu_snapshot)\
+        for pvtu_snapshot in available_pvtu_snapshots)  # first run in parallel and get stepwise output
+        ParallelWrapper.clear()
 
 def SlabMorphologyCase(case_dir, **kwargs):
     '''

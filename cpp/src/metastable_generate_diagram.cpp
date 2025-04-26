@@ -65,7 +65,7 @@ void generate_results_diagram(const std::string& output_file) {
             // Initialize the MO_KINETICS class
             MO_KINETICS Mo_Kinetics;
             Mo_Kinetics.setPTEq(PT410_P, PT410_T, PT410_cl);
-            Mo_Kinetics.setKineticsModel(metastable_hosoya_06_eq2, nucleation_rate_yoshioka_2015);
+            Mo_Kinetics.linkAndSetKineticsModel();
             Mo_Kinetics.setKineticsFixed(P, T, Coh);
 
             // Solve the kinetics

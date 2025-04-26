@@ -9,6 +9,44 @@
 #include <numeric>
 #include <stdexcept>  // For std::invalid_argument
 
+// Constructor
+PTKinetics::PTKinetics():
+      A(std::exp(-18.0)), n(3.2),
+      dS(7.7), dV(3.16e-6),
+      dHa(274e3), Vstar(3.3e-6),
+      fs(1e-3), Vm(4.05e-5),
+      gamma(0.6), K0(3.65e38),
+      nucleation_type(0)
+{}
+
+PTKinetics::PTKinetics(const double A_, const double n_, const double dS_, const double dV_, 
+                       const double dHa_, const double Vstar_, const double fs_, const double Vm_
+                       , const double gamma_, const double K0_, const int nucleation_type)
+    : A(A_), n(n_), dS(dS_), dV(dV_),
+    dHa(dHa_), Vstar(Vstar_), fs(fs_), Vm(Vm_),
+    gamma(gamma_), K0(K0_), nucleation_type(nucleation_type)
+{}
+
+// Growth rate (without ΔGr term)
+double PTKinetics::growth_rate_P1(double P, double T, double Coh) const {
+    return A * std::pow(Coh, n) * std::exp(-(dHa + P * Vstar) / (R * T));
+}
+
+// Full growth rate (with ΔGr term)
+double PTKinetics::growth_rate(double P, double T, double Peq, double Teq, double Coh) const {
+    assert(P > Peq && "P must be greater than Peq");
+    double dGr = dV * (P - Peq) - dS * (T - Teq);
+    return growth_rate_P1(P, T, Coh) * T * (1.0 - std::exp(-dGr / (R * T)));
+}
+
+// Nucleation rate
+double PTKinetics::nucleation_rate(double P, double T, double Peq, double Teq) const {
+    assert(P > Peq && "P must be >= Peq");
+    double dGr = dV * (P - Peq) - dS * (T - Teq);
+    double delta_G_hom = (16.0 * M_PI * fs * std::pow(Vm, 2) * std::pow(gamma, 3)) / (3.0 * std::pow(dGr, 2));
+    double Q_a = dHa + P * Vstar;
+    return K0 * T * std::exp(-delta_G_hom / (k * T)) * std::exp(-Q_a / (R * T));
+}
 
 
 // Function to calculate the first part of the growth rate
@@ -33,34 +71,6 @@ double metastable_hosoya_06_eq2(double P, double T, double P_eq, double Coh) {
     double dGr = dV_ol_wd * (P - P_eq);
     double growth_rate = metastable_hosoya_06_eq2_P1(P, T, Coh) * T * (1 - std::exp(-dGr / (R * T)));
     return growth_rate;
-}
-
-double nucleation_rate_yoshioka_2015(double P, double T, double P_eq) {
-    // Constants
-    const double gamma = 0.0506;      // J/m^2
-    const double K0 = 3.54e38;       // s^-1 m^-2 K^-1
-    const double dH_a = 344e3;       // J/mol
-    const double V_star = 4e-6;      // m^3/mol
-    const double k = 1.38e-23;       // J/K
-    const double R = 8.314;          // J/(mol*K)
-    const double dV_ol_wd = 2.4e-6;  // m^3/mol
-    const double V_initial = 35.17e-6; // m^3/mol
-
-    // Validate input
-    assert(P >= P_eq && "Pressure must be greater than or equal to equilibrium pressure!");
-
-    // Compute delta_G_v
-    double delta_G_v = dV_ol_wd / V_initial * (P - P_eq);
-
-    // Compute delta_G_hom
-    double delta_G_hom = (16 * M_PI * std::pow(gamma, 3)) / (3 * std::pow(delta_G_v, 2));
-
-    // Compute Q_a
-    double Q_a = dH_a + P * V_star;
-
-    // Compute nucleation rate
-    double I = K0 * T * std::exp(-delta_G_hom / (k * T)) * std::exp(-Q_a / (R * T));
-    return I;
 }
 
 // Function to calculate dimensionless time (sigma_s)
@@ -112,7 +122,6 @@ std::vector<double> solve_extended_volume_post_saturation(const double Y, const 
     for (size_t i = 0; i < s.size(); ++i) {
         X3[i] = solve_extended_volume_post_saturation(Y, s[i], kappa, D, d0);
     }
-
     return X3;
 }
 
@@ -131,9 +140,9 @@ std::vector<double> ode_system(double s, const std::vector<double>& X, double Av
     double Av_factor = std::pow(Av, 0.25);
 
     // Calculate the derivatives based on the Avrami equation
-    double dX3 = Av_factor * (4.0 * M_PI * Y_prime(s) * X2);
-    double dX2 = Av_factor * (2.0 * Y_prime(s) * X1);
-    double dX1 = Av_factor * (Y_prime(s) * X0);
+    double dX3 = Av_factor * (4.0 * Y_prime(s) * X2);
+    double dX2 = Av_factor * (M_PI * Y_prime(s) * X1);
+    double dX1 = Av_factor * (2.0 * Y_prime(s) * X0);
     double dX0 = Av_factor * I_prime(s);
 
     // Return the derivatives as a vector
@@ -181,8 +190,16 @@ std::vector<std::vector<double>> solve_modified_equations_eq18(
     auto [t_values, X_values] = solver.solve(odes, X_ini, s_span, h, debug);
 
     if (debug){
-        std::cout << "h = " << h << std::endl;
-        std::cout << "X_values.size() = " << X_values.size() << std::endl;
+        std::cout << "      h = " << h << std::endl;
+        std::cout << "      X_values.size() = " << X_values.size() << std::endl;
+        size_t _size = t_values.size();
+        size_t _size1 = X_values[0].size();
+        for (size_t i = 0; i < _size; ++i) {
+            std::cout << "      t[" << i << "] = " << t_values[i] << std::endl;
+            for (size_t j = 0; j < _size1; ++j) {
+                std::cout << "      X["<< i << "][" << j << "] = " << X_values[i][j] << std::endl;
+            }
+        }
     }
 
     // Safeguard for very small values
@@ -205,23 +222,58 @@ std::vector<std::vector<double>> solve_modified_equations_eq18(
 }
 
 // Constructor
-MO_KINETICS::MO_KINETICS() {
+MO_KINETICS::MO_KINETICS():
+      d0(1e-2),
+      A(std::exp(-18.0)), n(3.2),
+      dS(7.7), dV(3.16e-6),
+      dHa(274e3), Vstar(3.3e-6),
+      fs(1e-3), Vm(4.05e-5),
+      gamma(0.6), K0(3.65e38),
+      nucleation_type(0)
+{
     PT_eq = {0.0, 0.0, 0.0}; // Initialize P, T, cl to 0.0
 }
 
-// Set the kinetics model
-void MO_KINETICS::setKineticsModel(std::function<double(double, double, double, double)> Y_func,
-                                   std::function<double(double, double, double)> I_func) {
-    Y_func_ori = Y_func;
-    I_func_ori = I_func;
+MO_KINETICS::MO_KINETICS(const double d0_, const double A_, const double n_, const double dS_, const double dV_, 
+                       const double dHa_, const double Vstar_, const double fs_, const double Vm_
+                       , const double gamma_, const double K0_, const int nucleation_type)
+    :d0(d0_), A(A_), n(n_), dS(dS_), dV(dV_),
+    dHa(dHa_), Vstar(Vstar_), fs(fs_), Vm(Vm_),
+    gamma(gamma_), K0(K0_), nucleation_type(nucleation_type)
+{}
+
+void MO_KINETICS::linkAndSetKineticsModel() {
+    kinetics = std::make_shared<PTKinetics>(
+        A, n,
+        dS, dV,             // dS, dv
+        dHa, Vstar,                // dHa, Vstar
+        fs, Vm,               //fs, Vm
+        gamma, K0,            // gamma, K0
+        nucleation_type // nucleation_type
+    );
+    assert(kinetics->get_nucleation_type() == nucleation_type);
 }
 
 // Fix the kinetics model
 void MO_KINETICS::setKineticsFixed(double P, double T, double Coh) {
     assert(!PT_eq.empty() && "PT_eq must be set before calling setKineticsFixed!");
-    double P_eq = computeEqP(T);
-    Y_func = [this, P, T, P_eq, Coh](double t) { return Y_func_ori(P, T, P_eq, Coh); };
-    I_func = [this, P, T, P_eq](double t) { return I_func_ori(P, T, P_eq); };
+
+    double P_eq = computeEqP(T); // compute equilibrium values
+    double T_eq = computeEqT(P);
+
+    // fix grain growth and nucleation functions to specific P, T condition
+    // convert nucleation rate to volumetric nucleation rate
+    if (kinetics->get_nucleation_type() == 0){
+        f_nu = 1.0;
+    }
+    else if (kinetics->get_nucleation_type() == 1){
+        f_nu = 6.7 / d0;
+    }
+    else{
+        throw std::runtime_error("This nucleation type is not implemented yet.");
+    }
+    Y_func = [this, P, T, P_eq, T_eq, Coh](double t) { return kinetics->growth_rate(P, T, P_eq, T_eq, Coh); };
+    I_func = [this, P, T, P_eq, T_eq](double t) { return f_nu*kinetics->nucleation_rate(P, T, P_eq, T_eq); };
 }
 
 // Set phase transition equilibrium
@@ -231,6 +283,36 @@ void MO_KINETICS::setPTEq(double P0, double T0, double cl) {
 
 double MO_KINETICS::computeEqP(double T) {
     return PT_eq[0] + PT_eq[2] * (T - PT_eq[1]);
+}
+
+double MO_KINETICS::computeEqT(double P) {
+    return PT_eq[1] + (P - PT_eq[0]) / PT_eq[2];
+}
+
+double MO_KINETICS::growth_rate(double P, double T, double Coh) {
+    double P_eq = computeEqP(T); // compute equilibrium values
+    double T_eq = computeEqT(P);
+    
+    // return 0 if equilibrium phase transition condition is not met
+    if (P > P_eq){
+        return kinetics->growth_rate(P, T, P_eq, T_eq, Coh);
+    }
+    else{
+        return 0.0;
+    }
+}
+
+double MO_KINETICS::nucleation_rate(double P, double T) {
+    double P_eq = computeEqP(T); // compute equilibrium values
+    double T_eq = computeEqT(P);
+
+    // return 0 if equilibrium phase transition condition is not met
+    if (P > P_eq){
+        return f_nu*kinetics->nucleation_rate(P, T, P_eq, T_eq);
+    }
+    else{
+        return 0.0;
+    }
 }
 
 std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solveModifiedEquation(
@@ -244,7 +326,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
     assert(Y_func && I_func && "Kinetics functions must be set before solving!");
 
     // Compute scaling variables
-    double I_max = std::max(1e-50, 6.0 * I_func(t_span.first) / d0);
+    double I_max = std::max(1e-50, I_func(t_span.first));
     double Y_max = std::max(1e-50, Y_func(t_span.first));
     double Av = calculate_avrami_number_yoshioka_2015(I_max, Y_max, kappa, D);
     
@@ -254,7 +336,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
     };
 
     auto I_prime_func = [this, I_max](double s) {
-        return 6.0 * I_func(s * t_scale) / d0 / I_max; // Scale time by t_scale
+        return I_func(s * t_scale) / I_max; // Scale time by t_scale
     };
     
 
@@ -269,6 +351,12 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
         std::pow(I_max, 0.25) * std::pow(Y_max, -0.25),
         1.0
     };
+   
+    // Non-dimensionalize the initial solution
+    std::vector<double> X_ini_nd(4, 0.0);
+    for (size_t k = 0; k < X_ini.size(); ++k) {
+        X_ini_nd[k] = X_ini[k] / X_scale_array[k];
+    }
 
     // Non-dimensionalize the time span
     std::pair<double, double> s_span = {t_span.first / t_scale, t_span.second / t_scale};
@@ -279,7 +367,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
 
     std::vector<double> I_array(n_span+1), Y_array(n_span+1);
     for (int i = 0; i <= n_span; ++i) {
-        I_array[i] = 6.0*I_func(s_values[i] * t_scale)/d0;
+        I_array[i] = I_func(s_values[i] * t_scale);
         Y_array[i] = Y_func(s_values[i] * t_scale);
     }
 
@@ -287,6 +375,9 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
     double s_saturation = calculate_sigma_s(I_array, Y_array, d0, kappa, D);
 
     if (debug) {
+        std::cout << "I_array[0] = " << I_array[0] << std::endl;
+        std::cout << "Y_array[0] = " << Y_array[0] << std::endl;
+        std::cout << "solveModifiedEquation: s_saturation = " << s_saturation << "\n";
         std::cout << "solveModifiedEquation: t_saturation = " << s_saturation * t_scale << "\n";
         std::cout << "solveModifiedEquation: is_saturated = " << is_saturated << "\n";
     }
@@ -296,12 +387,12 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
     std::vector<bool> is_saturated_array(n_span+1, false);
 
     if (!is_saturated) {
-        auto it = std::find_if(s_values.begin(), s_values.end(), [s_saturation](double s) { return s > s_saturation; });
+        auto it = std::find_if(s_values.begin(), s_values.end(), [s_saturation, s_values](double s) { return s > s_values[0] + s_saturation; });
         if (it != s_values.end() && std::distance(s_values.begin(), it) > 1) {
             // Pre-saturation & saturation
             int i0 = std::distance(s_values.begin(), it);
             std::pair<double, double> s_span_us = {s_values[0], s_values[i0]};
-            auto solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span_us, X_ini, i0, debug);
+            auto solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span_us, X_ini_nd, i0, debug);
 
 
             // Scale and store pre-saturation results
@@ -310,26 +401,50 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
                     X_array[k][j] = solution_nd[j][k] * X_scale_array[k];
                 }
             }
+            // Pre-assign values post-saturation
+            for (size_t j = solution_nd.size(); j < n_span + 1; ++j) {
+                for (size_t k = 0; k < solution_nd[solution_nd.size()-1].size(); ++k) {
+                    X_array[k][j] = solution_nd[solution_nd.size()-1][k] * X_scale_array[k];
+                }
+            }
 
-            // Post-saturation
+            // Post-saturation, increment from values derived by the analytical solution
             auto post_saturation = solve_extended_volume_post_saturation(Y_max, s_values, kappa, D, d0);
+            auto post_saturation_ini = solve_extended_volume_post_saturation(Y_max, s_values[i0], kappa, D, d0);
             for (int i = i0; i <= n_span; ++i) {
-                X_array[3][i] = post_saturation[i];
+                X_array[3][i] = X_array[3][i0] + post_saturation[i] - post_saturation_ini;
             }
             std::fill(is_saturated_array.begin() + i0, is_saturated_array.end(), true);
         }
         else if (it != s_values.end() && std::distance(s_values.begin(), it) <= 1) {
-            // saturation at the 0th or 1st sub-step
-            auto post_saturation = solve_extended_volume_post_saturation(Y_max, s_values, kappa, D, d0);
-            for (size_t i = 0; i <= n_span; ++i) {
-                X_array[3][i] = post_saturation[i];
+            // assign the initial values
+            for (size_t k = 0; k < X_ini.size(); ++k) {
+                X_array[k][0] = X_ini[k];
             }
             
-            int i0 = std::distance(s_values.begin(), it);
-            std::fill(is_saturated_array.begin()+i0, is_saturated_array.end(), true);
+            // solve the nucleation in range of s_values[0], s_saturation
+            std::pair<double, double> s_span_us = {s_values[0], s_values[0] + s_saturation};
+            
+            auto solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span_us, X_ini_nd, n_span, debug);
+
+            for (size_t j = 1; j < n_span+1; ++j) {
+                for (size_t k = 0; k < solution_nd[j].size(); ++k) {
+                    X_array[k][j] = solution_nd[solution_nd.size()-1][k] * X_scale_array[k];
+                }
+            }
+            
+            // saturation at the 1st sub-step
+            // Post-saturation, increment from values derived by the analytical solution
+            auto post_saturation = solve_extended_volume_post_saturation(Y_max, s_values, kappa, D, d0);
+            auto post_saturation_ini = solve_extended_volume_post_saturation(Y_max, s_values[1], kappa, D, d0);
+            for (size_t j = 1; j < n_span+1; ++j) {
+                X_array[3][j] = X_array[3][1] + post_saturation[j] - post_saturation_ini;
+            }
+            
+            std::fill(is_saturated_array.begin()+1, is_saturated_array.end(), true);
         } else {
-            // Full non-saturation
-            auto solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X_ini, n_span, debug);
+            // solve the unsaturated condition
+            auto solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X_ini_nd, n_span, debug);
             
             // Debug: Print X_scale_array if debug is true
             if (debug) {
@@ -340,31 +455,36 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
                 std::cout << "\n";
             }
 
-            // std::cout << "solution_nd.size() = " << solution_nd.size() << std::endl;
-
+            // assign the values from the solution
             for (size_t j = 0; j < solution_nd.size(); ++j) {
                 for (size_t k = 0; k < solution_nd[j].size(); ++k) {
                     // Debug print for each value
                     if (debug){
                         std::cout << "solution_nd[" << j << "][" << k << "] = "  << solution_nd[j][k] << ", X_scale_array[" << k << "] = " << X_scale_array[k] << std::endl;
                     }
-                    // X_array[j][k] = 0.0;
                     X_array[k][j] = solution_nd[j][k] * X_scale_array[k];
                 }
             }
         }
     } else {
-        // Full saturation
+        // assign the initial values
+        for (size_t j = 0; j < n_span+1; ++j) {
+            for (size_t k = 0; k < X_ini.size(); ++k) {
+                X_array[k][j] = X_ini[k];
+            }
+        }
+
+        // Full saturation, increment from values derived by the analytical solution
         auto post_saturation = solve_extended_volume_post_saturation(Y_max, s_values, kappa, D, d0);
-        for (size_t i = 0; i <= n_span; ++i) {
-            X_array[3][i] = post_saturation[i];
+        auto post_saturation_ini = solve_extended_volume_post_saturation(Y_max, s_values[0], kappa, D, d0);
+        for (size_t j = 0; j < n_span+1; ++j) {
+            X_array[3][j] = X_ini[3] + post_saturation[j] - post_saturation_ini;
         }
         std::fill(is_saturated_array.begin(), is_saturated_array.end(), true);
     }
 
     return {X_array, is_saturated_array};
 }
-
 
 std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t_min, double t_max, int n_t, int n_span, bool debug, 
     std::vector<double> X, bool is_saturated) {
@@ -397,7 +517,7 @@ std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t
 
         if (P > Peq) {
             // Solve the kinetics if equilibrium condition is met
-            auto solution = solveModifiedEquation(t_span, X, is_saturated, n_span, false); // debug
+            auto solution = solveModifiedEquation(t_span, X, is_saturated, n_span, false);
             X_array = solution.first;
             is_saturated_array = solution.second;
             X = {X_array[0].back(), X_array[1].back(), X_array[2].back(), X_array[3].back()};

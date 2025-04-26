@@ -2,6 +2,7 @@ import sys, os
 from scipy.integrate import solve_ivp
 import numpy as np
 import pandas as pd
+from collections import namedtuple
 
 package_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
 sys.path.insert(0, package_root)
@@ -24,11 +25,19 @@ def calculate_sigma_s(I_PT, Y_PT, d_0, **kwargs):
     """
     kappa = kwargs.get("kappa", 1e-6) # Thermal diffusivity (m^2/s).
     D = kwargs.get("D", 100e3) # slab thickness
+    
     # Compute the dimensionless time
-    if I_PT == 0 or Y_PT == 0 or d_0 == 0:
-        sigma_s = float('inf')
+    # check if a 0.0 value is parsed in as inputs,
+    # if so, return an infinite number.
+    # Maintain consistency between float number and numpy arrays.
+    numerator = I_PT * Y_PT**2 * d_0 / 6.7
+    if type(I_PT) in [float, np.float64]:
+        safe_numerator = np.nan if numerator == 0 else numerator # replace zero with NaN
+    elif type(I_PT) == np.ndarray:
+        safe_numerator = np.where(numerator == 0, np.nan, numerator)  # replace zero with NaN
     else:
-        sigma_s = (kappa / D**2) * ((I_PT * Y_PT**2 * d_0) / 6.7)**(-1/3)
+        raise NotImplementedError("I_PT and Y_PT needs to be either float or np.ndarrray. Get %s" % str(type(I_PT)))
+    sigma_s = (kappa / D**2) * (safe_numerator)**(-1/3)
     return sigma_s
 
 
@@ -48,7 +57,6 @@ def calculate_avrami_number_yoshioka_2015(I_max, Y_max, **kwargs):
     # Compute the Avrami number
     Av = (D**2 / kappa)**4 * I_max * Y_max**3
     return Av
-
 
 def solve_extended_volume_post_saturation(Y, s, **kwargs):
     '''
@@ -72,6 +80,27 @@ def solve_extended_volume_post_saturation(Y, s, **kwargs):
     X3 = 6.7 * D**2.0 / d0 / kappa * Y * s
     return X3
 
+def solve_extended_volume_post_saturation_by_increment(Y, s, s_ini, V_extended_ini, **kwargs):
+    '''
+    Solve for the extended volume after site saturation is reached.
+    Derive the solution from the time increment
+    
+    Parameters:
+    - Y (float): Current saturation level.
+    - s (float): Dimensionless time.
+    - kwargs (dict): Optional parameters including:
+        - kappa (float): Thermal diffusivity (default=1e-6, m^2/s).
+        - D (float): Slab thickness (default=100e3, m).
+        - d0 (float): Parental grain size (default=1e-2, m).
+    
+    Returns:
+    - float: Extended volume after site saturation.
+    '''
+    # Calculate the extended volume based on the provided parameters
+    X3 = V_extended_ini + solve_extended_volume_post_saturation(Y, s, **kwargs)\
+          - solve_extended_volume_post_saturation(Y, s_ini, **kwargs)
+    return X3
+
 
 def ode_system(s, X, Av, Y_prime, I_prime):
     """
@@ -92,13 +121,12 @@ def ode_system(s, X, Av, Y_prime, I_prime):
     Av_factor = Av**(1/4)
     
     # Calculate the derivatives based on the Avrami equation
-    dX3 = Av_factor * (4 * np.pi * Y_prime(s) * X2)
-    dX2 = Av_factor * (2 * Y_prime(s) * X1)
-    dX1 = Av_factor * (Y_prime(s) * X0)
+    dX3 = Av_factor * (4 * Y_prime(s) * X2)
+    dX2 = Av_factor * (np.pi * Y_prime(s) * X1)
+    dX1 = Av_factor * (2 * Y_prime(s) * X0)
     dX0 = Av_factor * I_prime(s)
 
     return [dX0, dX1, dX2, dX3]
-
 
 def solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **kwargs):
     """
@@ -118,7 +146,7 @@ def solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **k
     """
     debug = kwargs.get("debug", False)
     if debug:
-        print("call function solve_modified_equations_eq18") # debug
+        print("call function solve_modified_equations_eq18")
 
     # Define the system of ODEs to solve
     def odes(s, X):
@@ -137,105 +165,137 @@ def solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **k
 
     # solve the odes
     solution = solve_ivp(odes, s_span, X, method='RK45', t_eval=np.linspace(s_span[0], s_span[1], n_span+1))
+
     return solution
 
-def growth_rate_hosoya_06_eq2_P1(P, T, Coh):
+
+class PTKinetics:
     """
-    Calculate the growth rate following Equation 2 in Hosoya 2006.
+    Encapsulates kinetic models for grain growth and nucleation:
+    - Hosoya (2006) growth rate models
+    - Yoshioka et al. (2015) nucleation rate
 
-    Parameters:
-    - P (float): Pressure in Pascals.
-    - T (float): Temperature in Kelvin.
-    - Coh (float): Concentration of water in weight parts per million (wt.ppm H2O).
-
-    Returns:
-    - float: The growth rate calculated using the given parameters.
+    Attributes:
+        R (float): Universal gas constant (J/mol/K)
+        k (float): Boltzmann constant (J/K)
+        A (float): Pre-exponential factor for growth (m/s/(wt.ppmH2O)^n)
+        n (float): Water content exponent in growth law
+        dHa (float): Activation enthalpy for growth (J/mol)
+        V_star_growth (float): Activation volume for growth (m^3/mol)
+        gamma (float): Interfacial energy (J/m^2)
+        fs (float): Shape factor for nucleation
+        K0 (float): Pre-exponential factor for nucleation (s^-1 m^-2 K^-1)
+        Vm (float): Molar volume at transition (m^3/mol)
+        dS (float): Entropy change across transition (J/mol/K)
+        dV (float): Volume change across transition (m^3/mol)
+        I_func (func): selected nucleation mechenism
+        I_type (int): type of the nucleation mechanism; 0 - volumetic; 1 - surface; 2 - line; 3 - corner
+        Y_func (func): selected grain growth mechenism
     """
-    R = 8.31446  # J / mol*K, universal gas constant
+    Constants = namedtuple("Constants", [
+        "R", "k",
+        "A", "n", "dHa", "V_star_growth",
+        "gamma", "fs", "K0", "Vm", "dS", "dV",
+        "nucleation_type"
+    ])
 
-    # Constants based on Hosoya 2006
-    A = np.exp(-18.0)  # m s-1 wt.ppmH2O^(-3.2)
-    n = 3.2
-    dHa = 274.0e3  # J / mol, activation enthalpy
-    Vstar = 3.3e-6  # m^3 / mol, activation volume
+    def __init__(self, constants=None):
+        """
+        Initialize the kinetic model with optional user-specified constants.
 
-    growth_rate_part = A * Coh**n * np.exp(-(dHa + P * Vstar) / (R * T))
+        Args:
+            constants (namedtuple, optional): A Constants namedtuple with all parameters.
+                                               Defaults to preset values from Hosoya (2006) and Yoshioka (2015).
+        """
+        if constants is None:
+            constants = self._default_constants()
 
-    return growth_rate_part
+        # Assign constants to class attributes
+        self.R = constants.R
+        self.k = constants.k
+        self.A = constants.A
+        self.n = constants.n
+        self.dHa = constants.dHa
+        self.V_star_growth = constants.V_star_growth
+        self.gamma = constants.gamma
+        self.fs = constants.fs
+        self.K0 = constants.K0
+        self.Vm = constants.Vm
+        self.dS = constants.dS
+        self.dV = constants.dV
+        self.growth_rate = self.growth_rate_interface_P2
+        self.nucleation_type = constants.nucleation_type
 
-def growth_rate_hosoya_06_eq2(P, T, P_eq, Coh):
-    """
-    Calculate the growth rate following Equation 2 in Hosoya 2006, considering 
-    pressure and temperature variations.
+    def _default_constants(self):
+        return self.Constants(
+            R=8.31446,
+            k=1.38e-23,
+            A=np.exp(-18.0),
+            n=3.2,
+            dHa=274e3,
+            V_star_growth=3.3e-6,
+            gamma=0.6,
+            fs=1e-3,
+            K0=3.65e38,
+            Vm=4.05e-5,
+            dS=7.7,
+            dV=3.16e-6,
+            nucleation_type=0
+        )
 
-    Parameters:
-    - P (float or np.ndarray): Pressure in Pascals.
-    - T (float or np.ndarray): Temperature in Kelvin.
-    - P_eq (float or np.ndarray): Equilibrium pressure in Pascals.
-    - Coh (float): Concentration of water in weight parts per million (wt.ppm H2O).
+    def growth_rate_interface_P1(self, P, T, Coh):
+        """
+        Calculate the first part of the growth rate (Eq. 2 from Hosoya 2006).
+        """
+        return self.A * Coh**self.n * np.exp(-(self.dHa + P * self.V_star_growth) / (self.R * T))
 
-    Returns:
-    - float or np.ndarray: The growth rate for each pressure point.
-    """
-    R = 8.31446  # J / mol*K, universal gas constant
-    dV_ol_wd = 2.4e-6  # m^3 / mol, difference in volume between phases
-    
-    if type(P) in [float, np.float64]:
-        assert(P > P_eq)
-    elif type(P) == np.ndarray:
-        assert(np.min(P - P_eq) > 0.0)
-    else:
-        raise TypeError("P must be float or ndarray")
+    def growth_rate_interface_P2(self, P, T, P_eq, T_eq, Coh):
+        """
+        Full Hosoya (2006) Eq. 2: includes free energy driving force.
+        """
+        if isinstance(P, (float, np.floating)):
+            assert P > P_eq
+        elif isinstance(P, np.ndarray):
+            assert np.min(P - P_eq) > 0.0
+        else:
+            raise TypeError("P must be float or ndarray")
 
-    # Determine growth rate based on pressure type (float or array)
-    dGr = dV_ol_wd * (P - P_eq)
-    growth_rate = growth_rate_hosoya_06_eq2_P1(P, T, Coh) * T * (1 - np.exp(-dGr / (R * T)))
+        delta_G_d = self.dV * (P - P_eq) - self.dS * (T - T_eq)
+        base_growth = self.growth_rate_interface_P1(P, T, Coh)
+        return base_growth * T * (1 - np.exp(-delta_G_d / (self.R * T)))
 
-    return growth_rate
+    def nucleation_rate(self, P, T, P_eq, T_eq):
+        """
+        Nucleation rate from Yoshioka et al. (2015), Eq. 10.
+        """
+        if isinstance(P, (float, np.floating)):
+            assert P >= P_eq
+        elif isinstance(P, np.ndarray):
+            assert np.min(P - P_eq) >= 0.0
+        else:
+            raise TypeError("P must be float or ndarray")
 
-def nucleation_rate_yoshioka_2015(P, T, P_eq):
-    """
-    Compute the nucleation rate using Equation (10) from Yoshioka et al. (2015).
-    
-    Parameters:
-    - T (float): Temperature in Kelvin.
-    - P (float): Pressure in Pa
-    - delta_G_v (float): Free energy change per volume in J/m^3.
+        delta_G_d = self.dV * (P - P_eq) - self.dS * (T - T_eq)
+        delta_G_hom = (16 * self.fs * np.pi * self.Vm**2 * self.gamma**3) / (3 * delta_G_d**2)
+        Q_a = self.dHa + P * self.V_star_growth
 
-    Constants
-    - gamma (float): Surface energy in J/m^2 (default: 0.0506).
-    - K0 (float): Pre-exponential factor in s^-1 m^-2 K^-1 (default: 3.54e38).
-    - Q_a (float): Activation energy for growth in J/mol (default: 355e3).
-    - k (float): Boltzmann constant in J/K (default: 1.38e-23).
-    - R (float): Universal gas constant in J/(mol*K) (default: 8.314).
-    - dV_ol_wd (float): difference in mole volume between phase.
-    - V_initial (float): for olivine, estimation at 410 km, mole volume
-    
-    Returns:
-    - I (float): Nucleation rate in s^-1 m^-2.
-    """
-    gamma=0.0506; K0=3.54e38; dH_a=344e3; V_star=4e-6; k=1.38e-23; R=8.314
-    dV_ol_wd = 2.4e-6; V_initial = 35.17e-6
+        return self.K0 * T * np.exp(-delta_G_hom / (self.k * T)) * np.exp(-Q_a / (self.R * T))
 
-    if type(P) in [float, np.float64]:
-        assert(P >= P_eq)
-    elif type(P) == np.ndarray:
-        assert(np.min(P - P_eq) >= 0.0)
-    else:
-        raise TypeError("P must be float or ndarray")
+    def critical_radius(self, P, T, P_eq, T_eq):
+        """
+        critical_radius of nuclei
+        """
+        if isinstance(P, (float, np.floating)):
+            assert P >= P_eq
+        elif isinstance(P, np.ndarray):
+            assert np.min(P - P_eq) >= 0.0
+        else:
+            raise TypeError("P must be float or ndarray")
 
-    delta_G_v = dV_ol_wd / V_initial * (P - P_eq)
+        delta_G_d = self.dV * (P - P_eq) - self.dS * (T - T_eq)
+        rc = 2 * self.fs**(1.0/3) * self.gamma * self.Vm / delta_G_d
+        return rc
 
-    # print("P_eq = %.2f GPa, dGr_vs = %.4e" % (P_eq/1e9, delta_G_v)) # debug
-
-    # Compute the homogeneous nucleation activation energy
-    delta_G_hom = (16 * np.pi * gamma**3) / (3 * (delta_G_v)**2)
-    
-    # Compute the nucleation rate
-    Q_a = dH_a + P * V_star 
-    I = K0 * T * np.exp(-delta_G_hom / (k * T)) * np.exp(-Q_a / (R * T))
-    
-    return I
 
 def compute_eq_P(PT_dict, T):
     """
@@ -265,23 +325,22 @@ def compute_eq_T(PT_dict, P):
         - "T" (float): Reference temperature.
         - "cl" (float): Calibration constant or slope related to pressure-temperature relationship.
         - "P" (float): Reference pressure.
-    - P (float): The pressure at which to compute the equilibrium temperature.
+    - P (float): The pressure at which to compute the equilibrium pressure.
     
     Returns:
-    - float: The equilibrium temperature at the given pressure.
+    - float: The equilibrium pressure at the given temperature.
     """
-    # Calculate equilibrium temperature using the inverse linear relationship in PT_dict
+    # Calculate equilibrium pressure using the linear relationship in PT_dict
     T_eq = (P - PT_dict["P"]) / PT_dict["cl"] + PT_dict["T"]
-    
+
     return T_eq
-
-
 
 class MO_KINETICS:
     """
     Class to handle the kinetics of phase transformations, including nucleation and growth rates.
 
     Attributes:
+    - Kinetics (class): class for kinetic functions (nucleation and grain growth)
     - Y_func_ori (callable): Function for the growth rate Y(P, T, Peq, Coh).
     - I_func_ori (callable): Function for the nucleation rate I(P, T, Peq).
     - Y_func (callable): Function for the growth rate Y(t).
@@ -292,13 +351,22 @@ class MO_KINETICS:
     - t_scale (float): Scaling factor for time.
     - Av (float): Avrami number.
     - last_solution (OdeResult): Solution from the last numerical integration.
+    - is_P_higher_than_Peq (bool): is the P value we have higher than the equilirbium value
     - last_is_saturated (bool): Indicator for site saturation in the last step.
     - Y_prime_func (callable): Function for normalized growth rate Y'(s).
     - I_prime_func (callable): Function for normalized nucleation rate I'(s).
     - PT_eq (dict): phase transition equilibrium parameters, T, P, cl-Claypeyron slope
+    - post_process (list): additional post-process steps
+    - X_saturated: solution when citet situation is reached.
     """
+    Constants = namedtuple("Constants", [
+        "R", "k", "kappa", "D", "d0",
+        "A", "n", "dHa", "V_star_growth",
+        "gamma", "fs", "K0", "Vm", "dS", "dV",
+        "nucleation_type"
+    ])
 
-    def __init__(self):
+    def __init__(self, constants=None, **kwargs):
         """
         Initialize the MO_KINETICS class with growth and nucleation rate functions.
         
@@ -306,24 +374,79 @@ class MO_KINETICS:
         - Y_func (callable): Function for the growth rate Y(t).
         - I_func (callable): Function for the nucleation rate I(t).
         """
+        self.post_process = kwargs.get("post_process", [])
+        assert(type(self.post_process) == list)
+        if "ts" in self.post_process:
+            self.post_process_ts = True
+        else:
+            self.post_process_ts = False
+        if "tg" in self.post_process:
+            self.post_process_tg = True
+        else:
+            self.post_process_tg = False
+
+        if constants is None:
+            self.constants = self._default_constants()
+        else:
+            self.constants = constants
+
+        # model functions
         self.Y_func_ori = None
         self.I_func_ori = None
         self.Y_func = None
         self.I_func = None
-        self.kappa = 1e-6
-        self.D = 100e3
-        self.d0 = 1e-2
-        self.t_scale = self.D**2.0 / self.kappa
-        self.Av = None
-        self.last_solution = None
-        self.last_is_saturated = False
         self.Y_prime_func = None
         self.I_prime_func = None
-        self.PT_eq = {"T": None, "P": None, "cl": None}
-        self.result_columns = ["t", "N", "Dn", "S", "Vtilde", "V", "is_saturated"]
-        self.n_col = len(self.result_columns)
 
-    def set_kinetics_model(self, Y_func, I_func):
+        # model parameters
+        self.PT_eq = {"T": None, "P": None, "cl": None}
+        self.kappa = self.constants.kappa
+        self.D = self.constants.D
+        self.d0 = self.constants.d0
+        self.t_scale = self.D**2.0 / self.kappa
+        self.S0 = 6.7 / self.d0
+
+        # model solutions
+        self.Av = None
+        self.is_P_higher_than_Peq = False
+        self.result_columns = ["t", "N", "Dn", "S", "Vtilde", "V", "is_saturated"]
+        if self.post_process_ts:
+            self.result_columns.append("t_saturated")
+        if self.post_process_tg:
+            self.result_columns.append("t_growth")
+        self.n_col = len(self.result_columns)
+        self.last_is_saturated = False
+        self.last_solution = None
+        self.X_saturated = None
+
+
+    def _default_constants(self):
+        return self.Constants(
+            R=8.31446,
+            k=1.38e-23,
+            kappa=1e-6,
+            D=100e3,
+            d0=1e-2,
+            A=np.exp(-18.0),
+            n=3.2,
+            dHa=274e3,
+            V_star_growth=3.3e-6,
+            gamma=0.6,
+            fs=1e-3,
+            K0=3.65e38,
+            Vm=4.05e-5,
+            dS=7.7,
+            dV=3.16e-6,
+            nucleation_type=0
+        )
+    
+    def set_initial_grain_size(self, d0):
+        """
+        Set the initial grain size
+        """
+        self.d0 = d0
+
+    def set_kinetics_model(self, mKinetics):
         """
         Set the kinetics model by assigning nucleation and growth rate functions.
         
@@ -331,8 +454,36 @@ class MO_KINETICS:
         - Y_func (callable): Function for the growth rate Y(t).
         - I_func (callable): Function for the nucleation rate I(t).
         """
-        self.Y_func_ori = Y_func
-        self.I_func_ori = I_func
+        self.Kinetics = mKinetics
+        self.Y_func_ori = mKinetics.growth_rate
+        self.I_func_ori = mKinetics.nucleation_rate
+        self.I_type_ori = mKinetics.nucleation_type
+    
+    def link_and_set_kinetics_model(self, MKinetics):
+        """
+        Link and set the kinetics model by assigning nucleation and growth rate functions.
+        """
+        constants = MKinetics.Constants(
+            R=self.constants.R,
+            k=self.constants.k,
+            A=self.constants.A,
+            n=self.constants.n,
+            dHa=self.constants.dHa,
+            V_star_growth=self.constants.V_star_growth,
+            gamma=self.constants.gamma,
+            fs=self.constants.fs,
+            K0=self.constants.K0,
+            Vm=self.constants.Vm,
+            dS=self.constants.dS,
+            dV=self.constants.dV,
+            nucleation_type=self.constants.nucleation_type
+        )
+        
+        mKinetics = MKinetics(constants)
+
+        self.set_kinetics_model(mKinetics)
+
+        assert(self.I_type_ori == self.constants.nucleation_type)
 
     def set_kinetics_fixed(self, P, T, Coh):
         """
@@ -347,10 +498,25 @@ class MO_KINETICS:
 
         # compute equilibrium condition
         Peq = compute_eq_P(self.PT_eq, T)
+        Teq = compute_eq_T(self.PT_eq, P)
+
+        if P > Peq:
+            self.is_P_higher_than_Peq = True
+        else:
+            self.is_P_higher_than_Peq = False
 
         # fix value to Y_func and I_func
-        self.Y_func = lambda t: self.Y_func_ori(P, T, Peq, Coh)
-        self.I_func = lambda t: self.I_func_ori(P, T, Peq)
+        self.Y_func = lambda t: self.Y_func_ori(P, T, Peq, Teq, Coh)
+        
+        if self.I_type_ori == 0:
+            # volumetric nucleation
+            f0 = 1
+        elif self.I_type_ori == 1:
+            # surface nucleation
+            f0 = self.S0
+        else:
+            return NotImplementedError()
+        self.I_func = lambda t: f0*self.I_func_ori(P, T, Peq, Teq)
     
     def set_PT_eq(self, P0, T0, cl):
         """
@@ -362,6 +528,76 @@ class MO_KINETICS:
         - cl (float): Clapeyron slope.
         """
         self.PT_eq = {"T": T0, "P": P0, "cl": cl} 
+
+    def compute_Av(self, t, **kwargs):
+        """
+        Compute the Avrami number at time t
+        """
+        # See if the current P, T condition is higher than the equilibrium
+        # If now, do not compute a Av value
+        D = kwargs.get("D", self.D)
+        if self.is_P_higher_than_Peq:
+            I_max = max(1e-50, self.I_func(t)) # per unit volume
+            Y_max = max(1e-50, self.Y_func(t))
+            Av = calculate_avrami_number_yoshioka_2015(I_max, Y_max, D=D)
+        else:
+            Av = float('inf')
+        return Av
+    
+    def compute_Iv(self, t):
+        """
+        Compute the Volumetric nucleation rate at time t
+        Return nan value if equilibrium boundary is not reached
+        """
+        if self.is_P_higher_than_Peq:
+            Iv = self.I_func(t)
+        else:
+            Iv = 0.0
+        return Iv
+    
+    def compute_Y(self, t):
+        """
+        Compute the growth rate at time t
+        """
+        if self.is_P_higher_than_Peq:
+            Y = self.Y_func(t)
+        else:
+            Y = 0.0
+        return Y
+    
+    def compute_ts(self, t):
+        """
+        Compute the site situation time ts
+        """
+        if self.is_P_higher_than_Peq:
+            ts = self.D**2.0/self.kappa * calculate_sigma_s(self.I_func(t), self.Y_func(t), self.d0, kappa=self.kappa, D=self.D)
+        else:
+            ts = float('inf')
+        return ts
+    
+    def compute_tg(self, t):
+        """
+        Compute the grain growth time tg assuming site situation
+        """
+        if self.is_P_higher_than_Peq:
+            tg =  0.693 / self.S0 / self.Y_func(t)
+        else:
+            tg = float('inf')
+        return tg
+
+    def compute_rc(self, P, T):
+        """
+        Compute the critical radius
+        """
+        Peq = compute_eq_P(self.PT_eq, T)
+        Teq = compute_eq_T(self.PT_eq, P)
+        if self.is_P_higher_than_Peq:
+            rc = self.Kinetics.critical_radius(P, T, Peq, Teq)
+        else:
+            rc = 0.0
+        return rc
+
+
 
     class MO_INITIATION_Error(Exception):
         """
@@ -397,17 +633,17 @@ class MO_KINETICS:
 
         # compute scaling variables
         # The Av value is prevented from being too small. Note this will only affect
-        # the nondimensional variables. 
-        I_max = max(1e-50, 6.0*self.I_func(t_span[0]) / self.d0) # per unit volume
+        # the nondimensional variables.
+        I_max = max(1e-50, self.I_func(t_span[0])) # per unit volume
         Y_max = max(1e-50, self.Y_func(t_span[0]))
-        self.Av = calculate_avrami_number_yoshioka_2015(I_max, Y_max)
+        self.Av = self.compute_Av(t_span[0])
 
         # print debug message of scaling values
         if debug:
             print("solve_modified_equation: I_max = %.4e, Y_max = %.4e, Av = %.4e" % (I_max, Y_max, self.Av))
         
         self.Y_prime_func = lambda s: self.Y_func(s*self.t_scale) / Y_max
-        self.I_prime_func = lambda s: self.I_func(s*self.t_scale) *6.0 / self.d0 / I_max
+        self.I_prime_func = lambda s: self.I_func(s*self.t_scale) / I_max
 
         # update the t scaling with local values of nucleation and growth rates
         self.X_scale_array = np.array([I_max**(3.0/4.0)*Y_max**(-3.0/4.0), I_max**(1.0/2.0)*Y_max**(-1.0/2.0), I_max**(1.0/4.0)*Y_max**(-1.0/4.0), 1.0])
@@ -415,35 +651,39 @@ class MO_KINETICS:
         # nondimensionalize the time variable and calculate nondimensional constants
         s_span = t_span / self.t_scale
         s_values = np.linspace(s_span[0], s_span[1], n_span+1)
-        I_array = self.I_func(s_values * self.t_scale)
-        Y_array = self.Y_func(s_values * self.t_scale)
-
-        # print("s_span: ", s_span) # debug
+        I_array = np.zeros(n_span+1)
+        Y_array = np.zeros(n_span+1)
+        for i in range(n_span+1):
+            I_array = self.I_func(s_values[i] * self.t_scale)
+            Y_array = self.Y_func(s_values[i] * self.t_scale)
 
         # nondimensionalize the initial solution
         X_ini_nl = X_ini / self.X_scale_array
 
         # compute saturation condition for s 
-        s_saturation = calculate_sigma_s(6.0*I_array/self.d0, Y_array, self.d0, kappa=self.kappa, D=self.D)
-
+        # todo_s_saturation
+        s_saturation = calculate_sigma_s(I_array, Y_array, self.d0, kappa=self.kappa, D=self.D)
+            
         if debug:
+            print("First element of I_array:", I_array)
+            print("First element of Y_array:", Y_array)
             print("solve_modified_equation: t_span = ", t_span)
+            print("solve_modified_equation: s_saturation = ", s_saturation)
             print("solve_modified_equation: t_saturation = ", s_saturation*self.t_scale)
             print("solve_modified_equation: is_saturated = ", is_saturated)
-
+                
         if not is_saturated:
             # in case site situation is not reached for the initial condition,
             # compute a potential saturation index
-            indices = np.where(s_values > s_saturation)[0]
+            indices = np.where(s_values - s_values[0] > s_saturation)[0]
             if len(indices) > 0 and indices[0] > 1:
                 # saturation is reached after at least 2 points
                 i0 = indices[0]
                 s_span_us = np.array([s_values[0], s_values[i0]])
 
-                # print("i0 = %d" % i0) # debug
-
                 # solve for a pre-saturation subset 
                 kwargs["n_span"] = i0
+
                 solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, s_span_us, X_ini_nl, **kwargs)
                 
                 # parse the solution at the last time step
@@ -451,11 +691,15 @@ class MO_KINETICS:
 
                 # parse to X_array
                 X_array = np.zeros((4, n_span+1)) 
-                X_array[:, 0: i0] = X_array_nd * self.X_scale_array[:, np.newaxis] # scale by the rows
+                X_array[:, 0: i0+1] = X_array_nd * self.X_scale_array[:, np.newaxis] # scale by the rows
+
+                # record the saturation state
+                self.X_saturated = X_array[:, i0]
                 
                 # compute the other subset with saturation conditions
-                X_array[:, i0:] = X_array[:, i0 - 1][:, np.newaxis]  # replicate the i0 - 1 column
-                X_array[3, i0:] = solve_extended_volume_post_saturation(Y_max, s_values[i0:], kappa=self.kappa, D=self.D, d0=self.d0)
+                X_array[:, i0:] = X_array[:, i0][:, np.newaxis]  # replicate the i0 column
+
+                X_array[3, i0:] = solve_extended_volume_post_saturation_by_increment(Y_max, s_values[i0:], s_values[i0], X_array[3, i0], kappa=self.kappa, D=self.D, d0=self.d0)
 
                 if debug:
                     print("saturation is reached after at least 2 points")
@@ -472,11 +716,22 @@ class MO_KINETICS:
 
             elif len(indices) > 0 and indices[0] <= 1:
                 # saturation is reached at either the 0th or 1st point
+
                 X_array = np.tile(X_ini, (n_span+1, 1)).T
-                X_array[3,:] = solve_extended_volume_post_saturation(Y_max, s_values, kappa=self.kappa, D=self.D, d0=self.d0)
+
+                # solve equation between s_span[0] and s_saturation
+                s_span_new = (s_span[0], s_span[0] + s_saturation)
+                solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, s_span_new, X_ini_nl, **kwargs)
+                X_array_foo = solution_nd.y*self.X_scale_array[:, np.newaxis]
+                for i_raw in range(1, X_array.shape[1]):
+                    X_array[:, i_raw] = X_array_foo[:, -1] 
+                self.X_saturated  = X_array_foo[:, -1]
+
+                # solve the extended volume after step 1
+                X_array[3,1:] = solve_extended_volume_post_saturation_by_increment(Y_max, s_values[1:], s_values[1], X_array[3, 1], kappa=self.kappa, D=self.D, d0=self.d0)
             
                 is_saturated_array = np.full(n_span+1, True)
-                is_saturated_array[0:indices[0]] = False
+                is_saturated_array[0] = False
             
                 # record the whole solution
                 self.last_solution = None
@@ -488,7 +743,6 @@ class MO_KINETICS:
 
             else:
                 # saturation is not reached
-                # print("solving modified equations eq18") # debug
                 solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, s_span, X_ini_nl, **kwargs)
 
                 # record the whole solution
@@ -516,7 +770,8 @@ class MO_KINETICS:
             # in case site situation is already reached for the initial condition,
             # use the formulate post saturation
             X_array = np.tile(X_ini, (n_span+1, 1)).T
-            X_array[3,:] = solve_extended_volume_post_saturation(Y_max, s_values, kappa=self.kappa, D=self.D, d0=self.d0)
+            # X_array[3,:] = solve_extended_volume_post_saturation(Y_max, s_values, kappa=self.kappa, D=self.D, d0=self.d0)
+            X_array[3,:] = solve_extended_volume_post_saturation_by_increment(Y_max, s_values, s_values[0], X_ini[3], kappa=self.kappa, D=self.D, d0=self.d0)
             is_saturated_array = np.full(n_span+1, True)
             
             # record the whole solution
@@ -528,13 +783,20 @@ class MO_KINETICS:
                 print("X_array[:, -1] = ", X_array[:, -1])
         
         return X_array, is_saturated_array
-    
-    def solve(self, P, T, t_max, n_t, n_span, **kwargs):
+
+    def solve(self, P, T, t_min, t_max, n_t, n_span, **kwargs):
 
         debug = kwargs.get("debug", False)
-        
-        X = np.array([0.0, 0.0, 0.0, 0.0])
-        is_saturated = False
+        initial = kwargs.get("initial", None)
+
+        # read the initial state
+        if initial is None: 
+            X = np.array([0.0, 0.0, 0.0, 0.0])
+            is_saturated = False
+        else:
+            X = initial[1:5]
+            is_saturated = initial[6]
+
         results = np.zeros([n_t * n_span + 1, self.n_col])
 
         # compute equilibrium condition
@@ -543,14 +805,14 @@ class MO_KINETICS:
         # Loop over time steps
         for i_t in range(n_t):
             if debug:
-                print("i_t: %d" % i_t) # debug
+                print("i_t: %d" % i_t)
 
             # Assert that X remains a 1-d numpy array
             my_assert(type(X) == np.ndarray and X.ndim == 1, TypeError, f"Check at loop {i_t}: X must be a 1-d numpy array.")
                 
             # Define the time span for the current step
-            t_piece_min = t_max / n_t * i_t
-            t_piece_max = t_max / n_t * (i_t + 1)
+            t_piece_min = t_min + (t_max-t_min) / n_t * i_t
+            t_piece_max = t_min + (t_max-t_min) / n_t * (i_t + 1)
             t_span = np.array([t_piece_min, t_piece_max])
             if P > Peq:
                 # Solve the kinetics if equilibrium condition is met
@@ -569,9 +831,101 @@ class MO_KINETICS:
             # Record the results in the DataFrame
             V_array = 1 - np.exp(-X_array[3, :])
             for j_s in range(n_span+1):
-                results[i_t*n_span + j_s, :] = [t_piece_min + (t_piece_max - t_piece_min)/n_span*j_s,\
-                                                X_array[0, j_s], X_array[1, j_s], X_array[2, j_s], X_array[3, j_s],\
-                                                    V_array[j_s], is_saturated_array[j_s]]
+                t_j = t_piece_min + (t_piece_max - t_piece_min)/n_span*j_s
+                result_timestep = [t_j, X_array[0, j_s], X_array[1, j_s], X_array[2, j_s], X_array[3, j_s],\
+                                   V_array[j_s], is_saturated_array[j_s]]
+                # post_process steps
+                if self.post_process_ts:
+                    ts = self.compute_ts(t_j) # compute saturation and growth time as post-processing
+                    result_timestep.append(ts)
+                if self.post_process_tg:
+                    tg = self.compute_tg(t_j) # compute saturation and growth time as post-processing
+                    result_timestep.append(tg)
+                results[i_t*n_span + j_s, :] =  result_timestep
                 
-
         return results
+    
+def get_kinetic_constants(nucleation_type):
+    """
+    Get the kinetic model constants for different type of nucleation
+    Inputs:
+        nucleation_type (int): type of nucleation
+            0 - volumetric
+            1 - surface
+    Returns:
+        constants, constants1
+            constants - parameters for initiating PTKinetics class
+            constants1 - parameters for initiating MO_KINETICS class
+    """
+    if nucleation_type == 0:
+        _constants = PTKinetics.Constants(
+            R=8.31446,
+            k=1.38e-23,
+            A=np.exp(-18.0),
+            n=3.2,
+            dHa=274e3,
+            V_star_growth=3.3e-6,
+            gamma=0.46,
+            fs=6e-4,
+            K0=3.65e38,
+            Vm=4.05e-5,
+            dS=7.7,
+            dV=3.16e-6,
+            nucleation_type=0
+        )
+        _constants1 = MO_KINETICS.Constants(
+            R=8.31446,
+            k=1.38e-23,
+            kappa=1e-6,
+            D=100e3,
+            d0=1e-2,
+            A=np.exp(-18.0),
+            n=3.2,
+            dHa=274e3,
+            V_star_growth=3.3e-6,
+            gamma=0.46,
+            fs=6e-4,
+            K0=3.65e38,
+            Vm=4.05e-5,
+            dS=7.7,
+            dV=3.16e-6,
+            nucleation_type=0
+        )
+        pTKinetics = PTKinetics(_constants)
+    elif nucleation_type == 1:
+        _constants = PTKinetics.Constants(
+            R=8.31446,
+            k=1.38e-23,
+            A=np.exp(-18.0),
+            n=3.2,
+            dHa=274e3,
+            V_star_growth=3.3e-6,
+            gamma=0.46,
+            fs=6e-4,
+            K0=1e30,
+            Vm=4.05e-5,
+            dS=7.7,
+            dV=3.16e-6,
+            nucleation_type=1
+        )
+        _constants1 = MO_KINETICS.Constants(
+            R=8.31446,
+            k=1.38e-23,
+            kappa=1e-6,
+            D=100e3,
+            d0=1e-2,
+            A=np.exp(-18.0),
+            n=3.2,
+            dHa=274e3,
+            V_star_growth=3.3e-6,
+            gamma=0.46,
+            fs=6e-4,
+            K0=1e30,
+            Vm=4.05e-5,
+            dS=7.7,
+            dV=3.16e-6,
+            nucleation_type=1
+        )
+    else:
+        raise NotImplementedError()
+    return _constants, _constants1
