@@ -290,7 +290,7 @@ class WK2004:
         '''
         return 400.0 * self.kappa / (self.U * self.theta_d**2.0)
     
-    def advective_thickness(self, depth):
+    def advective_thickness_by_zw(self, depth):
         '''
         Derive the advective thickness on the slab top
         Inputs:
@@ -309,7 +309,7 @@ class WK2004:
         alpha = self.get_r(depth) * self.theta_d * (power_base)**(1.0/3.0)
         return alpha
     
-    def advective_velocity(self, depth):
+    def advective_velocity_by_zw(self, depth):
         '''
         Derive the advective velocity in the slab surface boundary
         Note this value is U in the paper, but we used that for convergence rate
@@ -325,12 +325,12 @@ class WK2004:
             raise TypeError("depth must be a float or numpy.ndarray")
 
         # compute value 
-        nominator = 9.0 * np.pi**2.0 * self.U * self.epsl_factor() * self.advective_thickness(depth)**2.0
+        nominator = 9.0 * np.pi**2.0 * self.U * self.epsl_factor() * self.advective_thickness_by_zw(depth)**2.0
         denominator = 16.0 * self.get_r(depth)**2.0 * self.theta_d
         u = nominator / denominator
         return u
     
-    def advective_timescale(self, depth):
+    def advective_timescale_by_zw(self, depth):
         '''
         Derive the advective timescale on the slab top
         Inputs:
@@ -345,7 +345,7 @@ class WK2004:
             raise TypeError("depth must be a float or numpy.ndarray")
 
         # compute value 
-        return self.advective_thickness(depth) / self.advective_velocity(depth)
+        return self.advective_thickness_by_zw(depth) / self.advective_velocity_by_zw(depth)
     
     def diffusive_thickness(self, depth):
         '''
@@ -362,7 +362,7 @@ class WK2004:
         Inputs:
             depth (float)
         '''
-        return self.advective_thickness(depth)**2.0 / (np.pi**2.0 * self.kappa)
+        return self.advective_thickness_by_zw(depth)**2.0 / (np.pi**2.0 * self.kappa)
 
     # todo_top 
     def top_thickness(self, depth):
@@ -376,43 +376,58 @@ class WK2004:
             if depth <= self.zw:
                 top_thickness = self.diffusive_thickness(depth)
             else:
-                top_thickness = self.advective_thickness(depth)
+                top_thickness = self.advective_thickness_by_zw(depth)
         elif isinstance(depth, np.ndarray):
             mask = (depth <= self.zw)
             top_thickness = np.zeros(depth.shape)
             top_thickness[mask] = self.diffusive_thickness(depth[mask])
-            top_thickness[~mask] = self.advective_thickness(depth[~mask])
+            top_thickness[~mask] = self.advective_thickness_by_zw(depth[~mask])
         else:
             raise TypeError("depth must be a float or numpy.ndarray")
 
         return top_thickness
 
 
-    def peclet_number(self, depth):
+    def peclet_number_by_zw(self, depth):
         '''
         Derive the Peclet number on the slab top
         Inputs:
             depth (float)
         '''
-        return self.advective_velocity(depth) * self.advective_thickness(depth) / (np.pi**2.0 * self.kappa)
+        return self.advective_velocity_by_zw(depth) * self.advective_thickness_by_zw(depth) / (np.pi**2.0 * self.kappa)
     
-    def bd_temperature(self, depth, x):
+    def bd_temperature_by_zw(self, depth, x):
         '''
         Derive the temperature in the advective boundary on top of the slab
         Inputs:
             depth (float)
             x - distance perpendicular to the slab surface
         '''
-        Ts = self.ss_temperature(depth)# slab surface temperature
-        T1 = self.mw_temperature(depth) # mantle wedge temperature
+        Ts = self.ss_temperature(depth) # slab surface temperature
+        T1 = self.mw_temperature_by_zw(depth) # mantle wedge temperature
 
-        Tbd = Ts + (T1 - Ts)*erf(x/self.advective_thickness(depth))
+        Tbd = self.bd_temperature_formula(T1, Ts, self.advective_thickness_by_zw(depth), x)
 
         return Tbd
 
-    def mw_temperature(self, depth):
+    # todo_EW 
+    def bd_temperature_formula(self, T1, Ts, alpha, x):
         '''
-        Derive the temperature in the mantle wedge (eq 15)
+        Derive the temperature in the advective boundary on top of the slab
+        Inputs:
+            T1 - mantlw wedge temperature
+            Ts - slab surface/moho temperature
+            alpha - thermal layer thickness
+            depth (float)
+            x - distance perpendicular to the slab surface
+        '''
+        Tbd = Ts + (T1 - Ts)*erf(x/alpha)
+        return Tbd
+
+    def mw_temperature_by_zw(self, depth):
+        '''
+        Derive the temperature in the mantle wedge (eq 15),
+        beyond the overriding plate thickness
         Inputs:
             depth (float)
             x - distance perpendicular to the slab surface
@@ -447,6 +462,21 @@ class WK2004:
         else:
             raise TypeError()
     
+    def mw_temperature(self, depth):
+        '''
+        extend the mw temperature to above zw
+        '''
+        if isinstance(depth, (float, np.floating)):
+            if depth <= self.zw:
+                T1 = self.Tsf
+            else:
+                T1 = self.mw_temperature_by_zw(depth)
+        elif isinstance(depth, np.ndarray):
+            mask = (depth <= self.zw)
+            T1 = np.full(depth.shape, self.Tsf)
+            T1[~mask] = self.mw_temperature_by_zw(depth[~mask])
+        return T1
+    
     def ss_temperature(self, depth, **kwargs):
         '''
         Derive the slab surface temperature (eq 17)
@@ -459,24 +489,47 @@ class WK2004:
         '''
         debug = kwargs.get("debug", False)
         use_top_thickness = kwargs.get("use_top_thickness", False)
+        top_thickness_smooth = kwargs.get("top_thickness_smooth", False)
+
         if use_top_thickness:
             # with this option, the requirement of depth being deeper than
             # overriding plate thickness is lifted.
-            alpha = self.top_thickness(depth)
 
             # mantle wedge temperature maximum
             # switch computation of T1 in a few cases
-            if isinstance(depth, (float, np.floating)):
-                if depth <= self.zw:
-                    T1 = self.Tsf
-                else:
-                    T1 = self.mw_temperature(depth)
-            elif isinstance(depth, np.ndarray):
-                mask = (depth <= self.zw)
-                T1 = np.full(depth.shape, self.Tsf)
-                # T1[mask] = 0.0
-                T1[~mask] = self.mw_temperature(depth[~mask])
-                    
+            T1 = self.mw_temperature(depth)
+            
+            # thermal thickness
+            alpha = self.top_thickness(depth)
+
+            # derive temperature by formulation
+            # in this case, the default option (top_thickness_smooth is False)
+            # would result in a incontinuity around zw
+            # using the top_thickness_smooth = True will lift this issue by computing
+            # temperature assuming both top layer advective thickness and top layer conductive
+            # thickness, and take the bigger results from these calculations.
+            if top_thickness_smooth:
+                if isinstance(depth, (float, np.floating)):
+                    if depth <= self.zw:
+                        Ts =  self.ss_formulation(T1, depth, alpha, debug=debug)
+                    else:
+                        Ts_0 = self.ss_formulation(T1, depth, alpha, debug=debug)
+                        Ts_1 = self.ss_formulation(T1, depth, self.diffusive_thickness(depth), debug=debug)
+                        Ts = np.max([Ts_0, Ts_1])
+                elif isinstance(depth, np.ndarray):
+                    Ts = np.zeros(depth.shape)
+                    mask = (depth <= self.zw)
+
+                    # shallow than the overriding plate thickness: by the conductive thickness        
+                    Ts[mask] = self.ss_formulation(T1[mask], depth[mask], alpha[mask], debug=debug)
+
+                    # deeper than the overriding plate thickness: try both thickness and see which
+                    # predicts a larger value
+                    Ts_0 = self.ss_formulation(T1[~mask], depth[~mask], alpha[~mask], debug=debug)
+                    Ts_1 = self.ss_formulation(T1[~mask], depth[~mask], self.diffusive_thickness(depth[~mask]), debug=debug)
+                    Ts[~mask] =  np.maximum(Ts_0, Ts_1)
+            else:
+                Ts = self.ss_formulation(T1, depth, alpha, debug=debug)
         else:
             # assert depth deeper than overriding plate thickness
             if isinstance(depth, (float, np.floating)):
@@ -485,10 +538,26 @@ class WK2004:
                 assert np.all(depth > self.zw), f"All depths must be greater than self.zw ({self.zw})"
             else:
                 raise TypeError("depth must be a float or numpy.ndarray")
-            alpha = self.advective_thickness(depth)
+            alpha = self.advective_thickness_by_zw(depth)
         
             # mantle wedge temperature maximum
-            T1 = self.mw_temperature(depth)
+            T1 = self.mw_temperature_by_zw(depth)
+
+            # derive temperature by formulation
+            Ts = self.ss_formulation(T1, depth, alpha, debug=debug)
+
+        return Ts
+
+    
+    def ss_formulation(self, T1, depth, alpha, **kwargs):
+        '''
+        slab surface temperature (eq 17)
+        Inputs:
+            T1 - mantle wedge temperature (K)
+            alpha - thermal layer thickness on top (m)
+            depth - (m)
+        '''
+        debug = kwargs.get("debug", False) # option for debugging
 
         # compute factors in the formula
         # modified with a seafloor temperature, using Kelvin
@@ -499,6 +568,7 @@ class WK2004:
         # results: modified with a seafloor temperature, using Kelvin
         Ts = ((T1 - self.Tsf) + erf_multiplier * erf(erf_factor)) / denominator + self.Tsf
 
+        # print debug info
         if debug:
             print("alpha = ",  alpha)
             print(f"T1 = {T1}, self.Tsf = {self.Tsf}, erf_multiplier = {erf_multiplier}, "
@@ -525,9 +595,9 @@ class WK2004:
 
         # assert old plage ages 
         assert(self.age > 50.0 * 1e6 * self.year)
-        
-        T1 = self.mw_temperature(depth) # mantle wedge temperature computed at slab interface
-        denominator = (1 + np.pi**0.5 * self.advective_thickness(depth) / (2.0 * self.diffusive_thickness(depth)))
+
+        T1 = self.mw_temperature_by_zw(depth) # mantle wedge temperature computed at slab interface
+        denominator = (1 + np.pi**0.5 * self.advective_thickness_by_zw(depth) / (2.0 * self.diffusive_thickness(depth)))
 
         # modified with a seafloor temperature, using Kelvin
         Ts = (T1 - self.Tsf) / denominator + self.Tsf
@@ -540,9 +610,9 @@ class WK2004:
             depth
             x - distance perpendicular to the slab surface
         '''
-        T1 = self.mw_temperature(depth) # mantle wedge temperature computed at slab interface
+        T1 = self.mw_temperature_by_zw(depth) # mantle wedge temperature computed at slab interface
         Ts = self.ss_temperature(depth)
-        Q_top = self.K / np.pi**2.0 * (T1 - Ts) / self.advective_thickness(depth)
+        Q_top = self.K / np.pi**2.0 * (T1 - Ts) / self.advective_thickness_by_zw(depth)
 
         return Q_top
     
@@ -563,3 +633,22 @@ class WK2004:
         Q_bot = self.K * ((Ts - self.Tsf) / self.diffusive_thickness(depth) - (self.Ta-self.Tsf) / self.a * erf(erf_factor))
 
         return Q_bot 
+    
+
+def plate_thickness_from_age(age):
+    '''
+    compute plate thickness from plate age
+    Inputs:
+        age (s)
+    '''
+    age_in_ma = age / (365.0*24.0*3600.0) / 1e6
+    thermal_thickness = 11e3 * age_in_ma**0.5
+    
+    if isinstance(age, (float, np.floating)):
+        plate_thickness = min(thermal_thickness, 125e3)
+    elif isinstance(age, np.ndarray):
+        plate_thickness = np.minimum(thermal_thickness, 125e3)
+    else:
+        raise TypeError("depth must be a float or numpy.ndarray")
+    
+    return plate_thickness
