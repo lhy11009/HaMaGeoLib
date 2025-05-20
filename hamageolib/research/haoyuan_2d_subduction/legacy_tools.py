@@ -4240,12 +4240,31 @@ class VTKP(VTKP_BASE):
                 print("%sx: %.4e, y: %.4e, depth: %.4e, vi: [%.4e, %.4e] (mag = %.4e, theta = %.4e), vo: [%.4e, %.4e] (mag = %.4e, theta = %.4e)"\
                 % (indent*" ", x, y, depth, vi[0], vi[1], vi_mag, vi_theta, vo[0], vo[1], vo_mag, vo_theta))
             if (abs((vo_mag - vi_mag)/vi_mag) < tolerance) and (abs((vo_theta - vi_theta)/vi_theta) < tolerance):
+                # mdd depth
                 mdd = depth
+                # extract a horizontal profile at this depth
+                n_query1 = 51
+                query_grid1 = np.zeros((n_query1,2))
+                dx2 = 10e3 # query distance of the profile
+                for i in range(n_query1):
+                    if self.geometry == "chunk":
+                        theta_i = theta + ((n_query1-1.0-i) * (-1.0*dx2) + i*dx2)/(n_query1-1.0)/self.Ro
+                        xi = r * np.cos(theta_i) 
+                        yi = r * np.sin(theta_i)
+                    elif self.geometry == "box":
+                        xi = x + ((n_query1-1.0-i) * (-1.0*dx2) + i*dx2)/(n_query1-1.0)
+                        yi = y
+                    else:
+                        raise NotImplementedError()
+                    query_grid1[i, 0] = xi
+                    query_grid1[i, 1] = yi
+                query_poly_data1 = InterpolateGrid(self.i_poly_data, query_grid1, quiet=True)
+                query_vs1 = vtk_to_numpy(query_poly_data1.GetPointData().GetArray('velocity'))
                 break
         print("%sfindmdd_tolerance = %.4e, dx0 = %.4e, dx1 = %.4e" % (indent*" ", tolerance, dx0, dx1))
         if mdd > 0.0:
             print("%smdd = %.4e m" % (indent*" ", mdd))
-            return mdd
+            return mdd, query_grid1, query_vs1
         else:
             raise ValueError("FindMDD: a valid MDD has not been found, please considering changing the tolerance")
         pass
@@ -4756,8 +4775,27 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
             _, _, trench_shallow = cart2sph(x, y, z)
     if findmdd:
         try:
-            mdd1 = VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=-Visit_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"])
-            mdd2 = VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=10e3)
+            # mdd depths and horizontal profiles of velocity
+            mdd1, query_grid1, query_vs1 = VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=-Visit_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"])
+            mdd2, query_grid2, query_vs2 = VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=10e3)
+            # velocity profile at mdd1
+            header = "# 1: x (m)\n# 2: y (m)\n# 3: velocity_x (m/s)\n# 4: velocity_y (m/s)\n"
+            outputs1 = np.concatenate((query_grid1, query_vs1[:, 0:2]), axis=1)
+            o_file1 = os.path.join(output_path, "mdd1_profile_%05d.txt" % (vtu_step))
+            with open(o_file1, 'w') as fout:
+                fout.write(header)  # output header
+            with open(o_file1, 'a') as fout:
+                np.savetxt(fout, outputs1, fmt="%20.8e")  # output data
+            print("%s%s: write file %s" % (indent*" ", func_name(), o_file1))
+            # velocity profile at mdd2
+            outputs2 = np.concatenate((query_grid2, query_vs2[:, 0:2]), axis=1)
+            o_file2 = os.path.join(output_path, "mdd2_profile_%05d.txt" % (vtu_step))
+            with open(o_file2, 'w') as fout:
+                fout.write(header)  # output header
+            with open(o_file2, 'a') as fout:
+                np.savetxt(fout, outputs2, fmt="%20.8e")  # output data
+            print("%s%s: write file %s" % (indent*" ", func_name(), o_file2))
+                
         except ValueError:
             mdd1 = - 1.0
             mdd2 = - 1.0
