@@ -4203,11 +4203,14 @@ class VTKP(VTKP_BASE):
         '''
         find the mechanical decoupling depth from the velocity field
         '''
+        print("%s started" % func_name())
+        start=time.time()
         dx0 = kwargs.get('dx0', 10e3)
         dx1 = kwargs.get('dx1', 10e3)
         tolerance = kwargs.get('tolerance', 0.05)
         indent = kwargs.get("indent", 0)  # indentation for outputs
         debug = kwargs.get("debug", False) # output debug messages
+        extract_depths = kwargs.get("extract_depths", None) # extract additional depth
         slab_envelop0, slab_envelop1 = self.ExportSlabEnvelopCoord()
         query_grid = np.zeros((2,2))
         mdd = -1.0
@@ -4246,32 +4249,67 @@ class VTKP(VTKP_BASE):
                 # mdd depth
                 mdd = depth
                 # extract a horizontal profile at this dept
-                # todo_mdd
-                n_query1 = 51
-                query_grid1 = np.zeros((n_query1,2))
-                dx2 = 10e3 # query distance of the profile
-                for i in range(n_query1):
-                    if self.geometry == "chunk":
-                        theta_i = theta + ((n_query1-1.0-i) * (-1.0*dx2) + i*dx2)/(n_query1-1.0)/self.Ro
-                        xi = r * np.cos(theta_i) 
-                        yi = r * np.sin(theta_i)
-                    elif self.geometry == "box":
-                        xi = x + ((n_query1-1.0-i) * (-1.0*dx2) + i*dx2)/(n_query1-1.0)
-                        yi = y
-                    else:
-                        raise NotImplementedError()
-                    query_grid1[i, 0] = xi
-                    query_grid1[i, 1] = yi
-                query_poly_data1 = InterpolateGrid(self.i_poly_data, query_grid1, quiet=True)
-                query_vs1 = vtk_to_numpy(query_poly_data1.GetPointData().GetArray('velocity'))
+                if self.geometry == "chunk":
+                    query_grid, query_vs = self.extract_mdd_profile(r, theta)
+                elif self.geometry == "box":
+                    query_grid, query_vs = self.extract_mdd_profile(x, y)
                 break
-        print("%sfindmdd_tolerance = %.4e, dx0 = %.4e, dx1 = %.4e" % (indent*" ", tolerance, dx0, dx1))
+        print("\t%sfindmdd_tolerance = %.4e, dx0 = %.4e, dx1 = %.4e" % (indent*" ", tolerance, dx0, dx1))
+        end = time.time()
+        print("\tFinding mdd depth takes %.2f s" % (end-start))
+        start = end
+
+        extract_profiles_grid = []; extract_profiles_vs = []
+        if extract_depths is not None:
+            rs = (slab_envelop1[:, 0]**2.0 + slab_envelop1[:, 1]**2.0)**0.5
+            nearest_interp_x = interp1d(rs, slab_envelop1[:, 0], kind='nearest', fill_value='extrapolate')
+            nearest_interp_y = interp1d(rs, slab_envelop1[:, 1], kind='nearest', fill_value='extrapolate')
+            for i, extract_depth in enumerate(extract_depths):
+                extract_r = self.Ro - extract_depth
+                xc = nearest_interp_x(extract_r)
+                yc = nearest_interp_y(extract_r)
+                if self.geometry == "chunk":
+                    rc = get_r(xc, yc, self.geometry) 
+                    theta_c = get_theta(xc, yc, self.geometry)
+                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(rc, theta_c)
+                elif self.geometry == "box":
+                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(xc, yc)
+                extract_profiles_grid.append(query_grid_foo)
+                extract_profiles_vs.append(query_vs_foo)
+            
+        end = time.time()
+        print("\tExtracting extra profiles takes %.2f s" % (end-start))
+
         if mdd > 0.0:
             print("%smdd = %.4e m" % (indent*" ", mdd))
-            return mdd, query_grid1, query_vs1
+            return mdd, query_grid, query_vs, extract_profiles_grid, extract_profiles_vs
         else:
             raise ValueError("FindMDD: a valid MDD has not been found, please considering changing the tolerance")
         pass
+
+    def extract_mdd_profile(self, coord1, coord2):
+        '''
+        extract mdd profile at given depths
+        '''
+        # extract a horizontal profile at this dept
+        n_query1 = 51
+        query_grid1 = np.zeros((n_query1,2))
+        dx2 = 10e3 # query distance of the profile
+        for i in range(n_query1):
+            if self.geometry == "chunk":
+                theta_i = coord2 + ((n_query1-1.0-i) * (-1.0*dx2) + i*dx2)/(n_query1-1.0)/self.Ro
+                xi = coord1 * np.cos(theta_i) 
+                yi = coord1 * np.sin(theta_i)
+            elif self.geometry == "box":
+                xi = coord1 + ((n_query1-1.0-i) * (-1.0*dx2) + i*dx2)/(n_query1-1.0)
+                yi = coord2
+            else:
+                raise NotImplementedError()
+            query_grid1[i, 0] = xi
+            query_grid1[i, 1] = yi
+        query_poly_data1 = InterpolateGrid(self.i_poly_data, query_grid1, quiet=True)
+        query_vs1 = vtk_to_numpy(query_poly_data1.GetPointData().GetArray('velocity'))
+        return query_grid1, query_vs1
 
     def PrepareSZ(self, fileout, **kwargs):
         '''
@@ -4734,6 +4772,7 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     dip_angle_depth_lookup_interval = kwargs.get("dip_angle_depth_lookup_interval", 60e3)
     project_velocity = kwargs.get('project_velocity', False)
     find_shallow_trench = kwargs.get("find_shallow_trench", False)
+    extract_depths = kwargs.get("extract_depths", None)
     mdd = -1.0 # an initial value
     print("%s%s: Start" % (indent*" ", func_name()))
     output_slab = kwargs.get('output_slab', None)
@@ -4777,8 +4816,10 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     if findmdd:
         try:
             # mdd depths and horizontal profiles of velocity
-            mdd1, query_grid1, query_vs1 = VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=-Visit_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"])
-            mdd2, query_grid2, query_vs2 = VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=10e3)
+            mdd1, query_grid1, query_vs1, extract_profiles_grid, extract_profiles_vs = \
+                VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=-Visit_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"], 
+                             extract_depths=extract_depths)
+            mdd2, query_grid2, query_vs2, _, _ = VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=10e3)
             # velocity profile at mdd1
             header = "# 1: x (m)\n# 2: y (m)\n# 3: velocity_x (m/s)\n# 4: velocity_y (m/s)\n"
             outputs1 = np.concatenate((query_grid1, query_vs1[:, 0:2]), axis=1)
@@ -4796,6 +4837,18 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
             with open(o_file2, 'a') as fout:
                 np.savetxt(fout, outputs2, fmt="%20.8e")  # output data
             print("%s%s: write file %s" % (indent*" ", func_name(), o_file2))
+            # Extra velocity profiles
+            if extract_depths is not None:
+                for i_depth, depth in enumerate(extract_depths):
+                    query_grid_foo = extract_profiles_grid[i_depth]
+                    query_vs_foo = extract_profiles_vs[i_depth]
+                    outputs2 = np.concatenate((query_grid_foo, query_vs_foo[:, 0:2]), axis=1)
+                    o_file2 = os.path.join(output_path, "mdd_extract_profile_%05d_depth_%.2fkm.txt" % (vtu_step, depth/1e3))
+                    with open(o_file2, 'w') as fout:
+                        fout.write(header)  # output header
+                    with open(o_file2, 'a') as fout:
+                        np.savetxt(fout, outputs2, fmt="%20.8e")  # output data
+                    print("%s%s: write file %s" % (indent*" ", func_name(), o_file2))
                 
         except ValueError:
             mdd1 = - 1.0
@@ -8459,6 +8512,7 @@ def minimum_distance_array(a, x0, y0, z0):
     min_index = np.argmin(squared_distances)
 
     return min_index, min_distance
+
 
 
 class PARALLEL_WRAPPER_FOR_VTK():

@@ -242,7 +242,6 @@ def test_shallow_trench():
     _, outputs = SlabMorphology(case_path, vtu_snapshot, find_shallow_trench=True, output_path=test_dir)
     assert(outputs==outputs_std)
 
-# todo_mdd
 @pytest.mark.big_test  # Optional marker for big tests
 def test_slab_mdd():
     '''
