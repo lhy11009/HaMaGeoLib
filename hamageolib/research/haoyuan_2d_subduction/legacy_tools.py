@@ -794,7 +794,6 @@ class VISIT_OPTIONS(VISIT_OPTIONS_BASE):
         except KeyError:
             self.options['INCLUDE_PEIERLS_RHEOLOGY'] = False
 
-        # todo_shallow
         # reference trench point
         self.options['THETA_REF_TRENCH'] = 0.0  # initial value
         if self.options['GEOMETRY'] == 'chunk':
@@ -3392,7 +3391,6 @@ class VTKP(VTKP_BASE):
         assert(os.path.isfile(gravity_file))
         self.ImportGravityData(gravity_file)
 
-    # todo_shallow
     def PrepareSlabShallow(self, trench_initial, **kwargs):
         '''
         Prepares and identifies shallow and bottom points of a slab for trench analysis,
@@ -3423,7 +3421,12 @@ class VTKP(VTKP_BASE):
         points = vtk_to_numpy(self.i_poly_data.GetPoints().GetData())
         point_data = self.i_poly_data.GetPointData()
 
-        pinned_field = vtk_to_numpy(point_data.GetArray("spcrust"))
+        if n_crust == 1:
+            pinned_field = vtk_to_numpy(point_data.GetArray("spcrust"))
+        elif n_crust == 2:
+            pinned_field = vtk_to_numpy(point_data.GetArray("spcrust_up")) + vtk_to_numpy(point_data.GetArray("spcrust_low"))
+        else:
+            raise NotImplementedError()
         pinned_bottom_field = vtk_to_numpy(point_data.GetArray("spharz"))
     
         shallow_points_idx = []
@@ -4242,7 +4245,8 @@ class VTKP(VTKP_BASE):
             if (abs((vo_mag - vi_mag)/vi_mag) < tolerance) and (abs((vo_theta - vi_theta)/vi_theta) < tolerance):
                 # mdd depth
                 mdd = depth
-                # extract a horizontal profile at this depth
+                # extract a horizontal profile at this dept
+                # todo_mdd
                 n_query1 = 51
                 query_grid1 = np.zeros((n_query1,2))
                 dx2 = 10e3 # query distance of the profile
@@ -4721,7 +4725,7 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     indent = kwargs.get("indent", 0)  # indentation for outputs
     findmdd = kwargs.get("findmdd", False)
     output_ov_ath_profile = kwargs.get("output_ov_ath_profile", False)
-    output_path = os.path.join(case_dir, "vtk_outputs")
+    output_path = kwargs.get("output_path", os.path.join(case_dir, "vtk_outputs"))
     if not os.path.isdir(output_path):
         os.mkdir(output_path)
     findmdd_tolerance = kwargs.get("findmdd_tolerance", 0.05)
@@ -4761,13 +4765,10 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     field_names = ['T', 'density', 'spharz', 'velocity', 'viscosity'] + crust_fields
     VtkP.ConstructPolyData(field_names, include_cell_center=True)
     VtkP.PrepareSlab(crust_fields + ['spharz'], prepare_slab_distant_properties=True, depth_distant_lookup=depth_distant_lookup)
-    # todo_shallow
     if find_shallow_trench:
-        if n_crust == 2:
-            raise NotImplementedError()
         try:
             # This is not a stable algorithm yet.
-            outputs = VtkP.PrepareSlabShallow(Visit_Options.options['THETA_REF_TRENCH'])
+            outputs = VtkP.PrepareSlabShallow(Visit_Options.options['THETA_REF_TRENCH'], n_crust=n_crust)
         except Exception:
             trench_shallow = np.finfo(np.float16).tiny
         else:
@@ -5580,7 +5581,6 @@ def SlabMorphologyCase(case_dir, **kwargs):
     findmdd = kwargs.get('findmdd', False)
     findmdd_tolerance = kwargs.get('findmdd_tolerance', 0.05)
     project_velocity = kwargs.get('project_velocity', False)
-    # todo_shallow
     find_shallow_trench = kwargs.get("find_shallow_trench", False)
     # todo_parallel
     use_parallel = kwargs.get('use_parallel', False)
@@ -5911,7 +5911,6 @@ class SLABPLOT(LINEARPLOT):
             i += 1
         return depthes, Ts
 
-    # todo_shallow
     def PlotMorph(self, case_dir, **kwargs):
         '''
         Inputs:
@@ -8438,7 +8437,6 @@ def SlabEnvelopRetrivePoints(local_dir: str, _time: float, Visit_Options: object
     else:
         raise NotImplementedError
 
-# todo_shallow 
 def minimum_distance_array(a, x0, y0, z0):
     """
     Calculate the minimum distance from a reference point (x0, y0, z0) 
