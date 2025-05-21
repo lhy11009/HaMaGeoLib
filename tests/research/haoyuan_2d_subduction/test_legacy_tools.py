@@ -213,34 +213,10 @@ def test_shallow_trench():
     if not os.path.isdir(o_dir):
         os.mkdir(o_dir)
     vtu_snapshot = 104 # 0 Ma
-    outputs_std = "100         702         1.0003e+07    6.2646e-01    9.5393e+05    9.6860e-01    3.9703e-02    6.3861e-02    \n"
-    _, outputs = SlabMorphology(case_path, vtu_snapshot, find_shallow_trench=True, output_path=test_dir)
+    outputs_std = "100         702         1.0003e+07    6.2646e-01    9.5393e+05    9.6860e-01    3.9703e-02    6.3861e-02    6.0904e-01    \n"
+    _, outputs = SlabMorphology_dual_mdd(case_path, vtu_snapshot, find_shallow_trench=True, output_path=test_dir)
     assert(outputs==outputs_std)
 
-
-@pytest.mark.big_test  # Optional marker for big tests
-def test_shallow_trench():
-    '''
-    test the implementation of shallow trench position
-    this test only deal with the generation of the data file without generating any plots
-    '''
-    # test 2: a different snapshot. Initially, the number of points in the cmb envelop is 
-    # different from the number of points in the slab envelops, thus, this test assert that
-    # this is fixed in the output stage
-     
-    case_path = os.path.join(package_root, "big_tests", "TwoDSubduction", 'EBA_CDPT_test_perplex_mixing_log')
-    
-    # Check if the folder exists and contains test files
-    if not os.path.exists(case_path) or not os.listdir(case_path):
-        pytest.skip("Skipping test: big test contents not found in 'big_tests/'.")
-
-    o_dir = os.path.join(test_dir, "TwoDSubduction_vtk_pp")
-    if not os.path.isdir(o_dir):
-        os.mkdir(o_dir)
-    vtu_snapshot = 104 # 0 Ma
-    outputs_std = "100         702         1.0003e+07    6.2646e-01    9.5393e+05    9.6860e-01    3.9703e-02    6.3861e-02    \n"
-    _, outputs = SlabMorphology(case_path, vtu_snapshot, find_shallow_trench=True, output_path=test_dir)
-    assert(outputs==outputs_std)
 
 @pytest.mark.big_test  # Optional marker for big tests
 def test_slab_mdd():

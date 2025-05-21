@@ -3391,7 +3391,7 @@ class VTKP(VTKP_BASE):
         assert(os.path.isfile(gravity_file))
         self.ImportGravityData(gravity_file)
 
-    def PrepareSlabShallow(self, trench_initial, **kwargs):
+    def PrepareSlabShallow(self, **kwargs):
         '''
         Prepares and identifies shallow and bottom points of a slab for trench analysis,
         exporting relevant data to a file if specified. Calculates original and corrected
@@ -3410,7 +3410,7 @@ class VTKP(VTKP_BASE):
         bottom_cutoff = 30e3
         pinned_field_value_threshold = 0.8
     
-        trench_lookup_range = kwargs.get("trench_lookup_range", 10.0 * np.pi / 180.0)
+        trench_lookup_range = kwargs.get("trench_lookup_range", 15.0 * np.pi / 180.0)
         export_shallow_file = kwargs.get("export_shallow_file", None)
         n_crust = kwargs.get("n_crust", 1)
     
@@ -3419,6 +3419,9 @@ class VTKP(VTKP_BASE):
     
         # Sorts the shallow points and retrieves relevant data arrays for processing.
         points = vtk_to_numpy(self.i_poly_data.GetPoints().GetData())
+        points_x = points[:, 0]
+        points_y = points[:, 1]
+        points_r =  (points_x**2.0+points_y**2.0)**0.5
         point_data = self.i_poly_data.GetPointData()
 
         if n_crust == 1:
@@ -3428,28 +3431,21 @@ class VTKP(VTKP_BASE):
         else:
             raise NotImplementedError()
         pinned_bottom_field = vtk_to_numpy(point_data.GetArray("spharz"))
-    
-        shallow_points_idx = []
-        bottom_points_idx = []
-        for idx in range(self.i_poly_data.GetNumberOfPoints()):
-            x, y, _ = points[idx]
-            r = None; th = None; ph = None
-            if self.is_chunk:
-                r, th, ph = cart2sph(x,y,0.0)
-            else:
-                r = y
-            d = self.Ro - r
-            pinned_field_value = pinned_field[idx]
-            pinned_bottom_field_value = pinned_bottom_field[idx]
-    
-            # Determines points based on depth and field thresholds, and location near trench.
-            if d < shallow_cutoff and pinned_field_value > pinned_field_value_threshold and \
-                ph > trench_initial - trench_lookup_range and ph < trench_initial + trench_lookup_range:
-                shallow_points_idx.append(idx)
-    
-            if d > bottom_start and d < bottom_cutoff and pinned_bottom_field_value > pinned_field_value_threshold and \
-                ph > trench_initial - trench_lookup_range and ph < trench_initial + trench_lookup_range:
-                bottom_points_idx.append(idx)
+
+        # points in the shallow crust and deep harzburgite layer
+        x0 = self.Ro * np.cos(self.trench - trench_lookup_range)
+        y0 = self.Ro * np.sin(self.trench - trench_lookup_range)
+        x1 = self.Ro * np.cos(self.trench + trench_lookup_range)
+        y1 = self.Ro * np.sin(self.trench + trench_lookup_range)
+        mask = (points_x <= x0) & (points_x >= x1) & (points_y >= y0) &\
+              (points_y <= y1) # mask the region
+        mask1 = mask & (self.Ro - points_r < shallow_cutoff) &\
+              (pinned_field > pinned_field_value_threshold) # mask top field
+        mask2 = mask & (self.Ro - points_r > bottom_start) &\
+              (self.Ro - points_r < bottom_cutoff) &\
+              (pinned_bottom_field > pinned_field_value_threshold) # mask top field
+        shallow_points_idx = np.where(mask1)[0]
+        bottom_points_idx = np.where(mask2)[0]
     
         n_shallow_points = len(shallow_points_idx)
         n_bottom_points = len(bottom_points_idx)
@@ -3557,6 +3553,9 @@ class VTKP(VTKP_BASE):
         # Ensure cell centers are included in data
         assert(self.include_cell_center)
 
+        print("%s started" % func_name())
+        start = time.time()
+
         # Initialize optional parameters from kwargs
         prepare_moho = kwargs.get('prepare_moho', None)
         prepare_slab_distant_properties = kwargs.get('prepare_slab_distant_properties', None)
@@ -3607,6 +3606,10 @@ class VTKP(VTKP_BASE):
         # Calculate slab depth based on minimum radius
         self.slab_depth = self.Ro - min_r
 
+        end=time.time()
+        print("\tIdentifing cells takes %.2f s" % (end-start))
+        start=time.time()
+
         # Group slab cells into envelop intervals based on radial depth
         total_en_interval = int((self.slab_depth - self.slab_shallow_cutoff) // self.slab_envelop_interval + 1)
         slab_en_cell_lists = [ [] for i in range(total_en_interval) ]
@@ -3618,6 +3621,10 @@ class VTKP(VTKP_BASE):
                                   (self.Ro - r - self.slab_shallow_cutoff)/
                                   self.slab_envelop_interval))# id in the envelop list
             slab_en_cell_lists[id_en].append(id)
+        
+        end=time.time()
+        print("\tGroup cells takes %.2f s" % (end-start))
+        start=time.time()
 
         # Find angular boundaries (min and max theta) for each slab interval
         for id_en in range(len(slab_en_cell_lists)):
@@ -3649,6 +3656,10 @@ class VTKP(VTKP_BASE):
             self.slab_envelop_cell_list0.append(id_min)  # first half of the envelop
             self.slab_envelop_cell_list1.append(id_max)  # second half of the envelop
         
+        end=time.time()
+        print("\tFinding regular boundaries takes %.2f s" % (end-start))
+        start=time.time()
+        
         # Identify the trench position based on maximum angular position
         id_tr = self.slab_envelop_cell_list1[0] # point of the trench
         x_tr = centers[id_tr][0]  # first, separate cells into intervals
@@ -3666,6 +3677,10 @@ class VTKP(VTKP_BASE):
         r100 = get_r(x100, y100, self.geometry)
         theta100 = get_theta(x100, y100, self.geometry)
         self.dip_100 = get_dip(x_tr, y_tr, x100, y100, self.geometry)
+        
+        end=time.time()
+        print("\tFinding trench and dip angle takes %.2f s" % (end-start))
+        start=time.time()
 
         # If moho is being prepared, repeat envelope grouping and interval checks for crust cells
         if prepare_moho is not None:
@@ -3718,6 +3733,10 @@ class VTKP(VTKP_BASE):
 
             # Ensure crust and slab envelopes have equal lengths 
             assert(len(self.moho_envelop_cell_list)==len(self.slab_envelop_cell_list1))
+        
+            end=time.time()
+            print("\tPrepare moho envelop takes %.2f s" % (end-start))
+            start=time.time()
     
 
     def PrepareSlabByDT(self, **kwargs):
@@ -4262,8 +4281,8 @@ class VTKP(VTKP_BASE):
         extract_profiles_grid = []; extract_profiles_vs = []
         if extract_depths is not None:
             rs = (slab_envelop1[:, 0]**2.0 + slab_envelop1[:, 1]**2.0)**0.5
-            nearest_interp_x = interp1d(rs, slab_envelop1[:, 0], kind='nearest', fill_value='extrapolate')
-            nearest_interp_y = interp1d(rs, slab_envelop1[:, 1], kind='nearest', fill_value='extrapolate')
+            nearest_interp_x = interp1d(rs, slab_envelop1[:, 0], kind='linear', fill_value='extrapolate')
+            nearest_interp_y = interp1d(rs, slab_envelop1[:, 1], kind='linear', fill_value='extrapolate')
             for i, extract_depth in enumerate(extract_depths):
                 extract_r = self.Ro - extract_depth
                 xc = nearest_interp_x(extract_r)
@@ -4671,84 +4690,6 @@ def PlotSlabForces(filein, fileout, **kwargs):
     plt.savefig(fileout)
     print("PlotSlabForces: plot figure", fileout)
 
-def SlabMorphology(case_dir, vtu_snapshot, **kwargs):
-    '''
-    Wrapper for using PVTK class to get slab morphology
-    Inputs:
-        case_dir (str): case directory
-        vtu_snapshot (int): index of file in vtu outputs
-        kwargs:
-            project_velocity - whether the velocity is projected to the tangential direction
-    '''
-    indent = kwargs.get("indent", 0)  # indentation for outputs
-    findmdd = kwargs.get("findmdd", False)
-    mdd_dx0 = kwargs.get('mdd_dx0', 10e3)
-    mdd_dx1 = kwargs.get('mdd_dx1', 10e3)
-    findmdd_tolerance = kwargs.get("findmdd_tolerance", 0.05)
-    project_velocity = kwargs.get('project_velocity', False)
-    mdd = -1.0 # an initial value
-    print("%s%s: Start" % (indent*" ", func_name()))
-    output_slab = kwargs.get('output_slab', False)
-    filein = os.path.join(case_dir, "output", "solution", "solution-%05d.pvtu" % vtu_snapshot)
-    if not os.path.isfile(filein):
-        raise FileExistsError("input file (pvtu) doesn't exist: %s" % filein)
-    else:
-        print("SlabMorphology: processing %s" % filein)
-    Visit_Options = VISIT_OPTIONS(case_dir)
-    Visit_Options.Interpret()
-    # vtk_option_path, _time, step = PrepareVTKOptions(VISIT_OPTIONS, case_dir, 'TwoDSubduction_SlabAnalysis',\
-    # vtu_step=vtu_step, include_step_in_filename=True, generate_horiz=True)
-    vtu_step = max(0, int(vtu_snapshot) - int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']))
-    _time, step = Visit_Options.get_time_and_step(vtu_step)
-    geometry = Visit_Options.options['GEOMETRY']
-    Ro =  Visit_Options.options['OUTER_RADIUS']
-    if geometry == "chunk":
-        Xmax = Visit_Options.options['XMAX'] * np.pi / 180.0
-    else:
-        Xmax = Visit_Options.options['XMAX']
-    VtkP = VTKP(geometry=geometry, Ro=Ro, Xmax=Xmax)
-    VtkP.ReadFile(filein)
-    field_names = ['T', 'density', 'spcrust', 'spharz', 'velocity']
-    VtkP.ConstructPolyData(field_names, include_cell_center=True)
-    VtkP.PrepareSlab(['spcrust', 'spharz'])
-    if findmdd:
-        try:
-            mdd = VtkP.FindMDD(tolerance=findmdd_tolerance, dx0=mdd_dx0, dx1=mdd_dx1)
-        except ValueError:
-            mdd = - 1.0
-    # output slab profile
-    if output_slab:
-        slab_envelop0, slab_envelop1 = VtkP.ExportSlabEnvelopCoord()
-        slab_internal = VtkP.ExportSlabInternal(output_xy=True)
-        o_slab_env0 = os.path.join(case_dir,\
-            "vtk_outputs", "slab_env0_%05d.vtp" % (vtu_step)) # envelop 0
-        o_slab_env1 = os.path.join(case_dir,\
-            "vtk_outputs", "slab_env1_%05d.vtp" % (vtu_step)) # envelop 1
-        o_slab_in = os.path.join(case_dir,\
-            "vtk_outputs", "slab_internal_%05d.txt" % (vtu_step)) # envelop 1
-        ExportPolyDataFromRaw(slab_envelop0[:, 0], slab_envelop0[:, 1], None, None, o_slab_env0) # write the polydata
-        # np.savetxt(o_slab_env0, slab_envelop0)
-        print("%s%s: write file %s" % (indent*" ", func_name(), o_slab_env0))
-        ExportPolyDataFromRaw(slab_envelop1[:, 0], slab_envelop1[:, 1], None, None, o_slab_env1) # write the polydata
-        print("%s%s: write file %s" % (indent*" ", func_name(), o_slab_env1))
-        np.savetxt(o_slab_in, slab_internal)
-        print("%s%s: write file %s" % (indent*" ", func_name(), o_slab_in))
-    # process trench, slab depth, dip angle
-    trench, slab_depth, dip_100 = VtkP.ExportSlabInfo()
-    if project_velocity:
-        vsp_magnitude, vov_magnitude = VtkP.ExportVelocity(project_velocity=True)
-    else:
-        vsp, vov = VtkP.ExportVelocity()
-        vsp_magnitude = np.linalg.norm(vsp, 2)
-        vov_magnitude = np.linalg.norm(vov, 2)
-    # generate outputs
-    outputs = "%-12s%-12d%-14.4e%-14.4e%-14.4e%-14.4e%-14.4e%-14.4e"\
-    % (vtu_step, step, _time, trench, slab_depth, dip_100, vsp_magnitude, vov_magnitude)
-    if findmdd:
-        outputs += "%-14.4e" % (mdd)
-    outputs += "\n"
-    print("%s%s" % (indent*" ", outputs)) # debug
-    return vtu_step, outputs
 
 def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     '''
@@ -4772,6 +4713,7 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     dip_angle_depth_lookup_interval = kwargs.get("dip_angle_depth_lookup_interval", 60e3)
     project_velocity = kwargs.get('project_velocity', False)
     find_shallow_trench = kwargs.get("find_shallow_trench", False)
+    print("find_shallow_trench: ", find_shallow_trench) # debug
     extract_depths = kwargs.get("extract_depths", None)
     mdd = -1.0 # an initial value
     print("%s%s: Start" % (indent*" ", func_name()))
@@ -4805,14 +4747,9 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     VtkP.ConstructPolyData(field_names, include_cell_center=True)
     VtkP.PrepareSlab(crust_fields + ['spharz'], prepare_slab_distant_properties=True, depth_distant_lookup=depth_distant_lookup)
     if find_shallow_trench:
-        try:
-            # This is not a stable algorithm yet.
-            outputs = VtkP.PrepareSlabShallow(Visit_Options.options['THETA_REF_TRENCH'], n_crust=n_crust)
-        except Exception:
-            trench_shallow = np.finfo(np.float16).tiny
-        else:
-            x, y, z = outputs["corrected"]["points"]
-            _, _, trench_shallow = cart2sph(x, y, z)
+        outputs = VtkP.PrepareSlabShallow(n_crust=n_crust)
+        x, y, z = outputs["corrected"]["points"]
+        _, _, trench_shallow = cart2sph(x, y, z)
     if findmdd:
         try:
             # mdd depths and horizontal profiles of velocity
@@ -5156,6 +5093,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     fix_shallow = kwargs.get("fix_shallow", False)
     ofile_surface = kwargs.get("ofile_surface", None)
     ofile_moho = kwargs.get("ofile_moho", None)
+    n_crust = kwargs.get("n_crust", 1)
     output_path = os.path.join(case_dir, "vtk_outputs")
     if not os.path.isdir(output_path):
         os.mkdir(output_path)
@@ -5226,7 +5164,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     
     if fix_shallow:
         # append the shallow trench point
-        outputs_shallow = VtkP.PrepareSlabShallow(Visit_Options.options['THETA_REF_TRENCH'])
+        outputs_shallow = VtkP.PrepareSlabShallow(n_crust=n_crust)
         slab_envelop_rs_raw = np.vstack((outputs_shallow["corrected"]["points"][0:2], slab_envelop_rs_raw)) 
     else:
         outputs_shallow = None
@@ -5501,7 +5439,7 @@ def PlotSlabTemperature(case_dir, vtu_snapshot, **kwargs):
     if not os.path.isfile(filein):
         raise FileExistsError("input file (pvtu) doesn't exist: %s" % filein)
     else:
-        print("%sSlabMorphology: processing %s" % (indent*" ", filein))
+        print("%s%s: processing %s" % (indent*" ",func_name(), filein))
     o_file = os.path.join(vtk_o_dir, "slab_temperature")
     if os.path.isfile(o_file):
         os.remove(o_file)
@@ -5883,7 +5821,7 @@ def ShearZoneGeometryCase(case_dir, **kwargs):
         if not os.path.isfile(filein):
             raise FileExistsError("input file (pvtu) doesn't exist: %s" % filein)
         else:
-            print("%sSlabMorphology: processing %s" % (indent*" ", filein))
+            print("%s%s: processing %s" % (indent*" ",func_name(), filein))
         VtkP = VTKP(geometry=geometry, Ro=Ro, Xmax=Xmax)
         VtkP.ReadFile(filein)
         field_names = ['T', 'density', 'spcrust', 'spharz', 'velocity']
