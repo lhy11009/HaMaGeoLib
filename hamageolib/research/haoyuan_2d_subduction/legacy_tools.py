@@ -3573,8 +3573,16 @@ class VTKP(VTKP_BASE):
         slab_field = OperateDataArrays(cell_point_data, slab_field_names,\
         [0 for i in range(len(slab_field_names) - 1)])
         crust_field = None  # store the field of crust composition
+        # todo_field
         if prepare_moho is not None:
-            crust_field = vtk_to_numpy(cell_point_data.GetArray(prepare_moho))
+            # convert to list
+            if isinstance(prepare_moho, str):
+                prepare_moho = [prepare_moho]
+            assert isinstance(prepare_moho, list)
+            # prepare the crust field
+            crust_field = vtk_to_numpy(cell_point_data.GetArray(prepare_moho[0]))
+            for i in range(1, len(prepare_moho)):
+                crust_field += vtk_to_numpy(cell_point_data.GetArray(prepare_moho[i]))
         
         # Identify cells based on composition and radius, storing minimum radius for slab depth
         min_r = self.Ro
@@ -5114,7 +5122,14 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     VtkP = VTKP(time=_time, slab_envelop_interval=slab_envelop_interval, slab_shallow_cutoff=25e3)
     VtkP.ReadFile(filein)
     # fields to load
-    field_names = ['T', 'p', 'density', 'spcrust', 'spharz']
+    # todo_field
+    if n_crust == 1:
+        crust_fields = ['spcrust']
+    elif n_crust == 2:
+        crust_fields = ['spcrust_up', 'spcrust_low']
+    else:
+        return NotImplementedError()
+    field_names = ['T', 'p', 'density', 'spharz'] + crust_fields
     has_dynamic_pressure = int(Visit_Options.options['HAS_DYNAMIC_PRESSURE']) 
     if has_dynamic_pressure == 1:
         field_names += ['nonadiabatic_pressure']
@@ -5135,7 +5150,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         ExportPolyData(VtkP.c_poly_data, file_out_1)
     
     # slab envelop
-    VtkP.PrepareSlab(['spcrust', 'spharz'], prepare_moho='spcrust')  # slab: composition
+    VtkP.PrepareSlab(crust_fields + ['spharz'], prepare_moho=crust_fields)  # slab: composition
     slab_envelop0, slab_envelop1 = VtkP.ExportSlabEnvelopCoord()
     moho_envelop = VtkP.ExportSlabmohoCoord()
     if output_slab:
@@ -5318,6 +5333,7 @@ def SlabTemperature1(case_dir, vtu_snapshot, **kwargs):
     
     kwargs["ofile_surface"] = ofile_surface
     kwargs["ofile_moho"] = ofile_moho
+    kwargs['n_crust'] = Visit_Options.options["N_CRUST"]
 
     try: 
         SlabTemperature(case_dir, vtu_snapshot, ofile=ofile, **kwargs)
