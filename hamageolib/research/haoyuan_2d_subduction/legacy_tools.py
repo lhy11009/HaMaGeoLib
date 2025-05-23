@@ -2996,7 +2996,6 @@ def PointInBound2D(point, bound):
     return (point[0] >= bound[0]) and (point[0] <= bound[1]) and (point[1] >= bound[2])\
         and (point[1] <= bound[3])
 
-
 def InterpolateGrid(poly_data, points, **kwargs):
     '''
     Inputs:
@@ -3036,11 +3035,11 @@ def InterpolateGrid(poly_data, points, **kwargs):
     if not quiet:
         print("%s: Construct vtkPoints, take %.2f s" % (func_name(), end - start))
     start = end
-    probeFilter = vtk.vtkProbeFilter()
-    probeFilter.SetSourceData(poly_data)  # use the polydata
-    probeFilter.SetInputData(grid_data) # Interpolate 'Source' at these points
-    probeFilter.Update()
-    o_poly_data = probeFilter.GetOutput()
+    Filter = vtk.vtkProbeFilter()
+    Filter.SetSourceData(poly_data)  # use the polydata
+    Filter.SetInputData(grid_data) # Interpolate 'Source' at these points
+    Filter.Update()
+    o_poly_data = Filter.GetOutput()
     if polys is not None:
         o_poly_data.SetPolys(polys)
     end = time.time()
@@ -5178,7 +5177,6 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         np.savetxt(o_slab_in, slab_internal)
         print("%s%s: write file %s" % (indent*" ", func_name(), o_slab_in))
 
-    # todo_ftemp
     rs_n = kwargs.get("rs_n", 5) # resample interval
     ip_interval = 1e3  # interval for interpolation
 
@@ -5229,16 +5227,16 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     moho_envelop_rs = moho_envelop_rs_raw[0: id_max+1, :]
     
     id_valid = np.where(depths_moho > 0.0)[0][-1] # reason: max depth could be shallower than the slab surface
-    
+
+    start = time.time() 
     # interpolate the curve
     # start = np.ceil(depths[0]/ip_interval) * ip_interval
-    start = np.ceil(depths[0]/ip_interval) * ip_interval
-    end = np.floor(depths[-1]/ip_interval) * ip_interval
-    n_out = int((end-start) / ip_interval)
-    depths_out = np.arange(start, end, ip_interval)
+    start_depth = np.ceil(depths[0]/ip_interval) * ip_interval
+    end_depth = np.floor(depths[-1]/ip_interval) * ip_interval
+    n_out = int((end_depth-start_depth) / ip_interval)
+    depths_out = np.arange(start_depth, end_depth, ip_interval)
 
     # interpolate T for surface
-    # todo_ftemp
     interp_kind = kwargs.get("interp_kind", "cubic")
     slab_Xs = interp1d(depths, slab_envelop_rs[:, 0], kind=interp_kind)(depths_out)
     slab_Ys = interp1d(depths, slab_envelop_rs[:, 1], kind=interp_kind)(depths_out)
@@ -5246,10 +5244,15 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         o_slab_env_interp = os.path.join(case_dir,\
             "vtk_outputs", "slab_env1_interpolated_%05d.vtp" % (vtu_step)) # envelop 1
         ExportPolyDataFromRaw(slab_Xs, slab_Ys, None, None, o_slab_env_interp) # write the polydata
+    end = time.time()
+    print("Prepare interpolate points takes %.2f s" % (end-start))
+    start = end
 
-    # todo_ftemp 
     slab_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((slab_Xs, slab_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
     env_Ttops  = vtk_to_numpy(slab_env_polydata.GetPointData().GetArray('T'))
+    # fix invalid 0.0 values
+    env_Ttops = fix_profile_field_zero_values(slab_Xs, slab_Ys, None, env_Ttops)
+
 
     # interpolate T for moho
     mask_moho = ((depths_out > depths_moho[0]) & (depths_out < depths_moho[id_valid]))
@@ -5260,12 +5263,16 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
 
     moho_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((moho_Xs, moho_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
     env_Tbots = vtk_to_numpy(moho_env_polydata.GetPointData().GetArray('T'))
+    env_Tbots = fix_profile_field_zero_values(moho_Xs, moho_Ys, None, env_Tbots) # fix 0 values
     
     mask = (env_Tbots < 1.0) # fix the non-sense values
     env_Tbots[mask] = -np.finfo(np.float32).max
     if debug:
         print("env_Tbots")  # screen outputs
         print(env_Tbots)
+    end = time.time()
+    print("Interpolating main profiles takes %.2f" % (end - start))
+    start = end
     
     offset_Xs_array=[]; offset_Ys_array=[]; env_Toffsets_array = []
     # interpolate T for offest profiles
@@ -5273,6 +5280,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         offset_Xs, offset_Ys = offset_profile(slab_Xs, slab_Ys, offset)
         offset_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((offset_Xs, offset_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
         env_Toffsets = vtk_to_numpy(offset_env_polydata.GetPointData().GetArray('T'))
+        env_Toffsets = fix_profile_field_zero_values(offset_Xs, offset_Ys, None, env_Toffsets) # fix 0 values
     
         mask = (env_Toffsets < 1.0) # fix the non-sense values
         env_Toffsets[mask] = -np.finfo(np.float32).max
@@ -5280,7 +5288,10 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         offset_Xs_array.append(offset_Xs)
         offset_Ys_array.append(offset_Ys)
         env_Toffsets_array.append(env_Toffsets)
-
+    end = time.time()
+    print("Interpolating offset profiles takes %.2f" % (end - start))
+    start = end
+    
     # output 
     if ofile is not None:
         # write output if a valid path is given
@@ -5325,8 +5336,40 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         ExportPolyDataFromRaw(slab_Xs, slab_Ys, None, None, ofile_surface) # write the polydata
     if ofile_moho is not None:
         ExportPolyDataFromRaw(moho_Xs, moho_Ys, None, None, ofile_moho) # write the polydata
+    
+    end = time.time()
+    print("Writing outputs takes %.2f" % (end - start))
+    start = end
         
     return depths, env_Ttops, env_Tbots  # return depths and pressures
+
+
+def fix_profile_field_zero_values(xs, ys, zs, T):
+    '''
+    fix the invalid 0.0 values in a vtk interpolation product
+    '''
+    # Step 1: fix z value to allow None input
+    if zs is None:
+        assert(xs.shape == ys.shape)
+        zs = np.zeros(xs.shape)
+    else:
+        assert(xs.shape == ys.shape and xs.shape == zs.shape)
+
+    # Step 2: Define 1D path distance for parametric interpolation
+    path = np.cumsum(np.sqrt(np.diff(xs, prepend=xs[0])**2 + np.diff(ys, prepend=ys[0])**2 + np.diff(zs, prepend=zs[0])**2))
+
+    # Step 3: Identify valid and invalid values
+    valid_mask = (T != 0.0)
+    invalid_mask = ~valid_mask
+
+    # Step 4: Create 1D interpolator along path using valid values
+    interp_func = interp1d(path[valid_mask], T[valid_mask], kind='linear', fill_value="extrapolate")
+
+    # Step 5: Interpolate missing values and replace
+    T_fixed = T.copy()
+    T_fixed[invalid_mask] = interp_func(path[invalid_mask])
+
+    return T_fixed
 
 
 def SlabTemperature1(case_dir, vtu_snapshot, **kwargs):
