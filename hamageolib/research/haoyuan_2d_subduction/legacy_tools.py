@@ -4753,7 +4753,12 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     VtkP.ReadFile(filein)
     field_names = ['T', 'density', 'spharz', 'velocity', 'viscosity'] + crust_fields
     VtkP.ConstructPolyData(field_names, include_cell_center=True)
-    VtkP.PrepareSlab(crust_fields + ['spharz'], prepare_slab_distant_properties=True, depth_distant_lookup=depth_distant_lookup)
+    if n_crust == 1:
+        VtkP.PrepareSlab(crust_fields + ['spharz'], prepare_slab_distant_properties=True, depth_distant_lookup=depth_distant_lookup)
+    elif n_crust == 2:
+        VtkP.PrepareSlab(crust_fields, prepare_slab_distant_properties=True, depth_distant_lookup=depth_distant_lookup)
+    else:
+        raise NotImplementedError()
     if find_shallow_trench:
         outputs = VtkP.PrepareSlabShallow(n_crust=n_crust)
         x, y, z = outputs["corrected"]["points"]
@@ -5150,7 +5155,10 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         ExportPolyData(VtkP.c_poly_data, file_out_1)
     
     # slab envelop
-    VtkP.PrepareSlab(crust_fields + ['spharz'], prepare_moho=crust_fields)  # slab: composition
+    if n_crust == 1:
+        VtkP.PrepareSlab(crust_fields + ['spharz'], prepare_moho=crust_fields)  # slab: composition
+    if n_crust == 2:
+        VtkP.PrepareSlab(crust_fields, prepare_moho=crust_fields)  # slab: composition
     slab_envelop0, slab_envelop1 = VtkP.ExportSlabEnvelopCoord()
     moho_envelop = VtkP.ExportSlabmohoCoord()
     if output_slab:
@@ -5169,7 +5177,9 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         ExportPolyDataFromRaw(moho_envelop[:, 0], moho_envelop[:, 1], None, None, o_moho_env) # write the polydata
         np.savetxt(o_slab_in, slab_internal)
         print("%s%s: write file %s" % (indent*" ", func_name(), o_slab_in))
-    rs_n = 5 # resample interval
+
+    # todo_ftemp
+    rs_n = kwargs.get("rs_n", 5) # resample interval
     ip_interval = 1e3  # interval for interpolation
 
     # resample the origin slab surface
@@ -5228,9 +5238,16 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     depths_out = np.arange(start, end, ip_interval)
 
     # interpolate T for surface
-    slab_Xs = interp1d(depths, slab_envelop_rs[:, 0], kind='cubic')(depths_out)
-    slab_Ys = interp1d(depths, slab_envelop_rs[:, 1], kind='cubic')(depths_out)
-    
+    # todo_ftemp
+    interp_kind = kwargs.get("interp_kind", "cubic")
+    slab_Xs = interp1d(depths, slab_envelop_rs[:, 0], kind=interp_kind)(depths_out)
+    slab_Ys = interp1d(depths, slab_envelop_rs[:, 1], kind=interp_kind)(depths_out)
+    if output_slab:
+        o_slab_env_interp = os.path.join(case_dir,\
+            "vtk_outputs", "slab_env1_interpolated_%05d.vtp" % (vtu_step)) # envelop 1
+        ExportPolyDataFromRaw(slab_Xs, slab_Ys, None, None, o_slab_env_interp) # write the polydata
+
+    # todo_ftemp 
     slab_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((slab_Xs, slab_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
     env_Ttops  = vtk_to_numpy(slab_env_polydata.GetPointData().GetArray('T'))
 
