@@ -1091,6 +1091,7 @@ class LINEARPLOT():
             raise FileExistsError("%s cannot be read." % _filename)
         with warnings.catch_warnings(record=True) as w:
             if dtype == float:
+                # todo_fdata
                 self.data = np.genfromtxt(_filename, comments='#', filling_values=0.0)
             elif dtype == str:
                 self.data = np.loadtxt(_filename, comments='#', dtype=str)
@@ -7381,7 +7382,10 @@ class SLABPLOT(LINEARPLOT):
         morph_file = os.path.join(case_dir, 'vtk_outputs', filename)
         my_assert(os.path.isfile(morph_file), self.SlabMorphFileNotExistError, "%s is not a file." % morph_file)
         self.ReadHeader(morph_file)
-        self.ReadData(morph_file)
+        try:
+            self.ReadData(morph_file)
+        except ValueError as e:
+            raise ValueError("Reading file fails: %s" % morph_file) from e
 
         try: 
             col_time = self.header['time']['col']

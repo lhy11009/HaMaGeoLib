@@ -17,26 +17,35 @@ from scipy.interpolate import UnivariateSpline
 
 ####################################
 # options
+# uncomment the options needed for operation
 ####################################
-case_name = "EBA_CDPT26/eba_cdpt_coh500_SA80.0_OA40.0_du2.3_sv19.5_gr12"
+# case_name = "EBA_CDPT26/eba_cdpt_coh500_SA80.0_OA40.0_du2.3_sv19.5_gr12"
+case_name = "EBA_CDPT_test_gr_1/eba_cdpt_PTWL_SA80.0_cd7.5_gr11"
 
 time_interval = 5e5  # time interval in the frames
+
+# default values (trivial case)
+generate_visualization_paraview = False; generate_slab_morphology_results = False
+generate_visualization_paraview_stepwise = False; generate_slab_morphology_plots = False
+generate_slab_temperature_results = False; generate_slab_temperature_plots = False
+generate_surface_heat_flux_plots = False
+generate_animation = False; plot_without_heat_flux = True
 
 # generate visualization of upper mantle
 generate_visualization_paraview = False
 # generate results of slab morphology, run this before later steps,
 # as the following steps make use of the file generated
-generate_slab_morphology_results = False
+# generate_slab_morphology_results = True
 # generate visualization of mantle wedge corner (by running paraview stepwise)
-generate_visualization_paraview_stepwise = False
+generate_visualization_paraview_stepwise = True
 # generate plots of slab morphology
-generate_slab_morphology_plots = False
+generate_slab_morphology_plots = True
 # generate results of slab temperature
-generate_slab_temperature_results = False
+# generate_slab_temperature_results = True
 # generate plots of slab temperature
-generate_slab_temperature_plots = False
-# generate plots of surface heat flux
-generate_surface_heat_flux_plots = False; 
+generate_slab_temperature_plots = True
+# # generate plots of surface heat flux
+# generate_surface_heat_flux_plots = True
 # generate animation
 # turn on "plot_without_heat_flux" if heat flux data is missing
 generate_animation = True; plot_without_heat_flux = True
@@ -71,7 +80,8 @@ from hamageolib.research.haoyuan_2d_subduction.post_process import CASE_OPTIONS
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import SlabEnvelopRetrivePoints
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import \
   run_2d_subduction_visualization, plot_slab_morphology_series, plot_temperature_profiles_steps,\
-  finalize_visualization_2d_12172024, finalize_visualization_2d_wedge_02122025, create_avi_from_images
+  finalize_visualization_2d_12172024, finalize_visualization_2d_wedge_02122025, finalize_visualization_2d_wedge_small_03282025,\
+    create_avi_from_images
 from hamageolib.utils.file_reader  import read_aspect_header_file
 import hamageolib.utils.plot_helper as plot_helper
 
@@ -142,7 +152,7 @@ if generate_slab_morphology_results:
     slab_morph_file = os.path.join(local_dir, 'vtk_outputs', 'slab_morph_t1.00e+05.txt')
     if os.path.isfile(slab_morph_file):
         # move old file
-        subprocess.run("mv", slab_morph_file, os.path.join(local_dir, 'vtk_outputs', 'slab_morph_t1.00e+05.old.txt'))
+        subprocess.run(["mv", slab_morph_file, os.path.join(local_dir, 'vtk_outputs', 'slab_morph_t1.00e+05.old.txt')])
 
     subprocess.run(command)
     
@@ -152,7 +162,7 @@ if generate_slab_morphology_results:
     slab_morph_file = os.path.join(local_dir, 'vtk_outputs', 'slab_morph.txt')
     if os.path.isfile(slab_morph_file):
         # move old file
-        subprocess.run("mv", slab_morph_file, os.path.join(local_dir, 'vtk_outputs', 'slab_morph.old.txt'))
+        subprocess.run(["mv", slab_morph_file, os.path.join(local_dir, 'vtk_outputs', 'slab_morph.old.txt')])
    
     subprocess.run(command)
   
@@ -161,8 +171,6 @@ if generate_slab_morphology_results:
 if generate_visualization_paraview_stepwise:
 
     # options in plot
-    diff_angle = 1.5 # deg, to match the frame we use
-    Visit_Options.options["PLOT_TYPES"] = ["wedge_bigger"]
 
     # step
     resampled_df = CaseOptions.resample_visualization_df(time_interval)
@@ -200,19 +208,30 @@ if generate_visualization_paraview_stepwise:
         trench = shallow_trenches[i1]
         trench_deg = trench * 180.0 / np.pi
 
-        ofile = os.path.join(odir, 'slab_%d.py' % (graphical_step))
         paraview_script = os.path.join(ASPECT_LAB_DIR, 'paraview_scripts', 'TwoDSubduction', "slab.py")
         paraview_script_base = os.path.join(ASPECT_LAB_DIR, 'paraview_scripts', 'base.py')
-        Visit_Options.read_contents(paraview_script_base, paraview_script)  # combine these two scripts
 
+        # first plot: mantle wedge bigger
+        diff_angle = 1.5 # deg, to match the frame we use
+        Visit_Options.options["PLOT_TYPES"] = ["wedge_bigger"]
         Visit_Options.options['ROTATION_ANGLE'] = 90.0 - trench_deg - diff_angle
         print("ROTATION_ANGLE:", Visit_Options.options['ROTATION_ANGLE'])
-        # todo_split
+        Visit_Options.read_contents(paraview_script_base, paraview_script)  # combine these two scripts
         Visit_Options.substitute()
-
+        ofile = os.path.join(odir, 'slab_%d.py' % (graphical_step))
         Visit_Options.save(ofile)
-
         print("Generate %s" % ofile)
+        
+        # second plot: mantle wedge small
+        diff_angle = 1.0 # deg, to match the frame we use
+        Visit_Options.options["PLOT_TYPES"] = ["wedge_02252025"]
+        Visit_Options.options['ROTATION_ANGLE'] = 90.0 - trench_deg - diff_angle
+        print("ROTATION_ANGLE:", Visit_Options.options['ROTATION_ANGLE'])
+        Visit_Options.read_contents(paraview_script_base, paraview_script)  # combine these two scripts
+        Visit_Options.substitute()
+        ofile1 = os.path.join(odir, 'slab1_%d.py' % (graphical_step))
+        Visit_Options.save(ofile1)
+        print("Generate %s" % ofile1)
 
     # append command to bash script
     with open(py_temp_file, 'w') as fout:
@@ -220,9 +239,11 @@ if generate_visualization_paraview_stepwise:
         for i, graphical_step in enumerate(graphical_steps):
         
             ofile = os.path.join(odir, 'slab_%d.py' % (graphical_step))
+            ofile1 = os.path.join(odir, 'slab1_%d.py' % (graphical_step))
 
             fout.write("# Run slab morphology analysis\n")
             fout.write("pvpython %s\n" % ofile)
+            fout.write("pvpython %s\n" % ofile1)
 
     # run subprocess
     command = ["chmod", "+x", py_temp_file]
@@ -249,6 +270,7 @@ if generate_slab_temperature_results:
     subprocess.run(command)
 
 # generate plots of slab temperature
+# current mdd doesn't work for thin shear zone
 if generate_slab_temperature_plots:
 
     config = {
@@ -256,7 +278,8 @@ if generate_slab_temperature_plots:
     "plot_helper": plot_helper,
     # "times": [3e6], # 1. one timestep
     "times": resampled_df["Time"].values, # 2. all timesteps with assigned interval
-    "with_legend": False
+    "with_legend": False,
+    "with_mdd": True
     }
   
     plot_temperature_profiles_steps(local_dir, config)
@@ -390,7 +413,8 @@ if generate_animation:
     file_paths = []
 
     for i in range(len(resampled_df["Time"].values)):
-
+        
+        # todo_cbar
         # # debug run step 0
         # if i > 0:
         #     break
@@ -411,15 +435,33 @@ if generate_animation:
         prep_file_dir = os.path.join(local_dir, "img", "animation", 'prep')
         if not os.path.isdir(prep_file_dir):
             os.mkdir(prep_file_dir)
-        
+
         # Inputs
+        # slab temperatrue
+        # heat flux
+        # slab morphology
+        # colorbar for viscosity
         slab_temperature_png_file_name = os.path.join(local_dir, "img", "temperature", "slab_temperature_combined2_t%.4e.png" % (_time))
         if (not os.path.isfile(slab_temperature_png_file_name)):
             raise FileNotFoundError(f"PNG file doesn't exist: {slab_temperature_png_file_name}")
         
         heat_flux_png_file_name = os.path.join(local_dir, "img", "heat_flux", "heat_flux_top_shallow_trench_t%.4e.png" % (_time))
+        if not plot_without_heat_flux:
+            if (not os.path.isfile(heat_flux_png_file_name)):
+                raise FileNotFoundError(f"PNG file doesn't exist: {heat_flux_png_file_name}")
 
         slab_morph_file_name = os.path.join(prep_file_dir, "combined_morphology_t%.4e.png" % _time)
+        if (not os.path.isfile(slab_morph_file_name)):
+            raise FileNotFoundError(f"PNG file doesn't exist: {slab_morph_file_name}")
+        
+        
+        colorbar_viscosity_png_file = "/home/lochy/Documents/papers/documented_files/TwoDSubduction/color_tables/viscosity_18_24_0524_2025.png"
+        if (not os.path.isfile(colorbar_viscosity_png_file)):
+            raise FileNotFoundError(f"PNG file doesn't exist: {colorbar_viscosity_png_file}")
+        
+        colorbar_temperature_png_file = "/home/lochy/Documents/papers/documented_files/TwoDSubduction/color_tables/temperature_0524_2025.png"
+        if (not os.path.isfile(colorbar_viscosity_png_file)):
+            raise FileNotFoundError(f"PNG file doesn't exist: {colorbar_viscosity_png_file}")
 
         # Options
 
@@ -430,38 +472,46 @@ if generate_animation:
             raise FileNotFoundError(f"PNG file doesn't exist: {target_file_name}")
 
         # make the figure of upper mantle 
-        frame_png_file_with_ticks = "/home/lochy/Documents/papers/documented_files/TwoDSubduction/upper_mantle_frame/upper_mantle_frame_12172024_trans_with_frame.png"
-    
-        canvas_size = (650, 500)
-        target_file_name_framed = finalize_visualization_2d_12172024(local_dir, "viscosity", time_rounded, frame_png_file_with_ticks, add_time=False, canvas_size=canvas_size)
+        frame_png_file_with_ticks = "/home/lochy/Documents/papers/documented_files/TwoDSubduction/upper_mantle_frame/upper_mantle_frame_12172024_trans_with_frame-01.png"
+        target_file_name_framed = finalize_visualization_2d_12172024(local_dir, "viscosity", time_rounded, frame_png_file_with_ticks,\
+                                                                     add_time=False, canvas_size=((996, 625)))
 
-        # make the figure of the wedge
+        # make the figure of mantle wedge
         frame_png_file_with_ticks = "/home/lochy/Documents/papers/documented_files/TwoDSubduction/upper_mantle_frame/wedge_frame_11272024_trans_with_trench_frame.png"
-        target_file_name_framed_1 = finalize_visualization_2d_wedge_02122025(local_dir, "T_wedge_bigger", time_rounded, frame_png_file_with_ticks, add_time=False)
+        target_file_name_framed_1 = finalize_visualization_2d_wedge_02122025(local_dir, "viscosity_wedge_bigger", time_rounded, frame_png_file_with_ticks, add_time=False)
+        
+        # make the figure of mantle wedge small
+        frame_png_file_with_ticks = "/home/lochy/Documents/papers/documented_files/TwoDSubduction/upper_mantle_frame/wedge_small_frame_03272025_trans_with_frame-01.png"
+        target_file_name_framed_2 = finalize_visualization_2d_wedge_small_03282025(local_dir, "viscosity_wedge_small", time_rounded, frame_png_file_with_ticks, add_time=False)
 
+
+        # Overlays multiple images on a blank canvas with specified sizes, positions, cropping, and scaling.
+        canvas_size = (1200, 1700) 
         output_image_file = os.path.join(prep_file_dir, "%s_t%.4e.png" % (base_name, _time))
         if os.path.isfile(output_image_file):
             # Remove existing output image to ensure a clean overlay
             os.remove(output_image_file)
-
-        # Overlays multiple images on a blank canvas with specified sizes, positions, cropping, and scaling.
         if plot_without_heat_flux:
             # List of image file paths to overlay
-            image_files=[target_file_name_framed, slab_temperature_png_file_name, slab_morph_file_name, target_file_name_framed_1]
+            image_files=[target_file_name_framed, target_file_name_framed_1, target_file_name_framed_2, slab_temperature_png_file_name, slab_morph_file_name,  colorbar_viscosity_png_file, colorbar_temperature_png_file]
             # Positions of each image on the canvas
-            image_positions=[(0, 100), (0, 450), (0, 800), (600, 100)]
+            image_positions=[(0, 100), (600, 100), (600, 500),(0, 1000), (0, 1350), (100, 925), (650, 925)]
             # Optional cropping regions for the images
-            cropping_regions=[None, None, None, None]
+            cropping_regions=[None, None, None, None, None, None, None]
             # Scaling factors for resizing the images
-            image_scale_factors=[0.6, 0.4, 0.4, 0.4]
+            image_scale_factors=[0.6, 0.5, 0.5, 0.4, 0.4, 1.0, 1.0]
         else:
-            image_files=[target_file_name_framed, slab_temperature_png_file_name, heat_flux_png_file_name, slab_morph_file_name, target_file_name_framed_1]
-            image_positions=[(0, 100), (0, 450), (500, 450), (0, 800), (600, 100)]
-            cropping_regions=[None, None, None, None, None]
-            image_scale_factors=[0.6, 0.4, 0.4, 0.4, 0.4]
+            # List of image file paths to overlay
+            image_files=[target_file_name_framed, target_file_name_framed_1, target_file_name_framed_2, slab_temperature_png_file_name, heat_flux_png_file_name, slab_morph_file_name,  colorbar_viscosity_png_file, colorbar_temperature_png_file]
+            # Positions of each image on the canvas
+            image_positions=[(0, 100), (600, 100), (600, 500),(0, 1000), (500, 1000), (0, 1350), (100, 925), (650, 925)]
+            # Optional cropping regions for the images
+            cropping_regions=[None, None, None, None, None, None, None, None]
+            # Scaling factors for resizing the images
+            image_scale_factors=[0.6, 0.5, 0.5, 0.4, 0.4, 0.4, 1.0, 1.0]
             
         plot_helper.overlay_images_on_blank_canvas(
-            canvas_size=(1000, 1100),  # Size of the blank canvas in pixels (width, height)
+            canvas_size=canvas_size,  # Size of the blank canvas in pixels (width, height)
             image_files=image_files,  
             image_positions=image_positions,
             cropping_regions=cropping_regions,

@@ -144,6 +144,7 @@ def plot_slab_morphology_series(local_dir, config):
 
         # Adjust spine thickness
         for ax in fig.get_axes():
+            ax.grid()
             for spine in ax.spines.values():
                 spine.set_linewidth(0.5 * scaling_factor * line_width_scaling_multiplier)
 
@@ -186,6 +187,7 @@ def plot_temperature_profiles_steps(local_dir, config):
     times = config["times"]
     with_legend = config["with_legend"]
     Visit_Options = config["Visit_Options"]
+    with_mdd = config.get("with_mdd", True)
 
     default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
     scale_matplotlib_params(
@@ -240,8 +242,10 @@ def plot_temperature_profiles_steps(local_dir, config):
 
         line0 = ax.plot(p_Ttops - 273.15, p_depths/1e3, label=f"Surface T, {time_inspect/1e6:.1f} Ma", color=color0, linewidth=2)
         line1 = ax.plot(p_Tbots - 273.15, p_depths/1e3, label="Moho T", color=color0, linewidth=4)
-        ax.hlines(mdd1/1e3, 0.0, 3000.0, linestyles="dashdot", color=color0)
-        ax.hlines(mdd2/1e3, 0.0, 3000.0, linestyles="dotted", color=color0)
+
+        if with_mdd:
+            ax.hlines(mdd1/1e3, 0.0, 3000.0, linestyles="dashdot", color=color0)
+            ax.hlines(mdd2/1e3, 0.0, 3000.0, linestyles="dotted", color=color0)
 
         lines += line0 + line1
 
@@ -1043,6 +1047,7 @@ def finalize_visualization_2d_12172024(local_dir, file_name, _time, frame_png_fi
 
     # Options
     add_time = kwargs.get("add_time", True)
+    canvas_size = kwargs.get("canvas_size", (996, 568))
 
     # Inputs
     eps_file = os.path.join(local_dir, "img", "pv_outputs", "%s_t%.4e.eps" % (file_name, _time))
@@ -1079,7 +1084,7 @@ def finalize_visualization_2d_12172024(local_dir, file_name, _time, frame_png_fi
 
     # Overlays multiple images on a blank canvas with specified sizes, positions, cropping, and scaling.
     overlay_images_on_blank_canvas(
-        canvas_size=(996, 568),  # Size of the blank canvas in pixels (width, height)
+        canvas_size=canvas_size,  # Size of the blank canvas in pixels (width, height)
         image_files=[full_image_path, frame_png_file_with_ticks],  # List of image file paths to overlay
         image_positions=[(-102, -9), (0, 0)],  # Positions of each image on the canvas
         cropping_regions=[None, None],  # Optional cropping regions for the images
