@@ -299,7 +299,7 @@ def test_avrami_number():
     Kinetics = PTKinetics()
     I_max = max(1e-50, Kinetics.nucleation_rate(P, T, P_eq, T_eq)) # per unit volume
     Y_max = max(1e-50, Kinetics.growth_rate_interface_P2(P, T, P_eq, T_eq, Coh))
-    Av = calculate_avrami_number_yoshioka_2015(I_max, Y_max)
+    Av = calculate_avrami_number(I_max, Y_max)
 
     Av_expected = 1.2917411325502283e+32
 
@@ -329,7 +329,7 @@ def test_solve_modified_equations_eq18():
     Kinetics = PTKinetics()
     I0 = Kinetics.nucleation_rate(P, T, P_eq, T_eq) # per unit volume
     Y0 = Kinetics.growth_rate_interface_P2(P, T, P_eq, T_eq, Coh)
-    Av = calculate_avrami_number_yoshioka_2015(I0, Y0)
+    Av = calculate_avrami_number(I0, Y0)
 
     Y_prime_func = lambda s: 1.0 
     I_prime_func = lambda s: 1.0
@@ -380,7 +380,7 @@ def test_solve_modified_equations_eq18_1():
     Kinetics = PTKinetics()
     I0 = Kinetics.nucleation_rate(P, T, P_eq, T_eq) # per unit volume
     Y0 = Kinetics.growth_rate_interface_P2(P, T, P_eq, T_eq, Coh)
-    Av = calculate_avrami_number_yoshioka_2015(I0, Y0)
+    Av = calculate_avrami_number(I0, Y0)
 
     Y_prime_func = lambda s: 1.0 
     I_prime_func = lambda s: 1.0
@@ -442,7 +442,7 @@ def test_solve_modified_equations_eq18_1S():
     Kinetics = PTKinetics(_constants)
     I0 = Kinetics.nucleation_rate(P, T, P_eq, T_eq) # per unit volume
     Y0 = Kinetics.growth_rate_interface_P2(P, T, P_eq, T_eq, Coh)
-    Av = calculate_avrami_number_yoshioka_2015(I0, Y0)
+    Av = calculate_avrami_number(I0, Y0)
 
     Y_prime_func = lambda s: 1.0 
     I_prime_func = lambda s: 1.0

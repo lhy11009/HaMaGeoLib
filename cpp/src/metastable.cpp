@@ -48,29 +48,10 @@ double PTKinetics::nucleation_rate(double P, double T, double Peq, double Teq) c
     return K0 * T * std::exp(-delta_G_hom / (k * T)) * std::exp(-Q_a / (R * T));
 }
 
-
-// Function to calculate the first part of the growth rate
-double metastable_hosoya_06_eq2_P1(double P, double T, double Coh) {
-    const double R = 8.31446;          // J / mol*K, universal gas constant
-    const double A = std::exp(-18.0);  // m s-1 wt.ppmH2O^(-3.2)
-    const double n = 3.2;
-    const double dHa = 274.0e3;        // J / mol, activation enthalpy
-    const double Vstar = 3.3e-6;       // m^3 / mol, activation volume
-
-    double growth_rate_part = A * std::pow(Coh, n) * std::exp(-(dHa + P * Vstar) / (R * T));
-    return growth_rate_part;
-}
-
-// Function to calculate the growth rate considering pressure and temperature variations
-double metastable_hosoya_06_eq2(double P, double T, double P_eq, double Coh) {
-    const double R = 8.31446;          // J / mol*K, universal gas constant
-    const double dV_ol_wd = 2.4e-6;    // m^3 / mol, difference in volume between phases
-
-    assert(P > P_eq && "Pressure must be greater than equilibrium pressure!");
-
-    double dGr = dV_ol_wd * (P - P_eq);
-    double growth_rate = metastable_hosoya_06_eq2_P1(P, T, Coh) * T * (1 - std::exp(-dGr / (R * T)));
-    return growth_rate;
+// Function to calculate the Avrami number using corrected Equation (19)
+double calculate_avrami_number(double I_max, double Y_max, double kappa, double D) {
+    // Compute the Avrami number
+    return std::pow(D * D / kappa, 4) * I_max * std::pow(Y_max, 3);
 }
 
 // Function to calculate dimensionless time (sigma_s)
@@ -100,11 +81,6 @@ double calculate_sigma_s(const std::vector<double>& I_array, const std::vector<d
     return calculate_sigma_s(I_PT, Y_PT, d_0, kappa, D);
 }
 
-// Function to calculate the Avrami number using corrected Equation (19)
-double calculate_avrami_number_yoshioka_2015(double I_max, double Y_max, double kappa, double D) {
-    // Compute the Avrami number
-    return std::pow(D * D / kappa, 4) * I_max * std::pow(Y_max, 3);
-}
 
 // Function to solve for the extended volume after site saturation
 double solve_extended_volume_post_saturation(double Y, double s, double kappa, double D, double d0) {
@@ -328,7 +304,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
     // Compute scaling variables
     double I_max = std::max(1e-50, I_func(t_span.first));
     double Y_max = std::max(1e-50, Y_func(t_span.first));
-    double Av = calculate_avrami_number_yoshioka_2015(I_max, Y_max, kappa, D);
+    double Av = calculate_avrami_number(I_max, Y_max, kappa, D);
     
     // Define non-dimensionalized versions of Y_func and I_func
     auto Y_prime_func = [this, Y_max](double s) {
@@ -402,7 +378,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
                 }
             }
             // Pre-assign values post-saturation
-            for (size_t j = solution_nd.size(); j < n_span + 1; ++j) {
+            for (size_t j = solution_nd.size(); j < static_cast<size_t>(n_span + 1); ++j) {
                 for (size_t k = 0; k < solution_nd[solution_nd.size()-1].size(); ++k) {
                     X_array[k][j] = solution_nd[solution_nd.size()-1][k] * X_scale_array[k];
                 }
@@ -427,7 +403,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
             
             auto solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span_us, X_ini_nd, n_span, debug);
 
-            for (size_t j = 1; j < n_span+1; ++j) {
+            for (size_t j = 1; j < static_cast<size_t>(n_span + 1); ++j) {
                 for (size_t k = 0; k < solution_nd[j].size(); ++k) {
                     X_array[k][j] = solution_nd[solution_nd.size()-1][k] * X_scale_array[k];
                 }
@@ -437,7 +413,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
             // Post-saturation, increment from values derived by the analytical solution
             auto post_saturation = solve_extended_volume_post_saturation(Y_max, s_values, kappa, D, d0);
             auto post_saturation_ini = solve_extended_volume_post_saturation(Y_max, s_values[1], kappa, D, d0);
-            for (size_t j = 1; j < n_span+1; ++j) {
+            for (size_t j = 1; j < static_cast<size_t>(n_span + 1); ++j) {
                 X_array[3][j] = X_array[3][1] + post_saturation[j] - post_saturation_ini;
             }
             
@@ -468,7 +444,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
         }
     } else {
         // assign the initial values
-        for (size_t j = 0; j < n_span+1; ++j) {
+        for (size_t j = 0; j < static_cast<size_t>(n_span + 1); ++j) {
             for (size_t k = 0; k < X_ini.size(); ++k) {
                 X_array[k][j] = X_ini[k];
             }
@@ -477,7 +453,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
         // Full saturation, increment from values derived by the analytical solution
         auto post_saturation = solve_extended_volume_post_saturation(Y_max, s_values, kappa, D, d0);
         auto post_saturation_ini = solve_extended_volume_post_saturation(Y_max, s_values[0], kappa, D, d0);
-        for (size_t j = 0; j < n_span+1; ++j) {
+        for (size_t j = 0; j < static_cast<size_t>(n_span + 1); ++j) {
             X_array[3][j] = X_ini[3] + post_saturation[j] - post_saturation_ini;
         }
         std::fill(is_saturated_array.begin(), is_saturated_array.end(), true);
@@ -488,7 +464,6 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
 
 std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t_min, double t_max, int n_t, int n_span, bool debug, 
     std::vector<double> X, bool is_saturated) {
-    // todo_metastable
     
     // Initialize variables
     // Check if X has exactly 4 elements

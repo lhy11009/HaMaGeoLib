@@ -38,10 +38,11 @@ import os
 import re
 import subprocess
 import pandas as pd
-from .dealii_param_parser import parse_parameters_to_dict
+from .dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
 from .exception_handler import my_assert
 from .handy_shortcuts_haoyuan import func_name, strip_and_split
 from .file_reader import read_aspect_header_file
+import copy
 
 class CASE_OPTIONS:
     """
@@ -761,3 +762,42 @@ def resample_time_series_df(target_df, time_interval, time_column="Time"):
     resampled_df = pd.DataFrame(resampled_rows)
 
     return resampled_df
+
+
+class ModelConfigManager:
+    """
+    Manage and modify a finite element geodynamic model configuration.
+    
+    Attributes:
+        config (dict): The current configuration dictionary.
+    """
+    def __init__(self, base_config: dict):
+        self.config = copy.deepcopy(base_config)
+    
+    def __init__(self, base_file: str):
+        assert(os.path.isfile(base_file))
+        with open(base_file, "r") as fin:
+            self.config = parse_parameters_to_dict(fin)
+
+    def apply_patch(self, patch: dict):
+        """Apply a flat dictionary patch to override settings."""
+        self.config.update(patch)
+
+    def apply_nested_patch(self, nested_patch: dict):
+        """Recursively update config with nested dictionary patch."""
+        self._recursive_update(self.config, nested_patch)
+
+    def _recursive_update(self, base: dict, updates: dict):
+        for key, value in updates.items():
+            if isinstance(value, dict) and isinstance(base.get(key), dict):
+                self._recursive_update(base[key], value)
+            else:
+                base[key] = value
+
+    def get_config(self):
+        return self.config
+
+    def export_to_param_file(self, output_path: str):
+
+        with open(output_path, "w") as fout:
+            save_parameters_from_dict(fout, self.config)

@@ -138,3 +138,69 @@ def test_find_case_files():
 
     assert(prm_file == os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")), "big_tests/TwoDSubduction/eba_cdpt_coh500_SA80.0_cd7.5_log_ss300.0/case.prm"))
     assert(wb_file == os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")), "big_tests/TwoDSubduction/eba_cdpt_coh500_SA80.0_cd7.5_log_ss300.0/case.wb"))
+
+
+########################################
+# tests for case configurations
+########################################
+from hamageolib.utils.case_options import ModelConfigManager
+@pytest.fixture
+def base_config():
+    return {
+        "Mesh refinement": {
+            "Global refinement": 4,
+            "Initial adaptive refinement": 2
+        },
+        "Geometry model": {
+            "Slab angle": 30.0,
+            "Slab depth": 100e3
+        }
+    }
+
+@pytest.fixture
+def patch_resolution():
+    return {
+        "Mesh refinement": {
+            "Global refinement": 6
+        }
+    }
+
+@pytest.fixture
+def patch_slab():
+    return {
+        "Geometry model": {
+            "Slab angle": 10.0
+        }
+    }
+
+def test_apply_flat_patch(base_config):
+    mgr = ModelConfigManager(base_config)
+    flat_patch = {
+        "New key": "test",
+        "Mesh refinement": "override"
+    }
+    mgr.apply_patch(flat_patch)
+    result = mgr.get_config()
+    assert result["New key"] == "test"
+    assert result["Mesh refinement"] == "override"
+
+def test_apply_nested_patch_resolution(base_config, patch_resolution):
+    mgr = ModelConfigManager(base_config)
+    mgr.apply_nested_patch(patch_resolution)
+    updated = mgr.get_config()
+    assert updated["Mesh refinement"]["Global refinement"] == 6
+    assert updated["Mesh refinement"]["Initial adaptive refinement"] == 2  # preserved
+
+def test_apply_multiple_nested_patches(base_config, patch_resolution, patch_slab):
+    mgr = ModelConfigManager(base_config)
+    mgr.apply_nested_patch(patch_resolution)
+    mgr.apply_nested_patch(patch_slab)
+    updated = mgr.get_config()
+    assert updated["Mesh refinement"]["Global refinement"] == 6
+    assert updated["Geometry model"]["Slab angle"] == 10.0
+    assert updated["Geometry model"]["Slab depth"] == 100e3  # unchanged
+
+def test_patch_does_not_affect_original(base_config, patch_resolution):
+    mgr = ModelConfigManager(base_config)
+    mgr.apply_nested_patch(patch_resolution)
+    assert base_config["Mesh refinement"]["Global refinement"] == 4  # original preserved

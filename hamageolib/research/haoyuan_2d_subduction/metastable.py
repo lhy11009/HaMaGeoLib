@@ -41,7 +41,7 @@ def calculate_sigma_s(I_PT, Y_PT, d_0, **kwargs):
     return sigma_s
 
 
-def calculate_avrami_number_yoshioka_2015(I_max, Y_max, **kwargs):
+def calculate_avrami_number(I_max, Y_max, **kwargs):
     """
     Calculate the Avrami number (Av) using the corrected Equation (19).
     
@@ -539,7 +539,7 @@ class MO_KINETICS:
         if self.is_P_higher_than_Peq:
             I_max = max(1e-50, self.I_func(t)) # per unit volume
             Y_max = max(1e-50, self.Y_func(t))
-            Av = calculate_avrami_number_yoshioka_2015(I_max, Y_max, D=D)
+            Av = calculate_avrami_number(I_max, Y_max, D=D)
         else:
             Av = float('inf')
         return Av

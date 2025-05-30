@@ -167,7 +167,7 @@ void test_avrami_number() {
     double Y_max = std::max(1e-50, pTKinetics.growth_rate(P, T, P_eq, T_eq, Coh));
 
     // Compute the Avrami number
-    double Av = calculate_avrami_number_yoshioka_2015(I_max, Y_max);
+    double Av = calculate_avrami_number(I_max, Y_max);
 
     // Expected result
     double Av_expected = 1.2917411325502283e+32;
@@ -210,7 +210,7 @@ void test_solve_modified_equations_eq18() {
     
     double I0 =  pTKinetics.nucleation_rate(P, T, P_eq, T_eq); // per unit volume
     double Y0 =  pTKinetics.growth_rate(P, T, P_eq, T_eq, Coh);
-    double Av = calculate_avrami_number_yoshioka_2015(I0, Y0);
+    double Av = calculate_avrami_number(I0, Y0);
 
     // Define Y_prime_func and I_prime_func
     auto Y_prime_func = [](double s) -> double { return 1.0; };
@@ -274,7 +274,7 @@ void test_solve_modified_equations_eq18_1() {
     PTKinetics pTKinetics;
     double I0 =  pTKinetics.nucleation_rate(P, T, P_eq, T_eq); // per unit volume
     double Y0 =  pTKinetics.growth_rate(P, T, P_eq, T_eq, Coh);
-    double Av = calculate_avrami_number_yoshioka_2015(I0, Y0);
+    double Av = calculate_avrami_number(I0, Y0);
 
     // Define Y_prime_func and I_prime_func
     auto Y_prime_func = [](double s) -> double { return 1.0; };
@@ -353,7 +353,7 @@ void test_solve_modified_equations_eq18_1S() {
 
     double I0 =  pTKinetics.nucleation_rate(P, T, P_eq, T_eq); // per unit volume
     double Y0 =  pTKinetics.growth_rate(P, T, P_eq, T_eq, Coh);
-    double Av = calculate_avrami_number_yoshioka_2015(I0, Y0);
+    double Av = calculate_avrami_number(I0, Y0);
 
     // Define Y_prime_func and I_prime_func
     auto Y_prime_func = [](double s) -> double { return 1.0; };
@@ -640,23 +640,41 @@ void test_solve_values_test_aspect() {
     // This test is not related to python test, instead, it's used to benchmark values from aspect run time checks.
     // Define constants
     // outputs at line outputs 2017 in the test case
+    // todo_para
     const double year = 365.0 * 24.0 * 3600.0; // Seconds in one year
-    const double Coh = 1000.0; // wt.ppm H2O
+    const double Coh = 150.0; // wt.ppm H2O
 
     // Phase transition parameters for equilibrium
-    const double PT410_P = 14e9;   // Equilibrium pressure (Pa)
-    const double PT410_T = 1760.0; // Equilibrium temperature (K)
-    const double PT410_cl = 4e6;   // Clapeyron slope
+    const double PT410_P = 13.5e9;   // Equilibrium pressure (Pa)
+    const double PT410_T = 1740.0; // Equilibrium temperature (K)
+    const double PT410_cl = 2e6;   // Clapeyron slope
 
     // Test parameters
-    const double P = 2.66654e+10;       // Pressure (Pa)
-    const double T = 917.658;  // Temperature (K)
+    const double P = 2.5847e+10;       // Pressure (Pa)
+    const double T = 917.186;  // Temperature (K)
     const double t_max = 1000.0 * year; // Maximum time (s)
     const int n_t = 1;            // Number of time intervals
     const int n_span = 10;          // Number of steps within each interval
 
+
+    // kinetic models
+    const double d0 = 1e-2;
+    const double A=exp(-18.0);
+    const double n=3.2;
+    const double dHa=274e3;
+    const double V_star_growth=3.3e-6;
+    const double gamma=0.46;
+    const double fs=6e-4;
+    const double K0=1e30;
+    const double Vm=4.05e-5;
+    const double dS=7.7;
+    const double dV=3.16e-6;
+    const double nucleation_type=1;
+
     // Initialize the MO_KINETICS class
-    MO_KINETICS Mo_Kinetics;
+    MO_KINETICS Mo_Kinetics(d0, A, n, dS, dV, dHa, V_star_growth, fs, Vm,
+                                gamma, K0, nucleation_type);
+
     Mo_Kinetics.setPTEq(PT410_P, PT410_T, PT410_cl);
     Mo_Kinetics.linkAndSetKineticsModel();
     Mo_Kinetics.setKineticsFixed(P, T, Coh);
@@ -671,11 +689,11 @@ void test_solve_values_test_aspect() {
     // Expected result for results[10]
     std::vector<double> expected_X1 = {
         t_max,  // Time
-        2.7627787e25,  // N
-        1.3605372955e14,  // Dn
+        2.46300528e23,  // N
+        1.2846063759809e13,  // Dn
         701.622359,  // S
-        0.002627,  // Dimensionless volume
-        0.002624,  // Volume fraction
+        8.4691e-06,  // Dimensionless volume
+        8.4691e-06,  // Volume fraction
         1.0   // Saturation status
     };
 
@@ -688,7 +706,7 @@ void test_solve_values_test_aspect() {
     for (size_t i = 0; i < X1.size(); ++i) {
         double relative_error = std::abs(X1[i] - expected_X1[i]) / expected_X1[i];
         if (relative_error >= 1e-2) {
-            oss << std::fixed << std::setprecision(6);
+            oss << std::scientific << std::setprecision(4);
             oss << "Value mismatch at index " << i << ":\n"
                 << "  Expected:  " << expected_X1[i] << "\n"
                 << "  Computed:  " << X1[i] << "\n"
