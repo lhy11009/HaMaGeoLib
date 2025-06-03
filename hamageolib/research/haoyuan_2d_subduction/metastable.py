@@ -374,7 +374,9 @@ class MO_KINETICS:
         - Y_func (callable): Function for the growth rate Y(t).
         - I_func (callable): Function for the nucleation rate I(t).
         """
+        # todo_metastable
         self.post_process = kwargs.get("post_process", [])
+        self.include_derivative = kwargs.get("include_derivative", False)
         assert(type(self.post_process) == list)
         if "ts" in self.post_process:
             self.post_process_ts = True
@@ -414,6 +416,8 @@ class MO_KINETICS:
             self.result_columns.append("t_saturated")
         if self.post_process_tg:
             self.result_columns.append("t_growth")
+        if self.include_derivative:
+            self.result_columns.append("dVdt")
         self.n_col = len(self.result_columns)
         self.last_is_saturated = False
         self.last_solution = None
@@ -786,8 +790,10 @@ class MO_KINETICS:
 
     def solve(self, P, T, t_min, t_max, n_t, n_span, **kwargs):
 
+        # todo_metastable
         debug = kwargs.get("debug", False)
         initial = kwargs.get("initial", None)
+        last_derivative = kwargs.get("last_derivative", 0.0) # the first value of last_derivative
 
         # read the initial state
         if initial is None: 
@@ -830,8 +836,9 @@ class MO_KINETICS:
             
             # Record the results in the DataFrame
             V_array = 1 - np.exp(-X_array[3, :])
+            t_interval = (t_piece_max - t_piece_min)/n_span
             for j_s in range(n_span+1):
-                t_j = t_piece_min + (t_piece_max - t_piece_min)/n_span*j_s
+                t_j = t_piece_min + t_interval*j_s
                 result_timestep = [t_j, X_array[0, j_s], X_array[1, j_s], X_array[2, j_s], X_array[3, j_s],\
                                    V_array[j_s], is_saturated_array[j_s]]
                 # post_process steps
@@ -841,7 +848,20 @@ class MO_KINETICS:
                 if self.post_process_tg:
                     tg = self.compute_tg(t_j) # compute saturation and growth time as post-processing
                     result_timestep.append(tg)
+                # append time derivative 
+                if self.include_derivative:
+                    if j_s == 0:
+                        result_timestep.append(last_derivative)
+                    else:
+                        result_timestep.append((V_array[j_s]-V_array[j_s-1])/t_interval)
+                    if j_s == n_span:
+                        last_derivative = (V_array[j_s]-V_array[j_s-1])/t_interval
+                        print("j_s-1 = %d, V_array[j_s-1] = %.4e" % (j_s-1, V_array[j_s-1]))
+                        print("j_s = %d, V_array[j_s] = %.4e" % (j_s, V_array[j_s]))
+                        print("last_derivative = ", last_derivative) # debug
                 results[i_t*n_span + j_s, :] =  result_timestep
+                # debug
+                print("i_t*n_span + j_s = %d, results[i_t*n_span + j_s, :] = " % (i_t*n_span + j_s), results[i_t*n_span + j_s, :])
                 
         return results
     

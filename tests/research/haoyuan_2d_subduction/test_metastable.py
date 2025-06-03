@@ -675,6 +675,88 @@ def test_solve_values_un():
     actual_row = results[10, :]
     assert np.allclose(actual_row, expected_row, rtol=1e-6), f"Row 10 mismatch: {actual_row} != {expected_row}"
 
+
+def test_solve_values_un_derivative():
+    """
+    Test solving the kinetics equations over a time span and check the value
+    Solve under a unsaturated condition, near the equilibrium condition
+    """
+    # todo_metastable
+    year = 3.15576e7  # seconds in a year
+    PT410 = {"P": 14e9, "T": 1760.0, "cl": 4e6} # equilibrium phase transition for 410 km
+    year = 365.0 * 24.0 * 3600.0  # Seconds in one year
+
+    # Test parameters
+    P = 10.255e9 + 0.75e9 # Pa
+    T = 823.75 # K
+    Coh = 150.0
+    t_max = 10e6 * year  # s
+    n_t = 100
+    n_span = 10
+
+    # Initialize the MO_KINETICS class
+    _constants = MO_KINETICS.Constants(
+            R=8.31446,
+            k=1.38e-23,
+            kappa=1e-6,
+            D=100e3,
+            d0=1e-2,
+            A=np.exp(-18.0),
+            n=3.2,
+            dHa=274e3,
+            V_star_growth=3.3e-6,
+            gamma=0.6,
+            fs=1e-3,
+            K0=1e30,
+            Vm=4.05e-5,
+            dS=7.7,
+            dV=3.16e-6,
+            nucleation_type=1
+        )
+
+    Mo_Kinetics = MO_KINETICS(_constants, include_derivative=True)
+    Mo_Kinetics.set_PT_eq(PT410['P'], PT410['T'], PT410['cl'])
+    Mo_Kinetics.link_and_set_kinetics_model(PTKinetics)
+    Mo_Kinetics.set_kinetics_fixed(P, T, Coh)
+
+    # Solve the kinetics
+    results = Mo_Kinetics.solve(P, T, 0.0, t_max, n_t, n_span, debug=False)
+    
+    # "t" "N" "Dn" "S" "Vtilde" "V" "is_saturated"
+    assert(results.shape == (1001, 8))
+
+    # Expected result for results[10, :]
+    expected_row = np.array([
+        3.15360000e+12,  # Time
+        9.35551960e+12,  # N
+        3.05653339e+07,  # Dn
+        1.04572862e+02,  # S
+        3.41649055e-04,  # Dimensionless volume
+        3.41590700e-04,  # Volume fraction
+        0.00000000e+00,   # Saturation status
+        3.72462822e-16  # Derivative
+    ])
+
+    # Check results[10, :]
+    actual_row = results[10, :]
+    assert np.allclose(actual_row, expected_row, atol=0.0, rtol=1e-6), f"Row 10 mismatch: {actual_row} != {expected_row}"
+
+    # Expected result for results[11, :]
+    expected_row = np.array([
+        3.46896000e+12,  # Time
+        1.02910716e+13,  # N
+        3.69840540e+07,  # Dn
+        1.39186479e+02,  # S
+        5.00208381e-04,  # Dimensionless volume
+        5.00083298e-04,  # Volume fraction
+        0.00000000e+00,   # Saturation status
+        5.02576733e-16  # Derivative
+    ])
+
+    actual_row = results[11, :]
+    assert np.allclose(actual_row, expected_row, atol=0.0, rtol=1e-6), f"Row 10 mismatch: {actual_row} != {expected_row}"
+
+
 def test_solve_values_low_T():
     """
     Test solving the kinetics equations over a time span and check the value

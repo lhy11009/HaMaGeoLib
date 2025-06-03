@@ -197,6 +197,7 @@ std::vector<std::vector<double>> solve_modified_equations_eq18(
     return solution;
 }
 
+// todo_metastable
 // Constructor
 MO_KINETICS::MO_KINETICS():
       d0(1e-2),
@@ -205,18 +206,22 @@ MO_KINETICS::MO_KINETICS():
       dHa(274e3), Vstar(3.3e-6),
       fs(1e-3), Vm(4.05e-5),
       gamma(0.6), K0(3.65e38),
-      nucleation_type(0)
+      nucleation_type(0), include_derivative(false)
 {
     PT_eq = {0.0, 0.0, 0.0}; // Initialize P, T, cl to 0.0
+    n_col = 7;
 }
 
 MO_KINETICS::MO_KINETICS(const double d0_, const double A_, const double n_, const double dS_, const double dV_, 
                        const double dHa_, const double Vstar_, const double fs_, const double Vm_
-                       , const double gamma_, const double K0_, const int nucleation_type)
+                       , const double gamma_, const double K0_, const int nucleation_type_, const bool include_derivative_)
     :d0(d0_), A(A_), n(n_), dS(dS_), dV(dV_),
     dHa(dHa_), Vstar(Vstar_), fs(fs_), Vm(Vm_),
-    gamma(gamma_), K0(K0_), nucleation_type(nucleation_type)
-{}
+    gamma(gamma_), K0(K0_), nucleation_type(nucleation_type_),
+    include_derivative(include_derivative_)
+{
+    n_col = (this->include_derivative)? 8: 7;
+}
 
 void MO_KINETICS::linkAndSetKineticsModel() {
     kinetics = std::make_shared<PTKinetics>(
@@ -476,6 +481,8 @@ std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t
     // Compute equilibrium pressure
     double Peq = computeEqP(T);
 
+    // todo_metastable
+    double last_derivative = 0.0;
     // Loop over time steps
     for (int i_t = 0; i_t < n_t; ++i_t) {
         if (debug) {
@@ -505,6 +512,7 @@ std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t
 
         // Compute results for each step in the current time span
         std::vector<double> V_array(n_span+1);
+        const double t_interval = (t_piece_max - t_piece_min) / n_span;
         for (int j = 0; j <= n_span; ++j) {
             double threshold = 50.0; // Define a threshold for large values
             if (X_array[3][j] > threshold) {
@@ -517,15 +525,35 @@ std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t
 
             // note i_t * n_span + j would have the same value
             // for the last node the piece and the first node in the consequtive piece
-            results[i_t * n_span + j] = {
-                t_piece_min + (t_piece_max - t_piece_min) / n_span * j,
-                X_array[0][j],
-                X_array[1][j],
-                X_array[2][j],
-                X_array[3][j],
-                V_array[j],
-                static_cast<double>(is_saturated_array[j])
-            };
+            // compute the derivative and recode the last value to append the next "first" value
+            const double derivative = (j==0)? last_derivative: (V_array[j] - V_array[j-1])/t_interval;
+            if (j == n_span)
+                last_derivative = derivative;
+
+            if (this->include_derivative)
+            {
+                results[i_t * n_span + j] = {
+                    t_piece_min + t_interval * j,
+                    X_array[0][j],
+                    X_array[1][j],
+                    X_array[2][j],
+                    X_array[3][j],
+                    V_array[j],
+                    static_cast<double>(is_saturated_array[j]),
+                    derivative
+                };
+            }
+            else{
+                results[i_t * n_span + j] = {
+                    t_piece_min + (t_piece_max - t_piece_min) / n_span * j,
+                    X_array[0][j],
+                    X_array[1][j],
+                    X_array[2][j],
+                    X_array[3][j],
+                    V_array[j],
+                    static_cast<double>(is_saturated_array[j])
+                };
+            }
         }
     }
 

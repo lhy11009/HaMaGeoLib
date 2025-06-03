@@ -463,6 +463,87 @@ void test_solve_values() {
         throw std::runtime_error(oss.str());
 }
 
+
+// test solve at a given P and T
+// todo_metastable
+void test_solve_values_un_derivative() {
+    // This is correlated with "test_solve_values_un_derivative" test in the test_metastable.py
+    // Define constants
+    const double year = 365.0 * 24.0 * 3600.0; // Seconds in one year
+
+    // Phase transition parameters for equilibrium
+    const double PT410_P = 14e9;   // Equilibrium pressure (Pa)
+    const double PT410_T = 1760.0; // Equilibrium temperature (K)
+    const double PT410_cl = 4e6;   // Clapeyron slope
+
+    // Test parameters
+    const double P = 10.255e9 + 0.75e9;       // Pressure (Pa)
+    const double T = 823.75;  // Temperature (K)
+    const double Coh = 150.0; // wt.ppm H2O
+    const double t_max = 10e6 * year; // Maximum time (s)
+    const int n_t = 100;            // Number of time intervals
+    const int n_span = 10;          // Number of steps within each interval
+
+    // Initialize the MO_KINETICS class
+    const double d0=1e-2; 
+    const double A=exp(-18.0);
+    const double n=3.2;
+    const double dHa=274e3;
+    const double V_star_growth=3.3e-6;
+    const double gamma=0.6;
+    const double fs=1e-3;
+    const double K0=1e30;
+    const double Vm=4.05e-5;
+    const double dS=7.7;
+    const double dV=3.16e-6;
+    const double nucleation_type=1;
+    
+    MO_KINETICS Mo_Kinetics(d0, A, n, dS, dV, dHa, V_star_growth, fs, Vm,
+                                gamma, K0, nucleation_type, true);
+    Mo_Kinetics.setPTEq(PT410_P, PT410_T, PT410_cl);
+    Mo_Kinetics.linkAndSetKineticsModel();
+    Mo_Kinetics.setKineticsFixed(P, T, Coh);
+
+    // Solve the kinetics
+    auto results = Mo_Kinetics.solve(P, T, 0.0, t_max, n_t, n_span, false);
+
+    // Check the shape of the results
+    assert(results.size() == static_cast<size_t>(n_t * n_span+1));
+    assert(results[0].size() == 8);
+
+    // Expected result for results[10]
+    std::vector<double> expected_X1 = {
+        3.15360000e+12,  // Time
+        9.35551960e+12,  // N
+        3.05653339e+07,  // Dn
+        1.04572862e+02,  // S
+        3.41649055e-04,  // Dimensionless volume
+        3.41590700e-04,  // Volume fraction
+        0.00000000e+00,   // Saturation status
+        3.72462822e-16  // Derivative
+    };
+
+    // Extract the actual row from results[10]
+    auto X1 = results[10];
+
+    // Verify
+    bool pass = true;
+    std::ostringstream oss;
+    for (size_t i = 0; i < X1.size(); ++i) {
+        double relative_error = std::abs(X1[i] - expected_X1[i]) / expected_X1[i];
+        if (relative_error >= 1e-2) {
+            oss << std::fixed << std::setprecision(6);
+            oss << "Value mismatch at index " << i << ":\n"
+                << "  Expected:  " << expected_X1[i] << "\n"
+                << "  Computed:  " << X1[i] << "\n"
+                << "  Rel. error: " << relative_error << " (threshold: 1e-2)\n";
+            pass = false;
+            }
+    }
+    if (!pass)
+        throw std::runtime_error(oss.str());
+}
+
 // test solve at a given P and T
 void test_solve_values_lowT() {
     // This is related to the test "test_solve_values_low_T" from test_metastable.py
@@ -556,7 +637,7 @@ void test_solve_profile() {
     const double nucleation_type=1;
     
     MO_KINETICS Mo_Kinetics(d0, A, n, dS, dV, dHa, V_star_growth, fs, Vm,
-                                gamma, K0, nucleation_type);
+                                gamma, K0, nucleation_type, false);
     Mo_Kinetics.setPTEq(PT410_P, PT410_T, PT410_cl);
     Mo_Kinetics.linkAndSetKineticsModel();
 
@@ -673,7 +754,7 @@ void test_solve_values_test_aspect() {
 
     // Initialize the MO_KINETICS class
     MO_KINETICS Mo_Kinetics(d0, A, n, dS, dV, dHa, V_star_growth, fs, Vm,
-                                gamma, K0, nucleation_type);
+                                gamma, K0, nucleation_type, false);
 
     Mo_Kinetics.setPTEq(PT410_P, PT410_T, PT410_cl);
     Mo_Kinetics.linkAndSetKineticsModel();
@@ -731,9 +812,10 @@ int main() {
         {"test_solve_modified_equations_eq18_1", test_solve_modified_equations_eq18_1},
         {"test_solve_modified_equations_eq18_1S", test_solve_modified_equations_eq18_1S},
         {"test_solve_values", test_solve_values},
+        {"test_solve_values_un_derivative", test_solve_values_un_derivative},
         {"test_solve_values_lowT", test_solve_values_lowT},
         {"test_solve_profile", test_solve_profile},
-        {"test_solve_values_test_aspect", test_solve_values_test_aspect},
+        {"test_solve_values_test_aspect", test_solve_values_test_aspect}
     };
 
     int pass_count = 0;

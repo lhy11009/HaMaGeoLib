@@ -86,10 +86,11 @@ public:
     // implicit constructor
     MO_KINETICS();
 
+    // todo_metastable
     // explicit constructor
     MO_KINETICS(const double d0_, const double A_, const double n_, const double dS_, const double dV_, 
                        const double dHa_, const double Vstar_, const double fs_, const double Vm_
-                       ,const double gamma_, const double K0_, const int nucleation_type);
+                       ,const double gamma_, const double K0_, const int nucleation_type_, const bool include_derivative_);
 
     void linkAndSetKineticsModel();
     void setKineticsFixed(double P, double T, double Coh);
@@ -131,6 +132,8 @@ private:
     std::function<double(double)> I_prime_func;
    
 
+    // Number of result columns
+    int n_col;     
 
     // free variables
     // Physical constants
@@ -148,12 +151,14 @@ private:
     double dV;
     int nucleation_type;
     double d0 = 1e-2;    // Parental grain size
+   
+    // include derivative of volume
+    bool include_derivative;
     
     // const variables
     const double kappa = 1e-6; // Thermal diffusivity
     const double D = 100e3;    // Slab thickness
     const double t_scale = D*D/kappa;
-    const int n_col = 7;     // Number of result columns
 
     // vector that set the equilirbium PT
     std::vector<double> PT_eq;
