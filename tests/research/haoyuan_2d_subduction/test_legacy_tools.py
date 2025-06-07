@@ -280,3 +280,29 @@ def test_slab_temperature_offsets():
     _, _, _ = SlabTemperature(case_path, vtu_snapshot, o_file, output_slab=True, offsets=[-5e3, -10e3])
     assert(os.path.isfile(o_file))  # assert the outputs of temperature profiles
     assert(filecmp.cmp(o_file, o_file_std))  # compare file contents
+
+# todo_thickness
+@pytest.mark.big_test  # Optional marker for big tests
+def test_slab_temperature_crust_thickness():
+    '''
+    test the implementations of SlabTemperature
+    this test only deal with the generation of the data file without generating any plots
+    This test apply an offset to the slab surface profile to look at profile in the mantle wedge
+    ''' 
+    case_path = os.path.join(package_root, "big_tests", "TwoDSubduction", 'EBA_CDPT_test_perplex_mixing_log')
+    
+    # Check if the folder exists and contains test files
+    if not os.path.exists(case_path) or not os.listdir(case_path):
+        pytest.skip("Skipping test: big test contents not found in 'big_tests/'.")
+
+    o_dir = os.path.join(test_dir, "TwoDSubduction_vtk_pp")
+    if not os.path.isdir(o_dir):
+        os.mkdir(o_dir)
+    o_file = os.path.join(test_dir, "slab_temperature_00104.txt")
+    o_file_std = os.path.join(case_path, "slab_temperature_00104_crust_thickness_std.txt")
+    if os.path.isfile(o_file):
+        os.remove(o_file)
+    vtu_snapshot = 104 # 0 Ma
+    _, _, _ = SlabTemperature(case_path, vtu_snapshot, o_file, output_slab=True, fix_shallow=True, compute_crust_thickness=True)
+    assert(os.path.isfile(o_file))  # assert the outputs of temperature profiles
+    assert(filecmp.cmp(o_file, o_file_std))  # compare file contents

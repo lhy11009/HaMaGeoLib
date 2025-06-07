@@ -64,7 +64,7 @@ from ...utils.exception_handler import my_assert
 from ...utils.handy_shortcuts_haoyuan import func_name
 from ...utils.dealii_param_parser import parse_parameters_to_dict
 from ...utils.world_builder_param_parser import find_wb_feature
-from ...utils.geometry_utilities import offset_profile
+from ...utils.geometry_utilities import offset_profile, compute_pairwise_distances
 
 JSON_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_json_files")
 LEGACY_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_files")
@@ -5107,6 +5107,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     ofile_surface = kwargs.get("ofile_surface", None)
     ofile_moho = kwargs.get("ofile_moho", None)
     n_crust = kwargs.get("n_crust", 1)
+    compute_crust_thickness = kwargs.get("compute_crust_thickness", False)
     output_path = os.path.join(case_dir, "vtk_outputs")
     if not os.path.isdir(output_path):
         os.mkdir(output_path)
@@ -5292,11 +5293,22 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     end = time.time()
     print("Interpolating offset profiles takes %.2f" % (end - start))
     start = end
+
+    # crustal thickness
+    # todo_thickness
+    if compute_crust_thickness:
+
+        distance_matrix = compute_pairwise_distances(slab_Xs, slab_Ys, moho_Xs, moho_Ys)
+        distances = np.min(distance_matrix, axis=1)
+
     
     # output 
     if ofile is not None:
         # write output if a valid path is given
-        data_env0 = np.zeros((depths_out.size, 7+len(offsets)*3)) # output: x, y, Tbot, Ttop
+        n_columns = 7+len(offsets)*3
+        if compute_crust_thickness:
+            n_columns += 1
+        data_env0 = np.zeros((depths_out.size, n_columns)) # output: x, y, Tbot, Ttop
         data_env0[:, 0] = depths_out
         # coordinates
         data_env0[:, 1] = slab_Xs
@@ -5318,6 +5330,8 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         for i in range(len(offsets)):
             data_env0[:, idx+i+1] = env_Toffsets_array[i]
         idx += len(offsets)
+        idx4 = idx
+        data_env0[:, idx+1] = distances
 
         # interpolate data to regular grid & prepare outputs
         # add additional headers if offset profiles are required
@@ -5327,6 +5341,8 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
         header += "# %d: Tbot (K)\n# %d: Ttop (K)\n" % (idx2+2, idx2+3)
         for i in range(len(offsets)):
             header += "# %d: Toffset %d (K)\n" % (idx3+i+2, i)
+        if compute_crust_thickness:
+            header += "# %d: crustal thickness (m)\n" % (idx4+2)
         with open(ofile, 'w') as fout:
             fout.write(header)
         with open(ofile, 'a') as fout: 

@@ -261,3 +261,23 @@ def offset_profile(Xs, Ys, offset_distance):
     offset_Ys = Ys + offset_distance * ny
 
     return offset_Xs, offset_Ys
+
+
+def compute_pairwise_distances(X0, Y0, X1, Y1):
+    """
+    Compute the pairwise Euclidean distances between two 2D profiles.
+
+    Parameters:
+    - X0, Y0: arrays of shape (N0,) for profile 0
+    - X1, Y1: arrays of shape (N1,) for profile 1
+
+    Returns:
+    - distances: array of shape (N0, N1), distances from each point in profile 0 to each in profile 1
+    """
+    points0 = np.stack((X0, Y0), axis=-1)  # Shape (N0, 2)
+    points1 = np.stack((X1, Y1), axis=-1)  # Shape (N1, 2)
+
+    deltas = points0[:, np.newaxis, :] - points1[np.newaxis, :, :]  # Shape (N0, N1, 2)
+    distances = np.linalg.norm(deltas, axis=2)  # Shape (N0, N1)
+
+    return distances

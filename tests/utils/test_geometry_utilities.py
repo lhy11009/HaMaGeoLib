@@ -118,9 +118,34 @@ def test_convert_to_unified_coordinates_reference_3d(point, is_spherical, refere
         )),
     ]
 )
+
 def test_convert_to_unified_coordinates_reference_2d(point, is_spherical, reference_value, expected):
     """
     Test convert_to_unified_coordinates_reference_2d for both Cartesian and Spherical cases.
     """
     computed = convert_to_unified_coordinates_reference_2d(point, is_spherical, reference_value)
     assert all(pytest.approx(c, rel=1e-5) == e for c, e in zip(computed, expected)), f"Failed for {point}"
+
+def test_profiles_with_different_lengths():
+    # Profile 0 has 3 points
+    X0 = np.array([0.0, 1.0, 2.0])
+    Y0 = np.array([0.0, 0.0, 0.0])
+
+    # Profile 1 has 2 points
+    X1 = np.array([0.0, 0.0])
+    Y1 = np.array([1.0, 2.0])
+
+    distances = compute_pairwise_distances(X0, Y0, X1, Y1)
+
+    # Expected shape: (3, 2) => 3 points in profile 0, 2 points in profile 1
+    assert distances.shape == (3, 2)
+
+    # Expected values
+    expected = np.array([
+        [1.0, 2.0],
+        [np.sqrt(2), np.sqrt(5)],
+        [np.sqrt(5), np.sqrt(8)]
+    ])
+    assert np.allclose(distances, expected)
+
+    print("Test with different profile lengths passed!")
