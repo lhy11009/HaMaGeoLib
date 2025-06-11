@@ -51,23 +51,34 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib import colors as mcolors
 from matplotlib import gridspec, cm
-from matplotlib import patches as mpatches 
+from matplotlib import patches as mpatches
+from mpl_toolkits.mplot3d import Axes3D
 from PIL import Image, ImageDraw, ImageFont
 from cmcrameri import cm as ccm 
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.optimize import minimize
 from joblib import Parallel, delayed
+from shutil import rmtree, copy2, copytree
+from difflib import unified_diff
+from copy import deepcopy
 from .legacy_utilities import JsonOptions, ReadHeader, CODESUB, cart2sph, SphBound, clamp, ggr2cart, point2dist, UNITCONVERT, ReadHeader2,\
-ggr2cart, var_subs, JSON_OPT, string2list, re_neat_word
+ggr2cart, var_subs, JSON_OPT, string2list, re_neat_word, ReadDashOptions
 from ...utils.exception_handler import my_assert
 from ...utils.handy_shortcuts_haoyuan import func_name
-from ...utils.dealii_param_parser import parse_parameters_to_dict
+from ...utils.dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
 from ...utils.world_builder_param_parser import find_wb_feature
 from ...utils.geometry_utilities import offset_profile, compute_pairwise_distances
 
 JSON_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_json_files")
 LEGACY_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_files")
+RESULT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "dtemp", "rheology_results")
+
+if not os.path.isdir(RESULT_DIR):
+    os.mkdir(RESULT_DIR)
+
+# constants in the file    
+R = 8.314
 
 # todo_cv
 def ExportData(depth_average_path, output_dir, **kwargs):
@@ -2936,16 +2947,17 @@ def ExportPolyDataAscii(poly_data, field_names, file_out):
         fout.write(output)
     print("\tWrite ascii data file: %s" % file_out)
 
-
+# todo_vtp
 def ExportPolyDataFromRaw(Xs, Ys, Zs, Fs, fileout, **kwargs):
     '''
     Export poly data from raw data
     '''
-    i_points = vtk.vtkPoints()
     field_name = kwargs.get("field_name", "foo")
     assert(Xs.size == Ys.size)
     if Zs != None:
         assert(Xs.size == Zs.size)
+    # add points
+    i_points = vtk.vtkPoints()
     for i in range(Xs.size):
         x = Xs[i]
         y = Ys[i]
@@ -2954,8 +2966,14 @@ def ExportPolyDataFromRaw(Xs, Ys, Zs, Fs, fileout, **kwargs):
         else:
             z = 0.0
         i_points.InsertNextPoint(x, y, z)
+    # Add VERTS to render points in ParaView
+    i_verts = vtk.vtkCellArray()
+    for i in range(i_points.GetNumberOfPoints()):
+        i_verts.InsertNextCell(1)
+        i_verts.InsertCellPoint(i)
     i_poly_data = vtk.vtkPolyData()  # initiate poly daa
     i_poly_data.SetPoints(i_points) # insert points
+    i_poly_data.SetVerts(i_verts)
     if Fs != None:
         # insert field data
         assert(Xs.size == Fs.size)
@@ -5109,6 +5127,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     n_crust = kwargs.get("n_crust", 1)
     compute_crust_thickness = kwargs.get("compute_crust_thickness", False)
     output_path = os.path.join(case_dir, "vtk_outputs")
+    slab_shallow_cutoff = kwargs.get("slab_shallow_cutoff", 25e3)
     if not os.path.isdir(output_path):
         os.mkdir(output_path)
     filein = os.path.join(case_dir, "output", "solution",\
@@ -5125,7 +5144,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     vtu_step = max(0, int(vtu_snapshot) - int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']))
     _time, step = Visit_Options.get_time_and_step(vtu_step)
     # initiate class
-    VtkP = VTKP(time=_time, slab_envelop_interval=slab_envelop_interval, slab_shallow_cutoff=25e3)
+    VtkP = VTKP(time=_time, slab_envelop_interval=slab_envelop_interval, slab_shallow_cutoff=slab_shallow_cutoff)
     VtkP.ReadFile(filein)
     # fields to load
     # todo_field
@@ -5295,9 +5314,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     start = end
 
     # crustal thickness
-    # todo_thickness
     if compute_crust_thickness:
-
         distance_matrix = compute_pairwise_distances(slab_Xs, slab_Ys, moho_Xs, moho_Ys)
         distances = np.min(distance_matrix, axis=1)
 
@@ -5331,7 +5348,8 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
             data_env0[:, idx+i+1] = env_Toffsets_array[i]
         idx += len(offsets)
         idx4 = idx
-        data_env0[:, idx+1] = distances
+        if compute_crust_thickness:
+            data_env0[:, idx+1] = distances
 
         # interpolate data to regular grid & prepare outputs
         # add additional headers if offset profiles are required
@@ -5537,7 +5555,11 @@ def PlotSlabTemperature(case_dir, vtu_snapshot, **kwargs):
     if os.path.isfile(o_file):
         os.remove(o_file)
     assert(os.path.isdir(case_dir))
-    _, _, _ = SlabTemperature(case_dir, vtu_snapshot, o_file, output_slab=True)
+
+    # modify options with number of crusts
+    kwargs["n_crust"] = Visit_Options.options["N_CRUST"]
+
+    _, _, _ = SlabTemperature(case_dir, vtu_snapshot, o_file, **kwargs)
     assert(os.path.isfile(o_file))  # assert the outputs of slab and moho envelops
     # plot
     fig_path = os.path.join(img_o_dir, "slab_temperature_%05d.png" % vtu_step) 
@@ -5631,9 +5653,15 @@ def SlabTemperatureCase(case_dir, **kwargs):
     # process the slab temperature
     options = {}
     options["if_rewrite"] = True
+    options["output_slab"] = True
     options["assemble"] = False
     options["output_poly_data"] = False
     options["fix_shallow"] = True
+    options["offsets"] = [-5e3, -10e3]
+    options["slab_shallow_cutoff"] = 25e3
+    options["rs_n"] = 5
+    options["interp_kind"] = "linear"
+    options["compute_crust_thickness"] = True
 
     # Method 1: run in serial
     # Method 2: run in parallel
@@ -8690,3 +8718,2798 @@ class PARALLEL_WRAPPER_FOR_VTK():
         '''
         self.pvtu_steps = []
         self.outputs = []
+
+########################################
+# Functions for cases
+########################################
+class SLURM_OPT(JSON_OPT):
+    def __init__(self):
+        '''
+        Initiation, first perform parental class's initiation,
+        then perform daughter class's initiation.
+        '''
+        JSON_OPT.__init__(self)
+        self.add_key("Slurm file (inputs)", str, ["slurm file"], "slurm.sh", nick='slurm_base_file')
+        self.add_key("Openmpi version", str, ["openmpi version"], "", nick='openmpi')
+        self.add_key("build directory", str, ["build directory"], "", nick="build_directory")
+        self.add_key("Flag", str, ["flag"], "", nick="flag")
+        self.add_key("Tasks per node", int, ["tasks per node"], 32, nick='tasks_per_node')
+        self.add_key("cpus", int, ["cpus"], 1, nick="cpus")
+        self.add_key("Threads per cpu", int, ["threads per cpu"], 1, nick='threads_per_cpu')
+        self.add_key("List of nodes", list, ["node list"], [], nick="nodelist")
+        self.add_key("Path to the prm file", str, ["prm path"], "./case.prm", nick="prm_path")
+        self.add_key("Output directory", str, ["output directory"], ".", nick="output_directory")
+        self.add_key("Base directory", str, ["base directory"], ".", nick="base_directory")
+
+    def check(self):
+        slurm_base_path = self.values[0]
+        os.path.isfile(slurm_base_path)
+        prm_path = self.values[8]
+        os.path.isfile(prm_path)
+        base_directory = self.values[10]
+        assert(os.path.isdir(base_directory))
+        output_directory = self.values[9]
+        if not os.path.isdir(output_directory):
+            os.mkdir(output_directory)
+
+    def get_base_path(self):
+        '''
+        get the path to the base file (i.e job_p-billen.sh)
+        '''
+        base_directory = self.values[10]
+        slurm_base_file = self.values[0]
+        slurm_base_path = os.path.join(base_directory, slurm_base_file)
+        return slurm_base_path
+
+    def to_set_affinity(self):
+        tasks_per_node = self.values[4]
+        cpus = self.values[5]
+        threads_per_cpu = self.values[6]
+        threads = int(cpus * threads_per_cpu)
+        nnode = int(np.ceil(threads / tasks_per_node))
+        return nnode, threads, threads_per_cpu
+
+    def to_set_command(self):
+        build_directory = self.values[2]
+        prm_path = self.values[8]
+        return build_directory, prm_path
+
+    def get_job_name(self):
+        '''
+        use the basename of the output directory as the job name
+        '''
+        output_directory = self.values[9]
+        job_name = os.path.basename(output_directory)
+        return job_name
+        pass
+
+    def get_output_path(self):
+        '''
+        get the path of the output file (i.e. job_p-billen.sh)
+        '''
+        slurm_base_path = self.values[0]
+        output_directory = self.values[9]
+        output_path = os.path.join(output_directory, os.path.basename(slurm_base_path))
+        return output_path
+
+    def fix_base_dir(self, base_directory):
+        self.values[10] = base_directory
+    
+    def fix_output_dir(self, output_directory):
+        self.values[9] = output_directory
+    
+    def get_output_dir(self):
+        output_directory = self.values[9]
+        return output_directory
+
+class CASE_OPT(JSON_OPT):
+    '''
+    Define a class to work with CASE
+    List of keys:
+    '''
+    def __init__(self):
+        '''
+        Initiation, first perform parental class's initiation,
+        then perform daughter class's initiation.
+        '''
+        JSON_OPT.__init__(self)
+        self.add_key("Name of the case", str, ["name"], "foo", nick='name')
+        self.add_key("Base directory (inputs)", str, ["base directory"], ".", nick='base_dir')
+        self.add_key("Output directory", str, ["output directory"], ".", nick='o_dir')
+        self.add_key("Geometry", str, ["geometry"], "chunk", nick='geometry')
+        self.add_key("potential temperature of the mantle", float,\
+            ["potential temperature"], 1673.0, nick='potential_T')
+        self.add_key("include fast first step", int,\
+            ["include fast first step"], 0, nick='if_fast_first_step')
+        self.add_key("Additional files to include", list,\
+            ["additional files"], [], nick='additional_files')
+        self.add_key("Root level from the project root", int,\
+         ["root level"], 1, nick="root_level")
+        self.add_key("If use world builder", int, ['use world builder'], 0, nick='if_wb')
+        self.add_key("Type of the case", str, ["type"], '', nick='_type')
+        self.add_key("Material model to use", str,\
+         ["material model"], 'visco plastic', nick="material_model")
+        self.add_key("Linear solver toleracne", float,\
+         ["stokes solver", "linear solver tolerance"], 0.1, nick="stokes_linear_tolerance")
+        self.add_key("End time", float, ["end time"], 60e6, nick="end_time")
+        self.add_key("Type of velocity boundary condition\n\
+            available options in [all fs, bt fs side ns]", str,\
+            ["boundary condition", "velocity", "type"], "all fs", nick='type_bd_v')
+        self.add_key("Dimension", int, ['dimension'], 2, nick='dimension')
+        self.add_key("Refinement level, note this is a summarized parameter of the refinement scheme assigned,\
+it only takes effect if the input is positiveh",\
+            int, ["refinement level"], -1, nick="refinement_level")
+        self.add_key("Case Output directory", str, ["case output directory"], "output", nick='case_o_dir')
+        self.add_key("mantle rheology", str, ['mantle rheology', 'scheme'], "HK03_wet_mod", nick='mantle_rheology_scheme')
+        self.add_key("Stokes solver type", str,\
+         ["stokes solver", "type"], "block AMG", nick="stokes_solver_type")
+        self.add_features('Slurm options', ['slurm'], ParsePrm.SLURM_OPT)
+        self.add_key("partitions", list, ["partitions"], [], nick='partitions')
+        self.add_key("if a test case is generated for the initial steps", int, ['test initial steps', 'number of outputs'], -1, nick='test_initial_n_outputs')
+        self.add_key("interval of outputs for the initial steps", float, ['test initial steps', 'interval of outputs'], 1e5, nick='test_initial_outputs_interval')
+        self.add_key("Version number", float, ["version"], 0.1, nick="version")
+        self.add_key("Type of visualization software for post-process", str,\
+         ["post process", "visualization software"], "visit", nick="visual_software")
+        self.add_key("Type of composition method", str,\
+         ["composition method", "scheme"], "field", nick="comp_method")
+        self.add_key("Depth average inputs", str, ["depth average file"], "", nick='da_inputs')
+        self.add_key("mantle rheology scenario (previous composed)", str, ['mantle rheology', 'known scenario'], "", nick='mantle_rheology_known_scenario')
+        self.add_key("Use the new rheology module, default is 0 to keep backward consistency", int, ['use new rheology module'], 0, nick='use_new_rheology_module')
+        self.add_key("Minimum number of particles per cell", int,\
+         ["composition method", "minimum particles per cell"], 33, nick="minimum_particles_per_cell")
+        self.add_key("Maximum number of particles per cell", int,\
+         ["composition method", "maximum particles per cell"], 50, nick="maximum_particles_per_cell")
+    
+    def check(self):
+        '''
+        check to see if these values make sense
+        '''
+        # output and input dirs
+        base_dir = var_subs(self.values[1])
+        o_dir = var_subs(self.values[2])
+        my_assert(os.path.isdir(base_dir), FileNotFoundError, "No such directory: %s" % base_dir)
+        # in case this is "", we'll fix that later.
+        my_assert(o_dir=="" or os.path.isdir(o_dir), FileNotFoundError, "No such directory: %s" % o_dir)
+        # type of the stokes solver
+        stokes_solver_type = self.values[18]
+        assert (stokes_solver_type in ["block AMG", "block GMG"])
+        # type of the visualization software
+        visual_software = self.values[24] 
+        assert (visual_software in ["paraview", "visit"])
+        # type of the composition method
+        comp_method = self.values[25]
+        assert (comp_method in ['field', 'particle'])
+        # check file depth_average exist
+        da_inputs = var_subs(self.values[26])
+        if da_inputs != "":
+            assert(os.path.isfile(da_inputs))
+        use_new_rheology_module = self.values[28]
+        assert(use_new_rheology_module in [0, 1])
+        minimum_particles_per_cell = self.values[29]
+        maximum_particles_per_cell = self.values[30]
+
+    def to_init(self):
+        '''
+        Interface to init
+        '''
+        _type = self.values[9]
+        base_dir = self.values[1]
+        if _type == '':
+            base_name = 'case.prm'
+        else:
+            base_name = 'case_%s.prm' % _type
+        inputs = os.path.join(base_dir, base_name)
+        if_wb = self.values[8]
+        return self.values[0], inputs, if_wb
+
+    def to_configure_prm(self):
+        '''
+        Interface to configure_prm
+        '''
+        refinement_level = self.values[15]
+        return refinement_level
+    
+    def to_configure_final(self):
+        '''
+        Interface to configure_final
+        '''
+        return "foo", "foo"
+
+    def wb_inputs_path(self):
+        '''
+        Interface to wb_inputs
+        '''
+        _type = self.values[9]
+        if _type == '':
+            base_name = 'case.wb'
+        else:
+            base_name = 'case_%s.wb' % _type
+        wb_inputs = os.path.join(self.values[1], base_name)
+        return wb_inputs
+
+    def da_inputs_path(self):
+        '''
+        Interface to da_inputs
+        '''
+        da_inputs = var_subs(self.values[26])
+        return da_inputs
+    
+    def o_dir(self):
+        '''
+        Interface to output dir
+        '''
+        return var_subs(self.values[2])
+    
+    def case_name(self):
+        '''
+        Return name of the case
+        Return:
+            case name (str)
+        '''
+        return self.values[0]
+    
+    def get_additional_files(self):
+        '''
+        Interface to add_files
+        '''
+        files = []
+        for additional_file in self.values[6]:
+            _path = var_subs(os.path.join(self.values[1], additional_file))
+            my_assert(os.access(_path, os.R_OK), FileNotFoundError,\
+            "Additional file %s is not found" % _path)
+            files.append(_path)
+        return files
+
+    def output_step_one_with_fast_first_step(self):
+        '''
+        If we generate a case with fast-first-step computation
+        and output the 1st step as well
+        '''
+        if_fast_first_step = self.values[5]
+        if if_fast_first_step:
+            self.values[5] = 2
+        return self.values[5]
+    
+    def if_fast_first_step(self):
+        '''
+        If we generate a case with fast-first-step computation
+        '''
+        return self.values[5]
+        pass
+    
+    def test_initial_steps(self):
+        '''
+        options for generatign a test case for the initial steps
+        '''
+        test_initial_n_outputs = self.values[21]
+        test_initial_outputs_interval = self.values[22]
+        return (test_initial_n_outputs, test_initial_outputs_interval)
+
+    def if_use_world_builder(self):
+        '''
+        if we use world builder
+        '''
+        if_wb = self.values[8]
+        return  (if_wb==1)
+    
+    def fix_case_name(self, case_name):
+        '''
+        fix base dir with a new value
+        '''
+        self.values[0] = case_name
+
+    def fix_base_dir(self, base_dir):
+        '''
+        fix base dir with a new value
+        '''
+        assert(os.path.isdir(base_dir))
+        self.values[1] = base_dir
+    
+    def fix_output_dir(self, o_dir):
+        '''
+        fix directory to output
+        '''
+        self.values[2] = o_dir
+
+    def reset_refinement(self, reset_refinement_level):
+        '''
+        reset refinement level
+        '''
+        self.values[15] = reset_refinement_level
+        pass
+    
+    def fix_case_output_dir(self, case_o_dir):
+        '''
+        reset refinement level
+        '''
+        self.values[16] = case_o_dir
+
+    def reset_stokes_solver_type(self, stokes_solver_type):
+        '''
+        reset stokes solver type
+        '''
+        assert(stokes_solver_type in ["block AMG", "block GMG"])
+        self.values[18] = stokes_solver_type
+    
+    def get_slurm_opts(self):
+        slurm_opts = self.values[19]
+        o_dir = var_subs(self.values[2])
+        _name = self.values[0]
+        output_directory = os.path.join(o_dir, _name)
+        for slurm_opt in slurm_opts:
+            slurm_opt.fix_output_dir(output_directory)
+        return slurm_opts
+
+class RHEOLOGY_OPT(JSON_OPT):
+    '''
+    Define a complex class for using the json files for testing the rheologies.
+    '''
+    def __init__(self):
+        '''
+        initiation
+        '''
+        JSON_OPT.__init__(self)
+        self.add_key("Type of diffusion creep", str, ["diffusion"], "", nick='diffusion')
+        self.add_key("Type of dislocation creep", str, ["dislocation"], "", nick='dislocation')
+        self.add_key("Differences in ratio of the prefactor for diffusion creep", float, ["diffusion prefactor difference ratio"], 1.0, nick='dA_diff_ratio')
+        self.add_key("Differences of the activation energy for diffusion creep", float, ["diffusion activation energy difference"], 0.0, nick='dE_diff')
+        self.add_key("Differences of the activation volume for diffusion creep", float, ["diffusion activation volume difference"], 0.0, nick='dV_diff')
+        self.add_key("Differences in ratio of the prefactor for dislocation creep", float, ["dislocation prefactor difference ratio"], 1.0, nick='dA_disl_ratio')
+        self.add_key("Differences of the activation energy for dislocation creep", float, ["dislocation activation energy difference"], 0.0, nick='dE_disl')
+        self.add_key("Differences of the activation volume for dislocation creep", float, ["dislocation activation volume difference"], 0.0, nick='dV_disl')
+        # todo_r_json
+        self.add_key("Grain size in mu m", float, ["grain size"], 10000.0, nick='d')
+        self.add_key("Coh in /10^6 Si", float, ["coh"], 1000.0, nick='coh')
+        self.add_key("fh2o in MPa", float, ["fh2o"], -1.0, nick='fh2o')
+    
+    def check(self):
+        '''
+        check values are validate
+        '''
+        RheologyPrm = RHEOLOGY_PRM()
+        diffusion = self.values[0]
+        if diffusion != "":
+            diffusion_creep_key = (diffusion + "_diff") 
+            assert(hasattr(RheologyPrm, diffusion_creep_key))
+        dislocation = self.values[1]
+        if dislocation != "":
+            dislocation_creep_key = (dislocation + "_disl") 
+            assert(hasattr(RheologyPrm, dislocation_creep_key))
+
+    def to_RheologyInputs(self):
+        '''
+        '''
+
+        diffusion = self.values[0]
+        dislocation = self.values[1]
+        dA_diff_ratio = self.values[2]
+        dE_diff = self.values[3]
+        dV_diff = self.values[4]
+        dA_disl_ratio = self.values[5]
+        dE_disl = self.values[6]
+        dV_disl = self.values[7]
+        d = self.values[8]
+        coh = self.values[9]
+        fh2o = self.values[10]
+        use_coh = True
+        if fh2o > 0.0:
+            use_coh = False
+        return diffusion, dislocation, dA_diff_ratio, dE_diff, dV_diff,\
+        dA_disl_ratio, dE_disl, dV_disl, d, coh, fh2o, use_coh
+
+class RHEOLOGY_PRM():
+    """
+    class for rheologies
+    components and units:
+        A (the prefactor) - MPa^(-n-r)*um**p/s
+        n (stress dependence) - 1
+        p (grain size dependence) - 1
+        r (power of C_{OH}) - 1
+        E (activation energy) - J / mol
+        V (activation volume) - m^3 / mol
+    Notes on the choice of the units:
+        The unit of E and V are much easier to convert to UI.
+        But for A, this code will handle the convertion, so the
+        user only need to take the value for published flow laws.
+    """
+    def __init__(self):
+        '''
+        Initiation, initiate rheology parameters
+        '''
+        self.HK03_dry_disl = \
+            {
+                "A": 1.1e5,
+                "p": 0.0,
+                "r": 0.0,
+                "n": 3.5,
+                "E": 530e3,
+                "V": 12e-6,
+            }
+        
+        # dry diffusion creep in Hirth & Kohlstedt 2003)
+        # note the V (activation energy) value has a large variation, here I
+        # picked up a value the same as the wet value.
+        self.HK03_dry_diff = \
+            {
+                "A": 1.5e9,
+                "p": 3.0,
+                "r": 0.0,
+                "n": 1.0,
+                "E": 375e3,
+                "V": 4e-6,
+            }
+        
+        # dislocation creep in Hirth & Kohlstedt 2003
+        # with constant fH2O
+        self.HK03_f_disl = \
+            {
+                "A": 1600,
+                "p": 0.0,
+                "r": 1.2,
+                "n": 3.5,
+                "E": 520e3,
+                "V": 22e-6,
+                "use_f": 1,
+                "wet": 1
+            }
+
+        # diffusion creep in Hirth & Kohlstedt 2003
+        self.HK03_f_diff = \
+            {
+                "A" : 2.5e7,
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 375e3,
+                "V" : 10e-6,
+                "use_f": 1,
+                "wet": 1
+            }
+
+        # dislocation creep in Hirth & Kohlstedt 2003
+        # with constant Coh
+        self.HK03_disl = \
+            {
+                "A": 90,
+                "p": 0.0,
+                "r": 1.2,
+                "n": 3.5,
+                "E": 480e3,
+                "V": 11e-6,
+            }
+
+        # diffusion creep in Hirth & Kohlstedt 2003
+        self.HK03_diff = \
+            {
+                "A" : 1.0e6,
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 335e3,
+                "V" : 4e-6,
+            }
+        
+        # dislocation creep in Hirth & Kohlstedt 2003
+        # with varied Coh
+        self.HK03_w_disl = \
+            {
+                "A": 1600.0,
+                "p": 0.0,
+                "r": 1.2,
+                "n": 3.5,
+                "E": 520e3,
+                "V": 22e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet": 1.0
+            }
+
+        # diffusion creep in Hirth & Kohlstedt 2003
+        self.HK03_w_diff = \
+            {
+                "A" : 2.5e7,
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 375e3,
+                "V" : 10e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet": 1.0
+            }
+        
+        # dislocation creep in Arredondo & Billen 2017
+        # this is found in the supplementary material in the paper.
+        # Note that the original value in the paper uses "Pa" for A,
+        # while I converted it to "MPa" here.
+        self.AB17_disl = \
+            {
+                "A": 25.7,
+                "p": 0.0,
+                "r": 1.2,
+                "n": 3.5,
+                "E": 496e3,
+                "V": 11e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0
+            }
+        
+        # diffusion creep in Arredondo & Billen 2017
+        self.AB17_diff = \
+            {
+                "A" : 2.85e5,  # note: their number in the 2017 appendix is wrong,
+                "p" : 3.0, #  but it's right in the 2016 paper.
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 317e3,
+                "V" : 4e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0
+            }
+        
+        # modified creep laws from Hirth & Kohlstedt 2003
+        # for detail, refer to magali's explain_update_modHK03_rheology.pdf file
+        # 'wet' indicates this has to applied with a rheology of water
+        self.HK03_wet_mod_diff = \
+            {
+                "A" : 7.1768184e6,  
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 375e3,
+                "V" : 23e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet": 1.0,  # I use this to mark this is a wet rheology, so I need to account for V and E for water later.
+                "use_f": 1
+            }
+
+        self.HK03_wet_mod_disl = \
+            {
+                "A" : 457.142857143,
+                "p" : 0.0,
+                "r" : 1.2,
+                "n" : 3.5,
+                "E" : 520e3,
+                "V" : 24e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet" : 1.0,
+                "use_f": 1
+            }
+        
+        # modified creep laws from Hirth & Kohlstedt 2003
+        # for detail, refer to magali's explain_update_modHK03_rheology.pdf file
+        # 'wet' indicates this has to applied with a rheology of water
+        self.HK03_wet_mod_ln_diff = \
+            {
+                "A" : 7.1768184e6,  
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 375e3,
+                "V" : 23e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet": 1.0  # I use this to mark this is a wet rheology, so I need to account for V and E for water later.
+            }
+
+        self.HK03_wet_mod_ln_disl = \
+            {
+                "A" : 457.142857143,
+                "p" : 0.0,
+                "r" : 1.2,
+                "n" : 3.5,
+                "E" : 520e3,
+                "V" : 24e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet" : 1.0
+            }
+        
+        # modified creep laws from Hirth & Kohlstedt 2003
+        # I bring the values to the limit of the range
+        # for detail, refer to magali's explain_update_modHK03_rheology.pdf file
+        self.HK03_wet_mod1_diff = \
+            {
+                # "A" : 10**6.9,  # MPa^(-n-r)*um**p/s
+                "A" : 7.1768e6,  # MPa^(-n-r)*um**p/s
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 375e3 - 25e3,
+                "V" : 23e-6 -5.5e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet": 1.0  # I use this to mark this is a wet rheology, so I need to account for V and E for water later.
+            }
+
+        self.HK03_wet_mod1_disl = \
+            {
+                "A" : 10**2.65,
+                "p" : 0.0,
+                "r" : 1.0,
+                "n" : 3.5,
+                "E" : 520e3 + 40e3,
+                "V" : 24e-6 + 4e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet" : 1.0
+            }
+
+         # modified creep laws from Hirth & Kohlstedt 2003
+        # for detail, refer to magali's explain_update_modHK03_rheology.pdf file
+        # 'wet' indicates this has to applied with a rheology of water
+        # In the version, I modified the value of r, compared to the first version
+        self.HK03_wet_mod2_diff = \
+            {
+                # "A" : 10**6.9,  # MPa^(-n-r)*um**p/s
+                "A" : 7.1768e6,  # MPa^(-n-r)*um**p/s
+                "p" : 3.0,
+                "r" : 0.8, # 1.0 -> 0.8
+                "n" : 1.0,
+                "E" : 375e3,
+                "V" : 23e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet": 1.0  # I use this to mark this is a wet rheology, so I need to account for V and E for water later.
+            }
+
+        self.HK03_wet_mod2_disl = \
+            {
+                "A" : 10**2.65,
+                "p" : 0.0,
+                "r" : 1.2,  # 1.0 -> 1.2
+                "n" : 3.5,
+                "E" : 520e3,
+                "V" : 24e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet" : 1.0
+            }
+        
+        
+        # modified creep laws from Hirth & Kohlstedt 2003
+        # I bring the values to the limit of the range
+        # for detail, refer to magali's explain_update_modHK03_rheology.pdf file
+        # this is specifically the one I used for the TwoD models.
+        # Combined with the usage of function "MantleRheology", then same rheology
+        # could be reproduced
+        self.HK03_wet_mod_2d_diff = \
+            {
+                # "A" : 10**6.9,  # MPa^(-n-r)*um**p/s
+                "A" : 7.1768e6,  # MPa^(-n-r)*um**p/s
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 375e3 - 40e3,
+                "V" : 23e-6 -5.5e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet": 1.0  # I use this to mark this is a wet rheology, so I need to account for V and E for water later.
+            }
+
+        self.HK03_wet_mod_2d_disl = \
+            {
+                "A" : 10**2.65,
+                "p" : 0.0,
+                "r" : 1.0,
+                "n" : 3.5,
+                "E" : 520e3 + 20e3,
+                "V" : 24e-6,
+                "d" : 1e4,
+                "Coh" : 1000.0,
+                "wet" : 1.0
+            }
+        
+        self.WarrenHansen23_disl =\
+            {
+                "A": 20,
+                "p": 0.0,
+                "r": 1.2,
+                "n": 3.5,
+                "E": 480e3,
+                "V": 11e-6
+            }
+
+        # diffusion creep in Hirth & Kohlstedt 2003
+        # Note I use the value of 4e-6 from the original experimental result
+        # and apply a -2.1e-6 differences later to get the values 
+        # in the Warren and Hansen 2023 paper
+        self.WarrenHansen23_diff = \
+            {
+                "A" : 2.9e5,
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 335e3,
+                "V" : 4e-6
+            }
+        
+        
+        self.water = \
+            {
+                "A" : 87.75,             # H/(10^6*Si)/MPa
+                "E" : 50e3,                     # J/mol +/-2e3
+                "V" : 10.6e-6                     # m^3/mol+/-1
+            }
+
+        # this is the values used in the ARCAY17 paper
+        # note: their rheology is only stress dependent (dislocation creep)
+        # their yielding criterion is stress dependent as well.
+        self.ARCAY17_diff = None
+        self.ARCAY17_disl = \
+            {
+                "A" : 339428.7,
+                "p" : 0.0,
+                "r" : 0.0,  # not dependent on the "Coh"
+                "n" : 3.0,
+                "E" : 465e3,
+                "V" : 17e-6,
+                "d" : 1e4, # not dependent on d
+                "Coh" : 1000.0
+            }
+        self.ARCAY17_brittle = \
+        {
+            "friction" : 0.05,
+            "cohesion": 1e6, # pa
+            "n": 30.0,
+            "ref strain rate" : 1.0e-14,
+            "type": "stress dependent"
+        }
+
+        self.water = \
+            {
+                "A" : 87.75,             # H/(10^6*Si)/MPa
+                "E" : 50e3,                     # J/mol +/-2e3
+                "V" : 10.6e-6                     # m^3/mol+/-1
+            }
+
+        # todo_mineral
+        # Basalt rheology from Shelton and Tullis 1981 
+        # and Hacker and Christie 1990
+        # the diffusion creep of this rheology is missing
+        # in literatures
+        self.ST1981_basalt_diff = None
+
+        self.ST1981_basalt_disl = \
+            {
+                "A" : 1.0e-4,
+                "p" : 0.0,
+                "r" : 0.0,  # not dependent on the "Coh"
+                "n" : 3.5,
+                "E" : 250e3,
+                "V" : 0.0,
+                "d" : 1e4, # not dependent on d
+            }
+
+        # Quartz rheology from Ranalli and Murphy 1987.
+        # the diffusion creep of this rheology is missing
+        # in literatures
+        self.ST1981_basalt_diff = None
+
+        self.RM1987_quartz_disl = \
+            {
+                "A" : 6.8e-6,
+                "p" : 0.0,
+                "r" : 0.0,  # not dependent on the "Coh"
+                "n" : 3,
+                "E" : 156e3,
+                "V" : 0.0
+            }
+        
+        self.KK1987_quartz_disl = \
+            {
+                "A" : 3.2e-4,
+                "p" : 0.0,
+                "r" : 0.0,  # not dependent on the "Coh"
+                "n" : 2.3,
+                "E" : 154e3,
+                "V" : 8e-6
+            }
+        
+        self.Ranali_95_anorthite_75_diff = None
+        
+        self.Ranali_95_anorthite_75_disl = \
+            {
+                "A" : 3.3e-4,
+                "p" : 0.0,
+                "r" : 0.0,  # not dependent on the "Coh"
+                "n" : 3.2,
+                "E" : 238e3,
+                "V" : 8e-6
+            }
+
+        self.Rybachi_06_anorthite_wet_diff = \
+            {
+                "A" : 0.2,  # note, 10^(-0.7), less than 1 digit accuracy, as 10^(0.1) = 1.25
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 159e3,
+                "V" : 38e-6,
+                "wet": 1.0  # I use this to mark this is a wet rheology, so I need to account for V and E for water later.
+            }
+        
+        self.Rybachi_06_anorthite_wet_disl = \
+            {
+                "A" : 1.6,  # note, 10^(0.2), less than 1 digit accuracy, as 10^(0.1) = 1.25
+                "p" : 0.0,
+                "r" : 1.0,
+                "n" : 3.0,
+                "E" : 345e3,
+                "V" : 38e-6,
+                "wet": 1.0  # I use this to mark this is a wet rheology, so I need to account for V and E for water later.
+            }
+        
+        self.Rybachi_06_anorthite_dry_diff = \
+            {
+                "A" : 1.26e12,  # note, 10^(12.1), less than 1 digit accuracy, as 10^(0.1) = 1.25
+                "p" : 3.0,
+                "r" : 0.0,  # dry, not dependent on fugacity
+                "n" : 1.0,
+                "E" : 460e3,
+                "V" : 24e-6
+            }
+        
+        self.Rybachi_06_anorthite_dry_disl = \
+            {
+                "A" : 5.01e12,  # note, 10^(12.7), less than 1 digit accuracy, as 10^(0.1) = 1.25
+                "p" : 0.0,
+                "r" : 0.0, # dry, not dependent on fugacity
+                "n" : 3.0,
+                "E" : 641e3,
+                "V" : 24e-6
+            }
+        
+        self.Dimanov_Dresen_An50Di35D_wet_diff = \
+        {
+                # diffusion creep for a 35 mu*m grain size
+                "A" : 5488000000.0,  #   1.28e-1 * (1e6) / (35)^(-3)
+                "p" : 3.0,
+                "r" : 0.0, # dry, not dependent on fugacity
+                "n" : 1.0,
+                "E" : 316e3,
+                "V" : 0.0  # not present in the table
+        }
+        
+        self.Dimanov_Dresen_An50Di35D_wet_disl = \
+        {
+            # this is actually the An50DiD in table 3b
+            # since the dislocation creep is not grain size sensitive
+                "A" : 10174679.0993,  #  / 1.54e-17 * (1e6)^3.97
+                "p" : 0.0,
+                "r" : 0.0, # dry, not dependent on fugacity
+                "n" : 3.97,
+                "E" : 556e3,
+                "V" : 0.0  # not present in the table
+        }
+
+        self.Dimanov_Dresen_An50Di35D_dry_diff = \
+        {
+                # diffusion creep for a 35 mu*m grain size
+                "A" : 5.1879e13,  #  1.21e3 * (1e6) / (35)^(-3)
+                "p" : 3.0,
+                "r" : 0.0, # dry, not dependent on fugacity
+                "n" : 1.0,
+                "E" : 436e3,
+                "V" : 0.0  # not present in the table
+        }
+        
+        self.Dimanov_Dresen_An50Di35D_dry_disl = \
+        {
+            # this is actually the An50DiD in table 3b
+            # since the dislocation creep is not grain size sensitive
+                "A" : 8.1840692e+12,  #  / 2.71e-12 * (1e6)^4.08
+                "p" : 0.0,
+                "r" : 0.0, # dry, not dependent on fugacity
+                "n" : 4.08,
+                "E" : 723e3,
+                "V" : 0.0  # not present in the table
+        }
+        
+        
+        self.Dimanov_Dresen_An50Di45D_dry_diff = \
+        {
+                # diffusion creep for a 45 mu*m grain size
+                "A" : 6.187e15,  # 6.79e4 * 1e6 / (45)^(-3.0)
+                "p" : 3.0,
+                "r" : 0.0, # dry, not dependent on fugacity
+                "n" : 1.0,
+                "E" : 496e3,
+                "V" : 0.0  # not present in the table
+        }
+        
+        self.Dimanov_Dresen_An50Di45D_dry_disl = \
+        {
+            # this is actually the An50DiD in table 3b
+            # since the dislocation creep is not grain size sensitive
+                "A" : 8.1840692e+12,  #  / 2.71e-12 * (1e6)^4.08
+                "p" : 0.0,
+                "r" : 0.0, # dry, not dependent on fugacity
+                "n" : 4.08,
+                "E" : 723e3,
+                "V" : 0.0  # not present in the table
+        }
+
+        self.Rybachi_2000_An100_dry_diff = \
+        {
+                # diffusion creep, for the An100 in table 3
+                # note that this is marked as dry, but there
+                # is 640 ppm H/Si in the synthetic anorthite
+                "A" : 1.258925e12, # 10^12.1
+                "p" : 3.0,
+                "r" : 0.0, # dry, not dependent on fugacity
+                "n" : 1.0,
+                "E" : 467e3,
+                "V" : 0.0  # not present in the table
+        }
+        
+        self.Rybachi_2000_An100_dry_disl = \
+        {
+            # dislocation creep, for the An100 in table 3
+                "A" : 5.01187e12,  # 10^12.7
+                "p" : 0.0,
+                "r" : 0.0, # dry, not dependent on fugacity
+                "n" : 3.0,
+                "E" : 648e3,
+                "V" : 0.0  # not present in the table
+        }
+
+        # todo_peierls 
+        self.MK10_peierls = \
+        {
+            'q': 1.0,
+            'p': 0.5,
+            'n': 2.0,
+            'sigp0': 5.9e3,    				# MPa (+/- 0.2e3 Pa)
+            'A': 1.4e-7,      # s^-1 MPa^-2
+            'E': 320e3,      				# J/mol (+/-50e3 J/mol)
+            'V' : 0.0,  # not dependent on the pressure
+            "Tref" : 873.0, # reference temperature from the experiment
+            "Pref" : 4.5e9 # Pa, reference pressure
+        }
+        
+        self.Idrissi16_peierls = \
+        {
+            'q': 2.0,
+            'p': 0.5,
+            'n': 0.0,
+            'sigp0': 3.8e3,    				# MPa (+/- 0.2e3 Pa)
+            'A': 1e6,      # s^-1 MPa^-2
+            'E': 566e3,      				# J/mol (+/-50e3 J/mol)
+            'V' : 0.0  # not dependent on the pressure
+        }
+
+
+        self.Byerlee_brittle = \
+        {
+            "type": "Byerlee"
+        }
+
+    def get_rheology(self, _name, _type):
+        '''
+        read rheology parameters, and account for effects of water if it is a wet rheology
+        '''
+        assert(_type in ['diff', 'disl', 'brittle'])
+        _attr = _name + "_" + _type
+        if not hasattr(self, _attr):
+            raise ValueError("RHEOLOGY_PRM object doesn't have attribute %s" % _attr)
+        creep = getattr(self, _attr)
+        if "wet" in creep:
+            # foh enters explicitly, converting to use Coh
+            assert(_type in ['diffusion', 'dislocation'])
+            ### effects of water accounted, see Magali's file explain_update_modHK03_rheology eq(5)
+            water_creep = getattr(self, "water")
+            creep['A'] = creep['A'] / (water_creep['A'] ** creep['r'])
+            creep['V'] = creep['V'] - water_creep['V'] * creep['r']
+            creep['E'] = creep['E'] - water_creep['E'] * creep['r']
+        return creep
+
+
+def ReadAspectProfile(depth_average_path, **kwargs):
+    """
+    read a T,P profile from aspect's depth average file
+    """
+    # include options
+    include_adiabatic_temperature = kwargs.get("include_adiabatic_temperature", False)
+    interp = kwargs.get("interp", 0)
+    # check file exist
+    assert(os.access(depth_average_path, os.R_OK))
+    # read that
+    DepthAverage = PDAver.DEPTH_AVERAGE_PLOT('DepthAverage')
+    DepthAverage.ReadHeader(depth_average_path)
+    DepthAverage.ReadData(depth_average_path)
+    DepthAverage.SplitTimeStep()
+    time_step = 0
+    i0 = DepthAverage.time_step_indexes[time_step][-1] * DepthAverage.time_step_length
+    if time_step == len(DepthAverage.time_step_times) - 1:
+        # this is the last step
+        i1 = DepthAverage.data.shape[0]
+    else:
+        i1 = DepthAverage.time_step_indexes[time_step + 1][0] * DepthAverage.time_step_length
+    data = DepthAverage.data[i0:i1, :]
+    col_depth = DepthAverage.header['depth']['col']
+    col_P = DepthAverage.header['adiabatic_pressure']['col']
+    col_T = DepthAverage.header['temperature']['col']
+    col_Tad = DepthAverage.header['adiabatic_temperature']['col']
+    depths = data[:, col_depth]
+    pressures = data[:, col_P]
+    temperatures = data[:, col_T]
+    if include_adiabatic_temperature:
+        adiabatic_temperatures = data[:, col_Tad]
+    if interp > 0:
+        depths_old = depths.copy()
+        depths = np.linspace(depths[0], depths[-1], interp)
+        pressures_old = pressures.copy()
+        pressures = np.interp(depths, depths_old, pressures_old)
+        temperatures_old = temperatures.copy()
+        temperatures = np.interp(depths, depths_old, temperatures_old) 
+        if include_adiabatic_temperature:
+            adiabatic_temperatures_old = adiabatic_temperatures.copy()
+            adiabatic_temperatures = np.interp(depths, depths_old, adiabatic_temperatures_old) 
+    # return type is determined by whether there are included terms
+    if include_adiabatic_temperature:
+        return depths, pressures, temperatures, adiabatic_temperatures
+    else:
+        return depths, pressures, temperatures
+
+def GetRheology(rheology, **kwargs):
+    '''
+    read rheology parameters, and account for effects of water if it is a wet rheology
+    Inputs:
+        kwargs:
+            dEdiff - a difference between the activation energy and the medium value in experiment
+                (dVdiff, dEdisl, dVdisl) are defined in the same way
+            dAdiff_ratio - a ratio of (A / A_medium) for the prefactor of the diffusion creep
+                dAdisl_ratio is defined in the same way.
+            use_coh - whether use the Coh or Fh2O as input into the wet rheology
+    '''
+    # these options are for a differences from the central value
+    dEdiff = kwargs.get('dEdiff', 0.0)  # numbers for the variation in the rheology
+    dVdiff = kwargs.get('dVdiff', 0.0)
+    dAdiff_ratio = kwargs.get("dAdiff_ratio", 1.0)
+    dAdisl_ratio = kwargs.get("dAdisl_ratio", 1.0)
+    dEdisl = kwargs.get('dEdisl', 0.0)
+    dVdisl = kwargs.get('dVdisl', 0.0)
+    use_coh = kwargs.get("use_coh", True)
+    # initiate the class object
+    RheologyPrm = RHEOLOGY_PRM()
+    # if the diffusion creep flow law is specified, then include it here
+    if hasattr(RheologyPrm, rheology + "_diff"):
+        diffusion_creep = getattr(RheologyPrm, rheology + "_diff")
+        ### if the rheology is formulated with the fugacity, convert it to using the Coh
+        if diffusion_creep is not None:
+            try:
+                _ = diffusion_creep['wet']
+            except KeyError:
+                pass
+            else:
+                if use_coh:
+                    water_creep = getattr(RheologyPrm, "water")
+                    diffusion_creep['A'] = diffusion_creep['A'] / (water_creep['A'] ** diffusion_creep['r'])
+                    diffusion_creep['V'] = diffusion_creep['V'] - water_creep['V'] * diffusion_creep['r']
+                    diffusion_creep['E'] = diffusion_creep['E'] - water_creep['E'] * diffusion_creep['r']
+            # apply the differences to the medium value
+            diffusion_creep['A'] *= dAdiff_ratio
+            diffusion_creep['E'] += dEdiff
+            diffusion_creep['V'] += dVdiff
+    else:
+        diffusion_creep = None
+    # if the dislocation creep flow law is specified, then include it here
+    if hasattr(RheologyPrm, rheology + "_disl"):
+        dislocation_creep = getattr(RheologyPrm, rheology + "_disl")
+        ### if the rheology is formulated with the fugacity, convert it to using the Coh
+        if dislocation_creep is not None:
+            try:
+                _ = dislocation_creep['wet']
+            except KeyError:
+                pass
+            else:
+                if use_coh:
+                    water_creep = getattr(RheologyPrm, "water")
+                    dislocation_creep['A'] = dislocation_creep['A'] / (water_creep['A'] ** dislocation_creep['r'])
+                    dislocation_creep['V'] = dislocation_creep['V'] - water_creep['V'] * dislocation_creep['r']
+                    dislocation_creep['E'] = dislocation_creep['E'] - water_creep['E'] * dislocation_creep['r']
+            # apply the differences to the medium value
+            dislocation_creep['A'] *= dAdisl_ratio
+            dislocation_creep['E'] += dEdisl
+            dislocation_creep['V'] += dVdisl
+    else:
+        dislocation_creep = None
+    # return the rheology 
+    return diffusion_creep, dislocation_creep
+
+def GetPeierlsRheology(rheology):
+    '''
+    read the peierls rheology parameters
+    Inputs:
+        rheology: a string of the type of rheology to use.
+    Returns:
+        peierls_creep: a dict of the flow law variables for the peierls creep
+    '''
+    RheologyPrm = RHEOLOGY_PRM()
+    my_assert(hasattr(RheologyPrm, rheology + "_peierls"), ValueError,\
+    "The %s is not a valid option for the peierls rheology" % rheology)
+    peierls_creep = getattr(RheologyPrm, rheology + "_peierls")
+    return peierls_creep
+
+def CreepStrainRate(creep, stress, P, T, d, Coh, **kwargs):
+    """
+    Calculate strain rate by flow law in form of 
+        B * sigma^n * exp( - (E + P * V) / (R * T))
+    Units:
+     - P: Pa
+     - T: K
+     - d: mu m
+     - stress: MPa
+     - Coh: H / 10^6 Si
+     - Return value: s^-1
+    kwargs:
+        use_effective_strain_rate - use the second invariant as input
+    Pay attention to pass in the right value, this custom is inherited
+    """
+    A = creep['A']
+    p = creep['p']
+    r = creep['r']
+    n = creep['n']
+    E = creep['E']
+    V = creep['V']
+    # calculate B
+    # compute F
+    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
+    f_by_factor = kwargs.get('f_by_factor', False)
+    if use_effective_strain_rate:
+        F = 3**((n+1)/2) / 2.0
+    elif f_by_factor:
+        F = kwargs['F']
+    else:
+        F = 1.0
+    B = A * d**(-p) * Coh**r
+    return F * B *stress**n * np.exp(-(E + P * V) / (R * T))
+
+def CreepRheology(creep, strain_rate, P, T, d=1e4, Coh=1e3, **kwargs):
+    """
+    Calculate viscosity by flow law in form of (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T))
+    Previously, there is a typo in the F factor
+    Units:
+     - P: Pa
+     - T: K
+     - d: mu m
+     - Coh: H / 10^6 Si
+     - Return value: Pa*s
+    Pay attention to pass in the right value, this custom is inherited
+    """
+    A = creep['A']
+    p = creep['p']
+    r = creep['r']
+    n = creep['n']
+    E = creep['E']
+    V = creep['V']
+    # compute value of F(pre factor)
+    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
+    f_by_factor = kwargs.get('f_by_factor', False)
+    if use_effective_strain_rate:
+        F = 1 / (2**((n-1)/n)*3**((n+1)/2/n)) * 2.0
+    elif f_by_factor:
+        F = kwargs['F']
+    else:
+        F = 1.0
+    # calculate B
+    B = A * d**(-p) * Coh**r
+    eta = 1/2.0 * F * (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T)) * 1e6
+
+    return eta
+
+def ComputeComposite(*Args):
+    '''
+    compute value of composite viscosity from value of diffusion creep and 
+    dislocation creep. This will check that at least one entry is not None.
+    If one of them is none, then the other entry will be directly returned
+    '''
+    i = 0
+    indexes = []
+    for Arg in Args:
+        if Arg is not None:
+            indexes.append(i)
+        i += 1
+    assert(len(indexes) > 0)  # check their is valid inputs
+    if len(indexes) == 1:
+        # if there is only 1 entry, just return it
+        return Args[indexes[0]]
+    else:
+        reciprocal = 0.0
+        for index in indexes:
+            reciprocal += 1.0 / Args[index]
+        eta_comp = 1.0 / reciprocal
+        return eta_comp
+
+def CreepComputeA(creep, strain_rate, P, T, eta, d=1e4, Coh=1e3, **kwargs):
+    """
+    Compute the prefactor in the rheology with other variables in a flow law (p, r, n, E, V).
+    The viscosity is computed at condition of P, T and is constrained to be eta.
+    Calculate viscosity by flow law in form of 0.5*(strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T))
+    Units:
+     - creep: flow law that contains p, r, n, E, V
+     - strain_rate: the strain rate to compute viscosity with
+     - P: The pressure to compute viscosity, unit is Pa
+     - T: The temperature to compute viscosity, unit is K
+     - d: The grain size to compute viscosity, unit is mu m
+     - Coh: H / 10^6 Si
+     - Return value: Pa*s
+    Pay attention to pass in the right value, this custom is inherited
+    Here I tried to input the right value for the F factor
+    """
+    p = creep['p']
+    r = creep['r']
+    n = creep['n']
+    E = creep['E']
+    V = creep['V']
+    # compute value of F(pre factor)
+    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
+    if use_effective_strain_rate:
+        F = 1 / (2**((n-1)/n)*3**((n+1)/2/n))
+    else:
+        F = 1.0
+    # calculate B
+    B = (0.5*F/eta)**n * strain_rate**(1-n) * np.exp((E+P*V)/(R*T)) * (1e6)**n
+    A = B * d**p * Coh**(-r)
+    return A
+
+def Convert2AspectInput(creep, **kwargs):
+    """
+    Viscosity is calculated by flow law in form of (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T)) * 1e6
+    while in aspect, flow law in form of 0.5 * A**(-1.0 / n) * d**(m / n) * (strain_rate)**(1.0 / n - 1) * np.exp((E + P * V) / (n * R * T))
+    In this version, I am trying to take care of the F factor correctly
+    Inputs:
+        kwargs:
+            d: um, the grain size to use, default is 1e4
+            Coh: H / 10^6 Si, default is 1000.0
+    Original Units in creep:
+     - P: Pa
+     - T: K
+    Converted units in aspect_creep:
+     - P: Pa
+     - T: K
+     - d: m
+    """
+    # read in initial value
+    A = creep['A']
+    p = creep['p']
+    r = creep['r']
+    n = creep['n']
+    E = creep['E']
+    V = creep['V']
+    d = kwargs.get('d', 1e4)
+    Coh = kwargs.get('Coh', 1000.0)
+    # compute value of F(pre factor)
+    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
+    if use_effective_strain_rate:
+        F = 1 / (2**((n-1)/n)*3**((n+1)/2/n)) * 2.0
+    else:
+        F = 1.0
+    # prepare values for aspect
+    aspect_creep = {}
+    # stress in the original equation is in Mpa, grain size is in um
+    aspect_creep['A'] = 1e6**(-p) * (1e6)**(-n) * Coh**r * A / F**n  # F term: use effective strain rate
+    aspect_creep['d'] = d / 1e6
+    aspect_creep['n'] = n
+    aspect_creep['m'] = p
+    aspect_creep['E'] = E
+    aspect_creep['V'] = V
+    return aspect_creep
+
+def CreepRheologyInAspectViscoPlastic(creep, strain_rate, P, T):
+    """
+    def CreepRheologyInAspectVisoPlastic(creep, strain_rate, P, T)
+
+    Calculate viscosity by way of Visco Plastic module in aspect
+    flow law in form of 0.5 * A**(-1.0 / n) * d**(m / n) * (strain_rate)**(1.0 / n - 1) * np.exp((E + P * V) / (n * R * T))
+    Units:
+     - P: Pa
+     - T: K
+     - d: m
+     - Return value: Pa*s
+    """
+    A = creep['A']
+    m = creep['m']
+    n = creep['n']
+    E = creep['E']
+    V = creep['V']
+    d = creep['d']
+    # calculate B
+    return 0.5 * A**(-1.0 / n) * d**(m / n) * (strain_rate)**(1.0 / n - 1) * np.exp((E + P * V) / (n * R * T))
+
+def CreepComputeV(creep, strain_rate, P, T, eta, d=1e4, Coh=1e3, **kwargs):
+    """
+    Calculate V based on other parameters 
+    Units:
+     - P: Pa
+     - T: K
+     - d: mu m
+     - Coh: H / 10^6 Si
+     - Return value: Pa*s
+    Pay attention to pass in the right value, this custom is inherited
+    """
+    A = creep['A']
+    p = creep['p']
+    r = creep['r']
+    n = creep['n']
+    E = creep['E']
+    # compute value of F(pre factor)
+    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
+    if use_effective_strain_rate:
+        F = 1 / (2**((n-1)/n)*3**((n+1)/2/n)) * 2.0
+    else:
+        F = 1.0
+    # calculate B
+    B = A * d**(-p) * Coh**r
+    exponential = eta / (1/2.0 * F * (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp(E / (n * R * T)) * 1e6)
+    V = n * R * T * np.log(exponential) / P
+    return V
+
+def LowerMantleV(E, Tmean, Pmean, grad_T, grad_P):
+    '''
+    compute the value of activation volume for the lower mantle
+    based on the criteria of a nearly constant viscosity
+    '''    
+    V = E * grad_T / (grad_P * Tmean - Pmean * grad_T)
+    return V
+
+class RHEOLOGY_OPR():
+    '''
+    rheology operation, do some complex staff
+    Attributes:
+        RheologyPrm: an initiation of the class RHEOLOGY_PRM
+        depths(ndarray), pressures, temperatures: depth, pressure, temperature profile
+            (all these 3 profiles are loaded from a depth_average outputs of ASPECT)
+        peierls_type: a string, type of the peierls rheology
+        peierls: the dictionary of variables to be used for the peierls rheology
+    '''
+    def __init__(self):
+        '''
+        Initiation
+        '''
+        self.RheologyPrm = RHEOLOGY_PRM()
+        # set of variables for mantle profile
+        self.depths = None
+        self.pressures = None
+        self.tempertures = None
+        self.output_profile = None # for the figure plotted
+        self.output_json = None
+        self.output_aspect_json = None
+        self.diff_type = None
+        self.diff = None
+        self.disl_type = None
+        self.disl = None
+        self.brittle_type = None
+        self.brittle = None
+        self.peierls_type = None
+        self.peierls = None
+        pass
+
+    def SetRheology(self, **kwargs):
+        '''
+        set rheology type with instances of rheology (i.e. a dictionary)
+        '''
+        self.diff = kwargs.get('diff', None)
+        self.disl = kwargs.get('disl', None)
+        self.brittle = kwargs.get('brittle', None)
+        self.peierls = kwargs.get('peierls', None)
+        pass
+    
+    def SetRheologyByName(self, **kwargs):
+        '''
+        set rheology type with instances of rheology (i.e. a dictionary)
+        '''
+        diff_type = kwargs.get('diff', None)
+        disl_type = kwargs.get('disl', None)
+        brittle_type = kwargs.get('brittle', None)
+        peierls_type = kwargs.get('peierls', None)
+        self.diff_type = diff_type
+        self.disl_type = disl_type
+        self.brittle_type = brittle_type
+        self.peierls_type = peierls_type
+        if diff_type != None and disl_type != None:
+            assert(diff_type == disl_type)  # doesn't make sense to have inconsistent flow laws
+        if diff_type != None:
+            diffusion_creep, _ = GetRheology(diff_type)
+            self.diff = diffusion_creep
+        if disl_type != None:
+            _, dislocation_creep = GetRheology(disl_type)
+            self.disl = dislocation_creep
+        if brittle_type != None:
+            self.brittle = self.RheologyPrm.get_rheology(brittle_type, 'brittle')
+        if self.peierls_type != None:
+            self.peierls = GetPeierlsRheology(peierls_type) 
+    
+    
+    def ReadProfile(self, file_path):
+        '''
+        Read a depth, pressure and temperature profile from a depth_average output
+        These values are saved as class variables
+        '''
+        self.depths, self.pressures, self.temperatures = ReadAspectProfile(file_path, interp=3000)
+
+
+    # todo_HK03
+    def VaryWithStress(self, P, T, d, Coh, stress_range, **kwargs):
+        '''
+        With a set of variables, compare to the data points reported
+        in experimental publications.
+        Inputs:
+            stress_range - a range of stress for the strain rate - stress plot
+            strain_rate_range - a range of strain_rate, only affects plot
+            P,d,Coh - samples of variables for the strain rate - stress plot
+            kwargs:
+                ax - an axis for plot
+                label - label for the curve
+                color - the color used for plotting
+                
+        '''
+        assert(self.diff is not None and self.disl is not None)
+        stress_range = kwargs.get("stress_range", [10.0, 1000.0])  # Mpa
+        strain_rate_range = kwargs.get("strain_rate_range", None)  # s^{-1}
+        ax = kwargs.get('ax', None)
+        label = kwargs.get('label', None)
+        _color = kwargs.get('color', 'b')
+        use_effective_strain_rate = kwargs.get('use_effective_strain_rate', True)
+
+        stresses = np.linspace(stress_range[0], stress_range[1], 1000)
+        strain_rates_diff = CreepStrainRate(self.diff, stresses, P, T, d, Coh, use_effective_strain_rate=use_effective_strain_rate)
+        strain_rates_disl = CreepStrainRate(self.disl, stresses, P, T, d, Coh, use_effective_strain_rate=use_effective_strain_rate)
+        strain_rates = strain_rates_diff + strain_rates_disl  # apply the isostress model
+        if ax is not None:
+            ax.loglog(stresses, strain_rates, '-', color=_color, label=(label + "comp"))
+            ax.loglog(stresses, strain_rates_diff, '--', color=_color, label=(label + "diff"))
+            ax.loglog(stresses, strain_rates_disl, '-.', color=_color, label=(label + "disl"))
+        ax.set_xlabel("Stress (Mpa)")
+        ax.set_xlim(stress_range[0], stress_range[1])
+        if strain_rate_range is not None:
+            ax.set_ylim(strain_rate_range[0], strain_rate_range[1])
+        ax.set_ylabel("Strain Rate (s^-1)")
+        _title = "P = %.4e, T = %.4e, d = %.4e, Coh = %.4e" % (P/1e6, T, d, Coh)
+        ax.set_title(_title)
+
+    
+    def VaryWithT(self, P, stress, d, Coh, T_range, **kwargs):
+        '''
+        With a set of variables, compare to the data points reported
+        in experimental publications.
+        Inputs:
+            P - a pressure to compute the strain rate
+            stress - a sample of stress for the strain rate - 10^4/T plot
+            d - a sample of grain size for the strain rate - 10^4/T plot
+            Coh - a sample of Coh for the strain rate - 10^4/T plot
+            T_range - a range of T for the strain rate - 10^4/T plot
+            kwargs:
+                ax - an axis for plot
+                label - label for the curve
+                color - the color used for plotting
+        '''
+        assert(self.diff is not None and self.disl is not None)
+        strain_rate_range = kwargs.get("strain_rate_range", None)  # s^{-1}
+        ax = kwargs.get('ax', None)
+        label = kwargs.get('label', None)
+        _color = kwargs.get('color', 'b')
+        use_effective_strain_rate = kwargs.get('use_effective_strain_rate', True)
+        
+        Ts = np.linspace(T_range[0], T_range[1], 1000)
+        strain_rates_diff = CreepStrainRate(self.diff, stress, P, Ts, d, Coh, use_effective_strain_rate=use_effective_strain_rate)
+        strain_rates_disl = CreepStrainRate(self.disl, stress, P, Ts, d, Coh, use_effective_strain_rate=use_effective_strain_rate)
+        strain_rates = strain_rates_diff + strain_rates_disl  # apply the isostress model
+        if ax is not None:
+            ax.semilogy(1e4/Ts, strain_rates, '-', color=_color, label=(label + "comp"))
+            ax.semilogy(1e4/Ts, strain_rates_diff, '--', color=_color, label=(label + "diff"))
+            ax.semilogy(1e4/Ts, strain_rates_disl, '-.', color=_color, label=(label + "disl"))
+        ax.set_xlabel("10^4 / T (K^-1)")
+        ax.set_xlim(1e4 / T_range[1], 1e4 / T_range[0])
+        if strain_rate_range is not None:
+            ax.set_ylim(strain_rate_range[0], strain_rate_range[1])
+        ax.set_ylabel("Strain Rate (s^-1)")
+        _title = "P = %.4e, Stress = %.4e, d = %.4e, Coh = %.4e" % (P/1e6, stress, d, Coh)
+        ax.set_title(_title)
+
+    def MantleRheology(self, **kwargs):
+        '''
+        Derive mantle rheology from an aspect profile
+        In this version, I would use the F factor (second invariant) as the default for computing the viscosity.
+        Inputs:
+            kwargs:
+                rheology - type of rheology to use
+                strain_rate - the strain rate used for viscosity estimation
+                dEdiff, dVdiff, dAdiff_ratio, dAdisl_ratio, dEdisl, dVdisl - these factors
+                    would apply a differences to the medium value in the flow law.
+                save_profile - if the mantle profile of viscosity is saved as plot.
+                save_json - if the derived mantle rheology is saved as a json file
+                fig_path - if the save_profile is true, then a path of figure could be given
+                    otherwise, a default path will be adapted.
+        '''
+        strain_rate = kwargs.get('strain_rate', 1e-15)
+        use_effective_strain_rate = kwargs.get('use_effective_strain_rate', True)
+        eta = np.ones(self.depths.size) 
+        # these options are for a differences from the central value
+        dEdiff = float(kwargs.get('dEdiff', 0.0))  # numbers for the variation in the rheology
+        dVdiff = float(kwargs.get('dVdiff', 0.0))
+        dAdiff_ratio = float(kwargs.get("dAdiff_ratio", 1.0))
+        dAdisl_ratio = float(kwargs.get("dAdisl_ratio", 1.0))
+        dEdisl = float(kwargs.get('dEdisl', 0.0))
+        dVdisl = float(kwargs.get('dVdisl', 0.0))
+        save_pdf = kwargs.get("save_pdf", False)
+        rheology = kwargs.get('rheology', 'HK03_wet_mod')
+        save_profile = kwargs.get('save_profile', 0)
+        save_json = kwargs.get('save_json', 0)
+        debug = kwargs.get('debug', False)
+        fig_path = kwargs.get("fig_path", None)
+        Coh = kwargs.get("Coh", 1000.0)
+        assign_rheology = kwargs.get("assign_rheology", False)
+        ymax = kwargs.get("ymax", 2890.0) # km, only used for plots
+
+        
+        eta_diff = np.ones(self.depths.size)
+        eta_disl = np.ones(self.depths.size)
+        eta_disl13 = np.ones(self.depths.size)
+        eta13 = np.ones(self.depths.size)
+
+        # First, read in the flow law and apply the diffeorence to the medium value 
+        if assign_rheology:
+            diffusion_creep = kwargs["diffusion_creep"]
+            dislocation_creep = kwargs['dislocation_creep']
+        else:
+            diffusion_creep, dislocation_creep = GetRheology(rheology)
+            diffusion_creep['A'] *= dAdiff_ratio
+            diffusion_creep['E'] += dEdiff
+            dislocation_creep['A'] *= dAdisl_ratio
+            dislocation_creep['E'] += dEdisl
+            diffusion_creep['V'] += dVdiff
+            dislocation_creep['V'] += dVdisl
+        self.diff = diffusion_creep  # record these with the class variables
+        self.disl = dislocation_creep
+
+        strain_rate_diff_correction = kwargs.get("strain_rate_diff_correction", 1.0)
+        strain_rate_disl_correction = kwargs.get("strain_rate_disl_correction", 1.0)
+        eta_diff_correction = strain_rate_diff_correction ** (1 / diffusion_creep['n'])
+        eta_disl_correction = strain_rate_disl_correction ** (1 / dislocation_creep['n'])
+
+        # Then, convert T, P as function. The T_func and P_func are used
+        # in the following code to get the values
+        T_func = interp1d(self.depths, self.temperatures, assume_sorted=True)
+        P_func = interp1d(self.depths, self.pressures, assume_sorted=True)
+
+        # okay, we are ready
+        # Start by getting the rheology < 410 km
+        depth_up = 410e3
+        depth_low = 660e3
+        mask_up = (self.depths < depth_up)
+        eta_diff[mask_up] = CreepRheology(diffusion_creep, strain_rate, self.pressures[mask_up],\
+                                          self.temperatures[mask_up], d=1e4, Coh=Coh,\
+                                            use_effective_strain_rate=use_effective_strain_rate)\
+                                        * eta_diff_correction
+        eta_disl[mask_up] = CreepRheology(dislocation_creep, strain_rate, self.pressures[mask_up],\
+                                           self.temperatures[mask_up], d=1e4, Coh=Coh,\
+                                              use_effective_strain_rate=use_effective_strain_rate)\
+                                        * eta_disl_correction
+        eta_disl13[mask_up] = CreepRheology(dislocation_creep, 1e-13, self.pressures[mask_up],\
+                                            self.temperatures[mask_up], d=1e4, Coh=Coh,\
+                                                use_effective_strain_rate=use_effective_strain_rate)\
+                                        * eta_disl_correction
+        eta[mask_up] = ComputeComposite(eta_diff[mask_up], eta_disl[mask_up])
+        eta13[mask_up] = ComputeComposite(eta_diff[mask_up], eta_disl13[mask_up])
+
+
+        # then, the rheology in the MTZ
+        # Now there is no differences from the scenario we used in the upper mantle
+        # in the future, more will be added.
+        mask_mtz = (self.depths > depth_up) & (self.depths < depth_low)
+        if True:
+            # MTZ from olivine rheology
+            eta_diff[mask_mtz] = CreepRheology(diffusion_creep, strain_rate, self.pressures[mask_mtz],\
+                                               self.temperatures[mask_mtz], d=1e4, Coh=Coh,\
+                                                use_effective_strain_rate=use_effective_strain_rate)\
+                                            * eta_diff_correction
+            eta_disl[mask_mtz] = CreepRheology(dislocation_creep, strain_rate, self.pressures[mask_mtz],\
+                                                self.temperatures[mask_mtz], d=1e4, Coh=Coh,\
+                                                    use_effective_strain_rate=use_effective_strain_rate)\
+                                            * eta_disl_correction
+            eta_disl13[mask_mtz] = CreepRheology(dislocation_creep, 1e-13, self.pressures[mask_mtz],\
+                                                 self.temperatures[mask_mtz], d=1e4, Coh=Coh,\
+                                                    use_effective_strain_rate=use_effective_strain_rate)\
+                                            * eta_disl_correction
+            eta[mask_mtz] = ComputeComposite(eta_diff[mask_mtz], eta_disl[mask_mtz])
+            eta13[mask_mtz] = ComputeComposite(eta_diff[mask_mtz], eta_disl13[mask_mtz])
+        
+        # At last, the lower mantle
+        # The diffusion creep is assumed to be the only activated mechanism in the lower mantle.
+        mask_low = (self.depths > depth_low)
+        jump_lower_mantle = kwargs.get('jump_lower_mantle', 30.0)
+        # Computing V in the lower mantle.
+        # For this, we need the T, P on the 660 boundary
+        depth_lm = 660e3
+        depth_max = self.depths[-1] - 10e3
+        T660 = T_func(depth_lm)
+        P660 = P_func(depth_lm)
+        eta_diff660 = CreepRheology(diffusion_creep, strain_rate, P660, T660, d=1e4, Coh=Coh,\
+                                    use_effective_strain_rate=use_effective_strain_rate)\
+                                * eta_diff_correction
+        # dislocation creep
+        eta_disl660 = CreepRheology(dislocation_creep, strain_rate, P660, T660, d=1e4, Coh=Coh,\
+                                    use_effective_strain_rate=use_effective_strain_rate)\
+                                * eta_disl_correction
+        eta660 = ComputeComposite(eta_diff660, eta_disl660)
+        if debug:
+            print("eta_diff660 = ", eta_diff660)
+            print("eta_disl660 = ", eta_disl660)
+            print("eta_comp660 = ", eta660)
+        diff_lm = diffusion_creep.copy()
+        diff_lm['V'] = 3e-6  # assign a value
+        diff_lm['A'] = CreepComputeA(diff_lm, strain_rate, P660, T660, eta660*jump_lower_mantle, d=1e4, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
+        
+        # dump json file 
+        constrained_rheology = {'diffusion_creep': diffusion_creep, 'dislocation_creep': dislocation_creep, 'diffusion_lm': diff_lm}
+        if debug:
+            print("constrained_rheology: ")
+            print(constrained_rheology)
+        
+        # convert aspect rheology
+        if debug:
+            print('diffusion_creep: ', diffusion_creep)
+        diffusion_creep_aspect = Convert2AspectInput(diffusion_creep, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
+        diffusion_lm_aspect = Convert2AspectInput(diff_lm, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
+        dislocation_creep_aspect = Convert2AspectInput(dislocation_creep, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
+        constrained_rheology_aspect = {'diffusion_creep': diffusion_creep_aspect, 'dislocation_creep': dislocation_creep_aspect, 'diffusion_lm': diffusion_lm_aspect}
+        constrained_viscosity_profile = {'T': None, 'P': None, 'diffusion': None, 'dislocation': None,\
+                                        'composite': None, 'dislocation_13': None,\
+                                        'composite_13': None, 'depth': None}
+        
+        
+        # lower mnatle rheology
+        eta_diff[mask_low] = CreepRheologyInAspectViscoPlastic(diffusion_lm_aspect, strain_rate, self.pressures[mask_low], self.temperatures[mask_low])
+        eta_disl[mask_low] = None  # this is just for visualization
+        eta_disl13[mask_low] = None  # this is just for visualization
+        eta[mask_low] = eta_diff[mask_low]  # diffusion creep is activated in lower mantle
+        eta13[mask_low] = eta_diff[mask_low]  # diffusion creep is activated in lower mantle
+        
+        # Next, we visit some constraints for whole manlte rheology 
+        # to see whether we match them
+        # The haskel constraint
+        radius = 6371e3
+        lith_depth = 100e3
+        integral_depth = 1400e3
+        mask_integral = (self.depths > lith_depth) & (self.depths < integral_depth)
+        integral_cores = 4 * np.pi * (radius - self.depths)**2.0
+        # upper mantle
+        # use harmonic average
+        # lower mantle
+        integral = np.trapz(integral_cores[mask_integral] * np.log10(eta[mask_integral]), self.depths[mask_integral])
+        volume = np.trapz(integral_cores[mask_integral], self.depths[mask_integral])
+        average_log_eta = integral / volume
+        if save_json == 1:
+            json_path = os.path.join(RESULT_DIR, "mantle_profile_v1_%s_dEdiff%.4e_dEdisl%.4e_dVdiff%4e_dVdisl%.4e_dAdiff%.4e_dAdisl%.4e.json" % (rheology, dEdiff, dEdisl, dVdiff, dVdisl, dAdiff_ratio, dAdisl_ratio))
+            json_path_aspect = os.path.join(RESULT_DIR, "mantle_profile_aspect_v1_%s_dEdiff%.4e_dEdisl%.4e_dVdiff%4e_dVdisl%.4e_dAdiff%.4e_dAdisl%.4e.json" % (rheology, dEdiff, dEdisl, dVdiff, dVdisl, dAdiff_ratio, dAdisl_ratio))
+            with open(json_path, 'w') as fout:
+                json.dump(constrained_rheology, fout)
+            with open(json_path_aspect, 'w') as fout:
+                json.dump(constrained_rheology_aspect, fout)
+            print("New json: %s" % json_path)
+            print("New json: %s" % json_path_aspect)
+            self.output_json = json_path
+            self.output_json_aspect = json_path_aspect
+
+        # save the constrained viscosity profile
+        constrained_viscosity_profile['depth'] = self.depths.copy() 
+        constrained_viscosity_profile['T'] = self.temperatures.copy() 
+        constrained_viscosity_profile['P'] = self.pressures.copy() 
+        constrained_viscosity_profile['diffusion'] = eta_diff.copy()
+        constrained_viscosity_profile['dislocation'] = eta_disl.copy()
+        constrained_viscosity_profile['composite'] = eta.copy()
+        constrained_viscosity_profile['composite_13'] = eta13.copy()
+        constrained_viscosity_profile['dislocation_13'] = eta_disl13.copy()
+        
+        # plot the profile of viscosity if it's required
+        if save_profile == 1:
+            # plots
+            ylim=[ymax, 0.0]
+            masky = (self.depths/1e3 < ymax)
+            fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+            color = 'tab:blue'
+            axs[0].plot(self.pressures/1e9, self.depths/1e3, color=color, label='pressure')
+            axs[0].set_ylabel('Depth [km]') 
+            axs[0].set_xlabel('Pressure [GPa]', color=color)
+            # axs[0].set_xlabel('Pressure [GPa] P660: %.4e' % (P660), color=color)
+            Pmax = np.ceil(np.max(self.pressures[masky]/1e9) / 10.0) *10.0
+            axs[0].set_xlim([0.0, Pmax])
+            # axs[0].invert_yaxis()
+            axs[0].set_ylim(ylim)
+            # ax2: temperature
+            color = 'tab:red'
+            ax2 = axs[0].twiny()
+            ax2.set_ylim(ylim)
+            ax2.plot(self.temperatures, self.depths/1e3, color=color, label='temperature')
+            Tmax = np.ceil(np.max(self.temperatures[masky]) / 100.0) *100.0
+            ax2.set_xlim([0.0, Tmax])
+            ax2.set_xlabel('Temperature [K]', color=color) 
+            # ax2.set_xlabel('Temperature [K] T660: %.4e' % (T660), color=color) 
+            # second: viscosity
+            #   upper mantle
+            axs[1].semilogx(eta_diff, self.depths/1e3, 'c', label='diffusion creep')
+            axs[1].semilogx(eta_disl, self.depths/1e3, 'g', label='dislocation creep(%.2e)' % strain_rate)
+            axs[1].semilogx(eta, self.depths/1e3, 'r--', label='Composite')
+            axs[1].set_xlim([1e18,1e25])
+            axs[1].set_ylim(ylim)
+            axs[1].grid()
+            axs[1].set_ylabel('Depth [km]')
+            axs[1].legend()
+            # axs[1].set_title('%s_lowerV_%.4e_haskell%.2f' % (rheology, diffusion_lm_aspect['V'], average_log_eta))
+            # third, viscosity at 1e-13 /s strain rate
+            axs[2].semilogx(eta_diff, self.depths/1e3, 'c', label='diffusion creep')
+            axs[2].semilogx(eta_disl13, self.depths/1e3, 'g', label='dislocation creep(%.2e)' % 1e-13)
+            axs[2].semilogx(eta13, self.depths/1e3, 'r--', label='Composite')
+            axs[2].set_xlim([1e18,1e25])
+            axs[2].set_ylim(ylim)
+            axs[2].grid()
+            axs[2].set_ylabel('Depth [km]')
+            axs[2].legend()
+            # axs[2].set_title('strain_rate1.0e-13')
+            fig.tight_layout()
+            # save figure
+            if fig_path == None:
+                fig_path = os.path.join(RESULT_DIR,\
+                    "mantle_profile_v1_%s_dEdiff%.4e_dEdisl%.4e_dVdiff%4e_dVdisl%.4e_dAdiff%.4e_dAdisl%.4e.png"\
+                    % (rheology, dEdiff, dEdisl, dVdiff, dVdisl, dAdiff_ratio, dAdisl_ratio))
+            fig.savefig(fig_path)
+            print("New figure: %s" % fig_path)
+            if save_pdf:
+                fig_path = os.path.join(RESULT_DIR,\
+                    "mantle_profile_v1_%s_dEdiff%.4e_dEdisl%.4e_dVdiff%4e_dVdisl%.4e_dAdiff%.4e_dAdisl%.4e.pdf"\
+                    % (rheology, dEdiff, dEdisl, dVdiff, dVdisl, dAdiff_ratio, dAdisl_ratio))
+                fig.savefig(fig_path)
+                print("New figure: %s" % fig_path)
+            plt.close()
+            self.output_profile = fig_path
+            pass
+        return constrained_rheology_aspect, constrained_viscosity_profile
+    
+    def ConstrainRheology(self, **kwargs):
+        '''
+        varying around a give rheology with variation with applied constraints
+        Version 1:
+            0. use modified wet rheology see the file from Magali
+            1. compute V with rheology at 250km depth, this is in turn, constraint in a range
+            2. dislocation creep is bigger than diffusion creep at 300e3.  
+            3. value of rheology on 660 within a range
+            Lower mantle is then assigned so that: 
+                1. only diffusion creep is activated. 
+                2 viscosity is nearly constant by controlling V. 
+                3. There is a 30 times jump between u/l boundary by controlling A. 
+        inputs: 
+            kwargs(dict):
+                rheology: type of initial rheology
+        '''
+        constrained_rheologies = []
+        constrained_ds = []
+        constrained_Vdisls = []
+        constrained_Edisls = []
+        constrained_Vdiffs = []
+        constrained_Ediffs = []
+        rheology = kwargs.get('rheology', 'HK03_wet_mod')
+        N = 1001
+        
+        # make a new directory
+        fig_dir = os.path.join(RESULT_DIR, 'constrained_rheology_v1_%s_N%d' % (rheology, N))
+        if not os.path.isdir(fig_dir):
+            os.mkdir(fig_dir)
+        else:
+            rmtree(fig_dir)
+            os.mkdir(fig_dir)
+        
+        # get rheology
+        diffusion_creep, dislocation_creep = GetRheology(rheology)
+        diff_orig = diffusion_creep.copy()
+        disl_orig = dislocation_creep.copy()
+        orig_rheology = {'diff': diff_orig, 'disl': disl_orig}
+        json_path = os.path.join(fig_dir, "original_profile.json")
+        with open(json_path, 'w') as fout:
+            json.dump(orig_rheology, fout)
+            print("New json: %s" % json_path)
+        
+        lm_diff = {}
+        strain_rate = 1e-15
+        radius = kwargs.get('radius', 6371e3)  # earth radius
+        
+        T_func = interp1d(self.depths, self.temperatures, assume_sorted=True)
+        P_func = interp1d(self.depths, self.pressures, assume_sorted=True)
+
+        # lower mantle
+        depth_lm = 660e3
+        T_lm_mean = T_func(1700e3)
+        P_lm_mean = P_func(1700e3)
+        depth_max = self.depths[-1] - 10e3
+        lm_grad_T = (T_func(depth_max) - T_func(depth_lm)) / (depth_max - depth_lm)
+        lm_grad_P = (P_func(depth_max) - P_func(depth_lm)) / (depth_max - depth_lm)
+
+        # grain size
+        d_mean = kwargs.get('d', 0.75e4)
+
+        # range of sampling
+        Vdiff_sigma = 5.5e-6
+        Ediff_sigma = 40e3
+        Vdisl_sigma = 4e-6 # 10e-6
+        Edisl_sigma = 50e3 # 10e-6
+        d_sigma = 5e3
+
+        # random sampling
+        Ediffs = np.random.normal(diffusion_creep['E'], Ediff_sigma, N)
+        Edisls = np.random.normal(dislocation_creep['E'], Edisl_sigma, N)
+        ds = np.random.normal(d_mean, d_sigma, N)
+        include_lower_mantle = kwargs.get('include_lower_mantle', None)
+        mask_um = (self.depths < depth_lm)  # a mask to get the components of the upper mantle
+        mask_lm = (self.depths >= depth_lm)  # a mask to get the components of the lower mantle
+        for i in range(N):
+            Ediff = Ediffs[i]
+            Edisl = Edisls[i]
+            d = ds[i]
+            if Ediff < 0.0 or Edisl < 0.0 or d <= 0.0:
+                continue
+            diffusion_creep['E'] = Ediff
+            diffusion_creep['d'] = d
+            dislocation_creep['E'] = Edisl
+            dislocation_creep['d'] = d
+            diffusion_creep['Edev'] = Ediff - diff_orig['E']
+            dislocation_creep['Edev'] = Edisl - disl_orig['E']
+            if (abs(diffusion_creep['Edev'] > Ediff_sigma) or abs(dislocation_creep['Edev'] > Edisl_sigma)):
+                # check Edev is in range
+                continue
+
+            # 250km
+            depth1 = 250e3
+            eta250 = 5e19
+            T1 = T_func(depth1)
+            P1 = P_func(depth1)
+            # diffusion creep
+            # compute V, viscosities from both creeps are equal
+            Vdiff = CreepComputeV(diffusion_creep, strain_rate, P1, T1, 2*eta250, d=d)
+            diffusion_creep['V'] = Vdiff
+            Vdisl = CreepComputeV(dislocation_creep, strain_rate, P1, T1, 2*eta250, d=d, use_effective_strain_rate=True)
+            dislocation_creep['V'] = Vdisl
+            if Vdiff < 0.0 or Vdisl < 0.0:
+                continue
+            diffusion_creep['Vdev'] = Vdiff - diff_orig['V']
+            dislocation_creep['Vdev'] = Vdisl - disl_orig['V']
+
+            # 660 km 
+            # diffusion creep
+            T660 = T_func(depth_lm)
+            P660 = P_func(depth_lm)
+            eta_diff660 = CreepRheology(diffusion_creep, strain_rate, P660, T660)
+            # dislocation creep
+            eta_disl660 = CreepRheology(dislocation_creep, strain_rate, P660, T660, use_effective_strain_rate=True)
+            eta660 = ComputeComposite(eta_diff660, eta_disl660)
+            
+            # other constraints
+            depth2 = 300e3
+            Ttemp = T_func(depth2)
+            Ptemp = P_func(depth2)
+            # diffusion creep
+            eta_diff300 = CreepRheology(diffusion_creep, strain_rate, Ptemp, Ttemp)
+            # dislocation creep
+            eta_disl300 = CreepRheology(dislocation_creep, strain_rate, Ptemp, Ttemp, use_effective_strain_rate=True)
+
+            if include_lower_mantle is not None:
+                # lower mantle rheology
+                diff_lm = diffusion_creep.copy()
+                diff_lm['V'] = LowerMantleV(diffusion_creep['E'], T_lm_mean, P_lm_mean, lm_grad_T, lm_grad_P)
+                diff_lm['A'] = CreepComputeA(diff_lm, strain_rate, P660, T660, eta660*include_lower_mantle)
+
+            
+            # 1000km integral
+            eta_diff = CreepRheology(diffusion_creep, strain_rate, self.pressures, self.temperatures)
+            eta_disl = CreepRheology(dislocation_creep, strain_rate, self.pressures, self.temperatures, use_effective_strain_rate=True)
+            eta = ComputeComposite(eta_diff, eta_disl)
+            lith_depth = 100e3
+            integral_depth = 1400e3
+            mask_integral = (self.depths > lith_depth) & (self.depths < integral_depth)
+            integral_cores = 4 * np.pi * (radius - self.depths)**2.0
+            # upper mantle
+            mask_um_integral = (mask_um & mask_integral)
+            integral_um = np.trapz(eta[mask_um_integral] * integral_cores[mask_um_integral], self.depths[mask_um_integral])
+            # lower mantle
+            integral_lm = 0.0
+            if include_lower_mantle is not None:
+                mask_lm_integral = (mask_lm & mask_integral)
+                eta_diff_lm = CreepRheology(diff_lm, strain_rate, self.pressures, self.temperatures)
+                integral_lm = np.trapz(eta_diff_lm[mask_lm_integral] * integral_cores[mask_lm_integral], self.depths[mask_lm_integral])
+            else:
+                integral_lm = 4.0 / 3 * np.pi * ((radius - depth_lm)**3.0 - (radius - integral_depth)**3.0) * eta660 * 30.0 # assume 30 times jump
+            volume = 4.0 / 3 * np.pi * ((radius - lith_depth)**3.0 - (radius - integral_depth)**3.0)
+            average_eta = (integral_um + integral_lm) / volume
+
+            # conditions:
+            #   0: 300km
+            #   1: 660km
+            #   2: integral
+            #   3: range of V
+            eta660range = [4e20, 1e21]
+            average_range = [0.65e21, 1.1e21]
+            conds = [(eta_disl300 < eta_diff300),\
+            (eta660 >= eta660range[0]) and (eta660 <= eta660range[1]),\
+            (average_eta >= average_range[0]) and (average_eta <= average_range[1]),\
+            abs(diffusion_creep['Vdev']) < Vdiff_sigma and abs(dislocation_creep['Vdev']) < Vdisl_sigma]
+            # failed info
+            # print(conds)
+            condition_indexes = [0, 1, 3]
+            cond_combined = True
+            for i in condition_indexes:
+                cond_combined = (cond_combined and conds[i])
+            
+            if cond_combined:
+                constrained_ds.append(d)
+                constrained_Vdisls.append(Vdisl)
+                constrained_Vdiffs.append(Vdiff)
+            else:
+                constrained_rheologies.append({'diff': diffusion_creep.copy(), 'disl': dislocation_creep.copy(),\
+                'average_upper_region': average_eta})
+
+
+        fig = plt.figure()
+        ax = Axes3D(fig)
+        ax.scatter(constrained_Ediffs, constrained_Edisls, constrained_ds)
+        ax.set_xlabel('Ediff [J/mol]')
+        ax.set_ylabel('Edisl [J/mol]')
+        ax.set_zlabel('d [um]')
+        fig_name = 'constrained_rheology_%s_N%d.png' % (rheology, N)
+        fig_path = os.path.join(fig_dir, fig_name)
+        fig.savefig(fig_path)
+        print("New figure: %s" % fig_path)
+        plt.close()
+
+        # plot profiles
+        save_profile = kwargs.get('save_profile', 0)
+        i = 0  # index
+        for constrained_rheology in constrained_rheologies:
+            # dump json
+            Vdiff = constrained_rheology['diff']['V']
+            Vdisl = constrained_rheology['disl']['V']
+            Ediff = constrained_rheology['diff']['E']
+            Edisl = constrained_rheology['disl']['E']
+            d = constrained_rheology['disl']['d']
+            json_path = os.path.join(fig_dir, "constrained_profile_Ediff%.4e_Edisl%.4e_Vdiff%.4e_Vdisl%.4e_d%.4e.json" % (Ediff, Edisl, Vdiff, Vdisl, d))
+            with open(json_path, 'w') as fout:
+                json.dump(constrained_rheology, fout)
+                print("[%d / %d], New json: %s" % (i, len(constrained_rheologies), json_path))
+            #  save profile
+            if save_profile == 1:
+                eta_diff = CreepRheology(constrained_rheology['diff'], strain_rate, self.pressures, self.temperatures)
+                eta_disl = CreepRheology(constrained_rheology['disl'], strain_rate, self.pressures, self.temperatures, use_effective_strain_rate=True)
+                eta = ComputeComposite(eta_diff, eta_disl)
+                # plots
+                fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+                color = 'tab:blue'
+                axs[0].plot(self.pressures/1e9, self.depths/1e3, color=color, label='pressure')
+                axs[0].set_ylabel('Depth [km]') 
+                axs[0].set_xlabel('Pressure [GPa]', color=color) 
+                # axs[0].invert_yaxis()
+                if include_lower_mantle is None:
+                    ylim=[660.0, 0.0]
+                else:
+                    ylim=[2890, 0.0]
+                axs[0].set_ylim(ylim)
+                # ax2: temperature
+                color = 'tab:red'
+                ax2 = axs[0].twiny()
+                ax2.set_ylim(ylim)
+                ax2.plot(self.temperatures, self.depths/1e3, color=color, label='temperature')
+                ax2.set_xlabel('Temperature [K]', color=color) 
+                # second: viscosity
+                #   upper mantle
+                axs[1].semilogx(eta_diff[mask_um], self.depths[mask_um]/1e3, 'c', label='diffusion creep')
+                axs[1].semilogx(eta_disl[mask_um], self.depths[mask_um]/1e3, 'g', label='dislocation creep(%.2e)' % strain_rate)
+                axs[1].semilogx(eta[mask_um], self.depths[mask_um]/1e3, 'r--', label='Composite')
+                axs[1].set_xlim([1e18,1e25])
+                axs[1].set_ylim(ylim)
+                # axs[1].invert_yaxis()
+                axs[1].grid()
+                axs[1].set_ylabel('Depth [km]')
+                axs[1].legend()
+                if include_lower_mantle:
+                    # include lower mantle info as title:
+                    diff_lm = constrained_rheology['diff_lm']
+                    eta_diff_lm = CreepRheology(constrained_rheology['diff_lm'], strain_rate, self.pressures, self.temperatures)
+                    axs[1].semilogx(eta_diff_lm[mask_lm], self.depths[mask_lm]/1e3, 'c')
+                    title_str = "lm_jump%.2d_Vlm%.4e_avg%.4e" % (include_lower_mantle, diff_lm['V'], constrained_rheology['average_upper_region'])
+                    axs[1].set_title(title_str)
+                # save figure
+                fig_path = os.path.join(fig_dir, "constrained_profile_Ediff%.4e_Edisl%.4e_Vdiff%.4e_Vdisl%.4e_d%.4e.png" % (Ediff, Edisl, Vdiff, Vdisl, d))
+                fig.savefig(fig_path)
+                print("[%d / %d], New figure: %s" % (i, len(constrained_rheologies), fig_path))
+                plt.close()
+            i = i + 1
+
+def FastZeroStep(Inputs, output_first_step = False):
+    '''
+    Generate a prm file to run only the 0th step, and real fast
+    Inputs:
+        output_first_step: if true, then output the 1st step as well.
+    '''
+    Inputs['Nonlinear solver scheme'] = 'no Advection, no Stokes'
+    if output_first_step:
+        time_between_graphical_output = None
+        try:
+            time_between_graphical_output = Inputs['Postprocess']['Visualization']['Time between graphical output']
+        except KeyError:
+            raise KeyError("input file has to have \'Time between graphical output\' if the option of output_first_step is True")
+        Inputs['End time'] = time_between_graphical_output
+    else:
+        Inputs['End time'] = '0' # end time is 0
+        # don't solve it
+
+def TestInitalSteps(Inputs, n_outputs, output_interval):
+    '''
+    options for generating a case to test the initial steps
+    '''
+    Inputs['End time'] = str(output_interval * n_outputs)
+    # output timing information at every step
+    Inputs["Timing output frequency"] = "0"
+    # fix post-process section
+    pp_dict = Inputs["Postprocess"]
+    if "Depth average" in pp_dict:
+        # output Depth average at every step
+        pp_dict["Depth average"]["Time between graphical output"] = "0"
+    if "Visualization" in pp_dict:
+        pp_dict["Visualization"]["Time between graphical output"] = str(output_interval)
+    if "Particles" in pp_dict:
+        pp_dict["Particles"]["Time between data output"] = str(output_interval)
+    # fix checkpointing - chekcpoitn eveyr step
+    Inputs["Checkpointing"] = {
+        "Steps between checkpoint": "1"
+    }
+
+def ParseFromSlurmBatchFile(fin):
+    '''
+    read options from a slurm batch file.
+    Note I allow multiple " " in front of each line, this may or may not be a good option.
+    '''
+    inputs = {}
+    inputs["header"] = []
+    inputs["config"] = {}
+    inputs["load"] = []
+    inputs["unload"] = []
+    inputs["command"] = []
+    inputs["others"] = []
+    line = fin.readline()
+    while line != "":
+        if re.match('^(\t| )*#!', line):
+            line1 = re.sub('(\t| )*\n$', '', line)  # eliminate the \n at the end
+            inputs["header"].append(line1)
+        elif re.match('^(\t| )*#(\t| )*SBATCH', line):
+            line1 = re.sub('^(\t| )*#(\t| )*SBATCH ', '', line, count=1)
+            key, value = ReadDashOptions(line1)
+            inputs["config"][key] = value
+        elif re.match('(\t| )*module(\t| )*load', line):
+            line1 = re.sub('(\t| )*module(\t| )*load(\t| )*', '', line, count=1)
+            value = re.sub('(\t| )*\n$', '', line1) 
+            inputs["load"].append(value)
+        elif re.match('(\t| )*module(\t| )*unload', line):
+            line1 = re.sub('(\t| )*module(\t| )*unload(\t| )*', '', line, count=1)
+            value = re.sub('(\t| )*\n$', '', line1) 
+            inputs["unload"].append(value)
+        elif re.match('(\t| )*srun', line):
+            temp = re.sub('(\t| )*srun(\t| )*', '', line, count=1)
+            inputs["command"].append("srun")
+            line1 = re.sub('(\t| )*\n$', '',temp)  # eliminate the \n at the end
+            for temp in line1.split(' '):
+                if not re.match("^(\t| )*$", temp):
+                    # not ' '
+                    temp1 = re.sub('^(\t| )*', '', temp) # eliminate ' '
+                    value = re.sub('^(\t| )$', '', temp1)
+                    inputs["command"].append(value)
+        elif re.match('(\t| )*ibrun', line):
+            temp = re.sub('(\t| )*ibrun(\t| )*', '', line, count=1)
+            inputs["command"].append("ibrun")
+            line1 = re.sub('(\t| )*\n$', '',temp)  # eliminate the \n at the end
+            for temp in line1.split(' '):
+                if not re.match("^(\t| )*$", temp):
+                    # not ' '
+                    temp1 = re.sub('^(\t| )*', '', temp) # eliminate ' '
+                    value = re.sub('^(\t| )$', '', temp1)
+                    inputs["command"].append(value)
+        else:
+            inputs["others"].append(re.sub('(\t| )*\n$', '', line))
+            pass
+        line = fin.readline()
+    return inputs
+
+def ParseToSlurmBatchFile(fout, outputs, **kwargs):
+    '''
+    export options to a slurm batch file.
+    '''
+    contents = ""
+    # write header
+    for header in outputs["header"]:
+        contents += (header + "\n")
+    # write config
+    for key, value in outputs["config"].items():
+        if re.match('^--', key):
+            contents += ("#SBATCH" + " " + key + "=" + value + "\n")
+        elif re.match('^-', key):
+            contents += ("#SBATCH" + " " + key + " " + value + "\n")
+        else:
+            raise ValueError("The format of key (%s) is incorrect" % key)
+    # load and unload 
+    for module in outputs["unload"]:
+        contents += ("module unload %s\n" % module)
+    for module in outputs["load"]:
+        contents += ("module load %s\n" % module)
+    # others
+    for line in outputs['others']:
+        contents += (line + '\n')
+    # command
+    is_first = True
+    for component in outputs["command"]:
+        if is_first:
+            is_first = False
+        else:
+            contents += " "
+        contents += component
+        if component == "mpirun":
+            # append the cpu options after mpirun
+            contents += " "
+            contents += ("-n " + outputs['config']['-n'])
+    # extra contents
+    if 'extra' in outputs:
+        if outputs['extra'] is not None:
+            contents += outputs['extra']
+            contents += '\n'
+    fout.write(contents)
+    pass
+
+class SLURM_OPERATOR():
+    '''
+    Class for modifying slurm operation files
+    Attributes:
+        i_dict (dict): input options
+        o_dict (dict): output options
+    '''
+    def __init__(self, slurm_base_file_path):
+        my_assert(FileExistsError, os.path.isfile(slurm_base_file_path), "%s doesn't exist" % slurm_base_file_path)
+        with open(slurm_base_file_path, 'r') as fin:
+            self.i_dict = ParseFromSlurmBatchFile(fin)
+        self.check() # call the check function to check the contents of the file
+        self.o_dict = {}
+    
+    def check(self):
+        '''
+        check the options in inputs
+        '''
+        assert('-N' in self.i_dict['config'])
+        assert('-n' in self.i_dict['config'])
+        assert('--threads-per-core' in self.i_dict['config'])
+        assert('--tasks-per-node' in self.i_dict['config'])
+        assert('--partition' in self.i_dict['config'])
+
+    def SetAffinity(self, nnode, nthread, nthreads_per_cpu, **kwargs):
+        '''
+        set options for affinities
+        '''
+        partition = kwargs.get('partition', None)
+        use_mpirun = kwargs.get('use_mpirun', False)
+        bind_to = kwargs.get('bind_to', None)
+        self.o_dict = deepcopy(self.i_dict)
+        self.o_dict['config']['-N'] = str(int(nnode))
+        self.o_dict['config']['-n'] = str(nthread)
+        self.o_dict['config']['--threads-per-core'] = str(nthreads_per_cpu)
+        self.o_dict['config']['--tasks-per-node'] = str(int(nthread//nnode))
+        if partition is not None:
+             self.o_dict['config']['--partition'] = partition 
+        if use_mpirun:
+            self.o_dict['command'][0] = 'mpirun'
+        if bind_to != None:
+            assert(bind_to in ["socket", 'core'])
+            if self.o_dict['command'][0] == "mpirun":
+                self.o_dict['command'].insert(1, "--bind-to " + bind_to)
+            if self.o_dict['command'][0] == "srun":
+                self.o_dict['command'].insert(1, "--cpu-bind=" + bind_to + "s")
+
+    def SetName(self, _name):
+        '''
+        set the name of the job
+        '''
+        self.o_dict['config']['--job-name'] = _name
+
+    def SetModule(self, module_list, module_u_list=[]):
+        '''
+        set the list of module to load
+        '''
+        assert(type(module_list) == list)
+        self.o_dict['load'] = module_list
+        self.o_dict['unload'] = module_u_list
+
+    def SetCommand(self, build_directory, prm_file):
+        '''
+        Set the command to use
+        '''
+        if build_directory != "":
+            self.o_dict['command'][-2] = "${ASPECT_SOURCE_DIR}/build_%s/aspect" % build_directory
+        else:
+            self.o_dict['command'][-2] = "${ASPECT_SOURCE_DIR}/build/aspect"
+        self.o_dict['command'][-1] = prm_file
+
+    def ResetCommand(self, **kwargs):
+        '''
+        reset the command
+        '''
+        command_only = kwargs.get("command_only", False)
+        self.o_dict['command'] = []
+        if not command_only:
+            self.o_dict['others'] = []
+
+    def SetTimeByHour(self, hr):
+        '''
+        set the time limit
+        '''
+        self.o_dict['config']['-t'] = "%d:00:00" % hr
+    
+    def SetExtra(self, contents):
+        '''
+        set extra commands
+        '''
+        self.o_dict['extra'] = contents
+    
+    def GetOthers(self):
+        '''
+        get other commands
+        '''
+        contents = self.o_dict['others']
+        return contents
+
+    def __call__(self, slurm_file_path):
+        with open(slurm_file_path, 'w') as fout:
+            ParseToSlurmBatchFile(fout, self.o_dict)
+        print("Slurm file created: ", slurm_file_path)
+
+    pass
+
+class CASE():
+    '''
+    class for a case
+    Attributes:
+        name(str):
+            list for name of variables to change
+        idict(dict):
+            dictionary of parameters
+        wb_dict(idit):
+            dictionary of world builder options
+        extra_files(array):
+            an array of extra files of this case
+        model_stages(int):]
+            stages in a model: if > 0, then create multiple prm files
+    '''
+    # future: add interface for extra
+    def __init__(self, case_name, inputs, if_wb, **kwargs):
+        '''
+        initiate from a dictionary
+        Inputs:
+            idict(dict):
+                dictionary import from a base file
+            if_wb(True or False):
+                if use world builder
+            kwargs:
+                wb_inputs(dict or str):
+                    inputs from a world builder file
+        '''
+        self.case_name = case_name
+        self.extra_files = []
+        self.wb_dict = {}
+        self.model_stages = 1
+        self.additional_idicts = []
+        self.output_files = [] # for saving the path of files and images output from this class
+        self.output_imgs = []
+        self.particle_data = None
+        if type(inputs)==dict:
+            # direct read if dict is given
+            print("    Read inputs from a dictionary")
+            self.idict = deepcopy(inputs)
+        elif type(inputs)==str:
+            # read from file if file path is given. This has the virtual that the new dict is indepent of the previous one.
+            print("    Read inputs from %s" % var_subs(inputs)) 
+            with open(var_subs(inputs), 'r') as fin:
+                self.idict = parse_parameters_to_dict(fin)
+            pass
+        else:
+            raise TypeError("Inputs must be a dictionary or a string")
+        # read world builder
+        if if_wb:
+            wb_inputs = kwargs.get('wb_inputs', {})
+            if type(wb_inputs) == dict:
+                # direct read if dict is given
+                print("    Read world builder options from a dictionary")
+                self.wb_dict = deepcopy(wb_inputs)
+            elif type(wb_inputs)==str:
+                # read from file if file path is given. This has the virtual that the new dict is indepent of the previous one.
+                print("    Read world builder options from %s" % var_subs(wb_inputs))
+                with open(var_subs(wb_inputs), 'r') as fin:
+                    self.wb_dict = json.load(fin)
+                pass
+            else:
+                raise TypeError("CASE:%s: wb_inputs must be a dictionary or a string" % func_name())
+        # operator of rheology
+        self.Rheology_Opr = RHEOLOGY_OPR()
+        # profile read from the depth_average files
+        da_inputs = kwargs.get('da_inputs', "")
+        if da_inputs != "":
+            depths, pressures, temperatures, adiabatic_temperatures =\
+              ReadAspectProfile(da_inputs, include_adiabatic_temperature=True) 
+            self.da_T_func = interp1d(depths, temperatures, assume_sorted=True)
+            self.da_P_func = interp1d(depths, pressures, assume_sorted=True)
+            self.da_Tad_func = interp1d(depths, adiabatic_temperatures, assume_sorted=True)
+
+    
+    def create(self, _root, **kwargs):
+        '''
+        create a new case
+        Inputs:
+            _root(str): a directory to put the new case
+            **kwargs:
+                "fast_first_step": generate another file for fast running the 0th step
+                "slurm_opts": options for slurm files
+        Return:
+            case_dir(str): path to created case.
+        '''
+        is_reload = kwargs.get("is_reload", False)
+        # folder
+        is_tmp = kwargs.get("is_tmp", False)
+        if is_tmp:
+            case_dir = os.path.join(_root, "%s_tmp" % self.case_name)
+        else:
+            case_dir = os.path.join(_root, self.case_name)
+        if os.path.isdir(case_dir):
+           # remove old ones 
+           rmtree(case_dir)
+        os.mkdir(case_dir)
+        output_files_dir = os.path.join(case_dir, 'configurations')
+        os.mkdir(output_files_dir)
+        img_dir = os.path.join(case_dir, 'img')
+        os.mkdir(img_dir)
+        output_img_dir = os.path.join(img_dir, 'initial_condition')
+        os.mkdir(output_img_dir)
+        # file output
+        prm_out_path = os.path.join(case_dir, "case.prm")  # prm for running the case
+        wb_out_path = os.path.join(case_dir, "case.wb")  # world builder file
+        with open(prm_out_path, "w") as fout:
+            save_parameters_from_dict(fout, self.idict)
+        if self.model_stages > 1:
+            assert(len(self.additional_idicts) == self.model_stages-1)
+            for i in range(self.model_stages-1):
+                prm_out_path = os.path.join(case_dir, "case_%d.prm" % (i+1))  # prm for running the case
+                with open(prm_out_path, "w") as fout:
+                    save_parameters_from_dict(fout, self.idict)
+        # fast first step
+        fast_first_step = kwargs.get('fast_first_step', 0) 
+        if fast_first_step == 0:
+            pass
+        elif fast_first_step == 1:
+            outputs = deepcopy(self.idict)
+            prm_fast_out_path = os.path.join(case_dir, "case_f.prm")
+            # todo_case
+            FastZeroStep(outputs)  # generate another file for fast running the 0th step
+            with open(prm_fast_out_path, "w") as fout:
+                save_parameters_from_dict(fout, outputs)
+            
+        elif fast_first_step == 2:
+            outputs = deepcopy(self.idict)
+            prm_fast_out_path = os.path.join(case_dir, "case_f.prm")
+            FastZeroStep(outputs, True)  # generate another file for fast running the 0th step
+            with open(prm_fast_out_path, "w") as fout:
+                save_parameters_from_dict(fout, outputs)
+        else:
+            raise ValueError("The option for fast_first_step must by 0, 1, 2")
+
+        # test initial steps
+        test_initial_steps = kwargs.get('test_initial_steps', (-1, 0.0))
+        my_assert(len(test_initial_steps)==2, ValueError, "test_initial_steps needs to have two components")
+        test_initial_n_outputs = test_initial_steps[0]
+        test_initial_outputs_interval = test_initial_steps[1]
+        if test_initial_n_outputs > 0:
+            outputs = deepcopy(self.idict)
+            prm_fast_out_path = os.path.join(case_dir, "case_ini.prm")
+            TestInitalSteps(outputs, test_initial_n_outputs, test_initial_outputs_interval)  # generate another file for fast running the 0th step
+            with open(prm_fast_out_path, "w") as fout:
+                save_parameters_from_dict(fout, outputs)
+        # append extra files
+        for path in self.extra_files:
+            base_name = os.path.basename(path)
+            path_out = os.path.join(case_dir, base_name)
+            copy2(path, path_out)
+        # world builder
+        if self.wb_dict != {}:
+            with open(wb_out_path, 'w') as fout:
+                json.dump(self.wb_dict, fout, indent=2)
+        # assign a particle.dat file that contains the coordinates of particles
+        if self.particle_data is not None:
+            particle_o_dir = os.path.join(case_dir, 'particle_file')
+            if not os.path.isdir(particle_o_dir):
+                os.mkdir(particle_o_dir)
+            particle_file_path = os.path.join(particle_o_dir, 'particle.dat')
+            with open(particle_file_path, 'w') as fout:
+                output_particle_ascii(fout, self.particle_data)
+        print("New case created: %s" % case_dir)
+        # generate slurm files if options are included
+        if is_reload:
+            pass
+        else: 
+            slurm_opts = kwargs.get("slurm_opts", [])
+            if len(slurm_opts) > 0:
+                for slurm_opt in slurm_opts:
+                    # SlurmOperator = ParsePrm.SLURM_OPERATOR(self.slurm_base_path)
+                    SlurmOperator = SLURM_OPERATOR(slurm_opt.get_base_path())
+                    # SlurmOperator.SetAffinity(np.ceil(core_count/self.tasks_per_node), core_count, 1)
+                    SlurmOperator.SetAffinity(*slurm_opt.to_set_affinity())
+                    SlurmOperator.SetCommand(*slurm_opt.to_set_command())
+                    SlurmOperator.SetName(slurm_opt.get_job_name())
+                    appendix = ""
+                    if is_tmp:
+                        # append a marker if this is a tmp case
+                        appendix = "_tmp"
+                    SlurmOperator(os.path.join(os.path.dirname(slurm_opt.get_output_path()) + appendix, os.path.basename(slurm_opt.get_output_path())))
+                    pass
+        # copy paste files and figures generated
+        for path in self.output_files:
+            base_name = os.path.basename(path)
+            path_out = os.path.join(output_files_dir, base_name)
+            copy2(path, path_out)
+        for path in self.output_imgs:
+            base_name = os.path.basename(path)
+            path_out = os.path.join(output_img_dir, base_name)
+            copy2(path, path_out)
+        return case_dir
+
+    def configure(self, func, config, **kwargs):
+        '''
+        applies configuration for this case
+        Inputs:
+            func(a function), the form of it is:
+                outputs = func(inputs, config)
+        '''
+        rename = kwargs.get('rename', None)
+        if rename != None:
+            # rename the case with the configuration
+            self.idict, appendix = func(self.idict, config)
+            self.case_name += appendix
+        else:
+            # just apply the configuration
+            self.idict = func(self.idict, config)
+
+    def configure_prm(self, refinement_level):
+        '''
+        configure the prm file
+        '''
+        o_dict = self.idict.copy()
+        o_dict["Mesh refinement"]["Initial global refinement"] = str(refinement_level)
+        self.idict = o_dict
+        pass
+
+    def configure_case_output_dir(self, case_o_dir):
+        '''
+        configure the output directory of the case
+        '''
+        o_dict = self.idict.copy()
+        # directory to put outputs
+        o_dict["Output directory"] = case_o_dir
+        self.idict = o_dict
+    
+    def configure_wb(self):
+        '''
+        Configure world builder file
+        '''
+        pass
+    
+    def configure_final(self, _, __):
+        '''
+        finalize configuration
+        '''
+        pass
+
+    def add_extra_file(self, path):
+        '''
+        add an extra file to list
+        Inputs:
+            path(str): an extra file
+        '''
+        self.extra_files.append(path)
+
+    def set_end_step(self, end_step): 
+        '''
+        set the step to end the computation
+        '''
+        self.idict = SetEndStep(self.idict, end_step)
+
+
+def create_case_with_json(json_opt, CASE, CASE_OPT, **kwargs):
+    '''
+    A wrapper for the CASES class
+    Inputs:
+        json_opt(str, dict): path or dict a json file
+        kwargs (dict):
+            update (bool): update existing cases?
+    Returns:
+        case_dir: return case directory
+    '''
+    print("%s: Creating case" % func_name())
+    is_update = kwargs.get('update', True)  # this controls whether we update
+    is_force_update = kwargs.get('force_update', False)  # when this is false, inputs is required to continue.
+    update_flag = False # this marks whether there is impending update.
+    fix_case_name = kwargs.get('fix_case_name', None)
+    fix_base_dir = kwargs.get('fix_base_dir', None)
+    fix_output_dir = kwargs.get('fix_output_dir', None)
+    reset_refinement_level = kwargs.get('reset_refinement_level', None)
+    fix_case_output_dir = kwargs.get('fix_case_output_dir', None)
+    reset_stokes_solver_type = kwargs.get("reset_stokes_solver_type", None)
+    end_step = kwargs.get("end_step", -1)
+    is_reload = kwargs.get("is_reload", False)
+    Case_Opt = CASE_OPT()
+    # read in json options
+    if type(json_opt) == str:
+        if not os.access(json_opt, os.R_OK):
+            raise FileNotFoundError("%s doesn't exist" % json_opt)
+        Case_Opt.read_json(json_opt)
+    elif type(json_opt) == dict:
+        Case_Opt.import_options(json_opt)
+    else:
+        raise TypeError("Type of json_opt must by str or dict")
+    # reset case properties
+    if fix_case_name != None:
+        Case_Opt.fix_case_name(fix_case_name)  # fix base dir, useful when creating a group of case from a folder
+    if fix_base_dir != None:
+        Case_Opt.fix_base_dir(fix_base_dir)  # fix base dir, useful when creating a group of case from a folder
+    if fix_output_dir != None:
+        Case_Opt.fix_output_dir(fix_output_dir)  # fix output dir, useful when doing tests
+    if reset_refinement_level != None:
+        Case_Opt.reset_refinement(reset_refinement_level)
+    if fix_case_output_dir != None:
+        Case_Opt.fix_case_output_dir(fix_case_output_dir)
+    if reset_stokes_solver_type != None:
+        Case_Opt.reset_stokes_solver_type(reset_stokes_solver_type)
+    # check if the options make sense
+    Case_Opt.check()
+    # check if the case already exists. If so, only update if it is explicitly 
+    # required
+    case_dir_to_check = os.path.join(Case_Opt.o_dir(), Case_Opt.case_name())
+    if os.path.isdir(case_dir_to_check):
+        if is_update:
+            update_flag = True
+        else:
+            print("Case %s already exists, aborting" % case_dir_to_check)
+            return case_dir_to_check
+    # Manage case files
+    Case = CASE(*Case_Opt.to_init(), wb_inputs=Case_Opt.wb_inputs_path(), da_inputs=Case_Opt.da_inputs_path())
+    if end_step > 0:
+        # set end step
+        Case.set_end_step(end_step)
+    Case.configure_prm(*Case_Opt.to_configure_prm())
+    if Case_Opt.if_use_world_builder():
+        Case.configure_wb(*Case_Opt.to_configure_wb())
+    # add extra files
+    for _path in Case_Opt.get_additional_files():
+        Case.add_extra_file(_path)
+    # finalizing
+    Case.configure_final(*(Case_Opt.to_configure_final()))
+    # create new case
+    if not is_reload:
+        if update_flag:
+            # update a previous case:
+            # a. put new case into a dir - "case_tmp"
+            # b. figure whether to update: if prm or wb files are different from the original case
+            case_dir = os.path.join(Case_Opt.o_dir(), Case_Opt.case_name())
+            case_dir_tmp = os.path.join(Case_Opt.o_dir(), "%s_tmp" % Case_Opt.case_name())
+            if os.path.isdir(case_dir_tmp):
+                rmtree(case_dir_tmp)
+            Case.create(Case_Opt.o_dir(), fast_first_step=Case_Opt.if_fast_first_step(),\
+                test_initial_steps=Case_Opt.test_initial_steps(), is_tmp=True,\
+                    slurm_opts=Case_Opt.get_slurm_opts(), is_reload=is_reload)
+            assert(os.path.isdir(case_dir_tmp))
+            do_update = False # a flag to perform update, only true if the parameters are different
+            # generate catalog: loop over files in the new folder and output the differences from
+            contents = ""
+            for _name in os.listdir(case_dir_tmp):
+                file_newer = os.path.join(case_dir_tmp, _name)
+                if not os.path.isfile(file_newer):
+                    continue
+                file_older = os.path.join(case_dir, _name)
+                older_text = "" # if no older files are present, the text is vacant.
+                if os.path.isfile(file_older):
+                    with open(file_older, 'r') as fin0:
+                        try:
+                            older_text = fin0.readlines()
+                        except UnicodeDecodeError:
+                            continue
+                with open(file_newer, 'r') as fin1:
+                    try:
+                        newer_text = fin1.readlines()
+                    except Exception:
+                        continue
+                diff_results = unified_diff(older_text, newer_text, fromfile=file_older, tofile=file_newer, lineterm='')
+                for line in diff_results:
+                    contents += line
+                    if line[-1] == "\n":
+                        pass
+                    else:
+                        contents += "\n"
+            cat_file = os.path.join(case_dir_tmp, 'change_log')
+            with open(cat_file, 'w') as fout:
+                fout.write(contents)
+            do_update = (contents != "")  # if there are differences, do update
+            # execute the changes
+            if do_update:
+                print("Case %s already exists and there are changes, updating" % case_dir_to_check)
+                if is_force_update:
+                    print("Force update")
+                    pass
+                else:
+                    print("Please check the change log first before continue: %s" % cat_file)
+                    entry = input("Proceed? (y/n)")
+                    if entry != "y":
+                        print("Not updating, removing tmp files")
+                        rmtree(case_dir_tmp)
+                        exit(0)
+                # document older files: 
+                # 0. change_log file
+                # a. files in the directory.
+                # b. the img/initial_condition folder.
+                # c. the configurations folder
+                index = 0
+                while os.path.isdir(os.path.join(case_dir, "update_%02d" % index)):
+                    # figure out how many previous updates have been there.
+                    index += 1
+                older_dir = os.path.join(case_dir, "update_%02d" % index)
+                if os.path.isdir(older_dir):
+                    rmtree(older_dir)
+                os.mkdir(older_dir)
+                cat_file = os.path.join(older_dir, 'change_log')
+                with open(cat_file, 'w') as fout:
+                    fout.write(contents)
+                for subdir, _, files in os.walk(case_dir):
+                    for filename in files:
+                        file_ori = os.path.join(subdir, filename)
+                        if os.path.dirname(file_ori) == case_dir:
+                            # only choose the files on the toppest level
+                            copy2(file_ori, older_dir)
+                ini_img_dir = os.path.join(case_dir, "img", "initial_condition")
+                if os.path.isdir(ini_img_dir):
+                    copytree(ini_img_dir, os.path.join(older_dir, os.path.basename(ini_img_dir)))
+                    rmtree(ini_img_dir) # remove images
+                configure_dir = os.path.join(case_dir, "configurations")
+                if os.path.isdir(configure_dir):
+                    # c. remove old configuration files
+                    rmtree(configure_dir)
+                # copy new file
+                # a. files directly in the folder
+                # b. the img/initial_condition folder
+                # c. the configuration folder
+                for subdir, _, files in os.walk(case_dir_tmp):
+                    for filename in files:
+                        if filename == "change_log":
+                            # skip the log file
+                            continue
+                        file_tmp = os.path.join(subdir, filename)
+                        file_to = os.path.join(case_dir, filename)
+                        if os.path.dirname(file_tmp) == case_dir_tmp:
+                            if os.path.isfile(file_to):
+                                os.remove(file_to)
+                            copy2(file_tmp, file_to)
+                ini_img_tmp_dir = os.path.join(case_dir_tmp, "img", "initial_condition")
+                if os.path.isdir(ini_img_tmp_dir):
+                    copytree(ini_img_tmp_dir, ini_img_dir)
+                configure_dir_tmp = os.path.join(case_dir_tmp, "configurations")
+                if os.path.isdir(configure_dir_tmp):
+                    copytree(configure_dir_tmp, configure_dir)
+            else:
+                print("Case %s already exists but there is no change, aborting" % case_dir_to_check)
+            rmtree(case_dir_tmp)
+        else:
+            case_dir = Case.create(Case_Opt.o_dir(), fast_first_step=Case_Opt.if_fast_first_step(),\
+                test_initial_steps=Case_Opt.test_initial_steps(), slurm_opts=Case_Opt.get_slurm_opts())
+        return case_dir
+    else:
+        return Case
+
+def SetBcVelocity(bc_dict, dimension, type_bc_v):
+    '''
+    set the boundary condition for velocity
+    Inputs:
+        bc_dict: an input with entries for Boundary velocity model in a prm file
+        type_bc_v: type of velocity bc
+    '''
+    fs_indicator=[]
+    ns_indicator = []
+    if dimension == 2 and type_bc_v == 'all fs':
+        fs_indicator = [0, 1, 2, 3]
+    elif dimension == 3 and type_bc_v == 'all fs':
+        fs_indicator = [0, 1, 2, 3, 4, 5]
+    elif dimension == 2 and type_bc_v == 'bt fs side ns':
+        fs_indicator = [1, 3]
+        ns_indicator = [0, 2]
+    elif dimension == 3 and type_bc_v == 'bt fs side ns':
+        fs_indicator = [4, 5]
+        ns_indicator = [0, 1, 2, 3]
+    else:
+        raise NotImplementedError("This combination of dimension (%d) and \
+velocity boundary (%s) is not implemented yet." % (dimension, type_bc_v))
+    if len(fs_indicator) > 0:
+        bc_dict["Tangential velocity boundary indicators"] = str(fs_indicator).strip(']').lstrip('[')  # free slip
+    else:
+        if "Tangential velocity boundary indicators" in bc_dict:
+            _ = bc_dict.pop("Tangential velocity boundary indicators")
+    if len(ns_indicator) > 0:
+        bc_dict["Zero velocity boundary indicators"] = str(ns_indicator).strip(']').lstrip('[')  # no slip
+    else:
+        if "Zero velocity boundary indicators" in bc_dict:
+            _ = bc_dict.pop("Zero velocity boundary indicators")
+    return bc_dict
+    pass
+
+
+def SetNewtonSolver(o_dict):
+    '''
+    Settings for the newton solver, starting from a combination that works
+    '''
+    o_dict["Nonlinear solver scheme"] = "single Advection, iterated Newton Stokes"
+    o_dict["Max nonlinear iterations"] = "100"
+    o_dict["Max nonlinear iterations in pre-refinement"] = "0"
+    o_dict["Nonlinear solver tolerance"] = "1e-6"
+    o_dict["Solver parameters"] = {}
+    o_dict["Solver parameters"]["Newton solver parameters"] = {
+        "Max pre-Newton nonlinear iterations" :"20",\
+        "Nonlinear Newton solver switch tolerance": "1e-3",\
+        "Max Newton line search iterations": "0",\
+        "Maximum linear Stokes solver tolerance": "0.9",\
+        "Use Newton residual scaling method": "true",\
+        "Use Newton failsafe": "true",\
+        "Stabilization preconditioner": "SPD",\
+        "Stabilization velocity block": "SPD",\
+        "Use Eisenstat Walker method for Picard iterations": "true"
+    }
+    o_dict["Solver parameters"]["Stokes solver parameters"] = {
+        "Maximum number of expensive Stokes solver steps": "5000",\
+        "Number of cheap Stokes solver steps": "500",\
+        "Linear solver tolerance": "1e-1",\
+        "GMRES solver restart length": "100"
+    }
+    return o_dict
+
+
+def SetEndStep(o_dict, end_step):
+    '''
+    set termination criteria by "End step"
+    '''
+    if "Termination criteria" in o_dict:
+        if "End time" in o_dict["Termination criteria"]:
+            # pop option for "End time"
+            _ = o_dict["Termination criteria"].pop("End time")
+        o_dict["Termination criteria"]["End step"] = str(end_step)
+        o_dict["Termination criteria"]["Termination criteria"] = "end step"
+    else:
+        o_dict["Termination criteria"] = {"End step": str(end_step), "Termination criteria": "end step"}
+    return o_dict
+
+
+def output_particle_ascii(fout, particle_data):
+    '''
+    Output to a ascii file that contains Particle coordinates, containing the coordinates of each particle
+    '''
+    # header information
+    _header = '# Ascii file for particle coordinates\n'
+    # output particle file
+    fout.write(_header)
+    is_first = True
+    for i in range(particle_data.shape[0]):
+        if is_first:
+            is_first = False
+        else:
+            fout.write('\n')
+        _string = ''
+        for j in range(particle_data.shape[1]):
+            if j == particle_data.shape[1] - 1:
+                _string += '%.4e' % particle_data[i, j]
+            else:
+                _string += '%.4e ' % particle_data[i, j]
+        fout.write(_string)
+    pass

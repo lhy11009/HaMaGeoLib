@@ -306,3 +306,71 @@ def test_slab_temperature_crust_thickness():
     _, _, _ = SlabTemperature(case_path, vtu_snapshot, o_file, output_slab=True, fix_shallow=True, compute_crust_thickness=True)
     assert(os.path.isfile(o_file))  # assert the outputs of temperature profiles
     assert(filecmp.cmp(o_file, o_file_std))  # compare file contents
+
+########################################
+# Tests for case options
+########################################
+def test_create_case():
+    '''
+    Use the interface defined in Cases.py. Take a inputs file, do a little multilation and create a new case
+    Asserts:
+        cases in created(files, contents, etc)
+        assert prm file is generated
+        assert prm file for fast running 0th step is generated
+    '''
+    def ConfigureFoo(Inputs, _config):
+        """
+        an example of configuation
+        """
+        return Inputs
+    
+
+    def ConfigureFoo1(Inputs, _config):
+        """
+        another example of configuation, second option for renaming
+        """
+        return Inputs, "_foo"
+    
+    source_dir = os.path.join(fixture_root, "test_create_case")
+    prm_path = os.path.join(source_dir, 'case.prm')
+    extra_path = os.path.join(source_dir, 'particle.dat')
+    test_case = CASE('test_create_case', prm_path, False)
+    case_output_dir = os.path.join(test_dir, 'test_create_case')
+    if os.path.isdir(case_output_dir):
+        rmtree(case_output_dir)
+    test_case.configure(ConfigureFoo, 1)  # do nothing, test interface
+    test_case.add_extra_file(extra_path)  # add an extra file
+    # todo_intial
+    test_case.create(test_dir, fast_first_step=1, test_initial_steps=(3, 1e4))
+    # assert prm file is generated
+    prm_output_path = os.path.join(case_output_dir, 'case.prm')
+    prm_std_path = os.path.join(source_dir, 'case_std.prm')
+    assert(os.path.isfile(prm_output_path))  # assert generated
+    assert(filecmp.cmp(prm_output_path, prm_std_path))  # assert contents
+    # assert prm file for fast running 0th step is generated
+    prm_output_path = os.path.join(case_output_dir, 'case_f.prm')
+    prm_std_path = os.path.join(source_dir, 'case_f_std.prm')
+    assert(os.path.isfile(prm_output_path))  # assert generated
+    assert(filecmp.cmp(prm_output_path, prm_std_path))  # assert contents
+    # assert prm file for testing hte initial steps are generated
+    prm_output_path = os.path.join(case_output_dir, 'case_ini.prm')
+    prm_std_path = os.path.join(source_dir, 'case_ini_std.prm')
+    assert(os.path.isfile(prm_output_path))  # assert generated
+    assert(filecmp.cmp(prm_output_path, prm_std_path))  # assert contents
+    # assert extra file is generated
+    extra_output_path = os.path.join(case_output_dir, 'particle.dat')
+    assert(os.path.isfile(extra_output_path))  # assert generated
+
+    # test 2: renaming
+    test_case.configure(ConfigureFoo1, 1, rename=True)  # do nothing, test interface
+    test_case.create(test_dir)
+    # renaming: add string '_foo'
+    case_output_dir = os.path.join(test_dir, 'test_create_case_foo')
+    # assert prm file is generated
+    prm_output_path = os.path.join(case_output_dir, 'case.prm')
+    prm_std_path = os.path.join(source_dir, 'case_std.prm')
+    assert(os.path.isfile(prm_output_path))  # assert generated
+    assert(filecmp.cmp(prm_output_path, prm_std_path))  # assert contents
+    # assert extra file is generated
+    extra_output_path = os.path.join(case_output_dir, 'particle.dat')
+    assert(os.path.isfile(extra_output_path))  # assert generated
