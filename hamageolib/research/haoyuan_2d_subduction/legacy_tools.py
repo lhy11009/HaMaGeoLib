@@ -63,7 +63,7 @@ from shutil import rmtree, copy2, copytree
 from difflib import unified_diff
 from copy import deepcopy
 from .legacy_utilities import JsonOptions, ReadHeader, CODESUB, cart2sph, SphBound, clamp, ggr2cart, point2dist, UNITCONVERT, ReadHeader2,\
-ggr2cart, var_subs, JSON_OPT, string2list, re_neat_word, ReadDashOptions
+ggr2cart, var_subs, JSON_OPT, string2list, re_neat_word, ReadDashOptions, insert_dict_after
 from ...utils.exception_handler import my_assert
 from ...utils.handy_shortcuts_haoyuan import func_name
 from ...utils.dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
@@ -79,8 +79,48 @@ if not os.path.isdir(RESULT_DIR):
 
 # constants in the file    
 R = 8.314
+year = 365 * 24 * 3600.0  # yr to s
 
-# todo_cv
+class WBFeatureNotFoundError(Exception):
+    pass
+
+def FindWBFeatures(Inputs_wb, key):
+    '''
+    find index of feature in a world builder inputs by its key
+    Inputs:
+        Inputs_wb (dict): World buider dictionary
+        key (str): name of the feature
+    '''
+    assert(type(Inputs_wb) == dict)
+    Features = Inputs_wb['features']
+    i = 0
+    for feature in Features:
+        if feature['name'] == key:
+            break
+        i += 1
+        if i == len(Features):  # not found
+            raise WBFeatureNotFoundError("%s: There is no feature named %s" % (func_name(), key))
+    return i
+
+
+def RemoveWBFeatures(Inputs_wb, i):
+    '''
+    remove a feature in World builder dictionary with an index i
+    Inputs:
+        Inputs_wb (dict): World buider dictionary
+        i (int): index of the feature
+    '''
+    assert(type(Inputs_wb) == dict)
+    Outputs_wb = Inputs_wb.copy()
+    try:
+        Features = Inputs_wb['features']
+    except KeyError:
+        raise WBFeatureNotFoundError()
+    Features.pop(i)
+    Outputs_wb['features'] = Features
+    return Outputs_wb
+
+
 def ExportData(depth_average_path, output_dir, **kwargs):
     '''
     Export data of a step to separate file
@@ -8843,7 +8883,7 @@ it only takes effect if the input is positiveh",\
         self.add_key("mantle rheology", str, ['mantle rheology', 'scheme'], "HK03_wet_mod", nick='mantle_rheology_scheme')
         self.add_key("Stokes solver type", str,\
          ["stokes solver", "type"], "block AMG", nick="stokes_solver_type")
-        self.add_features('Slurm options', ['slurm'], ParsePrm.SLURM_OPT)
+        self.add_features('Slurm options', ['slurm'], SLURM_OPT)
         self.add_key("partitions", list, ["partitions"], [], nick='partitions')
         self.add_key("if a test case is generated for the initial steps", int, ['test initial steps', 'number of outputs'], -1, nick='test_initial_n_outputs')
         self.add_key("interval of outputs for the initial steps", float, ['test initial steps', 'interval of outputs'], 1e5, nick='test_initial_outputs_interval')
@@ -9717,7 +9757,7 @@ def ReadAspectProfile(depth_average_path, **kwargs):
     # check file exist
     assert(os.access(depth_average_path, os.R_OK))
     # read that
-    DepthAverage = PDAver.DEPTH_AVERAGE_PLOT('DepthAverage')
+    DepthAverage = DEPTH_AVERAGE_PLOT('DepthAverage')
     DepthAverage.ReadHeader(depth_average_path)
     DepthAverage.ReadData(depth_average_path)
     DepthAverage.SplitTimeStep()
@@ -11089,7 +11129,6 @@ class CASE():
         elif fast_first_step == 1:
             outputs = deepcopy(self.idict)
             prm_fast_out_path = os.path.join(case_dir, "case_f.prm")
-            # todo_case
             FastZeroStep(outputs)  # generate another file for fast running the 0th step
             with open(prm_fast_out_path, "w") as fout:
                 save_parameters_from_dict(fout, outputs)
@@ -11139,7 +11178,7 @@ class CASE():
             slurm_opts = kwargs.get("slurm_opts", [])
             if len(slurm_opts) > 0:
                 for slurm_opt in slurm_opts:
-                    # SlurmOperator = ParsePrm.SLURM_OPERATOR(self.slurm_base_path)
+                    # SlurmOperator = SLURM_OPERATOR(self.slurm_base_path)
                     SlurmOperator = SLURM_OPERATOR(slurm_opt.get_base_path())
                     # SlurmOperator.SetAffinity(np.ceil(core_count/self.tasks_per_node), core_count, 1)
                     SlurmOperator.SetAffinity(*slurm_opt.to_set_affinity())
@@ -11284,6 +11323,7 @@ def create_case_with_json(json_opt, CASE, CASE_OPT, **kwargs):
     if end_step > 0:
         # set end step
         Case.set_end_step(end_step)
+    # todo_case
     Case.configure_prm(*Case_Opt.to_configure_prm())
     if Case_Opt.if_use_world_builder():
         Case.configure_wb(*Case_Opt.to_configure_wb())
@@ -11513,3 +11553,3228 @@ def output_particle_ascii(fout, particle_data):
                 _string += '%.4e ' % particle_data[i, j]
         fout.write(_string)
     pass
+
+# todo_case
+class CASE_OPT_TWOD(CASE_OPT):
+    '''
+    Define a class to work with CASE
+    List of keys:
+    '''
+    def __init__(self):
+        '''
+        Initiation, first perform parental class's initiation,
+        then perform daughter class's initiation.
+        see document (run with -h option) for detail
+        '''
+        CASE_OPT.__init__(self)
+        self.start = self.number_of_keys()
+        self.add_key("Age of the subducting plate at trench", float,\
+            ['world builder', 'subducting plate','age trench'], 80e6, nick='sp_age_trench')
+        self.add_key("Spreading rate of the subducting plate", float,\
+            ['world builder', 'subducting plate', 'sp rate'], 0.05, nick='sp_rate')
+        self.add_key("Age of the overiding plate", float,\
+            ['world builder', "overiding plate", 'age'], 40e6, nick='ov_age')
+        self.add_key("Age of the transit overiding plate", float,\
+            ['world builder', "overiding plate", "transit", 'age'], -1.0, nick='ov_trans_age')
+        self.add_key("Length of the transit overiding plate", float,\
+            ['world builder', "overiding plate", "transit", 'length'], 300e3, nick='ov_trans_length')
+        self.add_key("Type of boundary condition\n\
+            available options in [all free slip, ]", str,\
+            ["boundary condition", "model"], "all free slip", nick='type_of_bd')
+        self.add_key("Width of the Box", float,\
+            ["box width"], 6.783e6, nick='box_width')
+        self.add_key("Method to use for prescribing temperature", str,\
+         ["prescribe temperature method"], 'function', nick="prescribe_T_method")
+        self.add_key("Method to use for adjusting plate age.\n\
+        The default method \"by values\" is to assign values of box_width, sp_rate, and sp_age_trench.\n\
+        The method \"adjust box width\" is to change box_width\
+        by assuming a default box_width for a default sp_age_trench\
+         and extend the box for an older sp_age_trench.",\
+         str,\
+         ["world builder", "plate age method"], 'by values', nick="plate_age_method")
+        self.add_key("Include peierls creep", int, ['include peierls creep'], 0, nick='if_peierls')
+        self.add_key("Coupling the eclogite phase to shear zone viscosity",\
+         int, ["shear zone", 'coupling the eclogite phase to shear zone viscosity'], 0, nick='if_couple_eclogite_viscosity')
+        self.add_key("Width of the Box before adjusting for the age of the trench.\
+This is used with the option \"adjust box width\" for configuring plate age at the trench.\
+This value is the width of box for a default age (i.e. 80Myr), while the width of box for a\
+different age will be adjusted.",\
+          float, ["world builder", "box width before adjusting"], 6.783e6, nick='box_width_pre_adjust')
+        self.add_key("Model to use for mantle phase transitions", str,\
+         ["phase transition model"], 'CDPT', nick="phase_model")
+        self.add_key("Root directory for lookup tables", str,\
+         ["HeFESTo model", "data directory"], '.', nick="HeFESTo_data_dir")
+        self.add_key("Cutoff depth for the shear zone rheology",\
+          float, ["shear zone", 'cutoff depth'], 100e3, nick='sz_cutoff_depth')
+        self.add_key("Adjust the refinement of mesh with the size of the box", int,\
+          ["world builder", "adjust mesh with box width"], 0, nick='adjust_mesh_with_width') 
+        self.add_key("Thickness of the shear zone / crust", float, ["shear zone", 'thickness'], 7.5e3, nick='Dsz')
+        self.add_key("Refinement scheme", str, ["refinement scheme"], "2d", nick='rf_scheme')
+        self.add_key("peierls creep scheme", str, ['peierls creep', 'scheme'], "MK10", nick='peierls_scheme')
+        self.add_key("peierls creep, create a 2 stage model. I want to do this because including peierls scheme in the\
+intiation stage causes the slab to break in the middle",\
+         float, ['peierls creep', 'two stage intial time'], -1.0, nick='peierls_two_stage_time')
+        self.add_key("mantle rheology", str, ['mantle rheology', 'scheme'], "HK03_wet_mod_twod", nick='mantle_rheology_scheme')
+        self.add_key("Scheme for shear zone viscosity", str, ["shear zone", 'viscous scheme'], "constant", nick='sz_viscous_scheme')
+        self.add_key("cohesion", float, ['mantle rheology', 'cohesion'], 50e6, nick='cohesion')
+        self.add_key("friction", float, ['mantle rheology', 'friction'], 25.0, nick='friction')
+        self.add_key("cohesion in the shear zone", float, ['shear zone', 'cohesion'], 10e6, nick='crust_cohesion')
+        self.add_key("friction in the shear zone", float, ['shear zone', 'friction'], 2.8624, nick='crust_friction')
+        self.add_key("constant viscosity in the shear zone", float, ['shear zone', 'constant viscosity'], 1e20, nick='sz_constant_viscosity')
+        self.add_key("use WB new ridge implementation", int, ['world builder', 'use new ridge implementation'], 0, nick='wb_new_ridge')
+        self.add_key("branch", str, ['branch'], "", nick='branch')
+        self.add_key("minimum viscosity in the shear zone", float, ['shear zone', 'minimum viscosity'], 1e18, nick='sz_minimum_viscosity')
+        self.add_key("Use embeded fault implementation",\
+          int, ["shear zone", 'use embeded fault'], 0, nick='use_embeded_fault')
+        self.add_key("factor for the embeded fault that controls the maxmimum thickness of the layer", float,\
+            ['shear zone', 'ef factor'], 1.9, nick='ef_factor')
+        self.add_key("bury depth of the particles in the harzburgite layer", float,\
+            ['shear zone', 'ef particle bury depth'], 5e3, nick='ef_Dbury')
+        self.add_key("interval measured in meter between adjacent particles", float,\
+            ['shear zone', 'ef particle interval'], 10e3, nick='ef_interval')
+        self.add_key("Use embeded fault implementation with the implementation of world builder feature surface",\
+          int, ["shear zone", 'use embeded fault with feature surface'], 0, nick='use_embeded_fault_feature_surface')
+        self.add_key("transition distance at the trench for the kinematic boundary condition", float,\
+            ["boundary condition", "trench transit distance"], 20e3, nick='delta_trench')
+        self.add_key("Cold cutoff of the eclogite transition",\
+         float, ["shear zone", 'Max pressure for eclogite transition'], 5e9, nick='eclogite_max_P')
+        self.add_key("eclogite transition that matches the mineral phase boundaries",\
+         int, ["shear zone", 'match the eclogite transition with phase diagram'], 0, nick='eclogite_match')
+        self.add_key("number of layer in the crust", int, ["world builder", 'layers of crust'], 1, nick='n_crust_layer')
+        self.add_key("Thickness of the upper crust", float, ["shear zone", 'upper crust thickness'], 3e3, nick='Duc')
+        self.add_key("Rheology of the upper crust", str, ["shear zone", 'upper crust rheology scheme'], '', nick='upper_crust_rheology_scheme')
+        self.add_key("Rheology of the lower crust", str, ["shear zone", 'lower crust rheology scheme'], '', nick='lower_crust_rheology_scheme')
+        self.add_key("Distance of the subducting plate to the box side", float,\
+            ['world builder', 'subducting plate', 'trailing length'], 0.0, nick='sp_trailing_length')
+        self.add_key("Distance of the overiding plate to the box side", float,\
+            ['world builder', 'overiding plate', 'trailing length'], 0.0, nick='ov_trailing_length')
+        self.add_key("Viscosity in the slab core", float,\
+            ['shear zone', "slab core viscosity"], -1.0, nick='slab_core_viscosity')
+        self.add_key("Value of Coh to use in the rheology", float,\
+            ['mantle rheology', "Coh"], 1000.0, nick='mantle_coh')
+        self.add_key("Minimum viscosity", float,\
+            ["minimum viscosity"], 1e18, nick='minimum_viscosity')
+        self.add_key("automatically fix boundary temperature",\
+            int, ['world builder', 'fix boudnary temperature auto'], 0, nick='fix_boudnary_temperature_auto')
+        self.add_key("the maximum extent of a slice in the geometry refinement",\
+            float, ['world builder', 'maximum repetition slice'], 1e31, nick='maximum_repetition_slice')
+        self.add_key("Global refinement", int, ['refinement', 'global refinement'], 4, nick='global_refinement')
+        self.add_key("Adaptive refinement", int, ['refinement', 'adaptive refinement'], 2, nick='adaptive_refinement')
+        self.add_key("remove overiding plate composition", int, ['world builder', 'remove ov comp'], 0, nick='rm_ov_comp')
+        self.add_key("peierls creep scheme", str, ['peierls creep', 'flow law'], "exact", nick='peierls_flow_law')
+        self.add_key("reset density in the two corners", int, ["reset density"], 0, nick='reset_density')
+        self.add_key("Maximum Peierls strain rate iterations", int, ['peierls creep', "maximum peierls iterations"], 40, nick='maximum_peierls_iterations')
+        self.add_key("Type of CDPT Model to use for mantle phase transitions", str,\
+         ["phase transition model CDPT type"], 'Billen2018_old', nick="CDPT_type")
+        self.add_key("Fix the activation volume of the Peierls creep", str,\
+         ['peierls creep', "fix peierls V as"], '', nick="fix_peierls_V_as")
+        self.add_key("Width for prescribing temperature", float,\
+         ["prescribe temperature width"], 2.75e5, nick="prescribe_T_width")
+        self.add_key("Prescribing temperature with trailing edge present", int,\
+         ["prescribe temperature with trailing edge"], 0, nick="prescribe_T_with_trailing_edge")
+        self.add_key("Value of lower/upper mantle ratio to use in the rheology", float,\
+            ['mantle rheology', "jump lower mantle"], 100.0, nick='jump_lower_mantle')
+        self.add_key("use 3d depth average file", int,\
+            ['mantle rheology', "use 3d da file"], 0, nick='use_3d_da_file')
+        self.add_key("use lookup table morb", int, ["use lookup table morb"], 0, nick="use_lookup_table_morb")
+        self.add_key("lookup table morb mixing, 1: iso stress (weakest), 2: iso strain (strongest), 3: log (intermediate)",\
+                     int, ["lookup table morb", "mixing model"], 0, nick="use_lookup_table_morb")
+        self.add_key("difference of activation volume in the diffusion creep rheology", float,\
+            ['mantle rheology', "delta Vdiff"], -2.1e-6, nick='delta_Vdiff')
+        self.add_key("Clapeyron slope of the 410 km", float,\
+         ["CDPT", "slope 410"], 2e6, nick="slope_410")
+        self.add_key("Clapeyron slope of the 660 km", float,\
+         ["CDPT", "slope 660"], -1e6, nick="slope_660")
+        self.add_key("Slab strengh", float, ["slab", "strength"], 500e6, nick="slab_strength")
+        self.add_key("Height of the Box", float,\
+            ["world builder", "box height"], 2890e3, nick='box_height')
+        self.add_key("Refine Wedge", int,\
+            ["refinement", "refine wedge"], 0, nick='refine_wedge')
+        self.add_key("Output heat flux", int,\
+            ["outputs", "heat flux"], 0, nick='output_heat_flux')
+        self.add_key("difference of activation energy in the diffusion creep rheology", float,\
+            ['mantle rheology', "delta Ediff"], 0.0, nick='delta_Ediff')
+        self.add_key("difference of activation energy in the dislocation creep rheology", float,\
+            ['mantle rheology', "delta Edisl"], 0.0, nick='delta_Edisl')
+        self.add_key("difference of activation volume in the dislocation creep rheology", float,\
+            ['mantle rheology', "delta Vdisl"], 3e-6, nick='delta_Vdisl')
+    
+    def check(self):
+        '''
+        check to see if these values make sense
+        '''
+        CASE_OPT.check(self)
+        geometry = self.values[3]
+        # geometry options
+        my_assert(geometry in ['chunk', 'box'], ValueError,\
+        "%s: The geometry for TwoDSubduction cases must be \"chunk\" or \"box\"" \
+        % func_name())
+        if self.values[3] == 'box':
+            my_assert(self.values[8] == 1, ValueError,\
+            "%s: When using the box geometry, world builder must be used for initial conditions" \
+            % func_name())  # use box geometry, wb is mandatory
+        # check the setting for adjust box width
+        plate_age_method = self.values[self.start + 8] 
+        assert(plate_age_method in ['by values', 'adjust box width', 'adjust box width only assigning age'])
+        if plate_age_method == 'adjust box width':
+            box_width = self.values[self.start + 6]
+            if box_width != self.defaults[self.start + 6]:
+                warnings.warn("By using \"adjust box width\" method for subduction plate age\
+                box width will be automatically adjusted. Thus the given\
+                value is not taken.")
+            box_width_pre_adjust = self.values[self.start+11]
+            sp_age_trench_default = self.defaults[self.start]  # default value for age at trench
+            sp_rate_default = self.defaults[self.start+1]  # default value for spreading rate
+            my_assert(box_width_pre_adjust > sp_age_trench_default * sp_rate_default, ValueError,\
+            "For the \"adjust box width\" method to work, the box width before adjusting needs to be wider\
+than the multiplication of the default values of \"sp rate\" and \"age trench\"")
+        # check the option for refinement
+        refinement_level = self.values[15]
+        assert(refinement_level in [-1, 9, 10, 11, 12, 13])  # it's either not turned on or one of the options for the total refinement levels
+        # check the option for the type of boundary conditions
+        type_of_bd = self.values[self.start + 5]
+        assert(type_of_bd in ["all free slip", "top prescribed", "top prescribed with bottom right open", "top prescribed with bottom left open"])
+        # check the method to use for phase transition
+        phase_model = self.values[self.start + 12]
+        my_assert( phase_model in ["CDPT", "HeFESTo"], ValueError,\
+        "%s: Models to use for phases must by CDPT or HeFESTo" \
+        % func_name())
+        # check the directory for HeFESTo
+        o_dir = self.values[2]
+        root_level = self.values[7]
+        if phase_model == "HeFESTo":  # check the existence of Hefesto files
+            HeFESTo_data_dir = self.values[self.start + 13]
+            HeFESTo_data_dir_pull_path = os.path.join(o_dir, ".." * (root_level - 1), HeFESTo_data_dir)
+            my_assert(os.path.isdir(HeFESTo_data_dir_pull_path),\
+            FileNotFoundError, "%s is not a directory" % HeFESTo_data_dir_pull_path)
+        # assert scheme to use for refinement
+        rf_scheme = self.values[self.start + 17]
+        assert(rf_scheme in ['2d', '3d consistent'])
+        # assert scheme of peierls creep to use
+        peierls_scheme = self.values[self.start + 18]
+        assert(peierls_scheme in ['MK10', "MK10p", 'Idrissi16'])
+        peierls_flow_law = self.values[self.start + 52]
+        assert(peierls_flow_law in ["approximation", "exact"])
+        # assert viscous scheme to use
+        sz_viscous_scheme = self.values[self.start + 21]
+        assert(sz_viscous_scheme in ["stress dependent", "constant"])
+        friction = self.values[self.start + 23]
+        assert(friction >= 0.0 and friction < 90.0)  # an angle between 0.0 and 90.0
+        crust_friction = self.values[self.start + 25]
+        assert(crust_friction >= 0.0 and crust_friction < 90.0)  # an angle between 0.0 and 90.0
+        sz_constant_viscosity = self.values[self.start + 26]
+        assert(sz_constant_viscosity > 0.0)
+        wb_new_ridge = self.values[self.start + 27]
+        assert(wb_new_ridge in [0, 1])  # use the new ridge implementation or not
+        # assert there is either 1 or 2 layers in the crust
+        n_crust_layer = self.values[self.start + 38]
+        assert(n_crust_layer in [1, 2])
+        # the use embeded fault method currently is inconsistent with the particle method
+        use_embeded_fault = self.values[self.start + 30]
+        comp_method = self.values[25] 
+        if use_embeded_fault == 1:
+            assert(comp_method == "field")
+        # CDPT model type 
+        CDPT_type = self.values[self.start + 55]
+        fix_peierls_V_as = self.values[self.start + 56]
+        assert(CDPT_type in ["Billen2018_old", "HeFESTo_consistent", "Billen2018"])
+        assert(fix_peierls_V_as in ["", "diffusion", "dislocation"])
+        # lookup table morb
+        use_lookup_table_morb = self.values[self.start + 61]
+        lookup_table_morb_mixing = self.values[self.start + 62]
+        if use_lookup_table_morb:
+            assert(lookup_table_morb_mixing in [0, 1, 2, 3]) # check the mixing model used
+        refine_wedge = self.values[self.start + 68]
+        if geometry == "box" and refine_wedge:
+            raise NotImplementedError
+
+    def to_configure_prm(self):
+        if_wb = self.values[8]
+        type_of_bd = self.values[self.start + 5]
+        sp_rate = self.values[self.start + 1]
+        ov_age = self.values[self.start + 2]
+        potential_T = self.values[4]
+        box_width = self.values[self.start + 6]
+        geometry = self.values[3]
+        prescribe_T_method = self.values[self.start + 7]
+        plate_age_method = self.values[self.start + 8] 
+        if plate_age_method == 'adjust box width':
+            box_width = re_write_geometry_while_assigning_plate_age(
+            *self.to_re_write_geometry_pa()
+            ) # adjust box width
+        if plate_age_method == 'adjust box width only assigning age':
+            box_width = re_write_geometry_while_only_assigning_plate_age(
+            *self.to_re_write_geometry_pa()
+            ) # adjust Gox width
+        if_peierls = self.values[self.start + 9]
+        if_couple_eclogite_viscosity = self.values[self.start + 10]
+        phase_model = self.values[self.start + 12]
+        HeFESTo_data_dir = self.values[self.start + 13]
+        root_level = self.values[7]
+        HeFESTo_data_dir_relative_path = os.path.join("../"*root_level, HeFESTo_data_dir)
+        sz_cutoff_depth = self.values[self.start+14]
+        adjust_mesh_with_width = self.values[self.start+15]
+        rf_scheme = self.values[self.start + 17]
+        peierls_scheme = self.values[self.start + 18]
+        peierls_two_stage_time = self.values[self.start + 19]
+        mantle_rheology_scheme = self.values[self.start + 20]
+        stokes_linear_tolerance = self.values[11]
+        end_time = self.values[12]
+        refinement_level = self.values[15]
+        case_o_dir = self.values[16]
+        sz_viscous_scheme = self.values[self.start + 21]
+        cohesion = self.values[self.start + 22]
+        friction = self.values[self.start + 23]
+        crust_cohesion = self.values[self.start + 24]
+        crust_friction = self.values[self.start + 25]
+        sz_constant_viscosity = self.values[self.start + 26]
+        branch = self.values[self.start + 28]
+        partitions = self.values[20]
+        sz_minimum_viscosity = self.values[self.start + 29]
+        use_embeded_fault = self.values[self.start + 30]
+        Dsz = self.values[self.start + 16]
+        ef_factor = self.values[self.start + 31]
+        ef_Dbury = self.values[self.start + 32]
+        sp_age_trench = self.values[self.start]
+        use_embeded_fault_feature_surface = self.values[self.start + 34]
+        ef_particle_interval = self.values[self.start + 33]
+        delta_trench = self.values[self.start + 35]
+        eclogite_max_P = self.values[self.start + 36]
+        eclogite_match = self.values[self.start + 37]
+        version = self.values[23]
+        n_crust_layer = self.values[self.start + 38]
+        upper_crust_rheology_scheme = self.values[self.start + 40]
+        lower_crust_rheology_scheme = self.values[self.start + 41]
+        sp_trailing_length = self.values[self.start + 42]
+        ov_trailing_length = self.values[self.start + 43]
+        slab_core_viscosity = self.values[self.start + 44]
+        mantle_coh = self.values[self.start + 45]
+        minimum_viscosity = self.values[self.start + 46]
+        fix_boudnary_temperature_auto = self.values[self.start + 47]
+        maximum_repetition_slice = self.values[self.start + 48]
+        global_refinement = self.values[self.start + 49]
+        adaptive_refinement = self.values[self.start + 50]
+        rm_ov_comp = self.values[self.start + 51]
+        comp_method = self.values[25] 
+        peierls_flow_law = self.values[self.start + 52]
+        reset_density = self.values[self.start + 53]
+        maximum_peierls_iterations = self.values[self.start + 54]
+        CDPT_type = self.values[self.start + 55]
+        use_new_rheology_module = self.values[28]
+        fix_peierls_V_as = self.values[self.start + 56]
+        prescribe_T_width = self.values[self.start + 57]
+        prescribe_T_with_trailing_edge = self.values[self.start + 58]
+        jump_lower_mantle = self.values[self.start + 59]
+        use_3d_da_file = self.values[self.start + 60]
+        use_lookup_table_morb = self.values[self.start + 61]
+        lookup_table_morb_mixing = self.values[self.start + 62]
+        delta_Vdiff = self.values[self.start + 63]
+        slope_410 = self.values[self.start + 64]
+        slope_660 = self.values[self.start + 65]
+        slab_strength = self.values[self.start + 66]
+        box_height = self.values[self.start + 67]
+        minimum_particles_per_cell = self.values[29]
+        maximum_particles_per_cell = self.values[30]
+        refine_wedge = self.values[self.start + 68]
+        output_heat_flux = self.values[self.start + 69]
+        delta_Ediff = self.values[self.start + 70]
+        delta_Edisl = self.values[self.start + 71]
+        delta_Vdisl = self.values[self.start + 72]
+
+        return if_wb, geometry, box_width, type_of_bd, potential_T, sp_rate,\
+        ov_age, prescribe_T_method, if_peierls, if_couple_eclogite_viscosity, phase_model,\
+        HeFESTo_data_dir_relative_path, sz_cutoff_depth, adjust_mesh_with_width, rf_scheme,\
+        peierls_scheme, peierls_two_stage_time, mantle_rheology_scheme, stokes_linear_tolerance, end_time,\
+        refinement_level, case_o_dir, sz_viscous_scheme, cohesion, friction, crust_cohesion, crust_friction, sz_constant_viscosity,\
+        branch, partitions, sz_minimum_viscosity, use_embeded_fault, Dsz, ef_factor, ef_Dbury, sp_age_trench, use_embeded_fault_feature_surface,\
+        ef_particle_interval, delta_trench, eclogite_max_P, eclogite_match, version, n_crust_layer,\
+        upper_crust_rheology_scheme, lower_crust_rheology_scheme, sp_trailing_length, ov_trailing_length, slab_core_viscosity,\
+        mantle_coh, minimum_viscosity, fix_boudnary_temperature_auto, maximum_repetition_slice, global_refinement, adaptive_refinement,\
+        rm_ov_comp, comp_method, peierls_flow_law, reset_density, maximum_peierls_iterations, CDPT_type, use_new_rheology_module, fix_peierls_V_as,\
+        prescribe_T_width, prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb, lookup_table_morb_mixing,\
+        delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell, refine_wedge, output_heat_flux,\
+        delta_Ediff, delta_Edisl, delta_Vdisl
+
+    def to_configure_wb(self):
+        '''
+        Interface to configure_wb
+        '''
+        if_wb = self.values[8]
+        geometry = self.values[3]
+        potential_T = self.values[4]
+        sp_age_trench = self.values[self.start]
+        sp_rate = self.values[self.start + 1]
+        ov_age = self.values[self.start + 2]
+        ov_trans_age = self.values[self.start + 3]
+        ov_trans_length = self.values[self.start + 4]
+        if self.values[self.start + 3] < 0.0:
+            if_ov_trans = False
+        else:
+            if_ov_trans = True
+        is_box_wider = self.is_box_wider()
+        Dsz = self.values[self.start + 16]
+        wb_new_ridge = self.values[self.start + 27]
+        version = self.values[23]
+        n_crust_layer = self.values[self.start + 38]
+        Duc = self.values[self.start + 39]
+        rm_ov_comp = self.values[self.start + 51]
+        if n_crust_layer == 1:
+            # number of total compositions
+            n_comp = 4
+        elif n_crust_layer == 2:
+            n_comp = 6
+        sp_trailing_length = self.values[self.start + 42]
+        ov_trailing_length = self.values[self.start + 43]
+        plate_age_method = self.values[self.start + 8] 
+        box_width = self.values[self.start + 6]
+        if plate_age_method == 'adjust box width':
+            box_width = re_write_geometry_while_assigning_plate_age(
+            *self.to_re_write_geometry_pa()
+            ) # adjust box width
+        elif plate_age_method == 'adjust box width only assigning age':
+            box_width = re_write_geometry_while_only_assigning_plate_age(
+            *self.to_re_write_geometry_pa()
+            ) # adjust box width
+        return if_wb, geometry, potential_T, sp_age_trench, sp_rate, ov_age,\
+            if_ov_trans, ov_trans_age, ov_trans_length, is_box_wider, Dsz, wb_new_ridge, version,\
+            n_crust_layer, Duc, n_comp, sp_trailing_length, ov_trailing_length, box_width, rm_ov_comp,\
+            plate_age_method
+    
+    def to_configure_final(self):
+        '''
+        Interface to configure_final
+        '''
+        geometry = self.values[3]
+        Dsz = self.values[self.start + 16]
+        use_embeded_fault = self.values[self.start + 30]
+        ef_Dbury = self.values[self.start + 32]
+        ef_particle_interval = self.values[self.start + 33]
+        use_embeded_fault_feature_surface = self.values[self.start + 34]
+        return geometry, Dsz, use_embeded_fault, ef_Dbury, ef_particle_interval, use_embeded_fault_feature_surface
+    
+    def to_re_write_geometry_pa(self):
+        '''
+        Interface to re_write_geometry_pa
+        '''
+        box_width_pre_adjust = self.values[self.start+11]
+        sp_trailing_length = self.values[self.start + 42]
+        return box_width_pre_adjust, self.defaults[self.start],\
+        self.values[self.start], self.values[self.start+1], sp_trailing_length, 0.0
+    
+    def is_box_wider(self):
+        '''
+        Return whether we should use a box wider than 90 degree in longtitude
+        Return:
+            True or False
+        '''
+        box_width = re_write_geometry_while_assigning_plate_age(
+            *self.to_re_write_geometry_pa()
+            ) # adjust box width
+        if box_width > 1e7:
+            return True
+        else:
+            return False
+
+def RefitRheology(rheology, diff_correction, disl_correction, ref_state):
+    '''
+    Inputs:
+        rheology (str or dict): rheology to start with
+        diff_correction (dict): variation to the diffusion creep
+            e.g. {'A': 1.0, 'p': 0.0, 'r': 0.0, 'n': 0.0, 'E': 0.0, 'V': -2.1e-6}
+        disl_correction (dict): variation to the dislocation creep
+            e.g. {'A': 1.0, 'p': 0.0, 'r': 0.0, 'n': 0.0, 'E': 0.0, 'V': 3e-6}
+        ref_state (dict): reference state
+    Return:
+        rheology_dict (dict): refit rheology
+    '''
+    # read the parameters from HK 03.
+    # water is in the water fugacity
+
+    if type(rheology) == str: 
+        rheology_prm_dict = RHEOLOGY_PRM()
+        diffusion_creep_ori = getattr(rheology_prm_dict, rheology + "_diff")
+        dislocation_creep_ori = getattr(rheology_prm_dict, rheology + "_disl")
+        rheology_dict = {'diffusion': diffusion_creep_ori, 'dislocation': dislocation_creep_ori}
+    elif type(rheology) == dict:
+        assert('diffusion' in rheology and 'dislocation' in rheology)
+        rheology_dict = rheology
+        diffusion_creep_ori = rheology['diffusion']
+        dislocation_creep_ori = rheology['dislocation']
+    else:
+        raise ValueError('rheology must be either str or dict')
+    
+    # apply variations to the original rheology
+    assert('A' in diff_correction and 'p' in diff_correction and 'r' in diff_correction\
+           and 'n' in diff_correction and 'E' in diff_correction and 'V' in diff_correction)
+    assert('A' in disl_correction and 'p' in disl_correction and 'r' in disl_correction\
+           and 'n' in disl_correction and 'E' in disl_correction and 'V' in disl_correction)
+
+    # reference state
+    assert('Coh' in ref_state and 'stress' in ref_state and 'P' in ref_state\
+           and 'T' in ref_state and 'd' in ref_state) 
+    Coh_ref = ref_state['Coh'] # H / 10^6 Si
+    stress_ref = ref_state['stress'] # MPa
+    P_ref = ref_state['P'] # Pa
+    T_ref = ref_state['T'] # K
+    d_ref = ref_state['d'] # mu m
+    strain_rate_diff_ref = CreepStrainRate(diffusion_creep_ori, stress_ref, P_ref, T_ref, d_ref, Coh_ref)
+    strain_rate_disl_ref = CreepStrainRate(dislocation_creep_ori, stress_ref, P_ref, T_ref, d_ref, Coh_ref)
+    print("strain_rate_diff_ref: ", strain_rate_diff_ref)
+    print("strain_rate_disl_ref: ", strain_rate_disl_ref)
+
+    # reference pseudo "strain rate" for correction 
+    strain_rate_diff_correction = CreepStrainRate(diff_correction, stress_ref, P_ref, T_ref, d_ref, Coh_ref)
+    strain_rate_disl_correction = CreepStrainRate(disl_correction, stress_ref, P_ref, T_ref, d_ref, Coh_ref)
+
+    # make a copy of the original rheology 
+    diffusion_creep = diffusion_creep_ori.copy()
+    dislocation_creep = dislocation_creep_ori.copy()
+    
+    # apply the correction
+    # the only task to do is to devide the prefactor by the strain_rate correction
+    diffusion_creep['E'] += diff_correction['E']
+    diffusion_creep['V'] += diff_correction['V']
+    dislocation_creep['E'] += disl_correction['E']
+    dislocation_creep['V'] += disl_correction['V']
+    diffusion_creep['A'] /= strain_rate_diff_correction
+    dislocation_creep['A'] /= strain_rate_disl_correction
+    
+    # return values
+    rheology_dict = {'diffusion': diffusion_creep, 'dislocation': dislocation_creep}
+    return rheology_dict
+
+class STRENGTH_PROFILE(RHEOLOGY_OPR):
+
+    def __init__(self, **kwargs):
+        RHEOLOGY_OPR.__init__(self)
+        self.Sigs = None
+        self.Sigs_brittle = None
+        self.etas_brittle = None
+        self.Sigs_viscous = None
+        self.etas_viscous = None
+        self.etas_peierls = None
+        self.Zs = None
+        self.Etas = None
+        self.Computed = False
+        # todo_peierls
+        self.peierls_type = None
+        self.max_depth = kwargs.get('max_depth', 80e3)
+        self.T_type = kwargs.get("T_type", "hpc")
+        self.SetRheologyByName(diff=kwargs.get("diff", None),\
+                               disl=kwargs.get("disl", None),\
+                               brittle=kwargs.get("brittle", None),\
+                               peierls=kwargs.get("peierls", None))
+
+    def Execute(self, **kwargs):
+        '''
+        Compute the strength profile
+        '''
+        year = 365 * 24 * 3600.0
+        compute_second_invariant = kwargs.get('compute_second_invariant', False)
+        brittle = self.brittle
+        assert(self.diff_type != None or self.disl_type != None)
+        assert(brittle != None)
+        averaging = kwargs.get('averaging', 'harmonic')
+        strain_rate = kwargs.get('strain_rate', 1e-14)
+        # rheology_prm = RHEOLOGY_PRM()
+        # self.plastic = rheology_prm.ARCAY17_plastic
+        # self.dislocation_creep = rheology_prm.ARCAY17_disl
+        Zs = np.linspace(0.0, self.max_depth, 100)
+        if self.T_type == 'hpc':
+            # use a half space cooling
+            Ts = temperature_halfspace(Zs, 40e6*year, Tm=1573.0) # adiabatic temperature
+        elif self.T_type == 'ARCAY17':
+            Ts = 713 * Zs / 78.245e3  + 273.14# geotherm from Arcay 2017 pepi, figure 3d 2
+        else:
+            raise NotImplementedError
+        Tliths = temperature_halfspace(Zs, 40e6*year, Tm=1573.0) # adiabatic temperature
+        Ps = pressure_from_lithostatic(Zs, Tliths)
+        # brittle self.brittle
+        if brittle["type"] == "stress dependent":
+            # note this is questionable, is this second order invariant
+            self.Sigs_brittle = StressDependentYielding(Ps, brittle["cohesion"], brittle["friction"], brittle["ref strain rate"], brittle["n"], strain_rate)
+        elif brittle["type"] == "Coulumb":
+            self.Sigs_brittle = CoulumbYielding(Ps, brittle["cohesion"], brittle["friction"])
+        elif brittle["type"] == "Byerlee":
+            self.Sigs_brittle = Byerlee(Ps)
+        else:
+            raise NotImplementedError()
+        self.etas_brittle = self.Sigs_brittle / 2.0 / strain_rate
+        # viscous stress
+        # Note on the d and coh:
+        #      disl - not dependent on d;
+        #      coh - the one in the Arcay paper doesn't depend on Coh
+        etas_diff = None
+        etas_disl = None
+        etas_peierls = None
+        if self.diff_type is not None:
+            etas_diff = CreepRheology(self.diff, strain_rate, Ps, Ts,\
+                                          1e4, 1000.0, use_effective_strain_rate=compute_second_invariant)
+        if self.disl_type is not None:
+            etas_disl = CreepRheology(self.disl, strain_rate, Ps, Ts,\
+                                          1e4, 1000.0, use_effective_strain_rate=compute_second_invariant)
+        if self.peierls_type is not None:
+            self.etas_peierls = np.zeros(Ts.size)
+            for i in range(Ts.size):
+                P = Ps[i]
+                T = Ts[i]
+                self.etas_peierls[i] = PeierlsCreepRheology(self.peierls, strain_rate, P, T)
+            self.Sigs_peierls = 2.0 * strain_rate * self.etas_peierls
+        self.etas_viscous = ComputeComposite(etas_diff, etas_disl)
+        self.Sigs_viscous = 2.0 * strain_rate * self.etas_viscous
+        # Sigs_viscous = CreepStress(self.creep, strain_rate, Ps, Ts, 1e4, 1000.0) # change to UI
+        if averaging == 'harmonic':
+            self.Etas = ComputeComposite(self.etas_viscous, self.etas_brittle, self.etas_peierls)
+        else:
+            raise NotImplementedError()
+        self.Sigs = 2 * strain_rate * self.Etas
+        self.Zs = Zs
+        self.computed = True
+
+    def PlotStress(self, **kwargs):
+        ax = kwargs.get('ax', None)
+        label = kwargs.get('label', None)
+        label_components = kwargs.get('label_components', False)
+        plot_stress_by_log = kwargs.get('plot_stress_by_log', False)
+        if label_components:
+            label_brittle = "brittle"
+            label_viscous = "viscous"
+            label_peierls = "peierls"
+        else:
+            label_brittle = None
+            label_viscous = None
+            label_peierls = None
+        _color = kwargs.get('color', 'b')
+        if ax == None:
+            raise NotImplementedError()
+        # make plots
+        mask = (self.Etas > 1e-32) # get the reasonable values, the peierls creep may return inf values
+        if plot_stress_by_log:
+            # plot the log values of the stress on the x axis
+            ax.semilogx(self.Sigs[mask]/1e6, self.Zs[mask]/1e3, color=_color, label=label)
+            ax.semilogx(self.Sigs_brittle[mask]/1e6, self.Zs[mask]/1e3, '.', color=_color, label=label_brittle)
+            ax.semilogx(self.Sigs_viscous[mask]/1e6, self.Zs[mask]/1e3, '--', color=_color, label=label_viscous)
+            if self.peierls_type is not None:
+                ax.semilogx(self.Sigs_peierls[mask]/1e6, self.Zs[mask]/1e3, '-.', color=_color, label=label_peierls)
+            ax.set_xlim([0.0, 10**(3.5)])
+        else:
+            # plot the log values of the stress on the x axis
+            ax.plot(self.Sigs[mask]/1e6, self.Zs[mask]/1e3, color=_color, label=label)
+            ax.plot(self.Sigs_brittle[mask]/1e6, self.Zs[mask]/1e3, '.', color=_color, label=label_brittle)
+            ax.plot(self.Sigs_viscous[mask]/1e6, self.Zs[mask]/1e3, '--', color=_color, label=label_viscous)
+            if self.peierls_type is not None:
+                ax.plot(self.Sigs_peierls[mask]/1e6, self.Zs[mask]/1e3, '-.', color=_color, label=label_peierls)
+            x_max = np.ceil(np.max(self.Sigs[mask]/1e6) / 100.0) * 100.0
+            ax.set_xlim([0.0, x_max])
+        ax.set_xlabel("Second invariant of the stress tensor (MPa)")
+        ax.set_ylabel("Depth (km)")
+    
+    def PlotViscosity(self, **kwargs):
+        ax = kwargs.get('ax', None)
+        label = kwargs.get('label', None)
+        label_components = kwargs.get('label_components', False)
+        if label_components:
+            label_brittle = "brittle"
+            label_viscous = "viscous"
+            label_peierls = "peierls"
+        else:
+            label_brittle = None
+            label_viscous = None
+            label_peierls = None
+        _color = kwargs.get('color', 'b')
+        if ax == None:
+            raise NotImplementedError()
+        # plot viscosity
+        mask = (self.Etas > 1e-32) # get the reasonable values, the peierls creep may return inf values
+        ax.semilogx(self.Etas[mask], self.Zs[mask]/1e3, color=_color, label=label)
+        ax.semilogx(self.etas_brittle[mask], self.Zs[mask]/1e3, '.', color=_color, label=label_brittle)
+        ax.semilogx(self.etas_viscous[mask], self.Zs[mask]/1e3, '--', color=_color, label=label_viscous)
+        if self.peierls_type is not None:
+            ax.semilogx(self.etas_peierls[mask], self.Zs[mask]/1e3, '-.', color=_color, label=label_peierls)
+        ax.set_xlabel("Viscosity (Pa * s)")
+        ax.set_ylabel("Depth (km)")
+        x_min = 1e18
+        x_max = 1e24
+        ax.set_xlim([x_min, x_max])
+
+def ConvertFromAspectInput(aspect_creep, **kwargs):
+    """
+    Viscosity is calculated by flow law in form of (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T)) * 1e6
+    while in aspect, flow law in form of 0.5 * A**(-1.0 / n) * d**(m / n) * (strain_rate)**(1.0 / n - 1) * np.exp((E + P * V) / (n * R * T)).
+    Here I convert backward from the flow law used in aspect
+    Original Units:
+     - P: Pa
+     - T: K
+     - d: mm
+     - Coh: H / 10^6 Si
+    Original Units:
+     - P: Pa
+     - T: K
+     - d: m
+    """
+    # read in initial value
+    A = aspect_creep['A']
+    m = aspect_creep['m']
+    n = aspect_creep['n']
+    E = aspect_creep['E']
+    V = aspect_creep['V']
+    d = aspect_creep['d']
+    # compute value of F(pre factor)
+    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
+    if use_effective_strain_rate:
+        F = 1 / (2**((n-1)/n)*3**((n+1)/2/n)) * 2.0
+    else:
+        F = 1.0
+    # prepare values for aspect
+    creep = {}
+    # stress in the original equation is in Mpa, grain size is in um
+    creep['A'] = 1e6**m * 1e6**n * A * F**n  # F term: use effective strain rate
+    creep['d'] = d * 1e6
+    creep['n'] = n
+    creep['p'] = m
+    creep['E'] = E
+    creep['V'] = V
+    creep['r'] = 0.0  # assume this is not dependent on Coh
+    creep['Coh'] = 1000.0
+    return creep
+
+def AssignAspectViscoPlasticPhaseRheology(visco_plastic_dict, key, idx, diffusion_creep, dislocation_creep, **kwargs):
+    '''
+    Inputs:
+        visco_plastic_dict(dict): options for the viscoplastic module in the aspect material model
+        key: name for the composition
+        idx: index for the phase
+        diffusion_creep: diffusion creep rheology
+        dislocation_creep: dislocation creep rheology
+        kwargs:
+            no_convert: do not convert to aspect format (inputs are already aspect format)
+    Return:
+        visco_plastic_dict(dict): options for the viscoplastic module in the aspect material model after the change
+    '''
+    assert((diffusion_creep is not None) or (dislocation_creep is not None))
+    no_convert = kwargs.get("no_convert", False)
+    # diffusion creep
+    if diffusion_creep is not None:
+        if no_convert:
+            diffusion_creep_aspect = diffusion_creep
+        else:
+            diffusion_creep_aspect = Convert2AspectInput(diffusion_creep, use_effective_strain_rate=True)
+        # print("visco_plastic_dict: ", visco_plastic_dict) # debug
+        visco_plastic_dict["Prefactors for diffusion creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Prefactors for diffusion creep"], key, idx, diffusion_creep_aspect['A'])
+        visco_plastic_dict["Grain size exponents for diffusion creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Grain size exponents for diffusion creep"], key, idx, diffusion_creep_aspect['m'])
+        visco_plastic_dict["Activation energies for diffusion creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Activation energies for diffusion creep"], key, idx, diffusion_creep_aspect['E'])
+        visco_plastic_dict["Activation volumes for diffusion creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Activation volumes for diffusion creep"], key, idx, diffusion_creep_aspect['V'])
+    else:
+        visco_plastic_dict["Prefactors for diffusion creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Prefactors for diffusion creep"], key, idx, 1e-31)
+    # dislocation creep
+    if dislocation_creep is not None:
+        if no_convert:
+            dislocation_creep_aspect = dislocation_creep
+        else:
+            dislocation_creep_aspect = Convert2AspectInput(dislocation_creep, use_effective_strain_rate=True)
+        visco_plastic_dict["Prefactors for dislocation creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Prefactors for dislocation creep"], key, idx, dislocation_creep_aspect['A'])
+        visco_plastic_dict["Stress exponents for dislocation creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Stress exponents for dislocation creep"], key, idx, dislocation_creep_aspect['n'])
+        visco_plastic_dict["Activation energies for dislocation creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Activation energies for dislocation creep"], key, idx, dislocation_creep_aspect['E'])
+        visco_plastic_dict["Activation volumes for dislocation creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Activation volumes for dislocation creep"], key, idx, dislocation_creep_aspect['V'])
+    else:
+        visco_plastic_dict["Prefactors for dislocation creep"] = \
+            ReplacePhaseOption(visco_plastic_dict["Prefactors for dislocation creep"], key, idx, 1e-31)
+    return visco_plastic_dict
+
+
+def GetPeierlsApproxVist(flv):
+    '''
+    export Peierls rheology for approximation
+    '''
+    mpa = 1e6  # MPa to Pa
+    Peierls={}
+    if flv == "MK10":
+        Peierls['q'] = 1.0
+        Peierls['p'] = 0.5
+        n = 2.0
+        Peierls['n'] =  n
+        Peierls['sigp0'] = 5.9e9					# Pa (+/- 0.2e9 Pa)
+        Peierls['A'] = 1.4e-7/np.power(mpa,n) 	# s^-1 Pa^-2
+        Peierls['E'] = 320e3  					# J/mol (+/-50e3 J/mol)
+    elif flv == "Idrissi16":
+        Peierls['q'] = 2.0
+        Peierls['p'] = 0.5
+        n = 0.0
+        Peierls['n'] =  n
+        Peierls['sigp0'] = 3.8e9					# Pa (+/- 0.7e9 Pa)
+        Peierls['A'] = 1e6 	# s^-1, note unit of A is related to n (here n = 0.0)
+        Peierls['E'] = 566e3  					# J/mol (+/-74e3 J/mol)
+    else:
+        raise ValueError("flv must by \'MK10\'")
+    return Peierls
+
+def GetPeierlsStressPDependence(flv):
+    '''
+    export P dependence for the peierls creep
+    '''
+    G0 = 77.4*1e9 # GPa  
+    Gp = 1.61 # GPa/GPa 
+    return G0, Gp
+
+def ReplacePhaseOption(str_in, key, idx, new_option):
+    '''
+    Replace the options for a phase
+    Inputs:
+        str_in: input string
+        key: key of the designated composition
+        idx: inded of the designated phase
+        new_option: option to set
+    '''
+    has_comp = (len(str_in.split(',')) > 1)
+    if has_comp:
+        comp = COMPOSITION(str_in)
+        comp.data[key][idx] = new_option
+        str_out = comp.parse_back() 
+    else:
+        if key == "background":
+            str_out = "%.4e" % new_option
+        else:
+            raise KeyError("No composition in str_in (%s) and the key is not background" % str_in)
+    return str_out 
+            
+class CASE_TWOD(CASE):
+    '''
+    class for a case
+    More Attributes:
+    '''
+    def configure_prm(self, if_wb, geometry, box_width, type_of_bd, potential_T,\
+    sp_rate, ov_age, prescribe_T_method, if_peierls, if_couple_eclogite_viscosity, phase_model,\
+    HeFESTo_data_dir, sz_cutoff_depth, adjust_mesh_with_width, rf_scheme, peierls_scheme,\
+    peierls_two_stage_time, mantle_rheology_scheme, stokes_linear_tolerance, end_time,\
+    refinement_level, case_o_dir, sz_viscous_scheme, cohesion, friction, crust_cohesion, crust_friction,\
+    sz_constant_viscosity, branch, partitions, sz_minimum_viscosity, use_embeded_fault, Dsz, ef_factor, ef_Dbury,\
+    sp_age_trench, use_embeded_fault_feature_surface, ef_particle_interval, delta_trench, eclogite_max_P, eclogite_match,\
+    version, n_crust_layer, upper_crust_rheology_scheme, lower_crust_rheology_scheme, sp_trailing_length, ov_trailing_length,\
+    slab_core_viscosity, mantle_coh, minimum_viscosity, fix_boudnary_temperature_auto, maximum_repetition_slice,\
+    global_refinement, adaptive_refinement, rm_ov_comp, comp_method, peierls_flow_law, reset_density,\
+    maximum_peierls_iterations, CDPT_type, use_new_rheology_module, fix_peierls_V_as, prescribe_T_width,\
+    prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb,\
+    lookup_table_morb_mixing, delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell,\
+    refine_wedge, output_heat_flux,  delta_Ediff, delta_Edisl, delta_Vdisl):
+        Ro = 6371e3
+        self.configure_case_output_dir(case_o_dir)
+        o_dict = self.idict.copy()
+
+        if plate_age_method == 'adjust box width only assigning age': 
+            trench = get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro)
+        else:
+            trench = get_trench_position(sp_age_trench, sp_rate, geometry, Ro, sp_trailing_length)
+
+        # velocity boundaries
+        if type_of_bd == "all free slip":  # boundary conditions
+            pass
+        elif type_of_bd == "top prescribed":
+            # assign a 0.0 value for the overiding plate velocity
+            # the subducting plate velocity is consistent with the value used in the worldbuilder
+            bd_v_dict = prm_top_prescribed(trench, sp_rate, 0.0, refinement_level, delta_trench=delta_trench)
+            o_dict["Boundary velocity model"] = bd_v_dict
+        elif type_of_bd == "top prescribed with bottom right open":
+            # assign a 0.0 value for the overiding plate velocity
+            # the subducting plate velocity is consistent with the value used in the worldbuilder
+            bd_v_dict, bd_t_dict = prm_top_prescribed_with_bottom_right_open(trench, sp_rate, 0.0, refinement_level, delta_trench=delta_trench)
+            o_dict["Boundary velocity model"] = bd_v_dict
+            o_dict["Boundary traction model"] = bd_t_dict
+        elif type_of_bd == "top prescribed with bottom left open":
+            # assign a 0.0 value for the overiding plate velocity
+            # the subducting plate velocity is consistent with the value used in the worldbuilder
+            bd_v_dict, bd_t_dict = prm_top_prescribed_with_bottom_left_open(trench, sp_rate, 0.0, refinement_level)
+            o_dict["Boundary velocity model"] = bd_v_dict
+            o_dict["Boundary traction model"] = bd_t_dict
+        # directory to put outputs
+        if branch != "":
+            if branch == "master":
+                branch_str = ""
+            else:
+                branch_str = "_%s" % branch
+            o_dict["Additional shared libraries"] =  "$ASPECT_SOURCE_DIR/build%s/prescribe_field/libprescribed_temperature.so, \
+$ASPECT_SOURCE_DIR/build%s/visco_plastic_TwoD/libvisco_plastic_TwoD.so, \
+$ASPECT_SOURCE_DIR/build%s/isosurfaces_TwoD1/libisosurfaces_TwoD1.so" % (branch_str, branch_str, branch_str)
+        # solver schemes
+        if abs((stokes_linear_tolerance-0.1)/0.1) > 1e-6:
+            # default is negative, thus do nothing
+            o_dict["Solver parameters"]["Stokes solver parameters"]["Linear solver tolerance"] = str(stokes_linear_tolerance)
+        # time of computation
+        if abs((end_time - 60e6)/60e6) > 1e-6:
+            o_dict["End time"] = str(end_time)
+        # Adiabatic surface temperature
+        o_dict["Adiabatic surface temperature"] = str(potential_T)
+        # geometry model
+        # repitition: figure this out by deviding the dimensions with a unit value of repitition_slice
+        # The repitition_slice is defined by a max_repitition_slice and the minimum value compared with the dimensions
+        repetition_slice = np.min(np.array([maximum_repetition_slice, 2.8900e6]))
+        if geometry == 'chunk':
+            max_phi = box_width / Ro * 180.0 / np.pi  # extent in term of phi
+            if rf_scheme == "3d consistent":
+                y_extent_str = "2.8900e6"
+                if abs(box_height - 2.89e6) / 2.89e6 > 1e-6:
+                    y_extent_str = "%.4e" % box_height
+                if adjust_mesh_with_width:
+                    x_repetitions = int(np.ceil(int((box_width/repetition_slice) * 2.0) / 2.0))
+                    y_repetitions = int(np.ceil(int((box_height/repetition_slice) * 2.0) / 2.0))
+                else:
+                    x_repetitions = 2
+                    y_repetitions = 1
+                o_dict["Geometry model"] = {
+                    "Model name": "chunk",
+                    "Chunk": {
+                        "Chunk inner radius": "%.4e" % (6371e3 - box_height),
+                        "Chunk outer radius": "%.4e" % 6371e3,
+                        "Chunk minimum longitude": "0.0",
+                        "Chunk maximum longitude": "%.4e" % max_phi,
+                        "Longitude repetitions": "%d" % x_repetitions,
+                        "Radius repetitions": "%d" % y_repetitions
+                    }
+                }
+            else:
+                o_dict["Geometry model"] = prm_geometry_sph(max_phi, adjust_mesh_with_width=adjust_mesh_with_width)
+        elif geometry == 'box':
+            y_extent_str = "2.8900e6"
+            if abs(box_height - 2.89e6) / 2.89e6 > 1e-6:
+                y_extent_str = "%.4e" % box_height
+            if adjust_mesh_with_width:
+                x_repetitions = int(np.ceil(int((box_width/repetition_slice) * 2.0) / 2.0))
+                y_repetitions = int(np.ceil(int((box_height/repetition_slice) * 2.0) / 2.0))
+            else:
+                x_repetitions = 2
+                y_repetitions = 1
+            o_dict["Geometry model"] = {
+                "Model name": "box",
+                "Box": {
+                    "X extent": "%.4e" % box_width,
+                    "Y extent": y_extent_str,
+                    "X repetitions": "%d" % x_repetitions
+                }
+            }
+            if y_repetitions > 1:
+                o_dict["Geometry model"]["Box"]["Y repetitions"] = "%d" % y_repetitions
+        # refinement
+        if rf_scheme == "2d":
+            if refinement_level > 0:
+                # these options only take effects when refinement level is positive
+                if refinement_level == 9:
+                    # this is only an option if the input is positive
+                    o_dict["Mesh refinement"]["Initial global refinement"] = "5"
+                    o_dict["Mesh refinement"]["Initial adaptive refinement"] = "4"
+                elif refinement_level == 10:
+                    o_dict["Mesh refinement"]["Initial global refinement"] = "5"
+                    o_dict["Mesh refinement"]["Initial adaptive refinement"] = "5"
+                    pass
+                elif refinement_level == 11:
+                    o_dict["Mesh refinement"]["Initial global refinement"] = "6"
+                    o_dict["Mesh refinement"]["Initial adaptive refinement"] = "5"
+                elif refinement_level == 12:
+                    o_dict["Mesh refinement"]["Initial global refinement"] = "6"
+                    o_dict["Mesh refinement"]["Initial adaptive refinement"] = "6"
+                elif refinement_level == 13:
+                    o_dict["Mesh refinement"]["Initial global refinement"] = "7"
+                    o_dict["Mesh refinement"]["Initial adaptive refinement"] = "6"
+                else:
+                    raise NotImplementedError()
+                o_dict["Mesh refinement"]["Minimum refinement level"] = o_dict["Mesh refinement"]["Initial global refinement"]
+                if geometry == 'chunk':
+                    if plate_age_method == 'adjust box width only assigning age': 
+                        trench = get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro)
+                    else:
+                        trench = get_trench_position(sp_age_trench, sp_rate, geometry, Ro, sp_trailing_length)
+                    o_dict["Mesh refinement"]['Minimum refinement function'] = prm_minimum_refinement_sph(refinement_level=refinement_level, refine_wedge=refine_wedge, trench=trench)
+                elif geometry == 'box':
+                    o_dict["Mesh refinement"]['Minimum refinement function'] = prm_minimum_refinement_cart(refinement_level=refinement_level)
+            else:
+                if geometry == 'chunk':
+                    o_dict["Mesh refinement"]['Minimum refinement function'] = prm_minimum_refinement_sph()
+                elif geometry == 'box':
+                    o_dict["Mesh refinement"]['Minimum refinement function'] = prm_minimum_refinement_cart()
+        # adjust refinement with different schemes
+        elif rf_scheme == "3d consistent":
+            # 3d consistent scheme:
+            #   the global and adaptive refinement are set up by two variables separately
+            #   remove additional inputs
+            o_dict["Mesh refinement"]["Initial global refinement"] = "%d" % global_refinement
+            o_dict["Mesh refinement"]["Initial adaptive refinement"] = "%d" % adaptive_refinement
+            o_dict["Mesh refinement"]["Minimum refinement level"] = "%d" % global_refinement
+            o_dict["Mesh refinement"]["IsosurfacesTwoD1"].pop("Depth for coarsening the lower mantle")
+            o_dict["Mesh refinement"]["IsosurfacesTwoD1"].pop("Level for coarsening the lower mantle")
+            if geometry == "box":
+                o_dict["Mesh refinement"]["Minimum refinement function"]["Coordinate system"] = "cartesian"
+                o_dict["Mesh refinement"]["Minimum refinement function"]["Variable names"] = "x, y, t"
+                Do_str = "2.8900e+06" # strong for box height
+                if abs(box_height - 2.89e6) / 2.89e6 > 1e-6:
+                    Do_str = "%.4e" % box_height
+                o_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = \
+                    "(Do-y<UM)?\\\n\
+                                        ((Do-y<Dp+50e3)? Rd: Rum)\\\n\
+                                        :0"
+                o_dict["Mesh refinement"]["Minimum refinement function"]["Function constants"] = \
+                    "Do=%s, UM=670e3, Dp=100e3, Rd=%d, Rum=%d" %\
+                        (Do_str, global_refinement+adaptive_refinement-1, global_refinement+adaptive_refinement-2)
+            else:
+                o_dict["Mesh refinement"]["Minimum refinement function"]["Function constants"] = \
+                    "Ro=6371e3, UM=670e3, Dp=100e3, Rd=%d, Rum=%d" %\
+                        (global_refinement+adaptive_refinement-1, global_refinement+adaptive_refinement-2)
+                o_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = \
+                    "(Ro-r<UM)?\\\n\
+                                        ((Ro-r<Dp+50e3)? Rd: Rum)\\\n\
+                                        :0"
+        # boundary temperature model
+        # 1. assign the option from sph and cart model, respectively
+        # 2. check if we want to automatically fix the boundary temperature
+        if geometry == 'chunk':
+            o_dict['Boundary temperature model'] = prm_boundary_temperature_sph()
+        elif geometry == 'box':
+            o_dict['Boundary temperature model'] = prm_boundary_temperature_cart()
+        else:
+            pass
+        if fix_boudnary_temperature_auto:
+            # boudnary temperature: figure this out from the depth average profile
+            assert(self.da_Tad_func is not None)
+            try:
+                Tad_bot = self.da_Tad_func(box_height) # bottom adiabatic temperature
+            except ValueError:
+                # in case this is above the given range of depth in the depth_average
+                # file, apply a slight variation and try again
+                Tad_bot = self.da_Tad_func(box_height - 50e3)
+            if geometry == "box":
+                o_dict['Boundary temperature model']['Box']['Bottom temperature'] = "%.4e" % Tad_bot
+            elif geometry == "chunk":
+                o_dict['Boundary temperature model']['Spherical constant']['Inner temperature'] = "%.4e" % Tad_bot
+       
+        # compositional fields
+        # note the options for additional compositions and less compositions are handled later
+        # options for using the particle method
+        if comp_method == "particle":
+            o_dict = change_field_to_particle(o_dict, minimum_particles_per_cell=minimum_particles_per_cell, maximum_particles_per_cell=maximum_particles_per_cell)
+        
+        # set up subsection reset viscosity function
+        visco_plastic_twoD = self.idict['Material model']['Visco Plastic TwoD']
+        if geometry == 'chunk':
+            o_dict['Material model']['Visco Plastic TwoD'] =\
+              prm_visco_plastic_TwoD_sph(visco_plastic_twoD, max_phi, type_of_bd, sp_trailing_length, ov_trailing_length)
+        elif geometry == 'box':
+            o_dict['Material model']['Visco Plastic TwoD'] =\
+              prm_visco_plastic_TwoD_cart(visco_plastic_twoD, box_width, box_height, type_of_bd, sp_trailing_length,\
+                                           ov_trailing_length, Dsz, reset_density=reset_density)
+       
+        # set up subsection Prescribed temperatures
+        if geometry == 'chunk':
+            if prescribe_T_method not in ['plate model 1', 'default']:
+                prescribe_T_method = "default" # reset to default
+            o_dict['Prescribed temperatures'] =\
+                prm_prescribed_temperature_sph(max_phi, potential_T, sp_rate, ov_age, model_name=prescribe_T_method, area_width=prescribe_T_width)
+            if type_of_bd == "all free slip":
+                o_dict["Prescribe internal temperatures"] = "true"
+        elif geometry == 'box':
+            if prescribe_T_method == 'function':
+                o_dict['Prescribed temperatures'] =\
+                    prm_prescribed_temperature_cart(box_width, potential_T, sp_rate, ov_age)
+            elif prescribe_T_method == 'plate model':
+                o_dict['Prescribed temperatures'] =\
+                    prm_prescribed_temperature_cart_plate_model(box_width, potential_T, sp_rate, ov_age)
+            elif prescribe_T_method == 'plate model 1':
+                o_dict['Prescribed temperatures'] =\
+                    prm_prescribed_temperature_cart_plate_model_1(box_width, box_height, potential_T, sp_rate, ov_age, area_width=prescribe_T_width)
+                o_dict["Prescribe internal temperatures"] = "true"
+
+        if type_of_bd in ["top prescribed with bottom right open", "top prescribed with bottom left open", "top prescribed"]:
+            # in this case, I want to keep the options for prescribing temperature but to turn it off at the start
+            o_dict["Prescribe internal temperatures"] = "false" # reset this to false as it doesn't work for now
+        if prescribe_T_with_trailing_edge == 0:
+            if sp_trailing_length > 1e-6 or ov_trailing_length > 1e-6:
+                # in case the trailing edge doesn't touch the box, reset this
+                # this doesn't work for now
+                o_dict["Prescribe internal temperatures"] = "false"
+        
+        # Material model
+        if use_3d_da_file:
+            da_file = os.path.join(LEGACY_FILE_DIR, 'reference_ThD', "depth_average.txt")
+        else:
+            da_file = os.path.join(LEGACY_FILE_DIR, 'reference_TwoD', "depth_average.txt")
+        assert(os.path.isfile(da_file))
+
+        # CDPT model
+        if phase_model == "CDPT":
+            CDPT_set_parameters(o_dict, CDPT_type, slope_410=slope_410, slope_660=slope_660)
+
+        if use_new_rheology_module == 1:
+            Operator = RHEOLOGY_OPR()
+        else:
+            raise NotImplementedError("Need to include Rheology_old_Dec_2023.RHEOLOGY_OPR")
+            # Operator = Rheology_old_Dec_2023.RHEOLOGY_OPR()
+
+        # mantle rheology
+        Operator.ReadProfile(da_file)
+        rheology = {}
+        if mantle_rheology_scheme == "HK03_wet_mod_twod":  # get the type of rheology
+            # note that the jump on 660 is about 15.0 in magnitude
+            # deprecated
+            rheology,viscosity_profile = Operator.MantleRheology(rheology="HK03_wet_mod", dEdiff=-40e3, dEdisl=30e3,\
+    dVdiff=-5.5e-6, dVdisl=2.12e-6, save_profile=1, dAdiff_ratio=0.33333333333, dAdisl_ratio=1.040297619, save_json=1,\
+    jump_lower_mantle=15.0, Coh=mantle_coh)
+            if sz_viscous_scheme == "constant" and\
+                abs(sz_constant_viscosity - 1e20)/1e20 < 1e-6 and slab_core_viscosity < 0.0:  # assign the rheology
+                if abs(minimum_viscosity - 1e18) / 1e18 > 1e-6:
+                    # modify the minimum viscosity if a different value is given
+                    o_dict['Material model']['Visco Plastic TwoD']['Minimum viscosity'] = str(minimum_viscosity)
+            else:
+                CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
+                sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
+        elif mantle_rheology_scheme == "HK03_wet_mod_twod1":  # get the type of rheology
+            # note that the jump on 660 is about 15.0 in magnitude
+            # fix the issue that in the previous scheme, the rheolog is not assigned to the prm.
+            rheology, viscosity_profile = Operator.MantleRheology(rheology="HK03_wet_mod", dEdiff=-40e3, dEdisl=30e3,\
+    dVdiff=-5.5e-6, dVdisl=2.12e-6, save_profile=1, dAdiff_ratio=0.33333333333, dAdisl_ratio=1.040297619, save_json=1,\
+    jump_lower_mantle=15.0, Coh=mantle_coh)
+            if sz_viscous_scheme == "constant" and\
+                abs(sz_constant_viscosity - 1e20)/1e20 < 1e-6 and slab_core_viscosity < 0.0:  # assign the rheology
+                if abs(minimum_viscosity - 1e18) / 1e18 > 1e-6:
+                    # modify the minimum viscosity if a different value is given
+                    o_dict['Material model']['Visco Plastic TwoD']['Minimum viscosity'] = str(minimum_viscosity)
+                print("mantle_coh: ", mantle_coh)  # debug
+            CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
+            sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
+        elif mantle_rheology_scheme == "HK03_wet_mod_weakest_diffusion":
+            # in this rheology, I maintained the prefactors from the derivation of the "HK03_wet_mod" rheology
+            rheology, viscosity_profile = Operator.MantleRheology(rheology="HK03_wet_mod", dEdiff=-40e3, dEdisl=20e3,\
+    dVdiff=-5.5e-6, dVdisl=-1.2e-6, save_profile=1, save_json=1, jump_lower_mantle=15.0, Coh=mantle_coh)
+            CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
+            sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
+        elif mantle_rheology_scheme == "HK03":
+            # in this one, I don't include F because of the issue related to pressure calibration
+            rheology, viscosity_profile = Operator.MantleRheology(rheology=mantle_rheology_scheme, use_effective_strain_rate=False, save_profile=1, save_json=1,\
+    jump_lower_mantle=15.0)
+            CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
+            sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
+        elif mantle_rheology_scheme == "HK03_const":
+            # use the const coh = 1000.0 rheology in HK03
+            rheology, viscosity_profile = Operator.MantleRheology(rheology="HK03", use_effective_strain_rate=True, save_profile=1, save_json=1,\
+                        jump_lower_mantle=15.0)
+            CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
+            sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
+        elif mantle_rheology_scheme == "HK03_dry":
+            # use dry olivine rheology
+            rheology, viscosity_profile = Operator.MantleRheology(rheology="HK03_dry", use_effective_strain_rate=True, save_profile=1, save_json=1,\
+                        jump_lower_mantle=15.0)
+            CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
+            sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
+        elif mantle_rheology_scheme == "HK03_WarrenHansen23":
+            # read in the original rheology
+            rheology_name = "WarrenHansen23"
+            rheology_prm_dict = RHEOLOGY_PRM()
+            diffusion_creep_ori = getattr(rheology_prm_dict, rheology_name + "_diff")
+            dislocation_creep_ori = getattr(rheology_prm_dict, rheology_name + "_disl")
+            rheology_dict = {'diffusion': diffusion_creep_ori, 'dislocation': dislocation_creep_ori}
+            # prescribe the correction
+            diff_correction = {'A': 1.0, 'p': 0.0, 'r': 0.0, 'n': 0.0, 'E': delta_Ediff, 'V': delta_Vdiff}
+            disl_correction = {'A': 1.0, 'p': 0.0, 'r': 0.0, 'n': 0.0, 'E': delta_Edisl, 'V': delta_Vdisl}
+            # prescribe the reference state
+            ref_state = {}
+            ref_state["Coh"] = mantle_coh # H / 10^6 Si
+            ref_state["stress"] = 50.0 # MPa
+            ref_state["P"] = 100.0e6 # Pa
+            ref_state["T"] = 1250.0 + 273.15 # K
+            ref_state["d"] = 15.0 # mu m
+            # refit rheology
+            print("refit rheology") # debug
+            rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
+            # derive mantle rheology
+            rheology, viscosity_profile = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
+                                                        dislocation_creep=rheology_dict_refit['dislocation'], save_profile=1,\
+                                                        use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
+                                                        jump_lower_mantle=jump_lower_mantle)
+            print("rheology_dict_refit: ", rheology_dict_refit) # debug
+            print("rheology: ", rheology) # debug
+            # assign to the prm file
+            CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
+            sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
+        else:
+            # default is to fix F
+            rheology, viscosity_profile = Operator.MantleRheology(rheology=mantle_rheology_scheme, save_profile=1, save_json=1)
+            CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
+            sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
+        # record the upper mantle rheology
+        um_diffusion_creep = rheology['diffusion_creep']
+        um_dislocation_creep = rheology['dislocation_creep']
+        self.viscosity_profile=viscosity_profile
+
+        # these files are generated with the rheology variables
+        self.output_files.append(Operator.output_json)
+        self.output_files.append(Operator.output_json_aspect)
+        self.output_imgs.append(Operator.output_profile) # append plot of initial conition to figures
+        # yielding criteria
+        if sz_viscous_scheme == "stress dependent":
+            CDPT_assign_yielding(o_dict, cohesion, friction, crust_cohesion=crust_cohesion, crust_friction=crust_friction\
+            , if_couple_eclogite_viscosity=if_couple_eclogite_viscosity)
+        else:
+            CDPT_assign_yielding(o_dict, cohesion, friction)
+        # append to initial condition output
+        if sz_viscous_scheme == "stress dependent":
+            brittle_yielding = {}
+            brittle_yielding['cohesion'] = crust_cohesion
+            brittle_yielding['friction'] = np.tan(crust_friction * np.pi / 180.0)
+            brittle_yielding['type'] = 'Coulumb'
+            Operator_Sp = STRENGTH_PROFILE()
+            rheology_experiment_dislocation = ConvertFromAspectInput(rheology['dislocation_creep'])
+            Operator_Sp.SetRheology(disl=rheology_experiment_dislocation, brittle=brittle_yielding)
+            # save a strength figure: uncomment
+            # fig_path = os.path.join(ASPECT_LAB_DIR, "results", "shear_zone_strength.png")
+            # PlotShearZoneStrengh(Operator_Sp, fig_path) # deprecated
+            # self.output_imgs.append(fig_path)
+        # Change the slab strength by the maximum yield stress, the default value is 500 Mpa
+        if abs(slab_strength - 500e6) / 500e6 > 1e-6:
+            o_dict['Material model']['Visco Plastic TwoD']["Maximum yield stress"] = "%.4e" % slab_strength
+#        if slab_core_viscosity > 0.0:
+#            # assign a strong core inside the slab
+#            o_dict['Material model']['Visco Plastic TwoD']['Minimum viscosity'] =\
+#                "background: %.4e, spcrust: %.4e, spharz: %.4e, opcrust: %.4e, opcrust: %.4e" %\
+#                    (minimum_viscosity, minimum_viscosity, slab_core_viscosity, minimum_viscosity, minimum_viscosity)
+
+        # Include peierls rheology
+        if if_peierls:
+            # The inputs are taken care of based on the scheme to use (in the following if blocks)
+            try:
+                temp = o_dict['Material model']['Visco Plastic TwoD']['Peierls fitting parameters']
+            except KeyError as e:
+                raise KeyError('The options use Peierls rheology by there are missing parameters in the prm file') from e
+            o_dict['Material model']['Visco Plastic TwoD']['Include Peierls creep'] = 'true'
+            if peierls_scheme in ["MK10", "MK10p"]: 
+                Peierls = GetPeierlsApproxVist('MK10')
+                # fix peierls activation volume as mantle rheology
+                o_dict['Material model']['Visco Plastic TwoD']['Peierls glide parameters p'] = str(Peierls['p'])
+                o_dict['Material model']['Visco Plastic TwoD']['Peierls glide parameters q'] = str(Peierls['q'])
+                o_dict['Material model']['Visco Plastic TwoD']['Stress exponents for Peierls creep'] = str(Peierls['n'])
+                o_dict['Material model']['Visco Plastic TwoD']['Peierls stresses'] = '%.4e' % Peierls['sigp0']
+                o_dict['Material model']['Visco Plastic TwoD']['Activation energies for Peierls creep'] = '%.4e' % Peierls['E']
+                o_dict['Material model']['Visco Plastic TwoD']['Activation volumes for Peierls creep'] = '0.0'
+                if fix_peierls_V_as is not "":
+                    o_dict['Material model']['Visco Plastic TwoD']['Activation volume differences for Peierls creep'] =\
+                        '%.4e' % rheology[fix_peierls_V_as + '_creep']['V']
+                A = Peierls['A']
+                if phase_model == "CDPT":
+                    # note that this part contains the different choices of phases
+                    # in order to set up for the lower mantle compositions
+                    # a future implementation could indicate in the phases which are lower mantle compositions
+                    if peierls_flow_law == "exact":
+                        o_dict['Material model']['Visco Plastic TwoD']['Prefactors for Peierls creep'] = "%.4e" % A
+                                        # o_dict['Material model']['Visco Plastic TwoD']['Peierls strain rate residual tolerance'] = '%.4e' % 1e-22
+                        o_dict['Material model']['Visco Plastic TwoD'] = insert_dict_after(o_dict['Material model']['Visco Plastic TwoD'],\
+                            'Peierls strain rate residual tolerance', '%.4e' % 1e-22,'Peierls shear modulus derivative')
+                        # o_dict['Material model']['Visco Plastic TwoD']['Maximum Peierls strain rate iterations'] = '%d' % 40
+                        o_dict['Material model']['Visco Plastic TwoD'] = insert_dict_after(o_dict['Material model']['Visco Plastic TwoD'],\
+                            'Maximum Peierls strain rate iterations', '%d' % maximum_peierls_iterations, 'Peierls strain rate residual tolerance')
+                        # note that this part contains the different choices of phases
+                        # in order to set up for the Idrissi flow law
+                        # an additional parameter of Cutoff pressure is needed
+                        o_dict['Material model']['Visco Plastic TwoD'] = insert_dict_after(o_dict['Material model']['Visco Plastic TwoD'],\
+                                                                            'Cutoff pressures for Peierls creep',\
+                                                                            "background: 2.5e+10|2.5e+10|2.5e+10|2.5e+10|0.0|0.0|0.0|0.0, spcrust: 0.0|2.5e+10|0.0|0.0, spharz: 2.5e+10|2.5e+10|2.5e+10|2.5e+10|0.0|0.0|0.0|0.0, opcrust: 2.5e+10, opharz: 2.5e+10", \
+                                                                            "Maximum Peierls strain rate iterations")
+
+                    else:
+                        o_dict['Material model']['Visco Plastic TwoD']['Prefactors for Peierls creep'] = \
+                        "background: %.4e|%.4e|%.4e|%.4e|1e-31|1e-31|1e-31|1e-31,\
+    spcrust: %.4e|%.4e|1e-31|1e-31,\
+    spharz: %.4e|%.4e|%.4e|%.4e|1e-31|1e-31|1e-31|1e-31,\
+    opcrust: %.4e, opharz: %.4e" % (A, A, A, A, A, A, A, A, A, A, A, A)
+                else:
+                    pass  # not implemented
+                if peierls_scheme == "MK10p":
+                    # add p dependence in the peierls stress
+                    G0, Gp = GetPeierlsStressPDependence()
+                    o_dict['Material model']['Visco Plastic TwoD']['Peierls shear modulus'] = "%.4e" % G0
+                    o_dict['Material model']['Visco Plastic TwoD']['Peierls shear modulus derivative'] =  "%.4e" % Gp
+                else:
+                    # no p dependence, note: sigp = sigp0*(1 + (Gp/G0)*P1), here we want to set Gp = 0
+                    o_dict['Material model']['Visco Plastic TwoD']['Peierls shear modulus derivative'] = "0.0"
+                    pass
+            elif peierls_scheme == "Idrissi16":
+                # Idrissi 16 flow law
+                # unneeded variables (e.g. shear modulus), and new to add in (e.g. Peierls strain rate residual tolerance)
+                # pay attention to the converting of the prefactor (depending on the n value. Here is 0.0)
+                Peierls = GetPeierlsApproxVist('Idrissi16')
+                o_dict['Material model']['Visco Plastic TwoD'].pop('Peierls shear modulus') # don't need this one
+                o_dict['Material model']['Visco Plastic TwoD'].pop('Peierls shear modulus derivative') # don't need this one
+                o_dict['Material model']['Visco Plastic TwoD']['Peierls creep flow law'] = 'exact'
+                o_dict['Material model']['Visco Plastic TwoD']['Peierls glide parameters p'] = str(Peierls['p'])
+                o_dict['Material model']['Visco Plastic TwoD']['Peierls glide parameters q'] = str(Peierls['q'])
+                o_dict['Material model']['Visco Plastic TwoD']['Stress exponents for Peierls creep'] = str(Peierls['n'])
+                o_dict['Material model']['Visco Plastic TwoD']['Peierls stresses'] = '%.4e' % Peierls['sigp0']
+                o_dict['Material model']['Visco Plastic TwoD']['Activation energies for Peierls creep'] = '%.4e' % Peierls['E']
+                o_dict['Material model']['Visco Plastic TwoD']['Activation volumes for Peierls creep'] = '0.0'
+                o_dict['Material model']['Visco Plastic TwoD']['Peierls fitting parameters'] = '0.15'
+
+                # o_dict['Material model']['Visco Plastic TwoD']['Peierls strain rate residual tolerance'] = '%.4e' % 1e-22
+                o_dict['Material model']['Visco Plastic TwoD'] = insert_dict_after(o_dict['Material model']['Visco Plastic TwoD'],\
+                    'Peierls strain rate residual tolerance', '%.4e' % 1e-22,'Activation volumes for Peierls creep')
+                # o_dict['Material model']['Visco Plastic TwoD']['Maximum Peierls strain rate iterations'] = '%d' % 40
+                o_dict['Material model']['Visco Plastic TwoD'] = insert_dict_after(o_dict['Material model']['Visco Plastic TwoD'],\
+                    'Maximum Peierls strain rate iterations', '%d' % 40, 'Peierls strain rate residual tolerance')
+                # o_dict['Material model']['Visco Plastic TwoD']['Cutoff stresses for Peierls creep'] = '%.4e' % 2e7
+                o_dict['Material model']['Visco Plastic TwoD'] = insert_dict_after(o_dict['Material model']['Visco Plastic TwoD'],\
+                    'Cutoff stresses for Peierls creep', '%.4e' % 2e7, 'Maximum Peierls strain rate iterations')
+                # o_dict['Material model']['Visco Plastic TwoD']['Apply strict stress cutoff for Peierls creep'] = 'true'
+                o_dict['Material model']['Visco Plastic TwoD'] = insert_dict_after(o_dict['Material model']['Visco Plastic TwoD'],\
+                    'Apply strict stress cutoff for Peierls creep', 'true', 'Cutoff stresses for Peierls creep')
+                A = Peierls['A']
+                if phase_model == "CDPT":
+                    # note that this part contains the different choices of phases
+                    # in order to set up for the Idrissi flow law
+                    # an additional parameter of Cutoff pressure is needed
+                    o_dict['Material model']['Visco Plastic TwoD']['Prefactors for Peierls creep'] = "1.0e6"
+                    o_dict['Material model']['Visco Plastic TwoD'] = insert_dict_after(o_dict['Material model']['Visco Plastic TwoD'],\
+                                                                        'Cutoff pressures for Peierls creep',\
+                                                                        "background: 1e+31|1e+31|1e+31|1e+31|0.0|0.0|0.0|0.0, \
+spcrust: 1e+31|1e+31|0.0|0.0, \
+spharz: 1e+31|1e+31|1e+31|1e+31|0.0|0.0|0.0|0.0, \
+opcrust: 1e+31, opharz: 1e+31", \
+                                                                        "Apply strict stress cutoff for Peierls creep")
+        else:
+            o_dict['Material model']['Visco Plastic TwoD']['Include Peierls creep'] = 'false'
+        # eclogite transition
+        if eclogite_match > 0:
+            # assign a set of variables that matches the mineral phase transtions
+            o_dict['Material model']['Visco Plastic TwoD']["Eclogite transition"]["Pressure for eclogite transition"] = "1.5e9"
+            o_dict['Material model']['Visco Plastic TwoD']["Eclogite transition"]["Pressure slope for eclogite transition"] = "2.17e6"
+            o_dict['Material model']['Visco Plastic TwoD']["Eclogite transition"]["Pressure width for eclogite transition"] = "0.5e9"
+            o_dict['Material model']['Visco Plastic TwoD']["Eclogite transition"]["Average phase functions for eclogite transition"] = 'false'
+        if abs(eclogite_max_P - 5e9)/5e9 > 1e-6:
+            o_dict['Material model']['Visco Plastic TwoD']["Eclogite transition"]["Max pressure for eclogite transition"] =\
+            "%.4e" % eclogite_max_P # assign the max pressure for the eclogite transition
+        # Couple eclogite viscosity
+        if if_couple_eclogite_viscosity:
+            o_dict['Material model']['Visco Plastic TwoD']["Decoupling eclogite viscosity"] = 'false'
+        else:
+            o_dict['Material model']['Visco Plastic TwoD']["Decoupling eclogite viscosity"] = 'true'
+            o_dict['Material model']['Visco Plastic TwoD']["Eclogite decoupled viscosity"] =\
+                {
+                    "Decoupled depth": str(sz_cutoff_depth),
+                    "Decoupled depth width": '10e3'
+                }
+            if n_crust_layer == 2:
+                o_dict['Material model']['Visco Plastic TwoD']["Eclogite decoupled viscosity"]["Crust index"] = "3"
+        # phase model
+        if phase_model == "HeFESTo":
+            o_dict['Material model']['Visco Plastic TwoD']["Use lookup table"] = 'true'
+            o_dict['Material model']['Visco Plastic TwoD']["Lookup table"]["Data directory"] = HeFESTo_data_dir
+            pass
+        elif phase_model == "CDPT":
+            o_dict['Material model']['Visco Plastic TwoD'].pop("Use lookup table", "Foo")
+        # post-process
+        # assign the options for the embeded-fault implementation of shear zone:
+        #   1. add a section in the material model
+        #   2. set up particles
+        if use_embeded_fault:
+            o_dict['Material model']['Visco Plastic TwoD']["Sz from embeded fault"] = 'true'
+            o_dict['Material model']['Visco Plastic TwoD']["Sz embeded fault"] =\
+            {
+                "Sz composition index" : '0',\
+                "Sz thickness minimum" : str(Dsz),\
+                "Sz thickness maximum" :  str(ef_factor * Dsz),\
+                "Sz depth" : str(sz_cutoff_depth),\
+                "Sz particle bury depth" : str(ef_Dbury)
+            }
+            pp_dict = o_dict['Postprocess']
+            # add particles in this section
+            pp_dict["List of postprocessors"] += ', particles'
+            pp_dict['Particles'] = {\
+                "Data output format" : "vtu",\
+                "List of particle properties" : "initial position",\
+                "Time between data output": "0.1e6"\
+            }
+            o_dict['Postprocess'] = pp_dict
+
+        # expand the layer of the crust to multiple layers
+        if n_crust_layer == 1:
+            # 1 layer in the crust, this is the default option
+            pass
+        elif n_crust_layer == 2:
+            # 2 layers, expand the option of 'sp_crust' to 2 different layers
+            o_dict = expand_multi_composition(o_dict, 'spcrust', ['spcrust_up', 'spcrust_low'])
+            o_dict = expand_multi_composition(o_dict, 'opcrust', ['opcrust_up', 'opcrust_low'])
+            # assign the rheology
+            visco_plastic_dict = o_dict['Material model']['Visco Plastic TwoD']
+            if use_new_rheology_module == 1:
+                GetFunc = GetRheology
+                AssignFunc = AssignAspectViscoPlasticPhaseRheology
+            else:
+                raise NotImplementedError()
+                # GetFunc = Rheology_old_Dec_2023.GetRheology
+                # AssignFunc = Rheology_old_Dec_2023.AssignAspectViscoPlasticPhaseRheology
+            if upper_crust_rheology_scheme != "":
+                diffusion_creep, dislocation_creep = GetFunc(upper_crust_rheology_scheme)
+                visco_plastic_dict = AssignFunc(visco_plastic_dict, 'spcrust_up', 0, diffusion_creep, dislocation_creep)
+            if lower_crust_rheology_scheme == "":
+                pass
+            elif lower_crust_rheology_scheme == "mantle":
+                visco_plastic_dict = AssignFunc(visco_plastic_dict, 'spcrust_low', 0, um_diffusion_creep, um_dislocation_creep, no_convert=True)
+            else:
+                diffusion_creep, dislocation_creep = GetFunc(lower_crust_rheology_scheme)
+                visco_plastic_dict = AssignFunc(visco_plastic_dict, 'spcrust_low', 0, diffusion_creep, dislocation_creep)
+            o_dict['Material model']['Visco Plastic TwoD'] = visco_plastic_dict
+        else:
+            raise NotImplementedError()
+        
+        # crustal phase transition
+        if use_lookup_table_morb:
+            visco_plastic_dict = o_dict['Material model']['Visco Plastic TwoD']
+            # first reset the manual method
+            visco_plastic_dict["Manually define phase method crust"] = "0.0"
+            visco_plastic_dict["Decoupling eclogite viscosity"] = "false"
+            if "Eclogite transition" in visco_plastic_dict:
+                visco_plastic_dict.pop("Eclogite transition")
+            if "Eclogite decoupled viscosity" in visco_plastic_dict:
+                visco_plastic_dict.pop("Eclogite decoupled viscosity")
+            if "Use lookup table" in visco_plastic_dict:
+                visco_plastic_dict["Use lookup table"] = "false"
+            if "Lookup table" in visco_plastic_dict:
+                visco_plastic_dict.pop("Lookup table")
+
+            visco_plastic_dict["Use lookup table morb"] = "true"
+            visco_plastic_dict["Use phase rheology mixing"] = "true"
+            visco_plastic_dict["Phase rheology mixing models"] = "0, %d, 0, 0, 0" % lookup_table_morb_mixing
+            if n_crust_layer == 2:
+                visco_plastic_dict["Phase rheology mixing models"] = "0, 0, 0, %d, 0, 0, 0" % lookup_table_morb_mixing
+            morb_index = "1"
+            if n_crust_layer == 2:
+                morb_index = "4"
+            visco_plastic_dict["Lookup table morb"] = {
+                "Data directory": "$ASPECT_SOURCE_DIR/lookup_tables/",
+                "Material file names": "perplex_morb_test.txt",
+                "Morb composition index": morb_index,
+                "Cutoff eclogite phase below": "0.25",
+                "Bilinear interpolation": "true",
+                "Cutoff eclogite phase above T1": "1673.0",
+                "Cutoff eclogite phase above P1": "3.6e+09",
+                "Cutoff eclogite phase above T2": "0.0",
+                "Cutoff eclogite phase above P2": "7.8e+09",
+                "Rewrite morb density": "false",
+                "Eclogite phase divisor": "0.8"
+            }
+            o_dict['Material model']['Visco Plastic TwoD'] = visco_plastic_dict
+        
+        # remove the overiding plate composition
+        if rm_ov_comp:
+            o_dict = remove_composition(o_dict, 'opcrust')
+            o_dict = remove_composition(o_dict, 'opharz')
+            # modify options for the rheology
+
+        # apply the changes 
+        self.idict = o_dict
+
+        # create a multi-stage model
+        if if_peierls and (peierls_two_stage_time > 0):
+            o_dict1 = deepcopy(o_dict)
+            # for stage 1
+            o_dict['Material model']['Visco Plastic TwoD']['Include Peierls creep'] = 'false'
+            o_dict['End time'] = '%.4e' % peierls_two_stage_time
+            # for stage 2
+            o_dict1['Resume computation'] = 'true'
+            self.model_stages = 2
+            self.additional_idicts.append(o_dict1)
+
+        # additional outputs 
+        # todo_hf
+        if output_heat_flux:
+            o_dict['Postprocess']["List of postprocessors"] += ', heat flux map'
+            o_dict['Postprocess']["Visualization"]["List of output variables"] += ', heat flux map'
+            o_dict['Postprocess']["Visualization"]["Heat flux map"] = {"Output point wise heat flux": "true"}
+
+    def configure_wb(self, if_wb, geometry, potential_T, sp_age_trench, sp_rate, ov_ag,\
+        if_ov_trans, ov_trans_age, ov_trans_length, is_box_wider, Dsz, wb_new_ridge, version,\
+        n_crust_layer, Duc, n_comp, sp_trailing_length, ov_trailing_length, box_width, rm_ov_comp,\
+        plate_age_method):
+        '''
+        Configure world builder file
+        Inputs:
+            see description of CASE_OPT
+        '''
+        if not if_wb:
+            # check first if we use wb file for this one
+            return
+        # potential T
+        self.wb_dict['potential mantle temperature'] = potential_T
+        # geometry
+        if geometry == 'chunk':
+            # fix the depth method:
+            #   a update with the "begin at end segment" method to use
+            # fix the width of box
+            self.wb_dict["coordinate system"] = {"model": "spherical", "depth method": "begin segment"}
+            if version < 1.0:
+                pass
+            elif version < 2.0:
+                self.wb_dict["coordinate system"]["depth method"] = "begin at end segment"
+            else:
+                raise NotImplementedError
+            if is_box_wider:
+                self.wb_dict["cross section"] = [[0, 0], [360.0, 0.0]]
+            else:
+                self.wb_dict["cross section"] = [[0, 0], [180.0, 0.0]]
+        elif geometry == 'box':
+            # delete the depth method
+            #   it is not allowed in the cartesion geometry
+            # fix the width of box
+            self.wb_dict["coordinate system"]["model"] = "cartesian"
+            self.wb_dict["coordinate system"].pop("depth method")  # remove depth method in this case
+            if is_box_wider:
+                self.wb_dict["cross section"] = [[0, 0], [1e7, 0.0]]
+            else:
+                self.wb_dict["cross section"] = [[0, 0], [2e7, 0.0]]
+        else:
+            raise ValueError('%s: geometry must by one of \"chunk\" or \"box\"' % func_name())
+        # plates
+        if geometry == 'chunk':
+            if is_box_wider:
+                max_sph = 360.0
+            else:
+                max_sph = 180.0
+            Ro = float(self.idict['Geometry model']['Chunk']['Chunk outer radius'])
+            # sz_thickness
+            self.wb_dict = wb_configure_plates(self.wb_dict, sp_age_trench,\
+            sp_rate, ov_ag, wb_new_ridge, version, n_crust_layer, Duc, plate_age_method, Ro=Ro, if_ov_trans=if_ov_trans, ov_trans_age=ov_trans_age,\
+            ov_trans_length=ov_trans_length, geometry=geometry, max_sph=max_sph, sz_thickness=Dsz, n_comp=n_comp,\
+            sp_trailing_length=sp_trailing_length, ov_trailing_length=ov_trailing_length, box_width=box_width,\
+            rm_ov_comp=rm_ov_comp)
+        elif geometry == 'box':
+            if is_box_wider:
+                Xmax = 2e7
+            else:
+                Xmax = 1e7  # lateral extent of the box
+            Ro = float(self.idict['Geometry model']['Box']['Y extent'])
+            self.wb_dict = wb_configure_plates(self.wb_dict, sp_age_trench,\
+            sp_rate, ov_ag, wb_new_ridge, version, n_crust_layer, Duc, plate_age_method, Xmax=Xmax, if_ov_trans=if_ov_trans, ov_trans_age=ov_trans_age,\
+            ov_trans_length=ov_trans_length, geometry=geometry, sz_thickness=Dsz, n_comp=n_comp, sp_trailing_length=sp_trailing_length,\
+            ov_trailing_length=ov_trailing_length, box_width=box_width, rm_ov_comp=rm_ov_comp) # plates
+        else:
+            raise ValueError('%s: geometry must by one of \"chunk\" or \"box\"' % func_name())
+    
+    def configure_final(self, geometry, Dsz, use_embeded_fault, ef_Dbury, ef_particle_interval, use_embeded_fault_feature_surface):
+        '''
+        final step of configurations.
+        1. fix the options for the embeded fault method
+        '''
+        # use the embeded fault implementation, here we need to
+        # assign particle positions with world builder configuration
+        if geometry == 'chunk':
+            Ro = float(self.idict['Geometry model']['Chunk']['Chunk outer radius'])
+        elif geometry == 'box':
+            Ro = float(self.idict['Geometry model']['Box']['Y extent'])
+        else:
+            raise ValueError('%s: geometry must by one of \"chunk\" or \"box\"' % func_name())
+        # find information of the slab
+        i0 = FindWBFeatures(self.wb_dict, 'Slab')  # find trench position
+        s_dict = self.wb_dict['features'][i0]
+        trench = s_dict["coordinates"][0][0]
+        p0 = np.array([trench, Ro]) # starting point of the slab, theta needs to be in radian
+        segments = s_dict["segments"]  # find slab lengths and slab_dips
+        slab_lengths = []
+        slab_dips = []
+        for i in range(len(segments)-1):
+            # the last one is a ghost component for tapering, thus get rid of it
+            segment = segments[i]
+            slab_dips.append(segment["angle"])
+            slab_lengths.append(segment["length"])
+        # fix options for the embeded fault method
+        if use_embeded_fault:
+            if use_embeded_fault_feature_surface:
+                # if the feature surface from the WorldBuilder, no need to generate particles manually
+                # set up the variables instead
+                n_particles_on_plate = int(Ro * trench * np.pi / 180.0 // ef_particle_interval)
+                n_particles_on_slab = 0
+                for slab_length in slab_lengths:
+                    n_particles_on_slab += int(slab_length//ef_particle_interval)
+                n_particles = n_particles_on_plate + n_particles_on_slab
+                self.idict['Postprocess']['Particles']["Number of particles"] = str(n_particles)
+                self.idict['Postprocess']['Particles']["Particle generator name"] = "world builder feature surface"
+                self.idict['Postprocess']['Particles']["Generator"] = {\
+                    "World builder feature surface":\
+                    {\
+                        "Number of particles on the slab": str(n_particles_on_slab),\
+                        "Feature surface distance": "%.4e" % (Dsz + ef_Dbury),\
+                        "Maximum radius": "%.4e" % Ro,\
+                        "Minimum radius" : "%.4e" % (Ro - 200e3),\
+                        "Feature start": "%.4e" % (trench * np.pi / 180.0),\
+                        "Search start": "%.4e" % (trench * np.pi / 180.0),\
+                        "Search length": "0.00174",\
+                        "Search max step": "100"\
+                    }\
+                }
+            else:
+                self.idict['Postprocess']['Particles']["Particle generator name"] = "ascii file"
+                self.idict['Postprocess']['Particles']["Generator"] = {
+                    "Ascii file": {\
+                        "Data directory": "./particle_file/",\
+                        "Data file name": "particle.dat"\
+                    }
+                }
+                # if not using the feature surface from the WorldBuilder, generate particles manually
+                self.particle_data = particle_positions_ef(geometry, Ro, trench, Dsz, ef_Dbury, p0, slab_lengths, slab_dips, interval=ef_particle_interval)
+
+
+def change_field_to_particle(i_dict, **kwargs):
+    '''
+    change field method to particle method.
+    This function will automatically substitute all
+    the options with the particle method
+    Inputs:
+        i_dict: a dictionary containing parameters of a case
+    '''
+    minimum_particles_per_cell = kwargs.get("minimum_particles_per_cell", 33)
+    maximum_particles_per_cell = kwargs.get("maximum_particles_per_cell", 50)
+    o_dict = deepcopy(i_dict)
+    comp_dict = o_dict["Compositional fields"]
+    nof = int(o_dict["Compositional fields"]["Number of fields"])
+    # construct the new Compositional field methods
+    comp_method_expression = ""
+    is_first = True
+    for i in range(nof):
+        if is_first:
+            is_first = False
+        else:
+            comp_method_expression += ", "
+        comp_method_expression += "particles"
+    comp_dict["Compositional field methods"] = comp_method_expression
+    # map to particles
+    mapped_properties_expression = ""
+    field_name_exppression = comp_dict["Names of fields"]
+    field_name_options = field_name_exppression.split(',')
+    is_first = True
+    for _option in field_name_options:
+        if is_first:
+            is_first = False
+        else:
+            mapped_properties_expression += ", "
+        field_name = re_neat_word(_option) 
+        mapped_properties_expression += "%s: initial %s" % (field_name, field_name)
+    comp_dict["Mapped particle properties"] = mapped_properties_expression
+    # parse back
+    o_dict["Compositional fields"] = comp_dict
+    # deal with the Postprocess section
+    pp_dict = o_dict['Postprocess']
+    pp_dict["List of postprocessors"] += ', particles'
+    pp_dict['Particles'] = {\
+        "Number of particles": "5e7",\
+        "Minimum particles per cell": "%d" % minimum_particles_per_cell,\
+        "Maximum particles per cell": "%d" % maximum_particles_per_cell,\
+        "Load balancing strategy": "remove and add particles",\
+        "Interpolation scheme": "cell average",\
+        "Update ghost particles": "true",\
+        "Particle generator name": "random uniform",\
+        "Data output format" : "vtu",\
+        "List of particle properties" : "initial composition",\
+        "Time between data output": "0.1e6",\
+        "Allow cells without particles": "true"
+    }
+    o_dict['Postprocess'] = pp_dict
+    return o_dict
+
+
+def expand_multi_composition(i_dict, comp0, comps):
+    '''
+    expand one composition to multiple compositions in the dictionary
+    Inputs:
+        i_dict: dictionary of inputs
+        comp0: composition of inputs
+        comps: compositions (list) to expand to
+    '''
+
+    temp_dict = expand_multi_composition_options(i_dict, comp0, comps)
+    temp_dict = expand_multi_composition_isosurfaces(temp_dict, comp0, comps)
+    o_dict  = expand_multi_composition_composition_field(temp_dict, comp0, comps)
+    return o_dict
+
+def duplicate_composition_option(str_in, comp0, comp1, **kwargs):
+    '''
+    duplicate the composition option,  parse to a new string
+    Inputs:
+        str_in: an input of string
+        comp0, comp1: duplicate the option with comp0 to a new one with comp1
+    Return:
+        str_out: a new string for inputs of composition
+    '''
+    is_mapped_particle_properties = kwargs.get("is_mapped_particle_properties", False)
+    # read in original options
+    comp_in = COMPOSITION(str_in)
+    var = comp_in.data[comp0]
+    if is_mapped_particle_properties:
+        # replace substring by new composition in value
+        var = ["initial %s" % comp1]
+    # duplicate option with a new composition
+    comp_out = COMPOSITION(comp_in)
+    comp_out.data[comp1] = var
+    # convert to a new string & return
+    str_out = comp_out.parse_back() 
+    return str_out
+
+def remove_composition_option(str_in, comp0):
+    '''
+    remove the composition option
+    Inputs:
+        str_in: an input of string
+        comp0, comp1: remove the option with comp0
+    Return:
+        str_out: a new string for inputs of composition
+    '''
+    # read in original options
+    comp_in = COMPOSITION(str_in)
+    # move option to a new composition
+    comp_out = COMPOSITION(comp_in)
+    _ = comp_out.data.pop(comp0)
+    # convert to a new string & return
+    str_out = comp_out.parse_back() 
+    return str_out
+
+def expand_multi_composition_options(i_dict, comp0, comps):
+    '''
+    expand one composition to multiple compositions in the dictionary
+    Inputs:
+        i_dict: dictionary of inputs
+        comp0: composition of inputs
+        comps: compositions (list) to expand to
+    '''
+    o_dict = deepcopy(i_dict)
+
+    for key, value in o_dict.items():
+        if type(value) == dict:
+            # in case of dictionary: iterate
+            o_dict[key] = expand_multi_composition_options(value, comp0, comps)
+        elif type(value) == str:
+            # in case of string, try matching it with the composition
+            if re.match('.*' + comp0, value) and re.match('.*:', value) and not re.match('.*;', value):
+                try:
+                    temp = value
+                    for comp in comps:
+                        if key == "Mapped particle properties":
+                            temp = duplicate_composition_option(temp, comp0, comp, is_mapped_particle_properties=True)
+                        else:
+                            temp = duplicate_composition_option(temp, comp0, comp)
+                    o_dict[key] = remove_composition_option(temp, comp0)
+                except KeyError:
+                    # this is not a string with options of compositions, skip
+                    pass
+        else:
+            raise TypeError("value must be either dict or str")
+    return o_dict
+
+
+def expand_composition_array(old_str, id_comp0, n_comp):
+    '''
+    expand the composition options
+    Inputs:
+        old_str: the old option
+        id_comp0: index of the option for the original composition
+        n_comp: number of new compositions
+    '''
+    options = old_str.split(',')
+    removed_option = options.pop(id_comp0)
+    # compile new option
+    new_option = ""
+    for i in range(n_comp):
+        options.append(removed_option)
+    is_first = True
+    for _option in options:
+        if is_first:
+            is_first = False
+        else:
+            new_option += ', '
+        new_option += _option
+    return new_option 
+
+
+def expand_multi_composition_composition_field(i_dict, comp0, comps):
+    '''
+    expand one composition to multiple compositions in the dictionary
+    Inputs:
+        i_dict: dictionary of inputs
+        comp0: composition of inputs
+        comps: compositions (list) to expand to
+    '''
+    n_comp = len(comps)
+    o_dict = deepcopy(i_dict)
+    # composition field
+    # find the index of the original field to be id0
+    str_name = o_dict["Compositional fields"]["Names of fields"]
+    str_name_options = str_name.split(',')
+    id = 0
+    found = False
+    for _option in str_name_options:
+        comp = re_neat_word(_option) 
+        if comp == comp0:
+            id0 = id
+            found = True
+            str_name_options.remove(comp)
+        id += 1
+    if not found:
+        raise ValueError("the option of \"Names of fields\" doesn't have option of %s" % comp0)
+    # add the new compositions to the original list of compositions
+    for comp in comps:
+        str_name_options.append(comp)
+    str_name_new = ""
+    is_first = True
+    for _option in str_name_options:
+        if is_first:
+            is_first = False
+        else:
+            str_name_new += ","
+        str_name_new += _option
+    o_dict["Compositional fields"]["Names of fields"] = str_name_new
+    # number of composition
+    nof = int(o_dict["Compositional fields"]["Number of fields"])
+    new_nof = nof + n_comp-1
+    o_dict["Compositional fields"]["Number of fields"] = str(new_nof)
+    # field method
+    str_f_methods = o_dict["Compositional fields"]["Compositional field methods"]
+    f_method = str_f_methods.split(',')[0]
+    o_dict["Compositional fields"]["Compositional field methods"] += ("," + f_method) * (n_comp -1)
+    # discretization option
+    find_discretization_option = False
+    try:
+        discretization_option = o_dict["Discretization"]["Stabilization parameters"]['Global composition maximum']
+        find_discretization_option = True
+    except:
+        pass
+    if find_discretization_option:
+        o_dict["Discretization"]["Stabilization parameters"]['Global composition maximum'] = expand_composition_array(discretization_option, id0, n_comp)
+    find_discretization_option = False
+    try:
+        discretization_option = o_dict["Discretization"]["Stabilization parameters"]['Global composition minimum']
+        find_discretization_option = True
+    except:
+        pass
+    if find_discretization_option:
+        o_dict["Discretization"]["Stabilization parameters"]['Global composition minimum'] = expand_composition_array(discretization_option, id0, n_comp)
+    # option in the adiabatic temperature
+    try:
+        _ = o_dict["Initial temperature model"]["Adiabatic"]["Function"]["Function expression"]
+        new_adiabatic_functiion_expression = ""
+        is_first = True
+        for i in range(new_nof):
+            if is_first:
+                is_first = False
+            else:
+                new_adiabatic_functiion_expression += "; "
+            new_adiabatic_functiion_expression += "0.0"
+        o_dict["Initial temperature model"]["Adiabatic"]["Function"]["Function expression"] = new_adiabatic_functiion_expression
+    except KeyError:
+        pass
+    # option in the look up table
+    try:
+        look_up_index_option = o_dict["Material model"]["Visco Plastic TwoD"]["Lookup table"]["Material lookup indexes"]
+        # note there is an entry for the background in this option, so I have to use id0 + 1 
+        o_dict["Material model"]["Visco Plastic TwoD"]["Lookup table"]["Material lookup indexes"] = expand_composition_array(look_up_index_option, id0+1, n_comp)
+    except KeyError:
+        pass
+
+    return o_dict
+    
+
+def expand_multi_composition_isosurfaces(i_dict, comp0, comps):
+    '''
+    expand one composition to multiple compositions in the dictionary
+    Inputs:
+        i_dict: dictionary of inputs
+        comp0: composition of inputs
+        comps: compositions (list) to expand to
+    '''
+    found = False
+    # find the right option of isosurface
+    try:
+        isosurface_option = i_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"]
+        isosurface_option_type = 1
+        found = True
+    except KeyError:
+        try:
+            isosurface_option = i_dict["Mesh refinement"]["IsosurfacesTwoD1"]["Isosurfaces"]
+            isosurface_option_type = 2
+            found = True
+        except KeyError:
+            pass
+    # change the options of isosurface
+    if found:
+        # check that the target composition is in the string
+        if re.match('.*' + comp0, isosurface_option):
+            options = isosurface_option.split(";")
+            has_composition = False
+            for _option in options:
+                if re.match('.*' + comp0, _option):
+                    comp_option = _option
+                    options.remove(_option)
+                    has_composition = True
+            # expand the composition
+            if has_composition:
+                for comp in comps:
+                    options.append(re.sub(comp0, comp, comp_option))
+                new_isosurface_option = ""
+                is_first = True
+                for _option in options:
+                    if is_first:
+                        is_first = False
+                    else:
+                        new_isosurface_option += ";"
+                    new_isosurface_option += _option
+                if isosurface_option_type == 1:
+                    i_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"] = new_isosurface_option
+                elif isosurface_option_type == 2:
+                    i_dict["Mesh refinement"]["IsosurfacesTwoD1"]["Isosurfaces"] = new_isosurface_option
+    return i_dict
+
+def remove_composition(i_dict, comp):
+    '''
+    remove one composition to multiple compositions in the dictionary
+    Inputs:
+        i_dict: dictionary of inputs
+        comp: composition to remove
+    '''
+    temp_dict = remove_composition_options(i_dict, comp)
+    temp_dict = remove_composition_isosurfaces(temp_dict, comp)
+    o_dict  = remove_composition_composition_field(temp_dict, comp)
+    return o_dict
+
+
+def remove_composition_options(i_dict, comp):
+    '''
+    remove the options for one composition in the prm file
+    Inputs:
+        i_dict: dictionary of inputs
+        comp: composition to remove
+    '''
+    o_dict = deepcopy(i_dict)
+
+    for key, value in o_dict.items():
+        if type(value) == dict:
+            # in case of dictionary: iterate
+            o_dict[key] = remove_composition_options(value, comp)
+        elif type(value) == str:
+            # in case of string, try matching it with the composition
+            if re.match('.*' + comp, value) and re.match('.*:', value) and not re.match('.*;', value):
+                try:
+                    o_dict[key] = remove_composition_option(value, comp)
+                except KeyError:
+                    # this is not a string with options of compositions, skip
+                    pass
+        else:
+            raise TypeError("value must be either dict or str")
+    return o_dict
+
+
+def remove_composition_isosurfaces(i_dict, comp):
+    '''
+    remove the isosurface options for one composition in the prm file
+    Inputs:
+        i_dict: dictionary of inputs
+        comp: composition to remove
+    '''
+    found = False
+    # find the right option of isosurface
+    try:
+        isosurface_option = i_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"]
+        isosurface_option_type = 1
+        found = True
+    except KeyError:
+        try:
+            isosurface_option = i_dict["Mesh refinement"]["IsosurfacesTwoD1"]["Isosurfaces"]
+            isosurface_option_type = 2
+            found = True
+        except KeyError:
+            pass
+    # change the options of isosurface
+    if found:
+        # check that the target composition is in the string
+        # then remove it
+        if re.match('.*' + comp, isosurface_option):
+            options = isosurface_option.split(";")
+            for _option in options:
+                if re.match('.*' + comp, _option):
+                    options.remove(_option)
+                new_isosurface_option = ""
+                is_first = True
+                for _option in options:
+                    if is_first:
+                        is_first = False
+                    else:
+                        new_isosurface_option += ";"
+                    new_isosurface_option += _option
+                if isosurface_option_type == 1:
+                    i_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"] = new_isosurface_option
+                elif isosurface_option_type == 2:
+                    i_dict["Mesh refinement"]["IsosurfacesTwoD1"]["Isosurfaces"] = new_isosurface_option
+    o_dict = i_dict
+    return o_dict
+
+
+def remove_composition_array(old_str, id_comp0):
+    '''
+    expand the composition options
+    Inputs:
+        old_str: the old option
+        id_comp0: index of the option for the original composition
+        n_comp: number of new compositions
+    '''
+    options = old_str.split(',')
+    removed_option = options.pop(id_comp0)
+    # compile new option
+    new_option = ""
+    is_first = True
+    for _option in options:
+        if is_first:
+            is_first = False
+        else:
+            new_option += ', '
+        new_option += _option
+    return new_option 
+
+
+def remove_composition_composition_field(i_dict, comp0):
+    '''
+    remove the isosurface options for one composition in the prm file
+    Inputs:
+        i_dict: dictionary of inputs
+        comp: composition to remove
+    '''
+    o_dict = deepcopy(i_dict)
+    # composition field
+    # find the index of the original field to be id0
+    str_name = o_dict["Compositional fields"]["Names of fields"]
+    str_name_options = str_name.split(',')
+    id = 0
+    found = False
+    for _option in str_name_options:
+        comp = re_neat_word(_option) 
+        if comp == comp0:
+            id0 = id
+            found = True
+            str_name_options.remove(comp)
+        id += 1
+    if not found:
+        raise ValueError("the option of \"Names of fields\" doesn't have option of %s" % comp0)
+    # construct the new string for Names of fields
+    str_name_new = ""
+    is_first = True
+    for _option in str_name_options:
+        if is_first:
+            is_first = False
+        else:
+            str_name_new += ","
+        str_name_new += _option
+    o_dict["Compositional fields"]["Names of fields"] = str_name_new
+    # number of composition
+    nof = int(o_dict["Compositional fields"]["Number of fields"])
+    new_nof = nof - 1
+    o_dict["Compositional fields"]["Number of fields"] = str(new_nof)
+    # field method
+    str_f_methods = o_dict["Compositional fields"]["Compositional field methods"]
+    f_method = str_f_methods.split(',')[0]
+    # construct the new Compositional field methods
+    comp_method_expression = ""
+    is_first = True
+    for i in range(new_nof):
+        if is_first:
+            is_first = False
+        else:
+            comp_method_expression += ", "
+        comp_method_expression += f_method
+    o_dict["Compositional fields"]["Compositional field methods"] = comp_method_expression
+
+    # discretization option
+    find_discretization_option = False
+    try:
+        discretization_option = o_dict["Discretization"]["Stabilization parameters"]['Global composition maximum']
+        find_discretization_option = True
+    except:
+        pass
+    if find_discretization_option:
+        o_dict["Discretization"]["Stabilization parameters"]['Global composition maximum'] = remove_composition_array(discretization_option, id0)
+    find_discretization_option = False
+    try:
+        discretization_option = o_dict["Discretization"]["Stabilization parameters"]['Global composition minimum']
+        find_discretization_option = True
+    except:
+        pass
+    if find_discretization_option:
+        o_dict["Discretization"]["Stabilization parameters"]['Global composition minimum'] = remove_composition_array(discretization_option, id0)
+    # option in the adiabatic temperature
+    try:
+        _ = o_dict["Initial temperature model"]["Adiabatic"]["Function"]["Function expression"]
+        new_adiabatic_functiion_expression = ""
+        is_first = True
+        for i in range(new_nof):
+            if is_first:
+                is_first = False
+            else:
+                new_adiabatic_functiion_expression += "; "
+            new_adiabatic_functiion_expression += "0.0"
+        o_dict["Initial temperature model"]["Adiabatic"]["Function"]["Function expression"] = new_adiabatic_functiion_expression
+    except KeyError:
+        pass
+    # option in the look up table
+    try:
+        look_up_index_option = o_dict["Material model"]["Visco Plastic TwoD"]["Lookup table"]["Material lookup indexes"]
+        # note there is an entry for the background in this option, so I have to use id0 + 1 
+        o_dict["Material model"]["Visco Plastic TwoD"]["Lookup table"]["Material lookup indexes"] = remove_composition_array(look_up_index_option, id0+1)
+    except KeyError:
+        pass
+    return o_dict
+    
+
+def wb_configure_plates(wb_dict, sp_age_trench, sp_rate, ov_age, wb_new_ridge, version, n_crust_layer, Duc, plate_age_method, **kwargs):
+    '''
+    configure plate in world builder
+    '''
+    Ro = kwargs.get('Ro', 6371e3)
+    Xmax = kwargs.get('Xmax', 7e6)
+    max_sph = kwargs.get("max_sph", 180.0)
+    geometry = kwargs.get('geometry', 'chunk')
+    Dsz = kwargs.get("sz_thickness", None)
+    n_comp = kwargs.get("n_comp", 4)
+    sp_trailing_length = kwargs.get("sp_trailing_length", 0.0)
+    ov_trailing_length = kwargs.get("ov_trailing_length", 0.0)
+    box_width = kwargs.get("box_width", None)
+    rm_ov_comp = kwargs.get("rm_ov_comp", 0)
+    D2C_ratio = 35.2e3 / 7.5e3 # ratio of depleted / crust layer
+    o_dict = wb_dict.copy()
+    max_cart = 2 * Xmax
+    side_angle = 5.0  # side angle to creat features in the 3rd dimension
+    side_dist = 1e3
+    if geometry == 'chunk':
+        _side = side_angle
+        _max = max_sph
+    elif geometry == 'box':
+        _side = side_dist
+        _max = max_cart
+    if plate_age_method == 'adjust box width only assigning age': 
+        trench = get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro)
+    else:
+        trench = get_trench_position(sp_age_trench, sp_rate, geometry, Ro, sp_trailing_length)
+    if wb_new_ridge == 1:
+        sp_ridge_coords = [[[0, -_side], [0, _side]]]
+    else:
+        sp_ridge_coords = [[0, -_side], [0, _side]]
+    # the index of layers
+    if n_crust_layer == 1:
+        i_uc = -1
+        i_lc = 0
+        i_hz = 1
+    elif n_crust_layer == 2:
+        i_uc = 0
+        i_lc = 1
+        i_hz = 2
+    else:
+        raise NotImplementedError()
+    # Overiding plate
+    if_ov_trans = kwargs.get('if_ov_trans', False)  # transit to another age
+    if if_ov_trans and ov_age > (1e6 + kwargs['ov_trans_age']):  # only transfer to younger age
+        i0 = FindWBFeatures(o_dict, 'Overiding plate 1')
+        ov_trans_dict, ov =\
+            wb_configure_transit_ov_plates(wb_dict['features'][i0], trench,\
+                ov_age, kwargs['ov_trans_age'], kwargs['ov_trans_length'], wb_new_ridge,\
+                Dsz, D2C_ratio,\
+                Ro=Ro, geometry=geometry)
+        # options with multiple crustal layers
+        sample_composiiton_model =  ov_trans_dict["composition models"][0].copy()
+        if n_crust_layer == 1:
+            pass
+        elif n_crust_layer == 2:
+            ov_trans_dict["composition models"].append(sample_composiiton_model)
+            ov_trans_dict["composition models"][i_uc]["min depth"] = 0.0
+            ov_trans_dict["composition models"][i_uc]["max depth"] = Duc
+            ov_trans_dict["composition models"][i_uc]["compositions"] = [n_comp - 2]
+            ov_trans_dict["composition models"][i_lc]["min depth"] = Duc
+            ov_trans_dict["composition models"][i_lc]["compositions"] = [n_comp - 1]
+            ov_trans_dict["composition models"][i_hz]["compositions"] = [0]
+        else:
+            raise NotImplementedError()
+        ov_trans_dict["composition models"][i_lc]["max depth"] = Dsz
+        ov_trans_dict["composition models"][i_hz]["min depth"] = Dsz
+        ov_trans_dict["composition models"][i_hz]["max depth"] = Dsz * D2C_ratio
+        if rm_ov_comp:
+            # options for removing overiding plate compositions
+            ov_trans_dict.pop("composition models")
+        o_dict['features'][i0] = ov_trans_dict
+    else:
+        # if no using transit plate, remove the feature
+        try:
+            i0 = FindWBFeatures(o_dict, 'Overiding plate 1')
+        except KeyError:
+            pass
+        o_dict = RemoveWBFeatures(o_dict, i0)
+        ov = trench
+    # options for the overiding plate
+    i0 = FindWBFeatures(o_dict, 'Overiding plate')
+    op_dict = o_dict['features'][i0]
+    if ov_trailing_length > 0.0:
+        assert(box_width is not None)
+        # migrate the trailing edge from the box side
+        if geometry == "box":
+            end_point =  box_width - ov_trailing_length
+        elif geometry == "chunk":
+            end_point =  (box_width - ov_trailing_length) / Ro * 180.0 / np.pi
+        op_dict["coordinates"] = [[ov, -_side], [ov, _side],\
+            [end_point, _side], [end_point, -_side]] # trench position
+    else:
+        op_dict["coordinates"] = [[ov, -_side], [ov, _side],\
+            [_max, _side], [_max, -_side]] # trench position
+    op_dict["temperature models"][0]["plate age"] = ov_age  # age of overiding plate
+    # options for multiple crustal layers
+    sample_composiiton_model =  op_dict["composition models"][0].copy()
+    if n_crust_layer == 1:
+        pass
+    elif n_crust_layer == 2:
+        # options with multiple crustal layer
+        op_dict["composition models"].append(sample_composiiton_model)
+        op_dict["composition models"][i_uc]["min depth"] = 0.0
+        op_dict["composition models"][i_uc]["max depth"] = Duc
+        op_dict["composition models"][i_uc]["compositions"] = [n_comp - 2]
+        op_dict["composition models"][i_lc]["min depth"] = Duc
+        op_dict["composition models"][i_lc]["compositions"] = [n_comp - 1]
+        op_dict["composition models"][i_hz]["compositions"] = [1]
+    else:
+        raise NotImplementedError()
+    op_dict["composition models"][i_lc]["max depth"] = Dsz
+    op_dict["composition models"][i_hz]["min depth"] = Dsz
+    op_dict["composition models"][i_hz]["max depth"] = Dsz * D2C_ratio
+    if rm_ov_comp:
+        # options for removing overiding plate compositions
+        op_dict.pop("composition models")
+    o_dict['features'][i0] = op_dict
+    # Subducting plate
+    # 1. change to the starting point sp_trailing_length and fix the geometry
+    i0 = FindWBFeatures(o_dict, 'Subducting plate')
+    sp_dict = o_dict['features'][i0]
+    if geometry == "box":
+        start_point = sp_trailing_length
+    elif geometry == "chunk":
+        start_point = sp_trailing_length / Ro * 180.0 / np.pi
+    sp_dict["coordinates"] = [[start_point, -_side], [start_point, _side],\
+        [trench, _side], [trench, -_side]] # trench position
+    sp_dict["temperature models"][0]["spreading velocity"] = sp_rate
+    sp_dict["temperature models"][0]["ridge coordinates"] = sp_ridge_coords
+    # options for multiple crustal layers
+    sample_composiiton_model =  sp_dict["composition models"][0].copy()
+    if n_crust_layer == 1:
+        pass
+    elif n_crust_layer == 2:
+        # options with multiple crustal layer
+        sp_dict["composition models"].append(sample_composiiton_model)
+        sp_dict["composition models"][i_uc]["min depth"] = 0.0
+        sp_dict["composition models"][i_uc]["max depth"] = Duc
+        sp_dict["composition models"][i_uc]["compositions"] = [n_comp - 4]
+        sp_dict["composition models"][i_lc]["min depth"] = Duc
+        sp_dict["composition models"][i_lc]["compositions"] = [n_comp - 3]
+        sp_dict["composition models"][i_hz]["compositions"] = [0]
+    else:
+        raise NotImplementedError()
+    sp_dict["composition models"][i_lc]["max depth"] = Dsz
+    sp_dict["composition models"][i_hz]["min depth"] = Dsz
+    sp_dict["composition models"][i_hz]["max depth"] = Dsz * D2C_ratio
+    o_dict['features'][i0] = sp_dict
+    # Slab
+    i0 = FindWBFeatures(o_dict, 'Slab')
+    s_dict = o_dict['features'][i0]
+    s_dict["coordinates"] = [[trench, -_side], [trench, _side]] 
+    s_dict["dip point"] = [_max, 0.0]
+    s_dict["temperature models"][0]["ridge coordinates"] = sp_ridge_coords
+    s_dict["temperature models"][0]["plate velocity"] = sp_rate
+    if version < 1.0:
+        if sp_age_trench > 100e6:
+            # in this case, I'll use the plate model
+            s_dict["temperature models"][0]["use plate model as reference"] = True
+            s_dict["temperature models"][0]["max distance slab top"] = 150e3
+            s_dict["temperature models"][0]["artificial heat factor"] = 0.5
+    elif version < 2.0:
+            s_dict["temperature models"][0]["reference model name"] = "plate model"
+            s_dict["temperature models"][0]["max distance slab top"] = 150e3
+    else:
+        raise NotImplementedError()
+    for i in range(len(s_dict["segments"])-1):
+        
+        # thickness of crust, last segment is a ghost, so skip
+        sample_composiiton_model =  s_dict["segments"][i]["composition models"][0].copy()
+        if n_crust_layer == 1:
+            pass
+        elif n_crust_layer == 2:
+            # options with multiple crustal layer
+            s_dict["segments"][i]["composition models"].append(sample_composiiton_model)
+            s_dict["segments"][i]["composition models"][i_uc]["min distance slab top"] = 0.0
+            s_dict["segments"][i]["composition models"][i_uc]["max distance slab top"] = Duc
+            s_dict["segments"][i]["composition models"][i_uc]["compositions"] = [n_comp - 4]
+            s_dict["segments"][i]["composition models"][i_lc]["min distance slab top"] = Duc
+            s_dict["segments"][i]["composition models"][i_lc]["compositions"] = [n_comp - 3]
+            s_dict["segments"][i]["composition models"][i_hz]["compositions"] = [0]
+        else:
+            raise NotImplementedError()
+
+        s_dict["segments"][i]["composition models"][i_lc]["max distance slab top"] = Dsz
+        s_dict["segments"][i]["composition models"][i_hz]["min distance slab top"] = Dsz
+        s_dict["segments"][i]["composition models"][i_hz]["max distance slab top"] = Dsz * D2C_ratio
+        pass
+    o_dict['features'][i0] = s_dict
+    # mantle for substracting adiabat
+    i0 = FindWBFeatures(o_dict, 'mantle to substract')
+    m_dict = o_dict['features'][i0]
+    m_dict["coordinates"] =[[0.0, -_side], [0.0, _side],\
+        [_max, _side], [_max, -_side]]
+    o_dict['features'][i0] = m_dict
+    return o_dict
+
+def wb_configure_transit_ov_plates(i_feature, trench, ov_age,\
+    ov_trans_age, ov_trans_length, wb_new_ridge, Dsz, D2C_ratio, **kwargs):
+    '''
+    Transit overiding plate to a younger age at the trench
+    See descriptions of the interface to_configure_wb
+    '''
+    geometry = kwargs.get('geometry', 'chunk')
+    side_angle = 5.0  # side angle to creat features in the 3rd dimension
+    side_dist = 1e3
+    Ro = kwargs.get("Ro", 6371e3)
+    o_feature = i_feature.copy()
+    trans_angle = ov_trans_length / Ro / np.pi * 180.0
+    if geometry == 'chunk':
+        ov = trench  + trans_angle  # new ending point of the default overiding plage
+        side = side_angle
+        ridge = trench - trans_angle * ov_trans_age / (ov_age - ov_trans_age)
+    elif geometry == 'box':
+        ov = trench + ov_trans_length
+        side = side_dist
+        ridge = trench - ov_trans_length * ov_trans_age / (ov_age - ov_trans_age)
+    else:
+        pass
+    v = ov_trans_length / (ov_age - ov_trans_age)
+    o_feature["temperature models"][0]["spreading velocity"] = v
+    o_feature["coordinates"] = [[trench, -side], [trench, side],\
+        [ov, side], [ov, -side]]
+    if wb_new_ridge == 1:
+        o_feature["temperature models"][0]["ridge coordinates"] =\
+            [[[ridge, -side], [ridge, side]]]
+    else:
+        o_feature["temperature models"][0]["ridge coordinates"] =\
+            [[ridge, -side], [ridge, side]]
+    o_feature["composition models"][0]["max depth"] = Dsz
+    o_feature["composition models"][1]["min depth"] = Dsz
+    o_feature["composition models"][1]["max depth"] = Dsz * D2C_ratio
+    return o_feature, ov
+
+
+def prm_geometry_sph(max_phi, **kwargs):
+    '''
+    reset geometry for chunk geometry
+    '''
+    adjust_mesh_with_width = kwargs.get("adjust_mesh_with_width")
+    inner_radius = 3.481e6
+    outer_radius = 6.371e6
+    if adjust_mesh_with_width:
+        longitude_repetitions = int(outer_radius * max_phi / 180.0 * np.pi / (outer_radius - inner_radius))
+    else:
+        longitude_repetitions = 2
+    o_dict = {
+        "Model name": "chunk",
+        "Chunk": {
+            "Chunk inner radius": "3.481e6",\
+            "Chunk outer radius": "6.371e6",\
+            "Chunk maximum longitude": "%.4e" % max_phi,\
+            "Chunk minimum longitude": "0.0",\
+            "Longitude repetitions": "%d" % longitude_repetitions
+        }
+    }
+    return o_dict
+
+
+def prm_minimum_refinement_sph(**kwargs):
+    """
+    minimum refinement function for spherical geometry
+    """
+    Ro = kwargs.get('Ro', 6371e3)
+    refine_wedge = kwargs.get('refine_wedge', False)
+    trench = kwargs.get('trench', 0.62784)
+    refinement_level = kwargs.get("refinement_level", 10)
+    if refinement_level == 9:
+        R_UM = 6
+        R_LS = 7
+        pass
+    elif refinement_level == 10:
+        R_UM = 6
+        R_LS = 8
+    elif refinement_level == 11:
+        R_UM = 7
+        R_LS = 9
+    elif refinement_level == 12:
+        R_UM = 7
+        R_LS = 9
+    elif refinement_level == 13:
+        R_UM = 7
+        R_LS = 10
+    else:
+        raise ValueError("Wrong value %d for the \"refinement_level\"" % refinement_level)
+    o_dict = {
+      "Coordinate system": "spherical",
+      "Variable names": "r,phi,t"
+    }
+    if refine_wedge:
+        o_dict["Function constants"] = "Ro=%.4e, UM=670e3, DD=200e3, phiT=%.4f, dphi=%.4f" % (Ro, trench*np.pi/180.0, 10.0*np.pi/180.0)
+        o_dict["Function expression"] =  "((Ro-r<UM)? \\\n                                   ((Ro-r<DD)? (((phi-phiT>-dphi)&&(phi-phiT<dphi))? %d: %d): %d): 0.0)"\
+            % (refinement_level, R_LS, R_UM)
+    else:
+        o_dict["Function constants"] = "Ro=%.4e, UM=670e3, DD=100e3" % Ro
+        o_dict["Function expression"] =  "((Ro-r<UM)? \\\n                                   ((Ro-r<DD)? %d: %d): 0.0)" % (R_LS, R_UM)
+    print(o_dict) # debug
+    return o_dict
+
+
+def prm_minimum_refinement_cart(**kwargs):
+    """
+    minimum refinement function for cartesian geometry
+    """
+    Do = kwargs.get('Do', 2890e3)
+    refinement_level = kwargs.get("refinement_level", 10)
+    if refinement_level == 9:
+        R_UM = 6
+        R_LS = 7
+        pass
+    elif refinement_level == 10:
+        R_UM = 6
+        R_LS = 8
+    elif refinement_level == 11:
+        R_UM = 7
+        R_LS = 9
+    else:
+        raise ValueError("Wrong value for the \"refinement_level\"")
+    o_dict = {
+      "Coordinate system": "cartesian",
+      "Variable names": "x, y, t",
+      "Function constants": "Do=%.4e, UM=670e3, DD=100e3" % Do,
+      "Function expression": "((Do-y<UM)? \\\n                                   ((Do-y<DD)? %d: %d): 0.0)" % (R_LS, R_UM)
+    }
+    return o_dict
+
+
+def prm_boundary_temperature_sph():
+    '''
+    boundary temperature model in spherical geometry
+    '''
+    o_dict = {
+        "Fixed temperature boundary indicators": "bottom, top",
+        "List of model names": "spherical constant",
+        "Spherical constant": {
+            "Inner temperature": "3500", 
+            "Outer temperature": "273"
+        }
+    }
+    return o_dict
+
+
+def prm_boundary_temperature_cart():
+    '''
+    boundary temperature model in cartesian geometry
+    '''
+    o_dict = {
+        "Fixed temperature boundary indicators": "bottom, top",
+        "List of model names": "box",
+        "Box": {
+            "Bottom temperature": "3500",
+            "Top temperature": "273"
+            }
+    }
+    return o_dict
+
+
+def prm_visco_plastic_TwoD_sph(visco_plastic_twoD, max_phi, type_of_bd, sp_trailing_length, ov_trailing_length, **kwargs):
+    '''
+    reset subsection Visco Plastic TwoD
+    Inputs:
+        visco_plastic_twoD (dict): inputs for the "subsection Visco Plastic TwoD"
+        part in a prm file
+        kwargs(dict):
+    '''
+    o_dict = visco_plastic_twoD.copy()
+    o_dict['Reset viscosity function'] =\
+        prm_reset_viscosity_function_sph(max_phi, sp_trailing_length, ov_trailing_length)
+    if type_of_bd in ["all free slip"]:
+        o_dict["Reaction mor"] = 'true'
+    else:
+        o_dict["Reaction mor"] = 'false'
+    o_dict["Reaction mor function"] =\
+        prm_reaction_mor_function_sph(max_phi, sp_trailing_length, ov_trailing_length)
+    if type_of_bd == "all free slip":
+        # use free slip on both sides, set ridges on both sides
+        o_dict['Reset viscosity'] = 'true'
+    else:
+        o_dict['Reset viscosity'] = 'false'
+    return o_dict
+
+
+def prm_visco_plastic_TwoD_cart(visco_plastic_twoD, box_width, box_height, type_of_bd, sp_trailing_length,\
+                                ov_trailing_length, Dsz, **kwargs):
+    '''
+    reset subsection Visco Plastic TwoD
+    Inputs:
+        visco_plastic_twoD (dict): inputs for the "subsection Visco Plastic TwoD"
+        part in a prm file
+        kwargs(dict):
+    '''
+    reset_density = kwargs.get("reset_density", False)
+    o_dict = visco_plastic_twoD.copy()
+    o_dict['Reset viscosity function'] =\
+        prm_reset_viscosity_function_cart(box_width, box_height, sp_trailing_length, ov_trailing_length)
+    if type_of_bd in ["all free slip"]:
+        o_dict["Reaction mor"] = 'true'
+    else:
+        o_dict["Reaction mor"] = 'false'
+    print("Dsz: ", Dsz)  # debug
+    o_dict["Reaction mor function"] =\
+        prm_reaction_mor_function_cart(box_width, box_height, sp_trailing_length, ov_trailing_length, Dsz)
+    if type_of_bd in ["all free slip"]:
+        # use free slip on both sides, set ridges on both sides
+        o_dict['Reset viscosity'] = 'true'
+    else:
+        o_dict['Reset viscosity'] = 'false'
+    # reset density
+    # if reset_density is 1, then this option will show up in the prm file
+    if reset_density:
+        o_dict['Reset density'] = 'true'
+        o_dict['Reset density function'] = \
+            prm_reaction_density_function_cart(box_width, box_height, sp_trailing_length, ov_trailing_length)
+
+    return o_dict
+
+
+def prm_reset_viscosity_function_sph(max_phi, sp_trailing_length, ov_trailing_length):
+    '''
+    Default setting for Reset viscosity function in spherical geometry
+    Inputs:
+        sp_trailing_length: trailing length of the subducting plate
+        ov_trailing_length: trailing length of the overiding plate
+    '''
+    max_phi_in_rad = max_phi * np.pi / 180.0
+    if sp_trailing_length < 1e-6 and ov_trailing_length < 1e-6:
+        function_constants_str = "Depth=1.45e5, Width=2.75e5, Ro=6.371e6, PHIM=%.4e, CV=1e20" % max_phi_in_rad
+        function_expression_str =  "(((r > Ro - Depth) && ((Ro*phi < Width) || (Ro*(PHIM-phi) < Width)))? CV: -1.0)"
+    elif sp_trailing_length > 1e-6 and ov_trailing_length > 1e-6:
+        function_constants_str = "Depth=1.45e5, SPTL=%.4e, OPTL=%.4e, Ro=6.371e6, PHIM=%.4e, CV=1e20" % \
+        (sp_trailing_length, ov_trailing_length, max_phi_in_rad)
+        function_expression_str =  "(((r > Ro - Depth) && ((Ro*phi < SPTL) || (Ro*(PHIM-phi) < OPTL)))? CV: -1.0)"
+    else:
+        return NotImplementedError()
+    odict = {
+        "Coordinate system": "spherical",
+        "Variable names": "r, phi",
+        "Function constants": function_constants_str,
+        "Function expression": function_expression_str
+      }
+    return odict
+
+
+def prm_reset_viscosity_function_cart(box_width, box_height, sp_trailing_length, ov_trailing_length):
+    '''
+    Default setting for Reset viscosity function in cartesian geometry
+    Inputs:
+        sp_trailing_length: trailing length of the subducting plate
+        ov_trailing_length: trailing length of the overiding plate
+    '''
+    Do_str = "2.890e6"
+    if abs(box_height - 2.89e6) / 2.89e6 > 1e-6:
+        Do_str = "%.4e" % box_height
+    if sp_trailing_length < 1e-6 and ov_trailing_length < 1e-6:
+        function_constants_str =  "Depth=1.45e5, Width=2.75e5, Do=%s, xm=%.4e, CV=1e20" % (Do_str, box_width)
+        function_expression_str =  "(((y > Do - Depth) && ((x < Width) || (xm-x < Width)))? CV: -1.0)"
+    elif sp_trailing_length > 1e-6 and ov_trailing_length > 1e-6:
+        function_constants_str = "Depth=1.45e5, SPTL=%.4e, OPTL=%.4e, Do=%s, xm=%.4e, CV=1e20" % \
+        (sp_trailing_length, ov_trailing_length, Do_str, box_width)
+        function_expression_str =  "(((y > Do - Depth) && ((x < SPTL) || (xm-x < OPTL)))? CV: -1.0)"
+    else:
+        raise ValueError("Must set the trailing edges of the subducting plate and the overiding palte as the same time.")
+    odict = {
+        "Coordinate system": "cartesian",
+        "Variable names": "x, y",
+        "Function constants": function_constants_str,
+        "Function expression": function_expression_str
+    }
+    return odict
+
+
+def prm_reaction_mor_function_sph(max_phi, sp_trailing_length, ov_trailing_length):
+    '''
+    Default setting for Reaction mor function in cartesian geometry
+    '''
+    max_phi_in_rad = max_phi * np.pi / 180.0
+    if sp_trailing_length < 1e-6 and ov_trailing_length < 1e-6:
+        function_constants_str = "Width=2.75e5, Ro=6.371e6, PHIM=%.4e, DCS=7.500e+03, DHS=3.520e+04" % max_phi_in_rad
+        function_expression_str =  "((r > Ro - DCS) && (Ro*phi < Width)) ? 0:\
+\\\n                                        ((r < Ro - DCS) && (r > Ro - DHS) && (Ro*phi < Width)) ? 1:\
+\\\n                                        ((r > Ro - DCS) && (Ro*(PHIM - phi) < Width)) ? 2:\
+\\\n                                        ((r < Ro - DCS) && (r > Ro - DHS) && (Ro*(PHIM - phi) < Width)) ? 3: -1"
+    elif sp_trailing_length > 1e-6 and ov_trailing_length > 1e-6:
+        function_constants_str = "Width=2.75e5, SPTL=%.4e, OPTL=%.4e, Ro=6.371e6, PHIM=%.4e, DCS=7.500e+03, DHS=3.520e+04" % \
+        (sp_trailing_length, ov_trailing_length, max_phi_in_rad)
+        function_expression_str =  "((r > Ro - DCS) && (Ro*phi > SPTL) && (Ro*phi < Width + SPTL)) ? 0:\
+\\\n                                        ((r < Ro - DCS) && (r > Ro - DHS) && (Ro*phi > SPTL) && (Ro*phi < Width + SPTL)) ? 1:\
+\\\n                                        ((r > Ro - DCS) && (Ro*(PHIM - phi) > OPTL) && (Ro*(PHIM - phi) < Width + OPTL)) ? 2:\
+\\\n                                        ((r < Ro - DCS) && (r > Ro - DHS) && (Ro*(PHIM - phi) > OPTL) && (Ro*(PHIM - phi) < Width + OPTL)) ? 3: -1"
+    else:
+        return NotImplementedError()
+    odict = {
+        "Coordinate system": "spherical",\
+        "Variable names": "r, phi",\
+        # "Function constants": function_constants_str,\
+        # debug
+        "Function constants": function_constants_str,\
+        "Function expression":  function_expression_str
+      }
+    return odict
+
+
+def prm_reaction_mor_function_cart(box_width, box_height, sp_trailing_length, ov_trailing_length, Dsz):
+    '''
+    Default setting for Reaction mor function in cartesian geometry
+    '''
+    Do_str = "2.890e6"
+    if abs(box_height - 2.89e6) / 2.89e6 > 1e-6:
+        Do_str = "%.4e" % box_height
+    if sp_trailing_length < 1e-6 and ov_trailing_length < 1e-6:
+        function_constants_str = "Width=2.75e5, Do=%s, xm=%.4e, DCS=%.4e, DHS=%.4e" % (Do_str, box_width, Dsz, Dsz*35.2/7.5)
+        function_expression_str = "((y > Do - DCS) && (x < Width)) ? 0:\
+\\\n                                        ((y < Do - DCS) && (y > Do - DHS) && (x < Width)) ? 1:\
+\\\n                                        ((y > Do - DCS) && (xm - x < Width)) ? 2:\
+\\\n                                        ((y < Do - DCS) && (y > Do - DHS) && (xm - x < Width)) ? 3: -1" 
+    elif sp_trailing_length > 1e-6 and ov_trailing_length > 1e-6:
+        function_constants_str = "Width=2.75e5, SPTL=%.4e, OPTL=%.4e, Do=%s, xm=%.4e, DCS=%.4e, DHS=%.4e" % \
+        (sp_trailing_length, ov_trailing_length, Do_str, box_width, Dsz, Dsz*35.2/7.5)
+        function_expression_str = "((y > Do - DCS) && (x > SPTL) && (x < Width + SPTL)) ? 0:\
+\\\n                                        ((y < Do - DCS) && (y > Do - DHS) && (x > SPTL) && (x < Width + SPTL)) ? 1:\
+\\\n                                        ((y > Do - DCS) && (xm - x > OPTL) && (xm - x < Width + OPTL)) ? 2:\
+\\\n                                        ((y < Do - DCS) && (y > Do - DHS) && (xm - x > OPTL) && (xm - x < Width + OPTL)) ? 3: -1"
+    else:
+        return NotImplementedError()
+    odict = {
+        "Coordinate system": "cartesian",\
+        "Variable names": "x, y",\
+        "Function constants": function_constants_str,\
+        "Function expression": function_expression_str
+    }
+    return odict
+
+
+def prm_reaction_density_function_cart(box_width, box_height, sp_trailing_length, ov_trailing_length):
+    '''
+    Default setting for Reaction mor function in cartesian geometry
+    '''
+    Do_str = "2.890e6"
+    if abs(box_height - 2.89e6) / 2.89e6 > 1e-6:
+        Do_str = "%.4e" % box_height
+    function_constants_str = "Depth=1.45e5, SPTL=%.4e, OPTL=%.4e, Do=%s, xm=%.4e, CD=3300.0" % (sp_trailing_length, ov_trailing_length, Do_str, box_width)
+    function_expression_str = "(((y > Do - Depth) && ((x < SPTL) || (xm-x < OPTL)))? CD: -1.0)"
+    odict = {
+        "Coordinate system": "cartesian",\
+        "Variable names": "x, y",\
+        "Function constants": function_constants_str,\
+        "Function expression": function_expression_str
+    }
+    return odict
+
+def prm_prescribed_temperature_sph(max_phi, potential_T, sp_rate, ov_age, **kwargs):
+    '''
+    Default setting for Prescribed temperatures in spherical geometry
+    Inputs:
+        kwargs:
+            model_name: name of model to use
+            area_width: width of resetting
+    '''
+    model_name = kwargs.get('model_name', 'default')
+    max_phi_in_rad = max_phi * np.pi / 180.0
+    area_width = kwargs.get('area_width', 2.75e5) 
+    if model_name == 'default':
+        odict = {
+            "Indicator function": {
+              "Coordinate system": "spherical",\
+              "Variable names": "r, phi",\
+              "Function constants": "Depth=1.45e5, Width=2.75e5, Ro=6.371e6, PHIM=%.4e" % max_phi_in_rad,\
+              "Function expression": "(((r>Ro-Depth)&&((r*phi<Width)||(r*(PHIM-phi)<Width))) ? 1:0)"\
+            },\
+            "Temperature function": {
+              "Coordinate system": "spherical",\
+              "Variable names": "r, phi",\
+              "Function constants": "Depth=1.45e5, Width=2.75e5, Ro=6.371e6, PHIM=%.4e,\\\n                             AGEOP=%.4e, TS=2.730e+02, TM=%.4e, K=1.000e-06, VSUB=%.4e, PHILIM=1e-6" %\
+                  (max_phi_in_rad, ov_age * year, potential_T, sp_rate / year),\
+              "Function expression": "((r*(PHIM-phi)<Width) ? TS+(TM-TS)*(1-erfc(abs(Ro-r)/(2*sqrt(K*AGEOP)))):\\\n\t(phi > PHILIM)? (TS+(TM-TS)*(1-erfc(abs(Ro-r)/(2*sqrt((K*Ro*phi)/VSUB))))): TM)"
+            }
+        }
+    elif model_name == 'plate model 1':
+        odict = {
+            "Model name": "plate model 1",
+            "Indicator function": {
+              "Coordinate system": "spherical",
+              "Variable names": "r, phi",
+              "Function constants": "Depth=1.45e5, Width=%.4e, Ro=6.371e6, PHIM=%.4e" % (area_width, max_phi_in_rad),
+              "Function expression": "(((r>Ro-Depth)&&((Ro*phi<Width)||(Ro*(PHIM-phi)<Width))) ? 1:0)"
+            },
+            "Plate model 1": {
+                "Area width": "%.4e" % area_width,
+                "Subducting plate velocity": "%.4e" % (sp_rate / year),
+                "Overiding plate age": "%.4e" % (ov_age * year),
+                "Overiding area width": "%.4e" % area_width,
+                "Top temperature": "273.0"
+            }
+        }
+        pass
+    else:
+        raise ValueError('model name is either \"default\" or \"plate model 1\"')
+    return odict
+
+
+def prm_prescribed_temperature_cart(box_width, potential_T, sp_rate, ov_age):
+    '''
+    Default setting for Prescribed temperatures in cartesian geometry
+    '''
+    odict = {
+        "Indicator function": {
+          "Coordinate system": "cartesian",
+          "Variable names": "x, y",
+          "Function constants": "Depth=1.45e5, Width=2.75e5, Do=2.890e6, xm=%.4e" % box_width,
+          "Function expression": "(((y>Do-Depth)&&((x<Width)||(xm-x<Width))) ? 1:0)"
+        },
+        "Temperature function": {
+          "Coordinate system": "cartesian",
+          "Variable names": "x, y",
+          "Function constants": "Depth=1.45e5, Width=2.75e5, Do=2.890e6, xm=%.4e,\\\n                             AGEOP=%.4e, TS=2.730e+02, TM=%.4e, K=1.000e-06, VSUB=%.4e, XLIM=6" %\
+                (box_width, ov_age * year, potential_T, sp_rate / year),\
+          "Function expression": "(xm-x<Width) ? TS+(TM-TS)*(1-erfc(abs(Do-y)/(2*sqrt(K*AGEOP)))):\\\n\t((x > XLIM)? (TS+(TM-TS)*(1-erfc(abs(Do-y)/(2*sqrt((K*x)/VSUB))))): TM)"
+        }
+    }
+    return odict
+
+
+def prm_prescribed_temperature_cart_plate_model(box_width, potential_T, sp_rate, ov_age):
+    '''
+    Default setting for Prescribed temperatures in cartesian geometry using the plate model
+    '''
+    odict = {
+        "Model name": "plate model",
+        "Indicator function": {
+          "Coordinate system": "cartesian",
+          "Variable names": "x, y",
+          "Function constants": "Depth=1.45e5, Width=2.75e5, Do=2.890e6, xm=%.4e" % box_width,
+          "Function expression": "(((y>Do-Depth)&&((x<Width)||(xm-x<Width))) ? 1:0)"
+        },
+        "Plate model":{
+            "Subducting plate velocity" : "%.4e" % (sp_rate/year)
+        }
+    }
+    return odict
+
+
+def prm_prescribed_temperature_cart_plate_model_1(box_width, box_height, potential_T, sp_rate, ov_age, **kwargs):
+    '''
+    Default setting for Prescribed temperatures in cartesian geometry using the plate model
+    Inputs:
+        area_width: width of the reseting area
+    '''
+    area_width = kwargs.get('area_width', 2.75e5)
+    Do_str = "2.890e6"
+    if abs(box_height - 2.89e6) / 2.89e6 > 1e-6:
+        Do_str = "%.4e" % box_height
+    odict = {
+        "Model name": "plate model 1",
+        "Indicator function": {
+          "Coordinate system": "cartesian",
+          "Variable names": "x, y",
+          "Function constants": "Depth=1.45e5, Width=%.4e, Do=%s, xm=%.4e" % (area_width, Do_str, box_width),
+          "Function expression": "(((y>Do-Depth)&&((x<Width)||(xm-x<Width))) ? 1:0)"
+        },
+        "Plate model 1": {
+            "Area width": "%.4e" % area_width,
+            "Subducting plate velocity": "%.4e" % (sp_rate / year),
+            "Overiding plate age": "%.4e" % (ov_age * year),
+            "Overiding area width": "%.4e" % area_width,
+            "Top temperature": "273.0"
+        }
+    }
+    return odict
+
+
+###
+# velocity boundary conditions
+###
+
+def prm_prescribed_velocity_function(trench, delta_trench, sp_rate, ov_rate):
+    '''
+    the "Function" subsection in the "" subsection
+    Inputs:
+        trench: position of the trench
+        delta_trench: the transition distance where the velocity 
+                      varies continously from the subducting plate to the overiding plate
+        sp_rate: prescribed rate of the subducting plate
+        ov_rate: prescribed rate of the overidding plate
+    Returns:
+        func_dict: a dictionary storing the settings
+    '''
+    func_dict = \
+    {
+        "Function constants": "u0=0.03, x0=10000",\
+        "Variable names": "x,y",\
+        "Function constants": "xtr=%.4e, dtr=%.4e, usp=%.4e, uov=%.4e, xrd=100e3" % (trench, delta_trench,sp_rate, ov_rate),\
+        "Function expression": "((x < xrd)? (x/xrd*usp):\\\n%s\
+ ((x < (xtr - dtr/2.0))? usp:\\\n%s\
+ ((x < (xtr + dtr/2.0))?(usp + (uov - usp)*(x-xtr+dtr/2.0)/dtr): uov)))\\\n%s; 0.0" %\
+        (36*" ", 36*" ", 34*" ")
+    }
+    return func_dict
+
+
+def prm_top_prescribed(trench, sp_rate, ov_rate, refinement_level, **kwargs):
+    '''
+    Inputs:
+        trench: position of the trench
+        sp_rate: prescribed rate of the subducting plate
+        ov_rate: prescribed rate of the overidding plate
+        refinement_level: total levele of refinement, for figuring out the number of integration points
+        kwargs:
+            delta_trench: the transition distance where the velocity 
+                          varies continously from the subducting plate to the overiding plate
+    '''
+    delta_trench = kwargs.get("delta_trench", 20e3)
+    prescribed_velocity_function =  prm_prescribed_velocity_function(trench, delta_trench,sp_rate, ov_rate)
+    bd_v_dict = {
+        "Prescribed velocity boundary indicators": "3:function",\
+        "Tangential velocity boundary indicators": "0, 1, 2",\
+        "Function": prescribed_velocity_function
+    }
+    return bd_v_dict
+    pass
+
+
+
+def prm_top_prescribed_with_bottom_right_open(trench, sp_rate, ov_rate, refinement_level, **kwargs):
+    '''
+    Inputs:
+        trench: position of the trench
+        sp_rate: prescribed rate of the subducting plate
+        ov_rate: prescribed rate of the overidding plate
+        refinement_level: total levele of refinement, for figuring out the number of integration points
+        kwargs:
+            delta_trench: the transition distance where the velocity 
+                          varies continously from the subducting plate to the overiding plate
+    '''
+    delta_trench = kwargs.get("delta_trench", 20e3)
+    prescribed_velocity_function =  prm_prescribed_velocity_function(trench, delta_trench,sp_rate, ov_rate)
+    bd_v_dict = {
+        "Prescribed velocity boundary indicators": "3:function",\
+        "Tangential velocity boundary indicators": "0",\
+        "Function": prescribed_velocity_function
+    }
+    # fix the number of integretion points
+    n_integration_points = 2048
+    if refinement_level > 0:
+        n_integration_points = int(2**(refinement_level+1))
+    bd_t_dict = {
+        "Prescribed traction boundary indicators": "1:initial lithostatic pressure, 2:initial lithostatic pressure",\
+        "Initial lithostatic pressure":{
+            "Representative point": "100000.0, 100000.0",\
+            "Number of integration points": "%d" % n_integration_points
+        }
+    }
+    return bd_v_dict, bd_t_dict
+
+
+def prm_top_prescribed_with_bottom_left_open(trench, sp_rate, ov_rate, refinement_level, **kwargs):
+    '''
+    Inputs:
+        trench: position of the trench
+        sp_rate: prescribed rate of the subducting plate
+        ov_rate: prescribed rate of the overidding plate
+        refinement_level: total levele of refinement, for figuring out the number of integration points
+    '''
+    delta_trench = kwargs.get("delta_trench", 20e3)
+    prescribed_velocity_function =  prm_prescribed_velocity_function(trench, delta_trench,sp_rate, ov_rate)
+    bd_v_dict = {
+        "Prescribed velocity boundary indicators": "3:function",\
+        "Tangential velocity boundary indicators": "1",\
+        "Function": prescribed_velocity_function
+    }
+    # fix the number of integretion points
+    n_integration_points = 2048
+    if refinement_level > 0:
+        n_integration_points = int(2**(refinement_level+1))
+    bd_t_dict = {
+        "Prescribed traction boundary indicators": "0:initial lithostatic pressure, 2:initial lithostatic pressure",\
+        "Initial lithostatic pressure":{
+            "Representative point": "100000.0, 100000.0",\
+            "Number of integration points": "%d" % n_integration_points
+        }
+    }
+    return bd_v_dict, bd_t_dict
+
+
+def re_write_geometry_while_only_assigning_plate_age(box_width0, sp_age0, sp_age, sp_rate, sp_trailing_length, ov_trailing_length):
+    '''
+    adjust box width with assigned spreading rate of subducting plate and subducting plate age
+    Inputs:
+        box_width0: default box width
+        sp_age0: default plate age
+        sp_age: plate age
+        sp_rate: spreading rate of the subducting plate
+    '''
+    box_width = box_width0 + (sp_age - sp_age0) * sp_rate
+    return box_width
+
+
+def re_write_geometry_while_assigning_plate_age(box_width0, sp_age0, sp_age, sp_rate, sp_trailing_length, ov_trailing_length):
+    '''
+    adjust box width with assigned spreading rate of subducting plate and subducting plate age
+    Inputs:
+        box_width0: default box width
+        sp_age0: default plate age
+        sp_age: plate age
+        sp_rate: spreading rate of the subducting plate
+        sp_trailing_length: trailing length of the sp plate
+    '''
+    box_width = box_width0 + (sp_age - sp_age0) * sp_rate + sp_trailing_length + ov_trailing_length
+    return box_width
+
+
+def CDPT_set_parameters(o_dict, CDPT_type, **kwargs):
+    '''
+    set parameters for the CDPT model
+    '''
+    slope_410 = kwargs.get("slope_410", 2e6)
+    slope_660 = kwargs.get("slope_660", -1e6)
+    sz_different_composition = kwargs.get("sz_different_composition", 1)
+    print("slope_660: ", slope_660) # debug
+    if CDPT_type == 'HeFESTo_consistent':
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition depths'] = \
+        'background:410e3|520e3|560e3|660e3|660e3|660e3|660e3, spcrust: 80e3|665e3|720e3, spharz: 410e3|520e3|560e3|660e3|660e3|660e3|660e3'
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition widths'] = \
+        'background:13e3|25e3|60e3|5e3|5e3|5e3|5e3, spcrust: 5e3|60e3|5e3, spharz: 13e3|25e3|60e3|5e3|5e3|5e3|5e3'
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition temperatures'] = \
+        'background:1780.0|1850.0|1870.0|1910.0|2000.0|2000.0|2000.0, spcrust: 1173.0|1870.0|2000.0, spharz: 1780.0|1850.0|1870.0|1910.0|2000.0|2000.0|2000.0'
+        if abs((slope_410 - 2e6) / 2e6) > 1e-6 or abs((slope_660 - (-1e6)) / 1e6) > 1e-6: 
+            o_dict['Material model']['Visco Plastic TwoD']['Phase transition Clapeyron slopes'] = \
+            'background:%.2e|4.1e6|4e6|%.2e|0|%.2e|2e6, spcrust: 0.0|4e6|2e6, spharz: %.2e|4.1e6|4e6|%.2e|0|%.2e|2e6' % \
+                (slope_410, slope_660, slope_660, slope_410, slope_660, slope_660)
+        else:
+            o_dict['Material model']['Visco Plastic TwoD']['Phase transition Clapeyron slopes'] = \
+            'background:2e6|4.1e6|4e6|-1e6|0|-1e6|2e6, spcrust: 0.0|4e6|2e6, spharz: 2e6|4.1e6|4e6|-1e6|0|-1e6|2e6'
+    elif CDPT_type == 'Billen2018_old':
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition depths'] = \
+        'background:410e3|520e3|560e3|670e3|670e3|670e3|670e3, spcrust: 80e3|665e3|720e3, spharz: 410e3|520e3|560e3|670e3|670e3|670e3|670e3'
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition widths'] = \
+        "background:5e3|5e3|5e3|10e3|5e3|5e3|5e3, spcrust: 5e3|5e3|5e3, spharz: 5e3|5e3|5e3|10e3|5e3|5e3|5e3"
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition temperatures'] = \
+        "background:1662.0|1662.0|1662.0|1662.0|1662.0|1662.0|1662.0, spcrust: 1173.0|1662.0|1662.0, spharz: 1662.0|1662.0|1662.0|1662.0|1662.0|1662.0|1662.0"
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition Clapeyron slopes'] = \
+        "background:4e6|4.1e6|4e6|-2e6|4e6|-3.1e6|1.3e6, spcrust: 0.0|4e6|1.3e6, spharz: 4e6|4.1e6|4e6|-2e6|4e6|-3.1e6|1.3e6"
+    elif CDPT_type == 'Billen2018':
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition depths'] = \
+        'background:410e3|520e3|560e3|670e3|670e3|670e3|670e3, spcrust: 80e3|665e3|720e3, spharz: 410e3|520e3|560e3|670e3|670e3|670e3|670e3'
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition widths'] = \
+        "background:5e3|5e3|5e3|10e3|5e3|5e3|5e3, spcrust: 5e3|5e3|5e3, spharz: 5e3|5e3|5e3|10e3|5e3|5e3|5e3"
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition temperatures'] = \
+        "background:1800.0|1800.0|1800.0|1800.0|1800.0|1800.0|1800.0, spcrust: 1173.0|1800.0|1800.0, spharz: 1800.0|1800.0|1800.0|1800.0|1800.0|1800.0|1800.0"
+        o_dict['Material model']['Visco Plastic TwoD']['Phase transition Clapeyron slopes'] = \
+        "background:4e6|4.1e6|4e6|-2e6|4e6|-3.1e6|1.3e6, spcrust: 0.0|4e6|1.3e6, spharz: 4e6|4.1e6|4e6|-2e6|4e6|-3.1e6|1.3e6"
+
+
+
+
+def CDPT_assign_mantle_rheology(o_dict, rheology, **kwargs):
+    '''
+    Assign mantle rheology in the CDPT model
+    ''' 
+    diffusion_creep = rheology['diffusion_creep']
+    dislocation_creep = rheology['dislocation_creep']
+    diffusion_creep_lm = rheology['diffusion_lm']
+    sz_viscous_scheme = kwargs.get("sz_viscous_scheme", "constant")
+    sz_constant_viscosity = kwargs.get("sz_constant_viscosity", 1e20)
+    sz_minimum_viscosity = kwargs.get("sz_minimum_viscosity", 1e18)
+    slab_core_viscosity = kwargs.get("slab_core_viscosity", -1.0)
+    minimum_viscosity = kwargs.get('minimum_viscosity', 1e18)
+    if sz_viscous_scheme == "constant":
+        diff_crust_A = 1.0 / 2.0 / sz_constant_viscosity
+        diff_crust_m = 0.0
+        diff_crust_E = 0.0
+        diff_crust_V = 0.0
+        disl_crust_A = 5e-32
+        disl_crust_n = 1.0
+        disl_crust_E = 0.0
+        disl_crust_V = 0.0
+    elif sz_viscous_scheme == "stress dependent":
+        diff_crust_A = 5e-32
+        diff_crust_m = 0.0
+        diff_crust_E = 0.0
+        diff_crust_V = 0.0
+        disl_crust_A = dislocation_creep['A']
+        disl_crust_n = dislocation_creep['n']
+        disl_crust_E = dislocation_creep['E']
+        disl_crust_V = dislocation_creep['V']
+    diff_A = diffusion_creep['A']
+    diff_m = diffusion_creep['m']
+    diff_n = diffusion_creep['n']
+    diff_E = diffusion_creep['E']
+    diff_V = diffusion_creep['V']
+    diff_d = diffusion_creep['d']
+    disl_A = dislocation_creep['A']
+    disl_m = dislocation_creep['m']
+    disl_n = dislocation_creep['n']
+    disl_E = dislocation_creep['E']
+    disl_V = dislocation_creep['V']
+    disl_d = dislocation_creep['d']
+    diff_A_lm = diffusion_creep_lm['A']
+    diff_m_lm = diffusion_creep_lm['m']
+    diff_n_lm = diffusion_creep_lm['n']
+    diff_E_lm = diffusion_creep_lm['E']
+    diff_V_lm = diffusion_creep_lm['V']
+    diff_d_lm = diffusion_creep_lm['d']
+    o_dict['Material model']['Visco Plastic TwoD']['Prefactors for diffusion creep'] = \
+        "background: %.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e,\
+spcrust: %.4e|%.4e|%.4e|%.4e,\
+spharz: %.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e,\
+opcrust: %.4e, opharz: %.4e" % (diff_A, diff_A, diff_A, diff_A, diff_A_lm, diff_A_lm,\
+diff_A_lm, diff_A_lm, diff_crust_A, diff_A, diff_A_lm, diff_A_lm,\
+diff_A, diff_A, diff_A, diff_A, diff_A_lm, diff_A_lm, diff_A_lm, diff_A_lm,\
+diff_A, diff_A)
+    o_dict['Material model']['Visco Plastic TwoD']['Grain size exponents for diffusion creep'] = \
+        "background: %.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e,\
+spcrust: %.4e|%.4e|%.4e|%.4e,\
+spharz: %.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e,\
+opcrust: %.4e, opharz: %.4e" % (diff_m, diff_m, diff_m, diff_m, diff_m_lm, diff_m_lm,\
+diff_m_lm, diff_m_lm, diff_crust_m, diff_m, diff_m_lm, diff_m_lm,\
+diff_m, diff_m, diff_m, diff_m, diff_m_lm, diff_m_lm, diff_m_lm, diff_m_lm,\
+diff_m, diff_m)
+    o_dict['Material model']['Visco Plastic TwoD']['Activation energies for diffusion creep'] = \
+        "background: %.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e,\
+spcrust: %.4e|%.4e|%.4e|%.4e,\
+spharz: %.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e,\
+opcrust: %.4e, opharz: %.4e" % (diff_E, diff_E, diff_E, diff_E, diff_E_lm, diff_E_lm,\
+diff_E_lm, diff_E_lm, diff_crust_E, diff_E, diff_E_lm, diff_E_lm,\
+diff_E, diff_E, diff_E, diff_E, diff_E_lm, diff_E_lm, diff_E_lm, diff_E_lm,\
+diff_E, diff_E)
+    o_dict['Material model']['Visco Plastic TwoD']['Activation volumes for diffusion creep'] = \
+        "background: %.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e,\
+spcrust: %.4e|%.4e|%.4e|%.4e,\
+spharz: %.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e|%.4e,\
+opcrust: %.4e, opharz: %.4e" % (diff_V, diff_V, diff_V, diff_V, diff_V_lm, diff_V_lm,\
+diff_V_lm, diff_V_lm, diff_crust_V, diff_V, diff_V_lm, diff_V_lm,\
+diff_V, diff_V, diff_V, diff_V, diff_V_lm, diff_V_lm, diff_V_lm, diff_V_lm,\
+diff_V, diff_V)
+    o_dict['Material model']['Visco Plastic TwoD']['Prefactors for dislocation creep'] = \
+        "background: %.4e|%.4e|%.4e|%.4e|5.0000e-32|5.0000e-32|5.0000e-32|5.0000e-32,\
+spcrust: %.4e|%.4e|5.0000e-32|5.0000e-32,\
+spharz: %.4e|%.4e|%.4e|%.4e|5.0000e-32|5.0000e-32|5.0000e-32|5.0000e-32,\
+opcrust: %.4e, opharz: %.4e" % (disl_A, disl_A, disl_A, disl_A,\
+disl_crust_A, disl_A, disl_A, disl_A, disl_A, disl_A, disl_A, disl_A)
+    o_dict['Material model']['Visco Plastic TwoD']['Stress exponents for dislocation creep'] = \
+        "background: %.4e|%.4e|%.4e|%.4e|1.0000e+00|1.0000e+00|1.0000e+00|1.0000e+00,\
+spcrust: %.4e|%.4e|1.0000e+00|1.0000e+00,\
+spharz: %.4e|%.4e|%.4e|%.4e|1.0000e+00|1.0000e+00|1.0000e+00|1.0000e+00,\
+opcrust: %.4e, opharz: %.4e" % (disl_n, disl_n, disl_n, disl_n,\
+disl_crust_n, disl_n, disl_n, disl_n, disl_n, disl_n, disl_n, disl_n)
+    o_dict['Material model']['Visco Plastic TwoD']['Activation energies for dislocation creep'] = \
+        "background: %.4e|%.4e|%.4e|%.4e|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00,\
+spcrust: %.4e|%.4e|0.0000e+00|0.0000e+00,\
+spharz: %.4e|%.4e|%.4e|%.4e|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00,\
+opcrust: %.4e, opharz: %.4e" % (disl_E, disl_E, disl_E, disl_E,\
+disl_crust_E, disl_E, disl_E, disl_E, disl_E, disl_E, disl_E, disl_E)
+    o_dict['Material model']['Visco Plastic TwoD']['Activation volumes for dislocation creep'] = \
+        "background: %.4e|%.4e|%.4e|%.4e|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00,\
+spcrust: %.4e|%.4e|0.0000e+00|0.0000e+00,\
+spharz: %.4e|%.4e|%.4e|%.4e|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00,\
+opcrust: %.4e, opharz: %.4e" % (disl_V, disl_V, disl_V, disl_V,\
+disl_crust_V, disl_V, disl_V, disl_V, disl_V, disl_V, disl_V, disl_V)
+    if sz_minimum_viscosity > minimum_viscosity:
+        spcrust_value = sz_minimum_viscosity
+    else:
+        spcrust_value = str(minimum_viscosity)
+    if slab_core_viscosity > 0.0:
+        spharz_value = slab_core_viscosity
+    else:
+        spharz_value = str(minimum_viscosity)
+    if sz_minimum_viscosity > minimum_viscosity or slab_core_viscosity > 0.0:
+        # modify the minimum viscosity for non-linear rheology in the shear zone
+        o_dict['Material model']['Visco Plastic TwoD']['Minimum viscosity'] = \
+        'background: %s, spcrust: %s, spharz: %s, opcrust: %s, opharz: %s' % \
+        (str(minimum_viscosity), spcrust_value, spharz_value, str(minimum_viscosity), str(minimum_viscosity))
+
+
+def CDPT_assign_yielding(o_dict, cohesion, friction, **kwargs):
+    '''
+    Assign mantle rheology in the CDPT model
+    Inputs:
+        kwargs:
+            if_couple_eclogite_viscosity - if the viscosity is coupled with the eclogite transition
+    ''' 
+    crust_cohesion = kwargs.get("crust_cohesion", cohesion)
+    crust_friction = kwargs.get("crust_friction", friction)
+    if_couple_eclogite_viscosity = kwargs.get("if_couple_eclogite_viscosity", False)
+    if abs(cohesion  - 50e6)/50e6 < 1e-6 and abs(friction - 25.0)/25.0 < 1e-6\
+    and abs(crust_cohesion  - 50e6)/50e6 < 1e-6 and  abs(crust_friction - 25.0)/25.0 < 1e-6:
+        pass  # default conditions
+    else:
+        if if_couple_eclogite_viscosity:
+            # take care of the different phases if the viscosity change is coupled to the eclogite transition
+            spcrust_friction_str = "spcrust: %.4e|%.4e|%.4e|%.4e" % (crust_friction, friction, friction, friction)
+            spcrust_cohesion_str = "spcrust: %.4e|%.4e|%.4e|%.4e" % (crust_cohesion, cohesion, cohesion, cohesion)
+        else:
+            spcrust_friction_str = "spcrust: %.4e" % crust_friction
+            spcrust_cohesion_str = "spcrust: %.4e" % crust_cohesion
+        o_dict['Material model']['Visco Plastic TwoD']["Angles of internal friction"] = "background: %.4e" % friction + ", "\
+         + spcrust_friction_str + ", " + "spharz: %.4e, opcrust: %.4e, opharz: %.4e" % (friction, friction, friction)
+        o_dict['Material model']['Visco Plastic TwoD']["Cohesions"] = "background: %.4e" % cohesion + ", "\
+         + spcrust_cohesion_str + ", " + "spharz: %.4e, opcrust: %.4e, opharz: %.4e" % (cohesion, cohesion, cohesion)
+
+
+def get_trench_position(sp_age_trench, sp_rate, geometry, Ro, sp_trailing_length):
+    '''
+    Inputs:
+        sp_trainling_length: distance of the trailing end of the subduction plate to the
+        side wall.
+    Returns:
+        trench: coordinate of the trench
+    '''
+    trench_sph = (sp_age_trench * sp_rate + sp_trailing_length) / Ro * 180.0 / np.pi
+    trench_cart = sp_age_trench * sp_rate + sp_trailing_length
+    if geometry == "chunk":
+        trench = trench_sph
+    elif geometry == "box":
+        trench = trench_cart
+    return trench
+
+
+def get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro):
+    '''
+    Inputs:
+        sp_trainling_length: distance of the trailing end of the subduction plate to the
+        side wall.
+    Returns:
+        trench: coordinate of the trench
+    '''
+    trench_sph = sp_age_trench * sp_rate / Ro * 180.0 / np.pi
+    trench_cart = sp_age_trench * sp_rate
+    if geometry == "chunk":
+        trench = trench_sph
+    elif geometry == "box":
+        trench = trench_cart
+    return trench
+
+
+def particle_positions_ef(geometry, Ro, trench0, Dsz, Dbury, p0, slab_lengths, slab_dips, **kwargs):
+    '''
+    figure out particle positions for the ef method
+    Inputs:
+        geometry: geometry of the model: box or chunk
+        Ro: y/r extent of the geometry
+        trench: position of the trench
+        Dsz: thickness of the shear zone
+        Dbury: bury depth of the particle
+    '''
+    # assert that equal number of sections are given in slab_lengths and slab_dips
+    # and that the slab_dips contains ranges of slab dip angles (2 componets each)
+    assert(len(slab_lengths) == len(slab_dips))
+    for slab_dip in slab_dips:
+        assert(len(slab_dip) == 2)
+    # initiation
+    if geometry == "chunk":
+        trench = Ro * trench0 * np.pi / 180.0  # convert to radian
+    elif geometry == "box":
+        trench = trench0
+    interval = kwargs.get("interval", 10e3)
+    num = int(trench//interval)  # figure out the total number of point
+    for slab_length in slab_lengths:
+        num += int(slab_length//interval)
+    particle_data = np.zeros((num, 2))
+    for i in range(int(trench//interval)):
+        if geometry == "box":
+            x = interval * i
+            y = Ro - Dsz - Dbury
+            pass
+        elif geometry == "chunk":
+            theta = (interval * i)/Ro
+            x = (Ro - Dsz - Dbury) * np.cos(theta)
+            y = (Ro - Dsz - Dbury) * np.sin(theta)
+            pass
+        else:
+            pass
+        particle_data[i][0] = x
+        particle_data[i][1] = y 
+    # particles entrained in the slab
+    i = int(trench//interval)
+    total_slab_length = 0.0
+    i_sect = 0
+    l1_last = Ro - Dsz - Dbury
+    if geometry == "box":
+        l2_last = trench
+    elif geometry == "chunk":
+        l2_last = (Ro - Dsz - Dbury)/Ro * trench
+    else:
+        pass
+    # call a predefined function to get the coordinates in cartesian
+    if geometry == "box":
+        ps = slab_surface_profile(p0, slab_lengths, slab_dips, "cartesian", num=(num - i))
+        xs = ps[:, 0]
+        ys = ps[:, 1] -  Dsz - Dbury
+    elif geometry == "chunk":
+        ps = slab_surface_profile(p0, slab_lengths, slab_dips, "spherical", num=(num - i))
+        thetas = ps[:, 0]
+        rs = ps[:, 1] -  Dsz - Dbury
+        xs = rs*np.cos(thetas)
+        ys = rs*np.sin(thetas)
+    particle_data[i: num, 0] = xs
+    particle_data[i: num, 1] = ys
+    return particle_data
+
+def slab_surface_profile(p0_in, slab_lengths_in, slab_dips_in, coordinate_system, **kwargs):
+    '''
+    descriptions
+    Inputs:
+        (note: all the angles are passed in with degree, following the World Builder)
+        p0 - a start point, in cartesion or spherical coordinates (radian)
+        slab_lengths - segment lengths
+        slab_dips - segment dip angles
+        coordinate_system: "cartesian" or "spherical"
+    Returns:
+        p1 - an end point of the segment, in cartesion or spherical coordinates (radian)
+    '''
+    assert(p0_in.size == 2)
+    assert(len(slab_lengths_in) == len(slab_dips_in))
+    assert(coordinate_system in ["cartesian", "spherical"])
+    # num = len(slab_lengths) + 1
+    num = kwargs.get("num", 20)
+    ps = np.zeros((num,2))
+    if coordinate_system == "cartesian":
+        p0 = p0_in
+    elif coordinate_system == "spherical":
+        p0 = p0_in
+        p0[0] *= np.pi / 180.0
+    ps[0, :] = p0
+    slab_total_length = 0.0
+    slab_accumulate_lengths = [0.0]
+    slab_dips_at_input_points = [slab_dips_in[0][0] * np.pi / 180.0]
+    for i in range(len(slab_lengths_in)):
+        length = slab_lengths_in[i]
+        slab_total_length += length
+        slab_accumulate_lengths.append(slab_total_length)
+        slab_dips_at_input_points.append(slab_dips_in[i][1] * np.pi / 180.0)
+    intv_slab_length = slab_total_length / (num - 1)
+    slab_accumulate_lengths_interpolated = np.linspace(0.0, slab_total_length, num)
+    slab_dips_interpolated = np.interp(slab_accumulate_lengths_interpolated, slab_accumulate_lengths, slab_dips_at_input_points)
+    for i in range(1, num):
+        slab_dip = slab_dips_interpolated[i-1]
+        if coordinate_system == "cartesian":
+            x0 = ps[i-1, 0]
+            y0 = ps[i-1, 1]
+            ps[i, 0] = x0 + intv_slab_length * np.cos(slab_dip)
+            ps[i, 1] = y0 - intv_slab_length * np.sin(slab_dip)
+        elif coordinate_system == "spherical":
+            theta0 = ps[i-1, 0]
+            r0 = ps[i-1, 1]
+            ps[i, 0] = theta0 + np.arcsin(np.cos(slab_dip) / (1 + r0**2.0/intv_slab_length**2.0 - 2 * r0/intv_slab_length * np.sin(slab_dip))**0.5)
+            ps[i, 1] = (intv_slab_length**2.0 + r0**2.0 - 2 * r0 * intv_slab_length * np.sin(slab_dip))**0.5
+    return ps
+
