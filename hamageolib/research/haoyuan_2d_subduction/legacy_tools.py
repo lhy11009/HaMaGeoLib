@@ -73,6 +73,7 @@ from ...utils.geometry_utilities import offset_profile, compute_pairwise_distanc
 JSON_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_json_files")
 LEGACY_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_files")
 RESULT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "dtemp", "rheology_results")
+SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
 if not os.path.isdir(RESULT_DIR):
     os.mkdir(RESULT_DIR)
@@ -515,6 +516,9 @@ class VISIT_OPTIONS_BASE(CASE_OPTIONS):
             if not found:
                 warnings.warn("%s: step %d is not found" % (func_name(), step))
 
+        # convert additional fields to string 
+        self.options["ADDITIONAL_FIELDS"] = str(additional_fields)
+
     def visit_options(self, extra_options):
         '''
         deprecated
@@ -687,6 +691,8 @@ class VISIT_OPTIONS(VISIT_OPTIONS_BASE):
         """
         # call function from parent
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
+        
+        additional_fields = [] # initiate the additional fields list
 
         # default settings
         self.options['IF_PLOT_SHALLOW'] = kwargs.get('if_plot_shallow', "False") # plot the shallow part of the slab.
@@ -695,6 +701,7 @@ class VISIT_OPTIONS(VISIT_OPTIONS_BASE):
         self.options['IF_PLOT_SLAB'] = 'True'
         self.options['GLOBAL_UPPER_MANTLE_VIEW_BOX'] = 0.0
         self.options['ROTATION_ANGLE'] = 0.0
+        
 
         # additional inputs
         rotation_plus = kwargs.get("rotation_plus", 0.0) # additional rotation
@@ -871,6 +878,13 @@ class VISIT_OPTIONS(VISIT_OPTIONS_BASE):
         else:
             raise ValueError("Value of geometry must be either \"chunk\" or \"box\"")
         self.options['THETA_REF_TRENCH'] = theta_ref_trench
+        if "metastable" in self.idict["Compositional fields"]["Names of fields"]:
+            self.options['INCLUDE_METASTABLE'] = "True"
+            additional_fields.append("metastable")
+        else:
+            self.options['INCLUDE_METASTABLE'] = "False"
+        
+        self.options["ADDITIONAL_FIELDS"] = str(additional_fields) # prescribe additional fields
 
     def vtk_options(self, **kwargs):
         '''
@@ -11323,7 +11337,6 @@ def create_case_with_json(json_opt, CASE, CASE_OPT, **kwargs):
     if end_step > 0:
         # set end step
         Case.set_end_step(end_step)
-    # todo_case
     Case.configure_prm(*Case_Opt.to_configure_prm())
     if Case_Opt.if_use_world_builder():
         Case.configure_wb(*Case_Opt.to_configure_wb())
@@ -11389,7 +11402,7 @@ def create_case_with_json(json_opt, CASE, CASE_OPT, **kwargs):
                     if entry != "y":
                         print("Not updating, removing tmp files")
                         rmtree(case_dir_tmp)
-                        exit(0)
+                        return
                 # document older files: 
                 # 0. change_log file
                 # a. files in the directory.
@@ -11554,7 +11567,6 @@ def output_particle_ascii(fout, particle_data):
         fout.write(_string)
     pass
 
-# todo_case
 class CASE_OPT_TWOD(CASE_OPT):
     '''
     Define a class to work with CASE
@@ -11698,6 +11710,8 @@ intiation stage causes the slab to break in the middle",\
             ['mantle rheology', "delta Edisl"], 0.0, nick='delta_Edisl')
         self.add_key("difference of activation volume in the dislocation creep rheology", float,\
             ['mantle rheology', "delta Vdisl"], 3e-6, nick='delta_Vdisl')
+        self.add_key("Include metastable transition", int,\
+            ['metastable', 'include metastable'], 0, nick='include_meta')
     
     def check(self):
         '''
@@ -11880,6 +11894,7 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         delta_Ediff = self.values[self.start + 70]
         delta_Edisl = self.values[self.start + 71]
         delta_Vdisl = self.values[self.start + 72]
+        include_meta = self.values[self.start + 73]
 
         return if_wb, geometry, box_width, type_of_bd, potential_T, sp_rate,\
         ov_age, prescribe_T_method, if_peierls, if_couple_eclogite_viscosity, phase_model,\
@@ -11893,7 +11908,7 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         rm_ov_comp, comp_method, peierls_flow_law, reset_density, maximum_peierls_iterations, CDPT_type, use_new_rheology_module, fix_peierls_V_as,\
         prescribe_T_width, prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb, lookup_table_morb_mixing,\
         delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell, refine_wedge, output_heat_flux,\
-        delta_Ediff, delta_Edisl, delta_Vdisl
+        delta_Ediff, delta_Edisl, delta_Vdisl, include_meta
 
     def to_configure_wb(self):
         '''
@@ -11918,6 +11933,8 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         n_crust_layer = self.values[self.start + 38]
         Duc = self.values[self.start + 39]
         rm_ov_comp = self.values[self.start + 51]
+
+
         if n_crust_layer == 1:
             # number of total compositions
             n_comp = 4
@@ -12364,7 +12381,7 @@ class CASE_TWOD(CASE):
     maximum_peierls_iterations, CDPT_type, use_new_rheology_module, fix_peierls_V_as, prescribe_T_width,\
     prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb,\
     lookup_table_morb_mixing, delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell,\
-    refine_wedge, output_heat_flux,  delta_Ediff, delta_Edisl, delta_Vdisl):
+    refine_wedge, output_heat_flux,  delta_Ediff, delta_Edisl, delta_Vdisl, include_meta):
         Ro = 6371e3
         self.configure_case_output_dir(case_o_dir)
         o_dict = self.idict.copy()
@@ -12925,6 +12942,24 @@ opcrust: 1e+31, opharz: 1e+31", \
             o_dict['Material model']['Visco Plastic TwoD'] = visco_plastic_dict
         else:
             raise NotImplementedError()
+
+        if include_meta:
+            # expand composition fields
+            o_dict = expand_multi_composition_isosurfaces(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
+            o_dict = expand_multi_composition_composition_field(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
+            o_dict["Compositional fields"]["Mapped particle properties"] = \
+                  "spcrust:initial spcrust, spharz:initial spharz, opcrust:initial opcrust, opharz:initial opharz, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
+
+            # fix the partical properties
+            particle_options = o_dict["Postprocess"]["Particles"]
+            particle_visualization_options = {}
+            particle_visualization_options["Data output format"] = particle_options.pop("Data output format")
+            particle_visualization_options["Time between data output"] = particle_options.pop("Time between data output")
+            o_dict["Postprocess"]["Particles"] = particle_visualization_options
+            n_particles = particle_options.pop("Number of particles")
+            particle_options["Generator"] = {"Random uniform": {"Number of particles": n_particles}}
+            o_dict["Particles"] = particle_options
+
         
         # crustal phase transition
         if use_lookup_table_morb:
@@ -12985,7 +13020,10 @@ opcrust: 1e+31, opharz: 1e+31", \
             self.additional_idicts.append(o_dict1)
 
         # additional outputs 
-        # todo_hf
+        # adjust list of output for different versions
+        if version >= 3.0:
+            o_dict['Postprocess']["Visualization"]["List of output variables"] = 'material properties, named additional outputs, nonadiabatic pressure, strain rate, stress, heating'
+        # heat flux outputs
         if output_heat_flux:
             o_dict['Postprocess']["List of postprocessors"] += ', heat flux map'
             o_dict['Postprocess']["Visualization"]["List of output variables"] += ', heat flux map'
@@ -13005,6 +13043,12 @@ opcrust: 1e+31, opharz: 1e+31", \
             return
         # potential T
         self.wb_dict['potential mantle temperature'] = potential_T
+
+        # todo_version
+        # adjust world builder version
+        if version >= 3.0:
+            self.wb_dict["version"] = "1.1"
+
         # geometry
         if geometry == 'chunk':
             # fix the depth method:
@@ -13014,6 +13058,8 @@ opcrust: 1e+31, opharz: 1e+31", \
             if version < 1.0:
                 pass
             elif version < 2.0:
+                self.wb_dict["coordinate system"]["depth method"] = "begin at end segment"
+            elif version >= 3.0:
                 self.wb_dict["coordinate system"]["depth method"] = "begin at end segment"
             else:
                 raise NotImplementedError
@@ -13778,24 +13824,33 @@ def wb_configure_plates(wb_dict, sp_age_trench, sp_rate, ov_age, wb_new_ridge, v
     sp_dict["composition models"][i_hz]["min depth"] = Dsz
     sp_dict["composition models"][i_hz]["max depth"] = Dsz * D2C_ratio
     o_dict['features'][i0] = sp_dict
+
     # Slab
     i0 = FindWBFeatures(o_dict, 'Slab')
     s_dict = o_dict['features'][i0]
     s_dict["coordinates"] = [[trench, -_side], [trench, _side]] 
     s_dict["dip point"] = [_max, 0.0]
     s_dict["temperature models"][0]["ridge coordinates"] = sp_ridge_coords
-    s_dict["temperature models"][0]["plate velocity"] = sp_rate
+    # todo_version
+    # temperature model
+    if version >= 3.0:
+        if "plate velocity" in s_dict["temperature models"][0]:
+            s_dict["temperature models"][0].pop("plate velocity")
+        if "shallow dip" in s_dict["temperature models"][0]:
+            s_dict["temperature models"][0].pop("shallow dip")
+        s_dict["temperature models"][0]["spreading velocity"] = sp_rate
+        s_dict["temperature models"][0]["subducting velocity"] = sp_rate
+    else:
+        s_dict["temperature models"][0]["plate velocity"] = sp_rate
     if version < 1.0:
         if sp_age_trench > 100e6:
             # in this case, I'll use the plate model
             s_dict["temperature models"][0]["use plate model as reference"] = True
             s_dict["temperature models"][0]["max distance slab top"] = 150e3
             s_dict["temperature models"][0]["artificial heat factor"] = 0.5
-    elif version < 2.0:
+    else:
             s_dict["temperature models"][0]["reference model name"] = "plate model"
             s_dict["temperature models"][0]["max distance slab top"] = 150e3
-    else:
-        raise NotImplementedError()
     for i in range(len(s_dict["segments"])-1):
         
         # thickness of crust, last segment is a ghost, so skip
@@ -14778,3 +14833,91 @@ def slab_surface_profile(p0_in, slab_lengths_in, slab_dips_in, coordinate_system
             ps[i, 1] = (intv_slab_length**2.0 + r0**2.0 - 2 * r0 * intv_slab_length * np.sin(slab_dip))**0.5
     return ps
 
+def PlotCaseRun(case_path, **kwargs):
+    '''
+    Plot case run result
+    Inputs:
+        case_path(str): path to the case
+        kwargs:
+            time_range
+            step(int): if this is given as an int, only plot this step
+            visualization (str): visualization software, visit or paraview.
+            last_step: number of last steps to plot
+    Returns:
+        -
+    '''
+    run_visual = kwargs.get('run_visual', 0)
+    step = kwargs.get('step', None)
+    time_interval = kwargs.get('time_interval', None)
+    visualization = kwargs.get('visualization', 'visit')
+    plot_axis = kwargs.get('plot_axis', False)
+    last_step = kwargs.get('last_step', 3)
+    max_velocity = kwargs.get('max_velocity', -1.0)
+    plot_types = kwargs.get("plot_types", ["upper_mantle"])
+    rotation_plus = kwargs.get("rotation_plus", 0.0)
+    # todo_velo
+    assert(visualization in ["paraview", "visit", "pygmt"])
+    print("PlotCaseRun in TwoDSubduction0: operating")
+    # get case parameters
+    prm_path = os.path.join(case_path, 'output', 'original.prm')
+
+    # steps to plot: here I use the keys in kwargs to allow different
+    # options: by steps, a single step, or the last step
+    if type(step) == int:
+        kwargs["steps"] = [step]
+    elif type(step) == list:
+        kwargs["steps"] = step
+    elif type(step) == str:
+        kwargs["steps"] = step
+    else:
+        kwargs["last_step"] = last_step
+
+    # Inititiate the class and intepret the options
+    # Note that all the options defined by kwargs is passed to the interpret function
+    Visit_Options = VISIT_OPTIONS(case_path)
+    Visit_Options.Interpret(**kwargs)
+
+    # todo_pexport
+    # generate scripts base on the method of plotting
+    if visualization == 'visit':
+        odir = os.path.join(case_path, 'visit_scripts')
+        if not os.path.isdir(odir):
+            os.mkdir(odir)
+        print("Generating visit scripts")
+        py_script = 'slab.py'
+        ofile = os.path.join(odir, py_script)
+        visit_script = os.path.join(SCRIPT_DIR, 'visit_scripts', 'TwoDSubduction', py_script)
+        visit_script_base = os.path.join(SCRIPT_DIR, 'visit_scripts', 'base.py')
+        Visit_Options.read_contents(visit_script_base, visit_script)  # combine these two scripts
+        Visit_Options.substitute()
+    elif visualization == 'paraview':
+        odir = os.path.join(case_path, 'paraview_scripts')
+        if not os.path.isdir(odir):
+            os.mkdir(odir)
+        print("Generating paraview scripts")
+        py_script = 'slab.py'
+        ofile = os.path.join(odir, py_script)
+        paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'TwoDSubduction', py_script)
+        paraview_script_base = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')
+        Visit_Options.read_contents(paraview_script_base, paraview_script)  # combine these two scripts
+        # todo_split
+        Visit_Options.substitute()
+    elif visualization == 'pygmt':
+        odir = os.path.join(case_path, 'pygmt_scripts')
+        if not os.path.isdir(odir):
+            os.mkdir(odir)
+        print("Generating pygmt scripts")
+        py_script = 'make_lateral_flow_fig.py'
+        ofile = os.path.join(odir, py_script)
+        pygmt_script = os.path.join(SCRIPT_DIR, 'pygmt_scripts', 'TwoDSubduction', py_script)
+        pygmt_script_base = os.path.join(SCRIPT_DIR, 'pygmt_scripts', 'aspect_plotting_util.py')
+        Visit_Options.read_contents(pygmt_script_base, pygmt_script)  # combine these two scripts
+        Visit_Options.substitute()
+
+    ofile_path = Visit_Options.save(ofile, relative=True)
+    # if run_visual == 1:
+    #     print("Visualizing using visit")
+    #     RunScripts(ofile_path)  # run scripts
+
+    # return the Visit_Options for later usage
+    return Visit_Options

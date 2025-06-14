@@ -416,8 +416,8 @@ def run_2d_subduction_visualization(local_dir, config):
 
     RESULT_DIR = config["RESULT_DIR"]
     py_temp_file = config["py_temp_file"]
-    PlotCase = config["PlotCase"]
-    TwoDPlotCase = config["TwoDPlotCase"]
+    PlotCaseRun_base = config["PlotCaseRun_base"]
+    PlotCaseRun_project = config["PlotCaseRun_project"]
     plot_axis = config["plot_axis"]
     graphical_steps = config["graphical_steps"]
     slices = config["slices"]
@@ -426,6 +426,7 @@ def run_2d_subduction_visualization(local_dir, config):
     rotation_plus = config["rotation_plus"]
     additional_fields = config["additional_fields"]
     CaseOptions = config["CaseOptions"]
+    # todo_velo
 
     # Determine ASPECT major version
     if re.match("^2", CaseOptions.aspect_version):
@@ -442,7 +443,7 @@ def run_2d_subduction_visualization(local_dir, config):
     parse_log_file_for_solver_info(file_path, output_path, major_version=major_version)
 
     # Basic runtime plot
-    PlotCase.PlotCaseRun(
+    PlotCaseRun_base(
         local_dir,
         time_range=None,
         run_visual=False,
@@ -453,7 +454,7 @@ def run_2d_subduction_visualization(local_dir, config):
     plt.close()
 
     # Full visual plotting
-    Visit_Options = TwoDPlotCase.PlotCaseRun(
+    Visit_Options = PlotCaseRun_project(
         local_dir,
         time_range=None,
         run_visual=False,
