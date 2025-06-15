@@ -1,5 +1,5 @@
 {
-  "base directory": "./hamageolib/research/haoyuan_2d_subduction/240106",
+  "base directory": "./hamageolib/research/haoyuan_2d_subduction/legacy_files/reference_TwoD/240106",
   "output directory": "./.test/research-haoyuan_2d_subduction-test_legacy_tools",
   "name": "test_sz_same_composition",
   "depth average file": "${ASPECT_LAB_DIR}/files/TwoDSubduction/depth_average.txt",
