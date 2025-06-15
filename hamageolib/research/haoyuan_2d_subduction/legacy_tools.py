@@ -12949,6 +12949,16 @@ opcrust: 1e+31, opharz: 1e+31", \
             o_dict = expand_multi_composition_composition_field(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
             o_dict["Compositional fields"]["Mapped particle properties"] = \
                   "spcrust:initial spcrust, spharz:initial spharz, opcrust:initial opcrust, opharz:initial opharz, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
+            
+            # initial composition fields
+            o_dict["Initial composition model"]["List of model names"] += ", metastable"
+            o_dict["Initial composition model"]["List of model operators"] = "add"
+            o_dict["Initial composition model"]["metastable"] = {
+                "Phase transition depth": "410e3",
+                "Phase transition width": "5e3",
+                "Phase transition temperature": "1740.0",
+                "Phase transition Clapeyron slope": "2e6"
+            }
 
             # fix the partical properties
             particle_options = o_dict["Postprocess"]["Particles"]
