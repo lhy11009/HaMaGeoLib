@@ -12945,7 +12945,7 @@ opcrust: 1e+31, opharz: 1e+31", \
 
         if include_meta:
             # expand composition fields
-            o_dict = expand_multi_composition_isosurfaces(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
+            # o_dict = expand_multi_composition_isosurfaces(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
             o_dict = expand_multi_composition_composition_field(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
             o_dict["Compositional fields"]["Mapped particle properties"] = \
                   "spcrust:initial spcrust, spharz:initial spharz, opcrust:initial opcrust, opharz:initial opharz, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
@@ -12959,8 +12959,14 @@ opcrust: 1e+31, opharz: 1e+31", \
                 "Phase transition temperature": "1740.0",
                 "Phase transition Clapeyron slope": "2e6"
             }
+            
+            # change the material model
+            material_model = o_dict["Material model"]
+            material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
+            material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:0.0"
+            o_dict["Material model"] = material_model
 
-            # fix the partical properties
+            # fix the particle properties
             particle_options = o_dict["Postprocess"]["Particles"]
             particle_visualization_options = {}
             particle_visualization_options["Data output format"] = particle_options.pop("Data output format")
@@ -12970,6 +12976,9 @@ opcrust: 1e+31, opharz: 1e+31", \
             particle_options["Generator"] = {"Random uniform": {"Number of particles": n_particles}}
             o_dict["Particles"] = particle_options
 
+            o_dict["Particles"]["List of particle properties"] = "initial composition, metastable"
+            o_dict["Particles"]["Maximum particles per cell"] = "140"
+            o_dict["Particles"]["Integration scheme"] = "rk4"
         
         # crustal phase transition
         if use_lookup_table_morb:
@@ -16882,3 +16891,249 @@ def wb_configure_transit_ov_plates_1_chunk(i_feature, trench, ov_age,\
         o_feature["temperature models"][0]["ridge coordinates"] =\
             [[ridge_deg, -1.0], [ridge_deg, side_deg]]
     return o_feature, ov
+
+
+def CoulumbYielding(P, cohesion, friction, _lambda=0.0):
+    '''
+    a yielding criteria that include a stress dependence on strain rate
+    Inputs:
+        _lambda is the coefficient for fluid pore pressure
+        (_lambda = P_fluid/P_lith)
+    '''
+    tau_dry = cohesion + friction * P
+    tau = tau_dry * (1-_lambda)
+    return tau
+
+
+def PeierlsCreepStrainRate(creep, stress, P, T, **kwargs):
+    """
+    Calculate strain rate by flow law in form of 
+        Ap * sigma^n * exp( - (E) / (R * T) * (1 - (sigma / sigmap)^p)^q)
+    Units:
+     - P: Pa
+     - T: K
+     - stress: MPa
+     - Return value: s^-1
+    Pay attention to pass in the right value, this custom is inherited
+    """
+    A = creep['A']
+    p = creep['p']
+    q = creep['q']
+    n = creep['n']
+    E = creep['E']
+    V = creep['V']
+    sigp0 = creep['sigp0']
+
+    dV = kwargs.get("dV", 0.0)  # apply a different in dV
+
+    Pref = 1e9 # default value, not used because dV = 0.0
+    Tref = 873.0
+    if abs(dV) > 1e-6:
+        # get reference P and T if dV is not 0.0
+        Pref = creep['Pref']
+        Tref = creep['Tref']
+
+    # calculate B
+    # compute F
+    exponential = -((E + P*(V +  dV)) / (R*T) - Pref*dV / (R*Tref)) * (1 - (stress/sigp0)**p)**q
+    expo = np.exp(exponential)
+    strain_rate = A * expo * stress ** n
+    return strain_rate
+
+
+def PeierlsCreepStress(creep, strain_rate, P, T, **kwargs):
+    """
+    Calculate stress by inverting the flow law in form of 
+        Ap * sigma^n * exp( - (E) / (R * T) * (1 - (sigma / sigmap)^p)^q)
+    Units:
+     - P: Pa
+     - T: K
+     - strain_rate : s^-1
+     - Return value: MPa
+     - kwargs:
+        - tolerance: the tolerance on the difference between iterations
+        - iteration: number of the maximum iteration
+    Pay attention to pass in the right value, this custom is inherited,
+    note that the difference in the iteration is defined as the log value
+    of the stress.
+    """
+    A = creep['A']
+    p = creep['p']
+    q = creep['q']
+    n = creep['n']
+    E = creep['E']
+    V = creep['V']
+    sigp0 = creep['sigp0']
+    tolerance = kwargs.get('tolerance', 0.05)
+    maximum_iteration = kwargs.get('iteration', 1000)
+    # initialization
+    difference = 1e6  # a big initial value
+    stress_l = 1e-5
+    stress_u = 1e12
+    is_first = True
+    n = 0
+    # this uses a bi-section method to iterate out a matching 
+    # for the strain rate input
+    while (abs(difference) > tolerance and n < maximum_iteration):
+        if is_first:
+            is_first = False
+        else:
+            # update the value of stress
+            if difference > 0.0:
+                stress_u = stress
+            else:
+                stress_l = stress
+        exponential = (np.log(stress_u) + np.log(stress_l)) / 2.0
+        stress = np.exp(exponential)
+        strain_rate_1 = PeierlsCreepStrainRate(creep, stress, P, T, **kwargs)
+        difference = np.log(strain_rate_1 / strain_rate)
+        n += 1
+    if n == maximum_iteration:
+        raise(ValueError,\
+            'tolerance (%f) is not reached at the end of iteration, the remanant difference is %f'\
+            % (tolerance, difference))
+    return stress
+
+# todo_peierls
+def PeierlsCreepRheology(creep, strain_rate, P, T, **kwargs):
+    """
+    Calculate stress by inverting the flow law in form of 
+        Ap * sigma^n * exp( - (E) / (R * T) * (1 - (sigma / sigmap)^p)^q)
+    Units:
+     - P: Pa
+     - T: K
+     - strain_rate : s^-1
+     - Return value: Pa * s
+     - kwargs:
+        - tolerance: the tolerance on the difference between iterations
+        - iteration: number of the maximum iteration
+    Pay attention to pass in the right value, this custom is inherited,
+    note that the difference in the iteration is defined as the log value
+    of the stress.
+    """
+    tolerance = kwargs.get('tolerance', 0.05)
+    maximum_iteration = kwargs.get('iteration', 1000)
+    stress = PeierlsCreepStress(creep, strain_rate, P, T, iteration=maximum_iteration, tolerance=tolerance, **kwargs)
+    eta = 1e6 * stress / 2.0 / strain_rate
+    return eta
+
+
+class PLATE_MODEL():
+    '''
+    Class for the plate model temperature
+    Attributes:
+        L - the maximum depth of the plate model
+        kappa - thermal diffusivity
+        Ttop - temperature along the top boundary
+        Tbot - temperature along the bottom boundary
+        u - the spreading velocity
+        lateral_variation - Bool, whether lateral variation
+            is included in the model. If a value of u is
+            given when initiating, this is set to True. Otherwise
+            it is set to false.
+    '''
+    def __init__(self, L, kappa, Ttop, Tbot, u=None):
+        '''
+        Initiation
+        Inputs:
+            L - the maximum depth of the plate model
+            kappa - thermal diffusivity
+            Ttop - temperature along the top boundary
+            Tbot - temperature along the bottom boundary
+            u - the spreading velocity
+            sommation - number of the sommation
+        '''
+        self.L = L
+        self.kappa = kappa
+        self.Ttop = Ttop
+        self.Tbot = Tbot
+        self.sommation = 100
+        if u is None:
+            self.lateral_variation = False
+        else:
+            self.u = u
+            self.lateral_variation = True
+        
+
+    def PM_A(self, n, t):
+        '''
+        Get the factor A for the plate model.
+        This is the factor with the \Sum term before
+        the sin(n*pi*y/L) term
+        Inputs:
+            n - the sommation number
+            t - time in s
+        Returns:
+            A_n(t)
+        '''
+        expo = (self.u * self.L / 2.0 / self.kappa -\
+                (self.u**2.0 * self.L**2.0/4.0/self.kappa**2.0 + n**2.0 * np.pi**2.0)**0.5) *\
+                self.u * t / self.L
+        A_n_t = 2.0 / n / np.pi * \
+                np.exp(expo)
+        return A_n_t
+    
+    
+    def PM_B(self, k, t):
+        '''
+        Get the factor B for the plate model.
+        This is the factor with the \Sum term for
+        the integrated heat content.
+        All the even terms (n = 2k) are zero.
+        Thus, here only the odd terms are handled
+        Inputs:
+            k - the sommation number
+                note there is a relation between
+                k and n:
+                    n  = 2k + 1
+            t - time in s
+        Returns:
+            B_n(t)
+        '''
+        n = 2*k + 1
+        expo = (self.u * self.L / 2.0 / self.kappa -\
+                (self.u**2.0 * self.L**2.0/4.0/self.kappa**2.0 + n**2.0 * np.pi**2.0)**0.5) *\
+                self.u * t / self.L
+        B_n_t = 4.0 * self.L / n**2.0 / np.pi**2.0 * \
+                np.exp(expo)
+        return B_n_t
+
+
+    def heating_thickness(self, t):
+        '''
+        this is the heating thickness defined as
+        heat = rho * cp * (Tp - Ts) * heating thickness
+        In meaning, the heat stored in this thickness below
+        the surface is released through the surface by
+        conduction previous to time t in the model.
+        Inputs:
+            t - time to compute the heating thickness, in s
+        '''
+        sum = 0.0
+        for i in range(self.sommation):
+            sum += self.PM_B(i, t)
+        heating_thickness_plate = self.L / 2.0 - sum
+        return heating_thickness_plate
+
+    def T(self, y, t):
+        '''
+        Get the temperature from the plate model
+        todo
+        '''
+        if self.lateral_variation is True:
+            raise NotImplementedError
+        else:
+            # T&S chapter 4.17
+            # T0
+            if type(y) == np.ndarray:
+                T = np.zeros(y.size)
+            else:
+                T = 0.0
+            T += self.Ttop
+            # (T1 - T0) * y / yL0
+            T += (self.Tbot - self.Ttop) * y / self.L
+            for n in range(1, self.sommation):
+                expo = - self.kappa * n**2.0 * np.pi**2.0 * t / self.L**2.0
+                sino = n * np.pi * y / self.L
+                T += (self.Tbot - self.Ttop) * 2 / np.pi / n * np.exp(expo) * np.sin(sino)
+            return T
