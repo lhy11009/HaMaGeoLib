@@ -31,6 +31,180 @@ os.mkdir(test_dir)
 def test_preliminary():
     assert(os.path.isdir(fixture_root))
 
+# ---------------------------------------------------------------------
+# Tests for rheology
+# ---------------------------------------------------------------------
+def test_AspectViscoPlastic():
+    """
+    check the implementation of aspcet rheology
+
+    Tolerence set to be 1%
+    """
+    tolerance = 0.01
+    check_result = [9.1049e+20]
+    # these are two examples from aspect
+    # I cannot track where this is from, as it's from a previous
+    #version of codes, and I didn't document them properly
+    diffusion_creep = \
+        {
+            "A": 8.571e-16,
+            "d": 8.20e-3,
+            "m": 3.0,
+            "n": 1.0,
+            "E": 335.0e3,
+            "V": 4.0e-6
+        }
+    dislocation_creep = \
+       {
+           "A": 6.859e-15,
+           "d": 8.20e-3,
+           "m": 1.0,
+           "n": 3.5,
+           "E": 480.0e3,
+           "V": 11.0e-6
+       }
+    check0 = CreepRheologyInAspectViscoPlastic(diffusion_creep, 1e-15, 10e9, 1300 + 273.15)
+    assert(abs(check0 - check_result[0]) / check_result[0] < tolerance)
+
+
+def test_CoulumbYielding():
+    '''
+    test the function CoulumbYielding
+    '''
+    # test 1: dry profile
+    P = 500e6
+    cohesion=2e6
+    friction=0.6
+    tau_std = 302e6
+    tau = CoulumbYielding(P, cohesion, friction)
+    assert(abs(tau - tau_std)/tau_std < 1e-6)
+    # test 2: Otherwise same as 1, hydrate profile with _lambda = 0.1
+    P = 500e6
+    cohesion=2e6
+    friction=0.6
+    _lambda=0.1
+    tau_std = 271.8e6
+    tau = CoulumbYielding(P, cohesion, friction, _lambda)
+    assert(abs(tau - tau_std)/tau_std < 1e-6)
+
+
+def test_MK10_peierls():
+    '''
+    test the MK10 rheology
+    assert:
+        1. strain rates match with the values from the figure 5 in the original figure
+        2. stress value could match vice versa
+        3. the viscosity
+    '''
+    creep = GetPeierlsRheology("MK10")
+    # assert 1.1, values at a strain rate = 3e-5
+    strain_rate_std = 2.7778604629458894e-05
+    stress = 3.82e3 # MPa
+    T = 671.0 # K
+    P = 0 # not dependent on P (V = 0)
+    strain_rate = PeierlsCreepStrainRate(creep, stress, P, T)
+    assert(abs(strain_rate_std - strain_rate)/strain_rate_std < 1e-6)
+    # assert 1.2
+    strain_rate_std = 2.6215973389278528e-05
+    stress = 3.25e3 # MPa
+    T = 907.0 # K
+    P = 0 # not dependent on P (V = 0)
+    strain_rate = PeierlsCreepStrainRate(creep, stress, P, T)
+    assert(abs(strain_rate_std - strain_rate)/strain_rate_std < 1e-6)
+    # assert 1.3: use a variation with activation volume
+    strain_rate_std = 2.9979043137974457e-05
+    T = 873.0
+    P = 4.5e9
+    stress = 3.35e3 # MPa
+    strain_rate = PeierlsCreepStrainRate(creep, stress, P, T) 
+    assert(abs(strain_rate_std - strain_rate)/strain_rate_std < 1e-6)
+    strain_rate_std = 2.9979043137974457e-05
+    T = 873.0
+    P = 4.5e9
+    dV = 30e-6
+    stress = 3.35e3 # MPa
+    strain_rate = PeierlsCreepStrainRate(creep, stress, P, T, dV=dV) 
+    assert(abs(strain_rate_std - strain_rate)/strain_rate_std < 1e-6)
+    strain_rate_std = 1.0823657173643094e-05
+    T = 873.0
+    P = 5.5e9
+    dV = 30e-6
+    stress = 3.35e3 # MPa
+    strain_rate = PeierlsCreepStrainRate(creep, stress, P, T, dV=dV) 
+    assert(abs(strain_rate_std - strain_rate)/strain_rate_std < 1e-6)
+    # assert 2.1
+    strain_rate = 2.7778604629458894e-05
+    T = 671.0 # K
+    P = 0 # not dependent on P (V = 0)
+    stress_std = 3.82e3 # MPa
+    stress = PeierlsCreepStress(creep, strain_rate, P, T)
+    assert(abs(np.log(stress_std/stress)) < 0.05)  # a bigger tolerance, check the log value
+    # assert 2.2
+    strain_rate = 2.6215973389278528e-05
+    T = 907.0 # K
+    P = 0 # not dependent on P (V = 0)
+    stress_std = 3.25e3 # MPa
+    stress = PeierlsCreepStress(creep, strain_rate, P, T)
+    assert(abs(np.log(stress_std/stress)) < 0.05)  # a bigger tolerance, check the log value
+    # assert 3.1: viscosity
+    strain_rate = 2.7778604629458894e-05
+    T = 671.0 # K
+    P = 0 # not dependent on P (V = 0)
+    eta_std = 6.8757953e13
+    eta = PeierlsCreepRheology(creep, strain_rate, P, T)
+    assert(abs(np.log(eta_std/eta)) < 0.05)  # a bigger tolerance, check the log value
+    # assert 3.2: viscosity, a realistic scenario
+    # 1e-13
+    strain_rate = 1e-13
+    T = 800.0 + 273.15 # K
+    P = 0 # not dependent on P (V = 0)
+    eta_std = 2.125142090914006e+21
+    eta = PeierlsCreepRheology(creep, strain_rate, P, T)
+    assert(abs(np.log(eta_std/eta)) < 0.05)  # a bigger tolerance, check the log value
+    # 1e-15
+    strain_rate = 1e-15
+    T = 800.0 + 273.15 # K
+    P = 0 # not dependent on P (V = 0)
+    eta_std = 9.893654111645399e+22
+    eta = PeierlsCreepRheology(creep, strain_rate, P, T)
+    assert(abs(np.log(eta_std/eta)) < 0.05)  # a bigger tolerance, check the log value
+
+# ---------------------------------------------------------------------
+# Tests for thermal models
+# ---------------------------------------------------------------------
+def test_plate_model():
+    '''
+    Test the implementation of the plate model
+    Asserts:
+        a. the value of PM_A is the same with my hand calculation
+        a. the value of PM_B is the same with my hand calculation
+    '''
+    tolerance = 1e-6
+    year = 365 * 24 * 3600.0  # s in year
+    Pmodel = PLATE_MODEL(150e3, 1e-6, 273.0, 1673.0, 0.05/year) # initiate the plate model
+    # assert the PM_A factor is consistent with my hand calculation
+    assert(abs(Pmodel.PM_A(1, 1e6*year) - 0.6278754063131151)/0.6278754063131151 < 1e-6)
+    assert(abs(Pmodel.PM_A(3, 1e6*year) - 0.1874020031998469)/0.1874020031998469 < 1e-6)
+    # assert the PM_B factor is consistent with my hand calculation
+    assert(abs(Pmodel.PM_B(0, 1e6*year) - 59957.684736338706)/59957.684736338706 < 1e-6)
+    assert(abs(Pmodel.PM_B(1, 1e6*year) - 5965.19103094)/5965.19103094 < 1e-6)
+
+    year = 365.25 * 24 * 3600.0  # s in year
+    Pmodel1 = PLATE_MODEL(150e3, 0.804e-6, 273.0, 1673.0, 0.05/year) # initiate the plate model
+    # test 3: check the temperature
+    # 0 km, 50 km, 95 km (plate thickness)
+    # the following parameters are from T&S book
+    Myr = 1e6 * year
+    Pmodel2 = PLATE_MODEL(95e3,1e-6, 273.0, 1573.0) # initiate the plate model
+    Ts = Pmodel2.T(np.array([0.0, 50e3, 95e3]), 60.4 * Myr) 
+    T0km_std = 273.0
+    assert(abs(Ts[0] - T0km_std) / T0km_std < 1e-6)
+    T50km_std = 1059.7755706447608
+    assert(abs(Ts[1] - T50km_std) / T50km_std < 1e-6)
+    T95km_std = 1573.0
+    assert(abs(Ts[2] - T95km_std) / T95km_std < 1e-6)
+
+
 # todo_cv
 # ---------------------------------------------------------------------
 # Tests for generating visualization plots
