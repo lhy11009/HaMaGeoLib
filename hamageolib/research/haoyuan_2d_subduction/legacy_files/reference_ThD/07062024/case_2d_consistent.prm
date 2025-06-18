@@ -1,0 +1,305 @@
+set Dimension = 3
+set Use years in output instead of seconds = true
+set Start time = 0
+set End time = 20e6
+set Output directory = output
+set Timing output frequency = 10
+set Additional shared libraries = $ASPECT_SOURCE_DIR/build_master_TwoD_p-billen/visco_plastic_TwoD/libvisco_plastic_TwoD.so, $ASPECT_SOURCE_DIR/build_master_TwoD_p-billen/prescribe_field_T_adiabat/libprescribe_field_T_adiabat.so, $ASPECT_SOURCE_DIR/build_master_TwoD/prescribe_field/libprescribed_temperature.so
+set Pressure normalization = surface
+set Surface pressure = 0
+set Adiabatic surface temperature = 1573.0
+set Resume computation = false
+set Nonlinear solver scheme = single Advection, iterated defect correction Stokes
+set CFL number = 0.8
+set World builder file = case.wb
+set Max nonlinear iterations = 40
+set Max nonlinear iterations in pre-refinement = 0
+set Nonlinear solver tolerance = 1e-4
+set Prescribe internal mantle adiabat temperatures = true
+set Prescribe internal temperatures = false
+
+subsection Discretization
+    set Composition polynomial degree = 2
+    set Stokes velocity polynomial degree = 2
+    set Temperature polynomial degree = 2
+    set Use discontinuous composition discretization = true
+    subsection Stabilization parameters
+        set Use limiter for discontinuous composition solution = true
+        set Global composition maximum = 1
+        set Global composition minimum = 0
+    end
+end
+
+
+subsection Solver parameters
+    subsection Newton solver parameters
+        set Max pre-Newton nonlinear iterations = 20
+        set Nonlinear Newton solver switch tolerance = 1e-3
+        set Max Newton line search iterations = 0
+        set Maximum linear Stokes solver tolerance = 0.1
+        set Use Newton residual scaling method = true
+        set Use Newton failsafe = true
+        set Stabilization preconditioner = SPD
+        set Stabilization velocity block = SPD
+        set Use Eisenstat Walker method for Picard iterations = true
+    end
+    subsection Stokes solver parameters
+        set Maximum number of expensive Stokes solver steps = 5000
+        set Number of cheap Stokes solver steps = 1000
+        set Linear solver tolerance = 5e-2
+        set GMRES solver restart length = 100
+        set Stokes solver type = block GMG
+        set Skip expensive stokes solver = true
+    end
+end
+
+
+subsection Formulation
+    set Formulation = custom
+    set Mass conservation = incompressible
+    set Temperature equation = reference density profile
+end
+
+
+subsection Geometry model
+    set Model name = box
+    subsection Box
+        set X extent = 7383000.0
+        set Y extent = 4000000.0
+        set Z extent = 2890000.0
+        set X repetitions = 7
+        set Y repetitions = 4
+        set Z repetitions = 3
+    end
+end
+
+
+subsection Mesh refinement
+    set Initial global refinement = 3
+    set Initial adaptive refinement = 4
+    set Minimum refinement level = 3
+    set Strategy = isosurfaces, minimum refinement function, viscosity
+    set Time steps between mesh refinement = 10
+    set Refinement fraction = 0.2
+    set Coarsening fraction = 0.2
+    set Run postprocessors on initial refinement = true
+    set Skip solvers on initial refinement = true
+    subsection Isosurfaces
+        set Isosurfaces = max, max, sp_upper: 0.5 | 1.0; max-1, max-1, sp_lower: 0.5 | 1.0; max-1, max-1, plate_edge: 0.5 | 1.0
+    end
+    subsection Minimum refinement function
+        set Coordinate system = cartesian
+        set Variable names = x, y, z, t
+        set Function constants = Do=2.8900e+06, UM=670e3, DD=3.0000e+05, Dp=100e3, Rd=6, Rum=5
+        set Function expression = (Do-z<UM)?\
+                                    ((Do-z<DD)?\
+        		                      ((Do-z<Dp+50e3)? Rd: Rum)\
+        		                      :Rum)\
+        		                    :0
+    end
+end
+
+
+subsection Boundary velocity model
+    set Tangential velocity boundary indicators = 0, 1, 2, 3, 4, 5
+end
+
+
+subsection Heating model
+    set List of model names = adiabatic heating, shear heating
+end
+
+
+subsection Initial temperature model
+    set List of model names = adiabatic, world builder
+    set List of model operators = add
+    subsection Adiabatic
+        subsection Function
+            set Function expression = 0.0; 0.0; 0.0; 0.0
+        end
+    end
+end
+
+
+subsection Prescribed mantle adiabat temperatures
+    subsection Indicator function
+        set Coordinate system = cartesian
+        set Variable names = x, y, z
+        set Function constants = Do=2.8900e+06, xm=7.3830e+06, Wp=1.0000e+06, Depth=150e3, dOvSide=6.0000e+05
+        set Function expression = (z > Do - Depth) && (x > (xm - dOvSide)) && (y <= Wp)? 1.0: 0.0
+    end
+end
+
+
+subsection Boundary temperature model
+    set Fixed temperature boundary indicators = bottom, top
+    set List of model names = box
+    subsection Box
+        set Bottom temperature = 3.1886e+03
+        set Top temperature = 273.0
+    end
+end
+
+
+subsection Compositional fields
+    set Number of fields = 4
+    set Names of fields = sp_upper, sp_lower, plate_edge, ov_upper
+    set Compositional field methods = field, field, field, field
+end
+
+
+subsection Initial composition model
+    set List of model names = world builder
+end
+
+subsection Boundary composition model
+    set Fixed composition boundary indicators = 0, 1
+    set List of model names = initial composition
+    subsection Initial composition
+        set Minimal composition = 0
+        set Maximal composition = 1
+    end
+end
+
+subsection Material model
+    set Model name = visco plastic twod
+    set Material averaging = harmonic average
+    subsection Visco Plastic TwoD
+        set Reference temperature = 273
+        set Reference viscosity = 1e20
+        set Minimum strain rate = 1.e-20
+        set Reference strain rate = 1e-15
+        set Minimum viscosity = background: 1.0000e+19, sp_upper: 1.0000e+19, sp_lower: 1.0000e+22, plate_edge: 1.0000e+19, ov_upper: 1.0000e+19
+        set Maximum viscosity = 1e24
+        set Minimum temperature for viscosity = 273.0
+        set Use adiabatic pressure in creep viscosity = true
+        set Phase transition depths = background:410e3|520e3|560e3|660e3|660e3|660e3|660e3, sp_upper: 80e3|665e3|720e3, sp_lower: 410e3|520e3|560e3|660e3|660e3|660e3|660e3, plate_edge: 250e3|660e3, ov_upper:80e3|665e3|720e3
+        set Phase transition widths = background:13e3|25e3|60e3|5e3|5e3|5e3|5e3, sp_upper:5e3, sp_lower: 13e3|25e3|60e3|5e3|5e3|5e3|5e3, plate_edge: 5e3, ov_upper:5e3
+        set Phase transition temperatures = background:1780.0|1850.0|1870.0|1910.0|2000.0|2000.0|2000.0, sp_upper: 1173.0|1870.0|2000.0, sp_lower: 1780.0|1850.0|1870.0|1910.0|2000.0|2000.0|2000.0, plate_edge: 1662.0|1910.0, ov_upper: 1173.0|1870.0|2000.0
+        set Phase transition Clapeyron slopes = background:2e6|4.1e6|4e6|-1e6|0|-1e6|2e6, sp_upper: 0.0|4e6|2e6, sp_lower:2e6|4.1e6|4e6|-1e6|0|-1e6|2e6, plate_edge: 0.0|-1e6, ov_upper: 0.0|4e6|2e6
+        set Manually define phase method crust = background: 0.0, sp_upper: 1.3, sp_lower:0.0, plate_edge: 0.0, ov_upper: 1.3
+        set Manually define phase method pyrolite = background:1.0, sp_upper: 0.0, sp_lower:0.0, plate_edge: 0.0, ov_upper: 0.0
+        set Manually define phase method harzburgite = background:0.0, sp_upper: 0.0, sp_lower: 1.0, plate_edge: 0.0, ov_upper: 0.0
+        set Decoupling eclogite viscosity = true
+        set Compute latent heat = 0.0
+        set Thermal diffusivities = 1.0e-6
+        set Heat capacities = 1250.0
+        set Densities = background: 3300.0|3394.4|3442.1|3453.2|3617.6|3691.5|3774.7|3929.1, sp_lower: 3235.0|3372.3|3441.7|3441.7|3680.8|3717.8|3759.4|3836.6, sp_upper: 3000.0|3540.0|3613.0|3871.7, plate_edge: 3300.0, ov_upper:3000.0|3540.0|3613.0|3871.7
+        set Thermal expansivities = background:3.1e-5, sp_upper:3.1e-5, sp_lower:3.1e-5, plate_edge: 0.0, ov_upper: 3.1e-5
+        set Viscosity averaging scheme = harmonic
+        set Viscous flow law = composite
+        set Yield mechanism = drucker
+        set Grain size = 1.0000e-02
+        set Prefactors for diffusion creep = background: 1.2835e-16|1.2835e-16|1.2835e-16|1.2835e-16|5.4807e-18|5.4807e-18|5.4807e-18|5.4807e-18,sp_upper: 5.0000e-21|1.2835e-16|5.4807e-18|5.4807e-18,sp_lower: 1.2835e-16|1.2835e-16|1.2835e-16|1.2835e-16|5.4807e-18|5.4807e-18|5.4807e-18|5.4807e-18,plate_edge: 5.0000e-21|1.2835e-16|5.4807e-18, ov_upper:1.2835e-16|1.2835e-16|5.4807e-18|5.4807e-18
+        set Grain size exponents for diffusion creep = background:  3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00,sp_upper: 0.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00,sp_lower: 3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00|3.0000e+00,plate_edge: 0.0000e+00|3.0000e+00|3.0000e+00, ov_upper: 3.0000e+00
+        set Activation energies for diffusion creep = background:  3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05,sp_upper: 0.0000e+00|3.3500e+05|3.3500e+05|3.3500e+05,sp_lower: 3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05|3.3500e+05,plate_edge: 0.0000e+00|3.3500e+05|3.3500e+05, ov_upper: 3.3500e+05
+        set Activation volumes for diffusion creep = background: 1.9000e-06|1.9000e-06|1.9000e-06|1.9000e-06|3.0000e-06|3.0000e-06|3.0000e-06|3.0000e-06,sp_upper: 0.0000e+00|1.9000e-06|3.0000e-06|3.0000e-06,sp_lower: 1.9000e-06|1.9000e-06|1.9000e-06|1.9000e-06|3.0000e-06|3.0000e-06|3.0000e-06|3.0000e-06,plate_edge: 0.0000e+00|1.9000e-06|3.0000e-06, ov_upper: 1.9000e-06|1.9000e-06|3.0000e-06|3.0000e-06
+        set Prefactors for dislocation creep = background: 1.1386e-16|1.1386e-16|1.1386e-16|1.1386e-16|5.0000e-32|5.0000e-32|5.0000e-32|5.0000e-32,sp_upper: 5.0000e-32|1.1386e-16|5.0000e-32|5.0000e-32,sp_lower: 1.1386e-16|1.1386e-16|1.1386e-16|1.1386e-16|5.0000e-32|5.0000e-32|5.0000e-32|5.0000e-32,plate_edge: 5.0000e-32|1.1386e-16|5.0000e-32, ov_upper: 1.1386e-16|1.1386e-16|5.0000e-32|5.0000e-32
+        set Stress exponents for dislocation creep = background: 3.5000e+00|3.5000e+00|3.5000e+00|3.5000e+00|1.0000e+00|1.0000e+00|1.0000e+00|1.0000e+00,sp_upper: 1.0000e+00|3.5000e+00|1.0000e+00|1.0000e+00,sp_lower: 3.5000e+00|3.5000e+00|3.5000e+00|3.5000e+00|1.0000e+00|1.0000e+00|1.0000e+00|1.0000e+00,plate_edge: 1.0000e+00|3.5000e+00|1.0000e+00, ov_upper: 3.5000e+00|3.5000e+00|1.0000e+00|1.0000e+00
+        set Activation energies for dislocation creep = background: 4.8000e+05|4.8000e+05|4.8000e+05|4.8000e+05|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00,sp_upper: 0.0000e+00|4.8000e+05|0.0000e+00|0.0000e+00,sp_lower: 4.8000e+05|4.8000e+05|4.8000e+05|4.8000e+05|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00,plate_edge: 0.0000e+00|4.8000e+05|0.0000e+00, ov_upper:4.8000e+05|4.8000e+05|0.0000e+00|0.0000e+00
+        set Activation volumes for dislocation creep = background: 1.4000e-05|1.4000e-05|1.4000e-05|1.4000e-05|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00,sp_upper: 0.0000e+00|1.4000e-05|0.0000e+00|0.0000e+00,sp_lower: 1.4000e-05|1.4000e-05|1.4000e-05|1.4000e-05|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00,plate_edge: 0.0000e+00|1.4000e-05|0.0000e+00, ov_upper:1.4000e-05|1.4000e-05|0.0000e+00|0.0000e+00
+        set Angles of internal friction = 25.0
+        set Cohesions = 50.e6
+        set Include Peierls creep = true
+        set Peierls creep flow law = exact
+        set Peierls fitting parameters = 0.17
+        set Peierls glide parameters p = 0.5
+        set Peierls glide parameters q = 1.0
+        set Stress exponents for Peierls creep = 2.0
+        set Peierls stresses = 5.9000e+09
+        set Prefactors for Peierls creep = 1.4000e-19
+        set Activation energies for Peierls creep = 3.2000e+05
+        set Activation volumes for Peierls creep = 0.0
+        set Activation volume differences for Peierls creep = 1.4000e-05
+        set Reference temperatures = 873
+        set Reference pressures = 4.5e9
+        set Peierls shear modulus = 7.74e10
+        set Peierls shear modulus derivative = 0.0
+        set Peierls strain rate residual tolerance = 1.0000e-22
+        set Maximum Peierls strain rate iterations = 100
+        set Cutoff pressures for Peierls creep = background: 2.5e+10|2.5e+10|2.5e+10|2.5e+10|0.0|0.0|0.0|0.0, sp_upper: 0.0|2.5e+10|0.0|0.0, sp_lower:2.5e+10|2.5e+10|2.5e+10|2.5e+10|0.0|0.0|0.0|0.0, plate_edge: 0.0, ov_upper: 2.5e+10|2.5e+10|0.0|0.0
+        set Fix unrealistic compositions = true
+        subsection Eclogite transition
+            set Temperature for eclogite transition = 673.0
+            set Temperature width for eclogite transition = 200.0
+            set Temperature slope for eclogite transition = -20e6
+            set Pressure for eclogite transition = 1.5e9
+            set Pressure width for eclogite transition = 0.5e9
+            set Max pressure for eclogite transition = 5e9
+            set Max pressure width for eclogite transition = 1.5e9
+        end
+        subsection Eclogite decoupled viscosity
+            set Decoupled depth = 100000.0
+            set Decoupled depth width = 10e3
+        end
+        set Reset viscosity = true
+        subsection Reset viscosity function
+            set Coordinate system = cartesian
+            set Variable names = x, y, z
+            set Function constants = Depth=1.45e5, Width=6.0000e+05, Do=2.8900e+06, xm=6.7830e+06, CV=1e20, Wp=1.0000e+06
+            set Function expression = (((z > Do - Depth) && ((x < Width)||(x > (xm - Width))) && (y <= Wp))? CV: -1.0)
+        end
+        set Reset density = true
+        subsection Reset density function
+            set Coordinate system = cartesian
+            set Variable names = x, y, z
+            set Function constants = Depth=1.45e5, Width=6.0000e+05, Do=2.8900e+06, xm=6.7830e+06, CD=3300.0, Wp=1.0000e+06
+            set Function expression = (((z > Do - Depth) && ((x < Width)||(x > (xm - Width))) && (y <= Wp))? CD: -1.0)
+        end
+        set Reaction mor = true
+        subsection Reaction mor function
+            set Coordinate system = cartesian
+            set Variable names = x, y, z
+            set Function constants = Do=2.8900e+06, xm=7.3830e+06, DpUp=15000.0, Dp=65000.0, Wp=1.0000e+06, pWidth=1e5, Dplate=200e3, Wweak=55e3, pRidge=6.0000e+05, dOvSide=6.0000e+05
+            set Function expression = ((z > Do - DpUp) && (x > pRidge) && (x <= pRidge + pWidth) && (y <= Wp)) ? 0:\
+                                        (((z <= Do - DpUp) && (z > Do - Dp) && (x > pRidge) && (x <= pRidge + pWidth) && (y <= Wp)) ? 1:\
+                                        ((z > Do - Dplate) && (((x > pRidge) && (x <= pRidge + pWidth)) || ((x > xm - dOvSide - pWidth) && (x <= xm - dOvSide))) && (y > Wp) && (y <= Wp + Wweak))? 2:-1)
+        end
+    end
+end
+
+
+subsection Gravity model
+    set Model name = ascii data
+end
+
+subsection Prescribed temperatures
+    set Model name = plate model 1
+    subsection Indicator function
+        set Coordinate system = cartesian
+        set Variable names = x, y, z
+        set Function constants = Depth=1.45e5, Width=7.0000e+05, Do=2.890e6, xm=7383000.0, Wp=1.0000e+06
+        set Function expression = (((z>Do-Depth)&&(y<Wp)&&((x<Width)||(xm-x<Width))) ? 1:0)
+    end
+    subsection Plate model 1
+        set Area width = 7.0000e+05
+        set Subducting plate velocity = 1.5855e-09
+        set Overiding plate age = 1.2614e+15
+        set Overiding area width = 7.0000e+05
+        set Top temperature = 273.0
+    end
+end
+
+
+subsection Postprocess
+    set List of postprocessors = visualization, velocity statistics, temperature statistics, depth average
+    subsection Depth average
+        set Number of zones = 50
+        set Output format = txt
+        set Time between graphical output = 0
+    end
+    subsection Visualization
+        set List of output variables = density, viscosity, error indicator, named additional outputs, strain rate, stress, principal stress
+        set Output format = vtu
+        set Time between graphical output = 0.1e6
+        set Interpolate output = false
+    end
+end
+
+
+subsection Checkpointing
+    set Steps between checkpoint = 20
+end
+
+
+

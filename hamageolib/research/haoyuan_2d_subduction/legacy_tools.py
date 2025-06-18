@@ -13043,6 +13043,8 @@ opcrust: 1e+31, opharz: 1e+31", \
         # todo_version
         if version >= 3.0:
             o_dict['Postprocess']["Visualization"]["List of output variables"] = 'material properties, named additional outputs, nonadiabatic pressure, strain rate, stress, heating'
+            o_dict["Material model"]["Visco Plastic TwoD"]["Peierls strain rate residual tolerance"] = "1e-6"
+            
         # heat flux outputs
         if output_heat_flux:
             o_dict['Postprocess']["List of postprocessors"] += ', heat flux map'

@@ -17,6 +17,20 @@ hamageolib is a Python package designed to provide tools and models for geodynam
 - **Visualization Tools (`hamageolib_viz`)**: This module will include visualization utilities for interpreting simulation results, creating insightful plots of model outputs, and visualizing geological structures, assisting in the analysis and presentation of research findings.
 ---
 
+## Prerequisites
+
+Anaconda is required to manage the Python environment for this package.
+
+To install conda environment for hamageolib
+
+   conda env create --file environment.yml
+
+To activate in terminal
+
+   conda activate hmgeolib
+
+To activate in Jupyter notebooks, select "hmgeolib" as kernel
+
 ## Installation
 
 ### Anaconda version
@@ -49,7 +63,7 @@ In your Python script, include the following lines to add the cloned directory t
 
 ```python
 import sys
-sys.path.insert(0, "path/to/hamageolib")  # Replace with the actual path to hamageolib
+sys.path.insert(0, "path/to/HaMaGeoLib")  # Replace with the actual path to hamageolib
 ```
 
 3. **After this, you’ll be able to import and use hamageolib as usual**:

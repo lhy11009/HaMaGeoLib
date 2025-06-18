@@ -1,0 +1,27 @@
+name: hmgeolib
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pytest
+  - numpy
+  - scipy
+  - pip
+  - matplotlib
+  - ipykernel
+  - vtk
+  - pillow
+  - joblib
+  - pip:
+    - imageio
+    - importlib-resources
+    - ipyvtklink
+    - markdown
+    - mkdocs
+    - notebook
+    - pandas
+    - pytest-cov
+    - pyvista
+    - xarray
+    - cmcrameri
+prefix: /home/lochy/anaconda3/envs/hmgeolib
