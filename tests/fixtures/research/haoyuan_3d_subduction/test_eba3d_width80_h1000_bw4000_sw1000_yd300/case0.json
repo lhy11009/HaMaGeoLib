@@ -1,7 +1,7 @@
 {
   "_comments": "This case is modified from the Schellart 2007 paper, but include newtonian T-dependent rheology",
   "base directory": "./hamageolib/research/haoyuan_2d_subduction/legacy_files/reference_ThD/07062024",
-  "depth average file": "${ASPECT_LAB_DIR}/files/ThDSubduction/reference/depth_average_1573.txt",
+  "depth average file": "./hamageolib/research/haoyuan_2d_subduction/legacy_files/reference_ThD/depth_average_1573.txt",
   "output directory": "./.test/research-haoyuan_2d_subduction-test_legacy_tools",
   "name": "test_eba3d_width80_h1000_bw4000_sw1000_yd300",
   "type": "2d_consistent",
