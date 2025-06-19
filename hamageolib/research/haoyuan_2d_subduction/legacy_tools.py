@@ -13040,7 +13040,6 @@ opcrust: 1e+31, opharz: 1e+31", \
 
         # additional outputs 
         # adjust list of output for different versions
-        # todo_version
         if version >= 3.0:
             o_dict['Postprocess']["Visualization"]["List of output variables"] = 'material properties, named additional outputs, nonadiabatic pressure, strain rate, stress, heating'
             o_dict["Material model"]["Visco Plastic TwoD"]["Peierls strain rate residual tolerance"] = "1e-6"
@@ -13066,7 +13065,6 @@ opcrust: 1e+31, opharz: 1e+31", \
         # potential T
         self.wb_dict['potential mantle temperature'] = potential_T
 
-        # todo_version
         # adjust world builder version
         if version >= 3.0:
             self.wb_dict["version"] = "1.1"
@@ -13345,6 +13343,9 @@ def expand_composition_array(old_str, id_comp0, n_comp):
         n_comp: number of new compositions
     '''
     options = old_str.split(',')
+    if len(options) <= 1:
+        # this is assigned with a single value, in this case, do nothing
+        return old_str
     removed_option = options.pop(id_comp0)
     # compile new option
     new_option = ""
@@ -13373,11 +13374,11 @@ def expand_multi_composition_composition_field(i_dict, comp0, comps):
     # composition field
     # find the index of the original field to be id0
     str_name = o_dict["Compositional fields"]["Names of fields"]
-    str_name_options = str_name.split(',')
+    raw_options = str_name.split(',')
+    str_name_options = [re_neat_word(_option) for _option in raw_options]
     id = 0
     found = False
-    for _option in str_name_options:
-        comp = re_neat_word(_option) 
+    for comp in str_name_options:
         if comp == comp0:
             id0 = id
             found = True
@@ -13390,12 +13391,12 @@ def expand_multi_composition_composition_field(i_dict, comp0, comps):
         str_name_options.append(comp)
     str_name_new = ""
     is_first = True
-    for _option in str_name_options:
+    for comp in str_name_options:
         if is_first:
             is_first = False
         else:
             str_name_new += ","
-        str_name_new += _option
+        str_name_new += comp
     o_dict["Compositional fields"]["Names of fields"] = str_name_new
     # number of composition
     nof = int(o_dict["Compositional fields"]["Number of fields"])
@@ -13853,7 +13854,6 @@ def wb_configure_plates(wb_dict, sp_age_trench, sp_rate, ov_age, wb_new_ridge, v
     s_dict["coordinates"] = [[trench, -_side], [trench, _side]] 
     s_dict["dip point"] = [_max, 0.0]
     s_dict["temperature models"][0]["ridge coordinates"] = sp_ridge_coords
-    # todo_version
     # temperature model
     if version >= 3.0:
         if "plate velocity" in s_dict["temperature models"][0]:
@@ -14855,7 +14855,7 @@ def slab_surface_profile(p0_in, slab_lengths_in, slab_dips_in, coordinate_system
             ps[i, 1] = (intv_slab_length**2.0 + r0**2.0 - 2 * r0 * intv_slab_length * np.sin(slab_dip))**0.5
     return ps
 
-def PlotCaseRun(case_path, **kwargs):
+def PlotCaseRunTwoD(case_path, **kwargs):
     '''
     Plot case run result
     Inputs:
@@ -14879,7 +14879,7 @@ def PlotCaseRun(case_path, **kwargs):
     rotation_plus = kwargs.get("rotation_plus", 0.0)
     # todo_velo
     assert(visualization in ["paraview", "visit", "pygmt"])
-    print("PlotCaseRun in TwoDSubduction0: operating")
+    print("PlotCaseRunTwoD in TwoDSubduction0: operating")
     # get case parameters
     prm_path = os.path.join(case_path, 'output', 'original.prm')
 
@@ -15050,8 +15050,9 @@ different age will be adjusted.",\
             ['mantle rheology', "adjust detail"], 0, nick='adjust_mantle_rheology_detail')
         self.add_key("Include upper plate composition for the overriding plate",\
         int, ['plate setup', 'include ov upper plate'], 0, nick='include_ov_upper_plate')
-        # todo_strength
         self.add_key("Slab strengh", float, ['plate setup', "strength"], 500e6, nick="slab_strength")
+        self.add_key("Include metastable transition", int,\
+            ['metastable', 'include metastable'], 0, nick='include_meta')
 
     
     def check(self):
@@ -15149,6 +15150,8 @@ different age will be adjusted.",\
         adjust_mantle_rheology_detail = self.values[self.start+59]
         include_ov_upper_plate = self.values[self.start+60]
         slab_strength = self.values[self.start+61]
+        version = self.values[23]
+        include_meta = self.values[self.start + 62]
         return _type, if_wb, geometry, box_width, box_length, box_height,\
             sp_width, trailing_length, reset_trailing_morb, ref_visc,\
             relative_visc_plate, friction_angle, relative_visc_lower_mantle, cohesion,\
@@ -15160,7 +15163,7 @@ different age will be adjusted.",\
             slab_core_viscosity, global_minimum_viscosity, coarsen_side, coarsen_side_interval, fix_boudnary_temperature_auto,\
             coarsen_side_level, coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as,\
             trailing_length_1, sp_rate, ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail,\
-            include_ov_upper_plate, slab_strength
+            include_ov_upper_plate, slab_strength, version, include_meta
         
     def to_configure_wb(self):
         '''
@@ -15197,11 +15200,12 @@ different age will be adjusted.",\
             *self.to_re_write_geometry_pa()
             ) # adjust box width
         make_2d_consistent_plate = self.values[self.start+48]
+        version = self.values[23]
         return _type, if_wb, geometry, sp_width, sp_length, trailing_length,\
         Dsz, Ddl, slab_length, dip_angle, sp_age_trench, ov_age,\
         setup_method, sp_rate, wb_new_ridge, assign_side_plate,\
         if_ov_trans, ov_trans_age, ov_trans_length, sp_ridge_x,\
-        ov_side_dist, box_length, make_2d_consistent_plate
+        ov_side_dist, box_length, make_2d_consistent_plate, version
     
     def to_re_write_geometry_pa(self):
         '''
@@ -15236,7 +15240,8 @@ class CASE_THD(CASE):
     reset_composition_viscosity, reset_composition_viscosity_width, repitition_slice_method, slab_core_viscosity,\
     global_minimum_viscosity, coarsen_side, coarsen_side_interval, fix_boudnary_temperature_auto, coarsen_side_level,\
     coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as, trailing_length_1, sp_rate,\
-    ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail, include_ov_upper_plate, slab_strength):
+    ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail, include_ov_upper_plate, slab_strength, version,\
+    include_meta):
         '''
         Configure prm file
         '''
@@ -15782,13 +15787,64 @@ class CASE_THD(CASE):
         else:
             raise ValueError("stokes_solver_type must be in [block AMG, block GMG].")
 
+        # version related features
+        if version >= 3.0:
+            o_dict['Postprocess']["Visualization"]["List of output variables"] = 'material properties, error indicator, named additional outputs, strain rate, stress, principal stress'
+            o_dict["Material model"]["Visco Plastic TwoD"]["Peierls strain rate residual tolerance"] = "1e-6"
+
+        # metastable related features
+        if include_meta:
+            # expand composition fields
+            # o_dict = expand_multi_composition_isosurfaces(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
+            o_dict = expand_multi_composition_composition_field(o_dict, 'ov_upper', ["ov_upper", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
+            o_dict["Compositional fields"]["Mapped particle properties"] = \
+                  "sp_upper:initial sp_upper, sp_lower:initial sp_lower, plate_edge:initial plate_edge, ov_upper:initial ov_upper, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
+            # todo_meta
+            # change Compositional field methods to particles
+            
+            # initial composition fields
+            o_dict["Initial composition model"]["List of model names"] += ", metastable"
+            o_dict["Initial composition model"]["List of model operators"] = "add"
+            o_dict["Initial composition model"]["metastable"] = {
+                "Phase transition depth": "410e3",
+                "Phase transition width": "5e3",
+                "Phase transition temperature": "1740.0",
+                "Phase transition Clapeyron slope": "2e6"
+            }
+            
+            # change the material model
+            material_model = o_dict["Material model"]
+            material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
+            material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, sp_upper: 0.0, sp_lower: 0.0, plate_edge: 0.0, ov_upper: 0.0"
+            o_dict["Material model"] = material_model
+
+            # fix the particle properties
+            particle_options = {"Minimum particles per cell": "33",
+                                "Maximum particles per cell": "140",
+                                "Load balancing strategy": "remove and add particles",
+                                "Interpolation scheme": "cell average",
+                                "Update ghost particles": "true",
+                                "Particle generator name": "random uniform",
+                                "List of particle properties": "initial composition, metastable",
+                                "Allow cells without particles": "true",
+                                "Generator": {
+                                    "Random uniform":{
+                                        "Number of particles": "5e7"
+                                    }
+                                },
+                                "Integration scheme": "rk4"
+                                }
+            particle_visualization_options = {"Data output format": "vtu", "Time between data output": "0.1e6"}
+            o_dict["Particles"] = particle_options
+            o_dict["Postprocess"]["Particles"] = particle_visualization_options
+
         self.idict = o_dict
         pass
 
 
     def configure_wb(self, _type, if_wb, geometry, sp_width, sp_length, trailing_length, Dsz, Ddl, slab_length,\
     dip_angle, sp_age_trench, ov_age, setup_method, sp_rate, wb_new_ridge, assign_side_plate, if_ov_trans, ov_trans_age,\
-    ov_trans_length, sp_ridge_x, ov_side_dist, box_length, make_2d_consistent_plate):
+    ov_trans_length, sp_ridge_x, ov_side_dist, box_length, make_2d_consistent_plate, version):
         '''
         Configure wb file
         '''
@@ -15838,7 +15894,19 @@ class CASE_THD(CASE):
                         ov_trans_age, ov_trans_length, sp_ridge_x, ov_side_dist, box_length)
             else:
                 raise ValueError("Geometry must by \"chunk\" or \"box\", get %s" % geometry)
-            pass
+        
+        if version >= 3.0:
+            self.wb_dict["version"] = "1.1"
+
+            i0 = FindWBFeatures(self.wb_dict, 'Slab')
+            s_dict = self.wb_dict['features'][i0]
+            if "plate velocity" in s_dict["temperature models"][0]:
+                s_dict["temperature models"][0].pop("plate velocity")
+            if "shallow dip" in s_dict["temperature models"][0]:
+                s_dict["temperature models"][0].pop("shallow dip")
+            s_dict["temperature models"][0]["spreading velocity"] = sp_rate
+            s_dict["temperature models"][0]["subducting velocity"] = sp_rate
+            self.wb_dict['features'][i0] = s_dict
 
 
 def wb_configure_plate_schellart07(wb_dict, sp_width, sp_length, trailing_width, Dsz, Ddl, slab_length):
