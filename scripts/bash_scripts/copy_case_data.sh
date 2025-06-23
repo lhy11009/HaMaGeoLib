@@ -1,14 +1,14 @@
 #!/bin/bash
 
 # Define paths
-CASE_DIR="/mnt/lochz/ASPECT_DATA/TwoDSubduction/EBA_CDPT_test_gr_1/eba_cdpt_PTWL_SA80.0_cd7.5_gr11"
-DEST_DIR="/mnt/lochz/ASPECT_DATA/TwoDSubduction/packed_data/eba_cdpt_PTWL_SA80.0_cd7.5_gr11"
+CASE_DIR="/mnt/lochz/ASPECT_DATA/TwoDSubduction/EBA_CDPT_morb_dE/eba_cdpt_coh500_SA80.0_cd7.5_log"
+DEST_DIR="/mnt/lochz/ASPECT_DATA/TwoDSubduction/packed_data/Psa80oa40Rwedge"
 
 # List of heat_flux steps
-STEPS=(1039 1510 2284)
+STEPS=(259 423 706)
 
 # List of vtu snapshots
-VTU_SNAPSHOTS=(32 74 126)
+VTU_SNAPSHOTS=(29 70 113)
 
 # Create destination directory and log file
 mkdir -p "$DEST_DIR"

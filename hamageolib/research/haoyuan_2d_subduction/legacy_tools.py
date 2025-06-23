@@ -14855,7 +14855,7 @@ def slab_surface_profile(p0_in, slab_lengths_in, slab_dips_in, coordinate_system
             ps[i, 1] = (intv_slab_length**2.0 + r0**2.0 - 2 * r0 * intv_slab_length * np.sin(slab_dip))**0.5
     return ps
 
-def PlotCaseRun(case_path, **kwargs):
+def PlotCaseRunTwoD(case_path, **kwargs):
     '''
     Plot case run result
     Inputs:
@@ -14879,7 +14879,7 @@ def PlotCaseRun(case_path, **kwargs):
     rotation_plus = kwargs.get("rotation_plus", 0.0)
     # todo_velo
     assert(visualization in ["paraview", "visit", "pygmt"])
-    print("PlotCaseRun in TwoDSubduction0: operating")
+    print("PlotCaseRunTwoD in TwoDSubduction0: operating")
     # get case parameters
     prm_path = os.path.join(case_path, 'output', 'original.prm')
 
