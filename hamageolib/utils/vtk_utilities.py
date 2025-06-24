@@ -195,3 +195,63 @@ def vtk_extract_comp(u_grid, *field_names, **kwargs):
     geometry_filter.Update()
 
     return geometry_filter.GetOutput()  # PolyData containing the slab surface
+
+
+def extract_phi_max(points_xyz, r_bounds, theta_bounds, n_r=100, n_theta=100):
+    """
+    Given 3D points, extract curve of max φ at each (r, θ) location.
+    
+    Parameters:
+        points_xyz: (N, 3) array of 3D points
+        r_bounds: (r_min, r_max) in meters
+        theta_bounds: (theta_min, theta_max) in radians
+        n_r: number of radial bins
+        n_theta: number of theta bins (colatitude)
+        
+    Returns:
+        result_points: (n_r * n_theta, 3) array of 3D Cartesian coords of max-φ points
+    """
+    x, y, z = points_xyz[:, 0], points_xyz[:, 1], points_xyz[:, 2]
+    
+    # Spherical conversion
+    r = np.sqrt(x**2 + y**2 + z**2)
+    theta = np.arccos(z / r)            # colatitude in radians
+    phi = np.arctan2(y, x)              # azimuthal angle (longitude), in [-π, π]
+    phi = np.mod(phi, 2 * np.pi)        # make it in [0, 2π]
+
+    # Only use points within desired r and θ ranges
+    mask = (
+        (r >= r_bounds[0]) & (r <= r_bounds[1]) &
+        (theta >= theta_bounds[0]) & (theta <= theta_bounds[1])
+    )
+    r, theta, phi, x, y, z = r[mask], theta[mask], phi[mask], x[mask], y[mask], z[mask]
+    
+    # Define target grid in (r, θ)
+    r_grid = np.linspace(*r_bounds, n_r)
+    theta_grid = np.linspace(*theta_bounds, n_theta)
+    r_mesh, theta_mesh = np.meshgrid(r_grid, theta_grid)
+    grid_points = np.vstack([r_mesh.ravel(), theta_mesh.ravel()]).T
+    
+    # Use griddata to interpolate φ onto the (r, θ) grid (using max logic below)
+    result_xyz = []
+
+    for (r0, theta0) in grid_points:
+        # Small neighborhood threshold (tunable)
+        dr = (r_bounds[1] - r_bounds[0]) / n_r
+        dtheta = (theta_bounds[1] - theta_bounds[0]) / n_theta
+        
+        local_mask = (
+            (np.abs(r - r0) < dr) &
+            (np.abs(theta - theta0) < dtheta)
+        )
+        if not np.any(local_mask):
+            continue
+        
+        # Among the local points, find the one with max φ
+        idx = np.argmax(phi[local_mask])
+        px = x[local_mask][idx]
+        py = y[local_mask][idx]
+        pz = z[local_mask][idx]
+        result_xyz.append([px, py, pz])
+
+    return np.array(result_xyz)

@@ -24,4 +24,7 @@ dependencies:
     - pyvista
     - xarray
     - cmcrameri
+    - PyMuPDF
+    - opencv-python
+    - opencv-python-headless
 prefix: /home/lochy/anaconda3/envs/hmgeolib

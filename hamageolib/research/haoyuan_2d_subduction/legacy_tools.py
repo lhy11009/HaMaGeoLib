@@ -69,6 +69,7 @@ from ...utils.handy_shortcuts_haoyuan import func_name
 from ...utils.dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
 from ...utils.world_builder_param_parser import find_wb_feature
 from ...utils.geometry_utilities import offset_profile, compute_pairwise_distances
+from ...research.haoyuan_3d_subduction.post_process import PYVISTA_PROCESS_THD
 
 JSON_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_json_files")
 LEGACY_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_files")
@@ -507,12 +508,18 @@ class VISIT_OPTIONS_BASE(CASE_OPTIONS):
 
         # get time steps
         self.options['GRAPHICAL_TIME_STEPS'] = []
+        self.options['GRAPHICAL_TIMES'] = []
+        try:
+            graphical_time_interval = float(self.idict['Postprocess']['Visualization']['Time between graphical output'])
+        except KeyError:
+            graphical_time_interval = 0.0
         for step in self.options['GRAPHICAL_STEPS']:
             found = False
             for i in range(len(graphical_snaps)):
                 if step == max(0, graphical_snaps[i] - int(self.options['INITIAL_ADAPTIVE_REFINEMENT'])):
                     found = True
                     self.options['GRAPHICAL_TIME_STEPS'].append(time_steps[i])
+                    self.options['GRAPHICAL_TIMES'].append(step * graphical_time_interval)
             if not found:
                 warnings.warn("%s: step %d is not found" % (func_name(), step))
 
@@ -679,7 +686,7 @@ class COMPOSITION():
         return line
 
 
-class VISIT_OPTIONS(VISIT_OPTIONS_BASE):
+class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE):
     """
     parse .prm file to a option file that bash can easily read
     """
@@ -4809,7 +4816,7 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
         raise FileExistsError("input file (pvtu) doesn't exist: %s" % filein)
     else:
         print("SlabMorphology_dual_mdd: processing %s" % filein)
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     # vtk_option_path, _time, step = PrepareVTKOptions(VISIT_OPTIONS, case_dir, 'TwoDSubduction_SlabAnalysis',\
     # vtu_step=vtu_step, include_step_in_filename=True, generate_horiz=True)
@@ -4971,7 +4978,7 @@ def SlabAnalysis(case_dir, vtu_snapshot, o_file, **kwargs):
          "solution-%05d.pvtu" % (vtu_snapshot))
     assert(os.path.isfile(filein))
     # get parameters
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     geometry = Visit_Options.options['GEOMETRY']
     vtu_step = max(0, int(vtu_snapshot) - int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']))
@@ -5192,7 +5199,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     assert(isinstance(offsets, (list)))
 
     # get parameters
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     geometry = Visit_Options.options['GEOMETRY']
     vtu_step = max(0, int(vtu_snapshot) - int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']))
@@ -5466,7 +5473,7 @@ def SlabTemperature1(case_dir, vtu_snapshot, **kwargs):
     a wrapper for the SlabTemperature function
     '''
     output_path = os.path.join(case_dir, "vtk_outputs", "temperature")
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     geometry = Visit_Options.options['GEOMETRY']
     vtu_step = max(0, int(vtu_snapshot) - int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']))
@@ -5519,7 +5526,7 @@ def TrenchT(case_dir, vtu_snapshot, **kwargs):
     output_path = os.path.join(case_dir, 'vtk_outputs')
     if not os.path.isdir(output_path):
         os.mkdir(output_path)
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     vtu_step = max(0, int(vtu_snapshot) - int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']))
     fileout =  os.path.join(output_path, 'trench_T_%05d.txt' % (vtu_step))
@@ -5552,7 +5559,7 @@ def ShearZoneGeometry(case_dir, vtu_snapshot, **kwargs):
     else:
         print("%sSlabMorphology: processing %s" % (indent*" ", filein))
     # prepare the slab
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     vtu_step = max(0, int(vtu_snapshot) - int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']))
     _time, step = Visit_Options.get_time_and_step(vtu_step)
@@ -5587,7 +5594,7 @@ def PlotSlabTemperature(case_dir, vtu_snapshot, **kwargs):
     indent = kwargs.get("indent", 0)  # indentation for outputs
     assert(os.path.isdir(case_dir))
     # read some options
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     vtu_step = max(0, int(vtu_snapshot) - int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']))
     # fix the output directory
@@ -5693,7 +5700,7 @@ def SlabTemperatureCase(case_dir, **kwargs):
     time_interval_for_slab_morphology = kwargs.get("time_interval", 0.5e6)
     run_parallel = kwargs.get("run_parallel", True)
 
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     # call get_snaps_for_slab_morphology, this prepare the snaps with a time interval in between.
     available_pvtu_snapshots= Visit_Options.get_snaps_for_slab_morphology(time_interval=time_interval_for_slab_morphology)
@@ -5756,7 +5763,7 @@ def SlabMorphologyCase(case_dir, **kwargs):
     # get all available snapshots
     # the interval is choosen so there is no high frequency noises
     time_interval_for_slab_morphology = kwargs.get("time_interval", 0.5e6)
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     # call get_snaps_for_slab_morphology, this prepare the snaps with a time interval in between.
     available_pvtu_snapshots= Visit_Options.get_snaps_for_slab_morphology(time_interval=time_interval_for_slab_morphology)
@@ -5840,7 +5847,7 @@ def WedgeTCase(case_dir, **kwargs):
     # get all available snapshots
     # the interval is choosen so there is no high frequency noises
     time_interval = kwargs.get("time_interval", 0.5e6)
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     # call get_snaps_for_slab_morphology, this prepare the snaps with a time interval in between.
     available_pvtu_snapshots= Visit_Options.get_snaps_for_slab_morphology(time_interval=time_interval)
@@ -5876,7 +5883,7 @@ def TrenchTCase(case_dir, **kwargs):
     # get all available snapshots
     # the interval is choosen so there is no high frequency noises
     time_interval = kwargs.get("time_interval", 0.5e6)
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     # call get_snaps_for_slab_morphology, this prepare the snaps with a time interval in between.
     available_pvtu_snapshots= Visit_Options.get_snaps_for_slab_morphology(time_interval=time_interval)
@@ -5911,7 +5918,7 @@ def PlotSlabForcesCase(case_dir, vtu_step, **kwargs):
     '''
     output_slab = kwargs.get('output_slab', False)
     assert(os.path.isdir(case_dir))
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     # call function
     Visit_Options.Interpret()
     vtu_snapshot = int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']) + vtu_step
@@ -5974,7 +5981,7 @@ def ShearZoneGeometryCase(case_dir, **kwargs):
     if not os.path.isdir(img_o_dir):
         os.mkdir(img_o_dir)
     # initialize the VTK object
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     available_pvtu_snapshots= Visit_Options.get_snaps_for_slab_morphology(time_start=time_start, time_interval=time_interval, time_end=time_end)
     geometry = Visit_Options.options['GEOMETRY']
@@ -6052,7 +6059,7 @@ class SLABPLOT(LINEARPLOT):
             Ro = float(self.prm['Geometry model']['Box']['Y extent'])
         else:
             raise ValueError('Invalid geometry')
-        Visit_Options = VISIT_OPTIONS(case_dir)
+        Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
         Visit_Options.Interpret()
         # call get_snaps_for_slab_morphology, this prepare the snaps with a time interval in between.
         available_pvtu_snapshots= Visit_Options.get_snaps_for_slab_morphology(time_interval=time_interval)
@@ -6383,7 +6390,7 @@ class SLABPLOT(LINEARPLOT):
         if not os.path.isdir(morph_dir):
             os.mkdir(morph_dir)
         # visit option class 
-        Visit_Options = VISIT_OPTIONS(case_dir)
+        Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
         Visit_Options.Interpret()
         # read inputs
         prm_file = os.path.join(case_dir, 'output', 'original.prm')
@@ -6584,7 +6591,7 @@ class SLABPLOT(LINEARPLOT):
         if not os.path.isdir(morph_dir):
             os.mkdir(morph_dir)
         # visit option class 
-        Visit_Options = VISIT_OPTIONS(case_dir)
+        Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
         Visit_Options.Interpret()
         # read inputs
         prm_file = os.path.join(case_dir, 'output', 'original.prm')
@@ -6743,7 +6750,7 @@ class SLABPLOT(LINEARPLOT):
         if ax == None:
             raise ValueError("Not implemented")
         depthes, Ts = self.ReadWedgeT(case_dir)
-        Visit_Options = VISIT_OPTIONS(case_dir)
+        Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
         Visit_Options.Interpret()
         available_pvtu_snapshots= Visit_Options.get_snaps_for_slab_morphology(time_interval=time_interval)
         print("available_pvtu_snapshots: ", available_pvtu_snapshots)  # debug
@@ -7102,7 +7109,7 @@ class SLABPLOT(LINEARPLOT):
             assert(time_range[0] < time_range[1])
         # options for slab temperature outputs
         time_interval_for_slab_morphology = kwargs.get("time_interval", 0.5e6)
-        Visit_Options = VISIT_OPTIONS(case_dir)
+        Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
         Visit_Options.Interpret()
         # call get_snaps_for_slab_morphology, this prepare the snaps with a time interval in between.
         available_pvtu_snapshots= Visit_Options.get_snaps_for_slab_morphology(time_interval=time_interval_for_slab_morphology)
@@ -7250,7 +7257,7 @@ class SLABPLOT(LINEARPLOT):
             idict = parse_parameters_to_dict(fin)
         potential_temperature = idict.get('Adiabatic surface temperature', 1673.0)
         # read the temperature and depth profile
-        Visit_Options = VISIT_OPTIONS(case_dir)
+        Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
         Visit_Options.Interpret()
         vtu_step = max(0, int(vtu_snapshot) - int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT']))
         trench_T_file = os.path.join(case_dir, 'vtk_outputs', 'trench_T_%05d.txt' % (vtu_step))
@@ -7297,7 +7304,7 @@ class SLABPLOT(LINEARPLOT):
                 time_interval - interval between steps
         '''
         time_interval = kwargs.get('time_interval', 0.5e6)
-        Visit_Options = VISIT_OPTIONS(case_dir)
+        Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
         Visit_Options.Interpret()
         if use_thermal:
             # use thermal option would fit the temperature at the trench for the individual steps
@@ -8348,7 +8355,7 @@ def PlotMorphAnimeCombined(case_dir, **kwargs):
     '''
     # initiate
     time_interval = kwargs.get("time_interval", 5e5)
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret()
     # SLABPLOT object 
     SlabPlot = SLABPLOT('slab')
@@ -8497,7 +8504,7 @@ def GetSlabDipAt660(case_dir, **kwargs):
     dip_angle_depth_lookup = kwargs.get("dip_angle_depth_lookup", 660e3)
     dip_angle_depth_lookup_interval = kwargs.get("dip_angle_depth_lookup_interval", 60e3)
     
-    Visit_Options = VISIT_OPTIONS(case_dir)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_dir)
     Visit_Options.Interpret() 
     
     slab_morph_path = os.path.join(case_dir, "vtk_outputs", "slab_morph_t1.00e+05.txt")
@@ -14896,7 +14903,7 @@ def PlotCaseRunTwoD(case_path, **kwargs):
 
     # Inititiate the class and intepret the options
     # Note that all the options defined by kwargs is passed to the interpret function
-    Visit_Options = VISIT_OPTIONS(case_path)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_path)
     Visit_Options.Interpret(**kwargs)
 
     # todo_pexport
@@ -17208,3 +17215,305 @@ class PLATE_MODEL():
                 sino = n * np.pi * y / self.L
                 T += (self.Tbot - self.Ttop) * 2 / np.pi / n * np.exp(expo) * np.sin(sino)
             return T
+
+
+class VISIT_OPTIONS_THD(VISIT_OPTIONS_TWOD):
+    """
+    parse .prm file to a option file that bash can easily read
+    """
+    def Interpret(self, **kwargs):
+        """
+        Interpret the inputs, to be reloaded in children
+        kwargs: options
+            last_step(list): plot the last few steps
+        """
+        # additional inputs
+        rotation_plus = kwargs.get("rotation_plus", 0.0) # additional rotation
+        
+        to_rad = np.pi / 180.0
+        # call function from parent
+        VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
+        idx = FindWBFeatures(self.wb_dict, "Subducting plate")
+        idx1 = FindWBFeatures(self.wb_dict, "Slab")
+
+        # Geometry
+        sub_plate_feature = self.wb_dict["features"][idx]
+        slab_feature = self.wb_dict["features"][idx1]
+        # this is point marking the extension of plate
+        sub_plate_extends = sub_plate_feature['coordinates'][1]
+        box_width = -1.0
+        Ro = -1.0
+        sp_age = np.nan
+        ov_age = np.nan
+        self.options['ROTATION_ANGLE'] = 0.0
+        if self.options["GEOMETRY"] == "box":
+            box_width = self.idict["Geometry model"]["Box"]["Y extent"]
+            self.options['TRENCH_EDGE_Y'] = sub_plate_extends[1] * 0.75
+            self.options['TRENCH_EDGE_Y_FULL'] = sub_plate_extends[1]
+            self.options['BOX_WIDTH'] = box_width
+            self.options['BOX_THICKNESS'] = self.idict["Geometry model"]["Box"]["Z extent"]
+            try:
+                index = FindWBFeatures(self.wb_dict, 'Subducting plate')
+            except WBFeatureNotFoundError:
+                pass
+            else:
+                feature_sp = self.wb_dict['features'][index]
+                trench_x = feature_sp["coordinates"][2][0]
+                try:
+                    spreading_velocity = feature_sp["temperature models"][0]["spreading velocity"]
+                except KeyError:
+                    pass
+                else:
+                    sp_age = trench_x / spreading_velocity 
+            try: 
+                idx2 = FindWBFeatures(self.wb_dict, "Overiding plate")
+            except WBFeatureNotFoundError:
+                pass
+            else:
+                ov_plate_feature = self.wb_dict["features"][idx2]
+                ov_age = ov_plate_feature["temperature models"][0]["plate age"]
+            self.options['ROTATION_ANGLE'] = 0.0
+        elif self.options["GEOMETRY"] == "chunk":
+            # todo_3d_chunk
+            # in chunk geometry, the coordinate is read in as the latitude, and it's in
+            # degree
+            Ro = float(self.idict["Geometry model"]["Chunk"]["Chunk outer radius"])
+            self.options['TRENCH_EDGE_Y'] = sub_plate_extends[1] * np.pi / 180.0 * Ro * 0.75
+            self.options['TRENCH_EDGE_Y_FULL'] = sub_plate_extends[1] * np.pi / 180.0 * Ro
+            self.options['TRENCH_EDGE_LAT_FULL'] = sub_plate_extends[1]
+            self.options["CHUNK_RIDGE_CENTER_X"] = Ro
+            self.options["CHUNK_RIDGE_CENTER_Z"] = 0.0
+            # convert to x, y, z with long = 0.75 * plate_extent, lat = 0.0, r = Ro
+            ridge_edge_x, ridge_edge_y, ridge_edge_z = ggr2cart(sub_plate_extends[1]*to_rad*0.75, 0.0, Ro)
+            self.options["CHUNK_RIDGE_EDGE_X"] = ridge_edge_x
+            self.options["CHUNK_RIDGE_EDGE_Z"] = ridge_edge_z
+            self.options['BOX_WIDTH'] = -1.0
+            try:
+                index = FindWBFeatures(self.wb_dict, 'Subducting plate')
+            except WBFeatureNotFoundError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                rotation_angle = 52.0 + rotation_plus
+            else:
+                # rotate to center on the slab
+                feature_sp = self.wb_dict['features'][index]
+                trench_phi = feature_sp["coordinates"][2][0]
+                rotation_angle = 90.0 - trench_phi - 2.0 + rotation_plus
+                try:
+                    spreading_velocity = feature_sp["temperature models"][0]["spreading velocity"]
+                except KeyError:
+                    pass
+                else:
+                    sp_age = trench_phi * np.pi / 180.0 * Ro/ spreading_velocity 
+            try: 
+                idx2 = FindWBFeatures(self.wb_dict, "Overiding plate")
+            except WBFeatureNotFoundError:
+                pass
+            else:
+                ov_plate_feature = self.wb_dict["features"][idx2]
+                ov_age = ov_plate_feature["temperature models"][0]["plate age"]
+                self.options['ROTATION_ANGLE'] = rotation_angle
+        else:
+            raise ValueError("geometry must by either box or chunk")
+
+
+        # viscosity
+        # self.options['ETA_MIN'] = self.idict['Material model']['Visco Plastic TwoD']['Minimum viscosity']
+        # self.options['ETA_MAX'] = self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity']
+        try:
+            self.options['ETA_MIN'] =\
+                string2list(self.idict['Material model']['Visco Plastic TwoD']['Minimum viscosity'], float)[0]
+        except ValueError:
+            eta_min_inputs =\
+                COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Minimum viscosity']) 
+            self.options['ETA_MIN'] = eta_min_inputs.data['background'][0] # use phases
+        try:
+            self.options['ETA_MAX'] =\
+                string2list(self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity'], float)[0]
+        except ValueError:
+            eta_max_inputs =\
+                COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity']) 
+            self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
+        self.options['TRENCH_INITIAL'] = slab_feature['coordinates'][1][0] 
+        
+        # yield stress
+        try:
+            self.options["MAXIMUM_YIELD_STRESS"] = float(self.idict['Material model']['Visco Plastic TwoD']["Maximum yield stress"])
+        except KeyError:
+            self.options["MAXIMUM_YIELD_STRESS"] = 1e9
+
+        # peierls rheology
+        try:
+            include_peierls_rheology = self.idict['Material model']['Visco Plastic TwoD']['Include Peierls creep']
+            if include_peierls_rheology == 'true':
+                self.options['INCLUDE_PEIERLS_RHEOLOGY'] = True
+            else:
+                self.options['INCLUDE_PEIERLS_RHEOLOGY'] = False
+        except KeyError:
+            self.options['INCLUDE_PEIERLS_RHEOLOGY'] = False
+
+        # age
+        self.options["SP_AGE"] = sp_age
+        self.options["OV_AGE"] = ov_age
+
+    def vtk_options(self, **kwargs):
+        '''
+        options of vtk scripts
+        '''
+        # call function from parent
+        VISIT_OPTIONS_BASE.vtk_options(self, **kwargs)
+    
+    def get_snaps_for_slab_morphology_outputs(self, **kwargs):
+        '''
+        get the snaps for processing slab morphology, look for existing outputs
+        kwargs (dict):
+            time_interval (float)
+        '''
+        ptime_start = kwargs.get('time_start', None)
+        ptime_interval = kwargs.get('time_interval', None)
+        ptime_end = kwargs.get('time_end', None)
+        assert(ptime_interval is None or type(ptime_interval) == float)      
+        # steps for processing slab morphology
+        snaps, times, _ = GetSnapsSteps(self._case_dir, 'graphical')
+        psnaps = []
+        ptimes = []
+        last_time = -1e8  # initiate as a small value, so first step is included
+        # loop within all the available steps, find steps satisfying the time interval requirement.
+        for i in range(len(times)):
+            time = times[i]
+            snap = snaps[i]
+            if ptime_start is not None and time < ptime_start:
+                # check on the start
+                continue
+            if ptime_end is not None and time > ptime_end:
+                # check on the end
+                break
+            if type(ptime_interval) == float:
+                if (time - last_time) < ptime_interval:
+                    continue  # continue if interval is not reached
+            center_profile_file_path = os.path.join(self._case_dir, "vtk_outputs", "center_profile_%05d.txt" % snap)
+            if os.path.isfile(center_profile_file_path):
+                # append if the file is found
+                last_time = time
+                psnaps.append(snap)
+                ptimes.append(time)
+        return ptimes, psnaps
+
+
+class PLOT_CASE_RUN_THD():
+    '''
+    Plot case run result
+    Attributes:
+        case_path(str): path to the case
+        Visit_Options: options for case
+        kwargs:
+            time_range
+            step(int): if this is given as an int, only plot this step
+
+    Returns:
+        -
+    '''
+    def __init__(self, case_path, **kwargs):
+        '''
+        Initiation
+        Inputs:
+            case_path - full path to a 3-d case
+            kwargs
+        '''
+
+        self.case_path = case_path
+        self.kwargs = kwargs
+        print("PlotCaseRun in ThDSubduction: operating")
+        step = kwargs.get('step', None)
+        last_step = kwargs.get('last_step', 3)
+
+        # steps to plot: here I use the keys in kwargs to allow different
+        # options: by steps, a single step, or the last step
+        if type(step) == int:
+            self.kwargs["steps"] = [step]
+        elif type(step) == list:
+            self.kwargs["steps"] = step
+        elif type(step) == str:
+            self.kwargs["steps"] = step
+        else:
+            self.kwargs["last_step"] = last_step
+
+        # get case parameters
+        # prm_path = os.path.join(self.case_path, 'output', 'original.prm')
+        
+        # initiate options
+        self.Visit_Options = VISIT_OPTIONS_THD(self.case_path)
+        self.Visit_Options.Interpret(**self.kwargs)
+
+    def ProcessPyvista(self):
+        '''
+        pyvista processing
+        '''
+        for vtu_step in self.Visit_Options.options['GRAPHICAL_STEPS']:
+            pvtu_step = vtu_step + int(self.Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
+            ProcessVtuFileThDStep(self.case_path, pvtu_step)
+
+    def GenerateParaviewScript(self, ofile_list):
+        '''
+        generate paraview script
+        Inputs:
+            ofile_list - a list of file to include in paraview
+        '''
+        require_base = self.kwargs.get('require_base', True)
+        for ofile_base in ofile_list:
+            ofile = os.path.join(self.case_path, 'paraview_scripts', ofile_base)
+            paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts',"ThDSubduction", ofile_base)
+            if require_base:
+                paraview_base_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')  # base.py : base file
+                self.Visit_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
+            else:
+                self.Visit_Options.read_contents(paraview_script)  # this part combines two scripts
+            self.Visit_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
+            ofile_path = self.Visit_Options.save(ofile, relative=False)  # save the altered script
+            print("\t File generated: %s" % ofile_path)
+
+
+def ProcessVtuFileThDStep(case_path, pvtu_step):
+    '''
+    Process with pyvsita for a single step
+    Inputs:
+        case_path - full path of a 3-d case
+        pvtu_step - pvtu_step of vtu output files
+    '''
+    # output directory
+    if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
+        os.mkdir(os.path.join(case_path, "pyvista_outputs"))
+    pyvista_outdir = os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)
+    if not os.path.isdir(pyvista_outdir):
+        os.mkdir(pyvista_outdir)
+
+    slice_depth = 200e3
+    iso_volume_threshold = 0.8
+
+    # initialize the class
+    PprocessThD = PYVISTA_PROCESS_THD(pyvista_outdir=pyvista_outdir)
+
+    # make domain boundary
+    p_marker_coordinates = {"r": 6371e3 - np.arange(0, 6000e3, 1000e3), "lon": np.arange(0, 90, 10)*np.pi/180.0, "lat": np.arange(0, 50.0, 10.0)*np.pi/180.0}
+    PprocessThD.make_boundary(marker_coordinates=p_marker_coordinates)
+
+    # read vtu file
+    pvtu_filepath = os.path.join(case_path, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
+    PprocessThD.read(pvtu_step, pvtu_filepath)
+    # slice at center
+    PprocessThD.slice_center()
+    # slice at surface
+    PprocessThD.slice_surface()
+    # slice at depth
+    PprocessThD.slice_at_depth(slice_depth)
+    # extract sp_upper composition beyond a threshold
+    PprocessThD.extract_iso_volume_upper(iso_volume_threshold)
+    # extract sp_lower composition beyond a threshold
+    PprocessThD.extract_iso_volume_lower(iso_volume_threshold)
+    # extract plate_edge composition beyond a threshold
+    PprocessThD.extract_plate_edge(iso_volume_threshold)
+    # extract slab surface
+    PprocessThD.extract_slab_surface()
+    # extract slab edge
+    PprocessThD.extract_plate_edge_surface()
+    # filter the slab lower points
+    PprocessThD.filter_slab_lower_points()
