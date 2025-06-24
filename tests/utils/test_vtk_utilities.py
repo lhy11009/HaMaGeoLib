@@ -1,7 +1,25 @@
 # test_vtk_utilities.py
 
 import numpy as np
-from hamageolib.utils.vtk_utilities import create_vtk_grid, calculate_resolution
+import pyvista as pv
+import pytest
+import os
+from shutil import rmtree  # for remove directories
+from hamageolib.utils.vtk_utilities import *
+
+# ---------------------------------------------------------------------
+# Check and make test directories
+# ---------------------------------------------------------------------
+package_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+test_root = os.path.join(os.path.join(package_root, ".test"))
+if not os.path.isdir(test_root):
+    os.mkdir(test_root)
+
+test_dir = os.path.join(os.path.join(test_root, "vtk_utilities"))
+if os.path.isdir(test_dir):
+    rmtree(test_dir)
+os.mkdir(test_dir)
+
 
 def test_single_triangle():
     """
@@ -74,3 +92,36 @@ def test_multiple_triangles():
     assert np.isclose(resolution[1], 1.0)
     assert np.isclose(resolution[2], 1.0)
     assert np.isclose(resolution[3], 1.0)
+
+@pytest.fixture
+def synthetic_points():
+    r_vals = np.linspace(0.1, 1.0, 20)
+    theta_vals = np.linspace(0, np.pi / 2, 30)
+    phi_vals = np.linspace(0, 2 * np.pi, 50)
+
+    r_grid, theta_grid, phi_grid = np.meshgrid(r_vals, theta_vals, phi_vals, indexing='ij')
+
+    x = r_grid * np.sin(theta_grid) * np.cos(phi_grid)
+    y = r_grid * np.sin(theta_grid) * np.sin(phi_grid)
+    z = r_grid * np.cos(theta_grid)
+
+    return np.vstack((x.ravel(), y.ravel(), z.ravel())).T
+
+
+@pytest.fixture
+def asymmetric_phi_points():
+    # Create a thin spherical shell with φ varying with r and θ
+    r_vals = np.linspace(0.5, 1.0, 10)
+    theta_vals = np.linspace(0, np.pi / 2, 50)
+
+    r_grid, theta_grid = np.meshgrid(r_vals, theta_vals, indexing='ij')
+
+    # Nontrivial phi pattern
+    phi_grid = np.pi * (0.2 + 0.5 * np.sin(theta_grid)**2 * np.cos(r_grid * 3 * np.pi))
+
+    # Convert to Cartesian
+    x = r_grid * np.sin(theta_grid) * np.cos(phi_grid)
+    y = r_grid * np.sin(theta_grid) * np.sin(phi_grid)
+    z = r_grid * np.cos(theta_grid)
+
+    return np.vstack((x.ravel(), y.ravel(), z.ravel())).T

@@ -281,3 +281,10 @@ def compute_pairwise_distances(X0, Y0, X1, Y1):
     distances = np.linalg.norm(deltas, axis=2)  # Shape (N0, N1)
 
     return distances
+
+
+def cartesian_to_spherical(x, y, z):
+    r = np.sqrt(x**2 + y**2 + z**2)
+    theta = np.arccos(z / r)
+    phi = np.arctan2(y, x) % (2 * np.pi)
+    return r, theta, phi

@@ -243,7 +243,7 @@ def test_visit_options():
         pytest.skip("Skipping test: big test contents not found in 'big_tests/'.")
    
     source_dir = os.path.join(fixture_root, "test_visit")
-    Visit_Options = VISIT_OPTIONS(case_path)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_path)
     # call function
     Visit_Options.Interpret()
     ofile = os.path.join(test_dir, 'temperature.py')
@@ -276,7 +276,7 @@ def test_visit_options_default():
     
     # check visit_options (interpret script from standard ones)
     source_dir = os.path.join(fixture_root, "test_visit")
-    Visit_Options = VISIT_OPTIONS(case_path)
+    Visit_Options = VISIT_OPTIONS_TWOD(case_path)
     # call function
     Visit_Options.Interpret()
     ofile = os.path.join(test_dir, 'default.py')
@@ -629,3 +629,36 @@ def test_eba3d_width80_h1000_bw4000_sw1000_yd300():
     wb_std_path = os.path.join(source_dir, 'case_std.wb')
     wb_path = os.path.join(output_dir, 'case.wb')
     assert(filecmp.cmp(wb_path, wb_std_path))
+
+
+def test_3d_visualization_basics():
+    '''
+    test basic utilities for 3d visualization, e.g. generate paraview script
+    '''
+    source_dir = os.path.join(fixture_3d_root, "test_eba3d_width80_h1000_bw4000_sw1000_yd300")
+    options = {"time_range": None, "run_visual": False, "time_interval":None, "visualization": "paraview",
+               "step": [10], "plot_axis": False, "max_velocity": -1.0, "rotation_plus": 5.0}
+    ofile_std = os.path.join(source_dir, "slab_std.py")
+
+    # output directory
+    output_dir = os.path.join(test_dir,'test_3d_visualization_basics')
+    if os.path.isdir(output_dir):
+        rmtree(output_dir)
+    os.mkdir(output_dir)
+
+    Paraview_Options = VISIT_OPTIONS_THD(source_dir)
+    # call function
+    Paraview_Options.Interpret(**options)
+    ofile_list = ['slab.py']
+    for ofile_base in ofile_list:
+        ofile = os.path.join(output_dir, ofile_base)
+        paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts',"ThDSubduction", ofile_base)
+        paraview_base_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')  # base.py : base file
+        Paraview_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
+        Paraview_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
+        ofile_path = Paraview_Options.save(ofile, relative=False)  # save the altered script
+        print("\t File generated: %s" % ofile_path)
+
+    # assert file contents
+    assert(filecmp.cmp(ofile_path, ofile_std))
+    
