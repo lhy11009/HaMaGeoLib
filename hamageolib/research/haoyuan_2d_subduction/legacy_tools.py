@@ -17473,7 +17473,12 @@ class PLOT_CASE_RUN_THD():
 
 
 def ProcessVtuFileThDStep(case_path, pvtu_step):
-    # todo_3d_visual
+    '''
+    Process with pyvsita for a single step
+    Inputs:
+        case_path - full path of a 3-d case
+        pvtu_step - pvtu_step of vtu output files
+    '''
     # output directory
     if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
         os.mkdir(os.path.join(case_path, "pyvista_outputs"))
