@@ -1,5 +1,3 @@
-# todo_3d_visual
-
 #### import the simple module from the paraview
 import os
 from paraview.simple import *
@@ -62,7 +60,7 @@ def add_glyph1(_source, field, scale_factor, **kwargs):
     fieldPWF = GetOpacityTransferFunction(field)
 
     # set scalar coloring
-    ColorBy(glyph1Display, None) # this doesn't work anymore
+    # ColorBy(glyph1Display, None) # this doesn't work anymore
     glyph1Display.AmbientColor = [1.0, 1.0, 1.0]
     glyph1Display.DiffuseColor = [1.0, 1.0, 1.0]
 
@@ -174,6 +172,90 @@ def adjust_glyph_properties(registrationName, scale_factor, n_value, point_cente
     textName = registrationName + "_text"
     text1 = FindSource(textName)
 
+def load_center_slice(data_output_dir, snapshot):
+    # load slice center
+    slice_center_filepath = '%s/../pyvista_outputs/%05d/slice_center_%05d.vtp' % (data_output_dir, snapshot, snapshot)
+    assert(os.path.isfile(slice_center_filepath))
+    slice_center_vtp = XMLPolyDataReader(registrationName='slice_center_%05d.vtp' % snapshot, FileName=[slice_center_filepath])
+    slice_center_vtp.PointArrayStatus = ['velocity', 'p', 'T', 'sp_upper', 'sp_lower', 'density', 'viscosity', 'dislocation_viscosity', 'diffusion_viscosity', 'peierls_viscosity', 'strain_rate', 'velocity_slice']
+
+    # add rotation
+    solutionpvd = FindSource('slice_center_%05d.vtp' % snapshot)
+    transform = Transform(registrationName="slice_center_transform_%05d" % snapshot, Input=solutionpvd)
+    transform.Transform = 'Transform'
+    transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
+    transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
+    Hide3DWidgets()
+
+    # add glyph 
+    add_glyph1("slice_center_transform_%05d" % snapshot, "velocity_slice", 1e6, registrationName="slice_center_glyph_%05d" % snapshot)
+
+def plot_slice_center_viscosity(snapshot, pv_output_dir):
+
+    # Show the slab center plot and viscosities
+    transform1 = FindSource("slice_center_transform_%05d" % snapshot)
+    SetActiveSource(transform1)
+    renderView1 = GetActiveViewOrCreate('RenderView')
+    transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
+
+    set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
+    
+    # Adjust the position of the point source and show related annotations.
+    sourceV = FindSource("slice_center_glyph_%05d" % snapshot)
+    sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
+    # sourceVDisplay.SetScalarBarVisibility(renderView1, True)
+    pointSource1 = FindSource("PointSource_slice_center_glyph_%05d" % snapshot)
+    if "GEOMETRY" == "chunk":
+        pointSource1.Center = [0, 6.7e6, 0]
+    sourceVRE = FindSource("slice_center_glyph_%05d_representative" % snapshot)
+    sourceVREDisplay = Show(sourceVRE, renderView1, 'GeometryRepresentation')
+    sourceVTXT = FindSource("slice_center_glyph_%05d_text" % snapshot)
+    sourceVTXTDisplay = Show(sourceVTXT, renderView1, 'GeometryRepresentation')
+    sourceVTXTDisplay.Color = [0.0, 0.0, 0.0]
+
+    # Adjust glyph properties based on the specified parameters.
+    scale_factor = 1e6
+    n_sample_points = 20000
+    point_source_center = [0.0, 0.0, 0.0]
+    if "GEOMETRY" == "chunk":
+        point_source_center = [0, 6.4e6, 0]
+    elif "GEOMETRY" == "box":
+        point_source_center = [4.65e6, 2.95e6, 0]
+    else:
+        raise NotImplementedError()
+    adjust_glyph_properties("slice_center_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
+
+    # Configure layout and camera settings based on geometry.
+    layout_resolution = (1350, 704)
+    layout1 = GetLayout()
+    layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+    renderView1.InteractionMode = '2D'
+    if "GEOMETRY" == "chunk":
+        renderView1.CameraPosition = [-74708.2999944719, 5867664.065060813, 24790239.31741349]
+        renderView1.CameraFocalPoint = [-74708.2999944719, 5867664.065060813, 0.0]
+        renderView1.CameraParallelScale = 651407.1273990012
+    elif "GEOMETRY" == "box":
+        renderView1.CameraPosition = [4700895.868280185, 2538916.5897593317, 15340954.822755022]
+        renderView1.CameraFocalPoint = [4700895.868280185, 2538916.5897593317, 0.0]
+        renderView1.CameraParallelScale = 487763.78047352127
+
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.pdf" % times[i])
+    fig_png_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.png" % times[i])
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+
+    # hide objects
+    Hide(transform1, renderView1)
+    Hide(sourceV, renderView1)
+    Hide(pointSource1, renderView1)
+    Hide(sourceVRE, renderView1)
+    Hide(sourceVTXT, renderView1)
+    fieldLUT = GetColorTransferFunction("viscosity")
+    HideScalarBarIfNotNeeded(fieldLUT, renderView1)
+
+
+
 steps = GRAPHICAL_STEPS
 times = GRAPHICAL_TIMES
 data_output_dir = "DATA_OUTPUT_DIR"
@@ -195,70 +277,7 @@ for i, step in enumerate(steps):
     snapshot = INITIAL_ADAPTIVE_REFINEMENT+step
 
     # load slice center
-    slice_center_filepath = '%s/../pyvista_outputs/slice_center_%.5d.vtp' % (data_output_dir, snapshot)
-    assert(os.path.isfile(slice_center_filepath))
-    slice_center_vtp = XMLPolyDataReader(registrationName='slice_center_%05d.vtp' % snapshot, FileName=[slice_center_filepath])
-    slice_center_vtp.PointArrayStatus = ['velocity', 'p', 'T', 'sp_upper', 'sp_lower', 'density', 'viscosity', 'dislocation_viscosity', 'diffusion_viscosity', 'peierls_viscosity', 'strain_rate', 'velocity_slice']
+    load_center_slice(data_output_dir, snapshot)
 
-    # add rotation
-    solutionpvd = FindSource('slice_center_%05d.vtp' % snapshot)
-    transform = Transform(registrationName="Transform1", Input=solutionpvd)
-    transform.Transform = 'Transform'
-    transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
-    transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
-    Hide3DWidgets()
-
-    # plot viscosity
-    transform1 = FindSource("Transform1")
-    SetActiveSource(transform1)
-    renderView1 = GetActiveViewOrCreate('RenderView')
-    transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
-    
-    set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
-    
-    add_glyph1("Transform1", "velocity_slice", 1e6, registrationName="Glyph1")
-    
-    # Adjust the position of the point source and show related annotations.
-    sourceV = FindSource("Glyph1")
-    sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
-    # sourceVDisplay.SetScalarBarVisibility(renderView1, True)
-    pointSource1 = FindSource("PointSource_Glyph1")
-    if "GEOMETRY" == "chunk":
-        pointSource1.Center = [0, 6.7e6, 0]
-    sourceVRE = FindSource("Glyph1_representative")
-    sourceVREDisplay = Show(sourceVRE, renderView1, 'GeometryRepresentation')
-    sourceVTXT = FindSource("Glyph1_text")
-    sourceVTXTDisplay = Show(sourceVTXT, renderView1, 'GeometryRepresentation')
-    sourceVTXTDisplay.Color = [0.0, 0.0, 0.0]
-
-    # Adjust glyph properties based on the specified parameters.
-    scale_factor = 1e6
-    n_sample_points = 20000
-    point_source_center = [0.0, 0.0, 0.0]
-    if "GEOMETRY" == "chunk":
-        point_source_center = [0, 6.4e6, 0]
-    elif "GEOMETRY" == "box":
-        point_source_center = [4.65e6, 2.95e6, 0]
-    else:
-        raise NotImplementedError()
-    adjust_glyph_properties('Glyph1', scale_factor, n_sample_points, point_source_center)
-
-    # Configure layout and camera settings based on geometry.
-    layout_resolution = (1350, 704)
-    layout1 = GetLayout()
-    layout1.SetSize((layout_resolution[0], layout_resolution[1]))
-    renderView1.InteractionMode = '2D'
-    if "GEOMETRY" == "chunk":
-        renderView1.CameraPosition = [-74708.2999944719, 5867664.065060813, 24790239.31741349]
-        renderView1.CameraFocalPoint = [-74708.2999944719, 5867664.065060813, 0.0]
-        renderView1.CameraParallelScale = 651407.1273990012
-    elif "GEOMETRY" == "box":
-        renderView1.CameraPosition = [4700895.868280185, 2538916.5897593317, 15340954.822755022]
-        renderView1.CameraFocalPoint = [4700895.868280185, 2538916.5897593317, 0.0]
-        renderView1.CameraParallelScale = 487763.78047352127
-
-    # save figure
-    fig_path = os.path.join(pv_output_dir, "viscosity_t%.4e.pdf" % times[i])
-    fig_png_path = os.path.join(pv_output_dir, "viscosity_t%.4e.png" % times[i])
-    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
-    ExportView(fig_path, view=renderView1)
+    # plot slice center viscosity
+    plot_slice_center_viscosity(snapshot, pv_output_dir)

@@ -457,6 +457,7 @@ class PYVISTA_PROCESS_THD():
         # Use PyVista's connectivity and cell arrays if available
         for cid in range(self.iso_volume_lower.n_cells):
             pt_ids = self.iso_volume_lower.get_cell(cid).point_ids
+            # pt_ids = self.iso_volume_lower.Get_Cell(cid).GetPointIds()
             if np.any(is_large_phi_point[pt_ids]):
                 cell_mask[cid] = False
 

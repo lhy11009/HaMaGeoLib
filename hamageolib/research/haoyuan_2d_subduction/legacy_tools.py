@@ -69,6 +69,7 @@ from ...utils.handy_shortcuts_haoyuan import func_name
 from ...utils.dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
 from ...utils.world_builder_param_parser import find_wb_feature
 from ...utils.geometry_utilities import offset_profile, compute_pairwise_distances
+from ...research.haoyuan_3d_subduction.post_process import PYVISTA_PROCESS_THD
 
 JSON_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_json_files")
 LEGACY_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_files")
@@ -512,7 +513,6 @@ class VISIT_OPTIONS_BASE(CASE_OPTIONS):
             graphical_time_interval = float(self.idict['Postprocess']['Visualization']['Time between graphical output'])
         except KeyError:
             graphical_time_interval = 0.0
-        # todo_3d_visual
         for step in self.options['GRAPHICAL_STEPS']:
             found = False
             for i in range(len(graphical_snaps)):
@@ -17399,55 +17399,116 @@ class VISIT_OPTIONS_THD(VISIT_OPTIONS_TWOD):
         return ptimes, psnaps
 
 
-
-# todo_3d_visual
-def PlotCaseRunThD(case_path, **kwargs):
+class PLOT_CASE_RUN_THD():
     '''
     Plot case run result
-    Inputs:
+    Attributes:
         case_path(str): path to the case
+        Visit_Options: options for case
         kwargs:
             time_range
             step(int): if this is given as an int, only plot this step
+
     Returns:
         -
     '''
-    print("PlotCaseRun in ThDSubduction: operating")
-    time_interval = kwargs.get('time_interval', None)
-    require_base = kwargs.get('require_base', True)
-    ofile_list = kwargs.get('ofile_list', ["slab.py"])
-    step = kwargs.get('step', None)
-    last_step = kwargs.get('last_step', 3)
+    def __init__(self, case_path, **kwargs):
+        '''
+        Initiation
+        Inputs:
+            case_path - full path to a 3-d case
+            kwargs
+        '''
 
-    # steps to plot: here I use the keys in kwargs to allow different
-    # options: by steps, a single step, or the last step
-    if type(step) == int:
-        kwargs["steps"] = [step]
-    elif type(step) == list:
-        kwargs["steps"] = step
-    elif type(step) == str:
-        kwargs["steps"] = step
-    else:
-        kwargs["last_step"] = last_step
+        self.case_path = case_path
+        self.kwargs = kwargs
+        print("PlotCaseRun in ThDSubduction: operating")
+        step = kwargs.get('step', None)
+        last_step = kwargs.get('last_step', 3)
 
-    # get case parameters
-    prm_path = os.path.join(case_path, 'output', 'original.prm')
-    # plot with paraview
-    # initiate class object
-    Paraview_Options = VISIT_OPTIONS_THD(case_path)
-    # call function
-    Paraview_Options.Interpret(**kwargs)
-    for ofile_base in ofile_list:
-        ofile = os.path.join(case_path, 'paraview_scripts', ofile_base)
-        paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts',"ThDSubduction", ofile_base)
-        if require_base:
-            paraview_base_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')  # base.py : base file
-            Paraview_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
+        # steps to plot: here I use the keys in kwargs to allow different
+        # options: by steps, a single step, or the last step
+        if type(step) == int:
+            self.kwargs["steps"] = [step]
+        elif type(step) == list:
+            self.kwargs["steps"] = step
+        elif type(step) == str:
+            self.kwargs["steps"] = step
         else:
-            Paraview_Options.read_contents(paraview_script)  # this part combines two scripts
-        Paraview_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
-        ofile_path = Paraview_Options.save(ofile, relative=False)  # save the altered script
-        print("\t File generated: %s" % ofile_path)
-    
-    # return the Visit_Options for later usage
-    return Paraview_Options
+            self.kwargs["last_step"] = last_step
+
+        # get case parameters
+        # prm_path = os.path.join(self.case_path, 'output', 'original.prm')
+        
+        # initiate options
+        self.Visit_Options = VISIT_OPTIONS_THD(self.case_path)
+        self.Visit_Options.Interpret(**self.kwargs)
+
+    def ProcessPyvista(self):
+        '''
+        pyvista processing
+        '''
+        for vtu_step in self.Visit_Options.options['GRAPHICAL_STEPS']:
+            pvtu_step = vtu_step + int(self.Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
+            ProcessVtuFileThDStep(self.case_path, pvtu_step)
+
+    def GenerateParaviewScript(self, ofile_list):
+        '''
+        generate paraview script
+        Inputs:
+            ofile_list - a list of file to include in paraview
+        '''
+        require_base = self.kwargs.get('require_base', True)
+        for ofile_base in ofile_list:
+            ofile = os.path.join(self.case_path, 'paraview_scripts', ofile_base)
+            paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts',"ThDSubduction", ofile_base)
+            if require_base:
+                paraview_base_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')  # base.py : base file
+                self.Visit_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
+            else:
+                self.Visit_Options.read_contents(paraview_script)  # this part combines two scripts
+            self.Visit_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
+            ofile_path = self.Visit_Options.save(ofile, relative=False)  # save the altered script
+            print("\t File generated: %s" % ofile_path)
+
+
+def ProcessVtuFileThDStep(case_path, pvtu_step):
+    # todo_3d_visual
+    # output directory
+    if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
+        os.mkdir(os.path.join(case_path, "pyvista_outputs"))
+    pyvista_outdir = os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)
+    if not os.path.isdir(pyvista_outdir):
+        os.mkdir(pyvista_outdir)
+
+    slice_depth = 200e3
+    iso_volume_threshold = 0.8
+
+    # initialize the class
+    PprocessThD = PYVISTA_PROCESS_THD(pyvista_outdir=pyvista_outdir)
+
+    # make domain boundary
+    p_marker_coordinates = {"r": 6371e3 - np.arange(0, 6000e3, 1000e3), "lon": np.arange(0, 90, 10)*np.pi/180.0, "lat": np.arange(0, 50.0, 10.0)*np.pi/180.0}
+    PprocessThD.make_boundary(marker_coordinates=p_marker_coordinates)
+
+    # read vtu file
+    pvtu_filepath = os.path.join(case_path, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
+    PprocessThD.read(pvtu_step, pvtu_filepath)
+    # slice at center
+    PprocessThD.slice_center()
+    # slice at surface
+    PprocessThD.slice_surface()
+    # slice at depth
+    PprocessThD.slice_at_depth(slice_depth)
+    # extract sp_upper composition beyond a threshold
+    PprocessThD.extract_iso_volume_upper(iso_volume_threshold)
+    # extract sp_lower composition beyond a threshold
+    PprocessThD.extract_iso_volume_lower(iso_volume_threshold)
+    # extract plate_edge composition beyond a threshold
+    PprocessThD.extract_plate_edge(iso_volume_threshold)
+    # extract slab surface
+    PprocessThD.extract_slab_surface()
+    # extract slab edge
+    PprocessThD.extract_plate_edge_surface()
+    # filter the slab lower points
+    PprocessThD.filter_slab_lower_points()
