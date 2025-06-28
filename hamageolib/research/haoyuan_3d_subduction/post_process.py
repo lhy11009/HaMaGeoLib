@@ -527,7 +527,7 @@ class PYVISTA_PROCESS_THD():
 
         print("Save file %s" % filepath)
 
-    def make_boundary(self):
+    def make_boundary(self, **kwargs):
         """
         Generate and save the six boundary surfaces for a spherical shell model domain.
 
@@ -540,23 +540,32 @@ class PYVISTA_PROCESS_THD():
             - Combines them into a single surface and exports to a `.vtu` file.
         """
 
+        marker_coordinates = kwargs.get("marker_coordinates", None)
+
         # Chunk parameters
         r_inner = 3.481e6
         r_outer = self.Ro
         lon_min = 0.0
-        lon_max = 80.00365006253027
+        lon_max = 80.00365006253027 * np.pi / 180.0
         lat_min = 0.0
-        lat_max = 71.94572847349845
+        lat_max = 71.94572847349845 * np.pi / 180.0
 
         # Resolution (adjust for finer mesh)
         n_r = 2
         n_lat = 100
         n_lon = 100
 
+        # Get the maker positions
+        marker_r = None; marker_lon = None; marker_lat = None
+        if marker_coordinates is not None:
+            assert(isinstance(marker_coordinates, dict))
+
+            marker_r = marker_coordinates['r']
+            marker_lon = marker_coordinates['lon']
+            marker_lat = marker_coordinates['lat']
+
         # Helper function: spherical to Cartesian
-        def sph2cart(r, lat_deg, lon_deg):
-            lat = np.radians(lat_deg)
-            lon = np.radians(lon_deg)
+        def sph2cart(r, lat, lon):
             x = r * np.cos(lat) * np.cos(lon)
             y = r * np.cos(lat) * np.sin(lon)
             z = r * np.sin(lat)
@@ -569,15 +578,45 @@ class PYVISTA_PROCESS_THD():
             lon_grid, lat_grid = np.meshgrid(lon, lat)
             x, y, z = sph2cart(r, lat_grid, lon_grid)
             return pv.StructuredGrid(x, y, z)
+        
+        # Function to create a surface patch between two r values, sweeping lat/lon
+        def make_sphere_shell_marker_points(r, lat_range, lon_range, m_lat, m_lon):
+            lon_grid_lon_edge, lat_grid_lon_edge = np.meshgrid(lon_range, m_lat)
+            lon_grid_lat_edge, lat_grid_lat_edge = np.meshgrid(m_lon, lat_range)
+            x_lon_edge, y_lon_edge, z_lon_edge = sph2cart(r, lat_grid_lon_edge, lon_grid_lon_edge)
+            x_lat_edge, y_lat_edge, z_lat_edge = sph2cart(r, lat_grid_lat_edge, lon_grid_lat_edge)
 
-        # Faces:
+            # create the point cloud
+            points_array = np.column_stack([
+                x_lon_edge.ravel(),
+                y_lon_edge.ravel(),
+                z_lon_edge.ravel()
+            ])
+            point_cloud = pv.PolyData(points_array)
+            
+            points_array = np.column_stack([
+                x_lat_edge.ravel(),
+                y_lat_edge.ravel(),
+                z_lat_edge.ravel()
+            ])
+            point_cloud = point_cloud.merge(pv.PolyData(points_array))
+            
+            return point_cloud
+
+        # Faces and marker points:
         surfaces = []
+        if marker_coordinates is not None:
+            marker_points = []
 
         # Outer surface (r = outer)
         surfaces.append(make_sphere_shell(r_outer, (lat_min, lat_max), (lon_min, lon_max), n_lat, n_lon))
+        if marker_coordinates is not None:
+            marker_points.append(make_sphere_shell_marker_points(r_outer, (lat_min, lat_max), (lon_min, lon_max), marker_lat, marker_lon))
 
         # Inner surface (r = inner)
         surfaces.append(make_sphere_shell(r_inner, (lat_min, lat_max), (lon_min, lon_max), n_lat, n_lon))
+        if marker_coordinates is not None:
+            marker_points.append(make_sphere_shell_marker_points(r_inner, (lat_min, lat_max), (lon_min, lon_max), marker_lat, marker_lon))
 
         # Latitudinal walls (lat = min, max)
         lat_edges = [lat_min, lat_max]
@@ -596,13 +635,42 @@ class PYVISTA_PROCESS_THD():
             lat_grid, r_grid = np.meshgrid(lat, r)
             x, y, z = sph2cart(r_grid, lat_grid, lon_edge)
             surfaces.append(pv.StructuredGrid(x, y, z))
+        
+        if marker_coordinates is not None:
+            points_array = np.array([[], [], []]).T
+            lon_grid_marker, lat_grid_marker = np.meshgrid((lon_min, lon_max), (lat_min, lat_max))
+            for r in marker_r:
+                x, y, z = sph2cart(r, lat_grid_marker, lon_grid_marker)
+                new_points_array = np.column_stack([
+                     x.ravel(),
+                     y.ravel(),
+                     z.ravel()
+                ])
+                points_array = np.concatenate([points_array, new_points_array], axis=0)
 
-        # Combine all surfaces
+            marker_points.append(pv.PolyData(points_array))
+
+        # Combine all surfaces and marker points
         full_surface = surfaces[0]
         for s in surfaces[1:]:
             full_surface = full_surface.merge(s)
+
+        full_marker_point = None
+        if marker_coordinates is not None: 
+            full_marker_point = marker_points[0]
+            for p in marker_points[1:]:
+                full_marker_point = full_marker_point.merge(p)
 
         # Save to file
         filename = "model_boundary.vtu"
         filepath = os.path.join(self.pyvista_outdir, filename)
         full_surface.save(filepath)
+        print("saved file: %s" % filepath)
+
+        # deal with the annotation points
+        if marker_coordinates is not None: 
+            filename = "model_boundary_marker_points.vtp"
+            filepath = os.path.join(self.pyvista_outdir, filename)
+            full_marker_point.save(filepath)
+            print("saved file: %s" % filepath)
+
