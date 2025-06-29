@@ -19,13 +19,15 @@ set -x  # Enable debug mode (prints commands before executing)
 CANDI_DIR=/home/lochy/software/candi
 INSTALL_PREFIX=/group/billengrp/Software/deal.ii/dealii-9.6.1-toolchain-gcc-13.2.0-openmpi5.0.5
 PACKAGE_LIST="openblas sundials p4est trilinos dealii"
+# ASPECT_INSTALL_DIR="/group/billengrp/Software/aspect"
+# WORLD_BUILDER_DIR="
+ASPECT_BRANCH="main"
 
 # Path to download, unpack and build. candi will use these path to build deal.ii
 export DOWNLOAD_PATH=/tmp/src1
 export UNPACK_PATH=/tmp/unpack1
 export BUILD_PATH=/tmp/build1
 
-# ASPECT_INSTALL_DIR="/group/billengrp/Software/aspect"
 
 # Function utilities
 BAD="\033[1;31m"
@@ -119,6 +121,8 @@ else
 fi
 
 # Compile ASPECT
+echo "Sourcing up DEAL.II configuration..."
+source "$INSTALL_PREFIX/configuration/enable.sh"
 echo "Setting up ASPECT build directory..."
 if [[ -z "${ASPECT_INSTALL_DIR}" ]]; then
     ASPECT_INSTALL_DIR="${INSTALL_PREFIX}/aspect"
@@ -134,19 +138,43 @@ else
     cd "${ASPECT_INSTALL_DIR}"
 fi
 
-ASPECT_BUILD_DIR=${ASPECT_INSTALL_DIR}/build
-remove_if_exists $ASPECT_BUILD_DIR
+
+ASPECT_BRANCH="${ASPECT_BRANCH:-main}"  # check aspect branch
+
+if [ "$ASPECT_BRANCH" = "main" ]; then
+	echo "Using default configuration for main branch."
+	ASPECT_BUILD_DIR="${ASPECT_INSTALL_DIR}/build"
+else
+	echo "Using default configuration for $ASPECT_BRANCH branch."
+	echo "Error: You must specify configuration for branch '$ASPECT_BRANCH' explicitly. Then comment out the exit commend"
+	exit 1
+	ASPECT_BUILD_DIR="${ASPECT_INSTALL_DIR}/build_$ASPECT_BRANCH"
+fi
+
+remove_if_exists $ASPECT_BUILD_DIR # make build directory
 echo "Creating ASPECT build directory ${ASPECT_BUILD_DIR}"
 mkdir -p "${ASPECT_BUILD_DIR}"
 
+
 cd ${ASPECT_BUILD_DIR}
 
-echo "Configuring ASPECT with CMake..."
+git checkout $ASPECT_BRANCH # checkout the branch
+
+echo "Configuring ASPECT with CMake..."  # configuration
 echo "Use dealii ${INSTALL_PREFIX}"
-cmake -DDEAL_II_DIR="${INSTALL_PREFIX}" ..
+if [ -z "$WORLD_BUILDER_DIR" ]; then
+	echo "Use built-in world builder"
+	cmake -DDEAL_II_DIR="${INSTALL_PREFIX}" ..
+elif [ ! -d "$WORLD_BUILDER_DIR" ]; then
+	echo "Error: WORLD_BUILDER_DIR is set to '$WORLD_BUILDER_DIR', but this is not a valid directory."
+	exit 1
+else
+	echo "Using World Builder directory: $WORLD_BUILDER_DIR"
+	cmake -DDEAL_II_DIR="${INSTALL_PREFIX}" -DWORLD_BUILDER_SOURCE_DIR="$WORLD_BUILDER_DIR" ..
+fi
 quit_if_fail "Error: Configuring ASPECT repository failed. Terminating job."
 
-echo "Compiling ASPECT in directory ${ASPECT_BUILD_DIR}..."
+echo "Compiling ASPECT in directory ${ASPECT_BUILD_DIR}..." # compile
 make -j $SLURM_NTASKS
 quit_if_fail "Error: Building ASPECT repository failed. Terminating job."
 
