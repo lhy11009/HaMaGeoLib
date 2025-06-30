@@ -1,0 +1,90 @@
+# =============================
+# === User Bash RC Setup =====
+# =============================
+
+# If not running interactively, exit early
+[[ $- != *i* ]] && return
+
+# -----------------------------
+# General Environment Settings
+# -----------------------------
+export EDITOR=vim
+export PAGER=less
+export HISTCONTROL=ignoredups:erasedups
+export HISTSIZE=10000
+export HISTFILESIZE=20000
+shopt -s histappend
+umask 002
+
+# -----------------------------
+# Conda or Virtualenv Setup (optional)
+# -----------------------------
+#if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+#    source "$HOME/miniconda3/etc/profile.d/conda.sh"
+#    conda activate base
+#fi
+
+# -----------------------------
+# Useful Aliases
+# -----------------------------
+alias ll='ls -lh --color=auto'
+alias la='ls -A --color=auto'
+alias lsmore='ls -alth --color=auto | more'
+alias gs='git status'
+alias gb='git branch'
+alias gd='git diff'
+
+# -----------------------------
+# Slurm Aliases & Defaults
+# -----------------------------
+alias sq='squeue -u $USER'
+alias sj='scontrol show job'
+alias sc='sacct -u $USER --format=JobID,JobName%30,Elapsed,State,ExitCode'
+alias se='scontrol show node'
+
+# -----------------------------
+# Module System Setup
+# -----------------------------
+#if command -v module &> /dev/null; then
+    #module purge
+    #module load gcc
+    #module load openmpi
+    # Add your default modules here if needed
+    # module load dealii
+    # module load aspect
+#fi
+
+# -----------------------------
+# Source .bash_profile if present
+# -----------------------------
+if [ -f ~/.bash_profile ]; then
+    source ~/.bash_profile
+fi
+
+# -----------------------------
+# Custom Prompt
+# -----------------------------
+PS1='[\u@\h \W]\$ '
+
+# -----------------------------
+# Project-specific PATHs (Optional)
+# -----------------------------
+# export PATH=$HOME/projects/mycode/bin:$PATH
+
+# -----------------------------
+# Template Job Script Alias (Optional)
+# -----------------------------
+#alias newjob='cp $HOME/templates/slurm_template.sh ./'
+
+# -----------------------------
+# AspectLib
+# -----------------------------
+source /quobyte/billengrp/lochy/Software/aspectLib/enable.sh
+
+# -----------------------------
+# File locations
+# -----------------------------
+export WALTZ='/nfs/peloton/waltz/billenlab/lochy'
+alias waltz='cd $WALTZ'
+
+
