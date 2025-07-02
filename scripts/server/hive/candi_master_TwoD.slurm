@@ -10,8 +10,8 @@
 #SBATCH --mail-type=ALL              # Notify user by email on all events
 #SBATCH --mail-user=hylli@ucdavis.edu # Email address for notifications
 
-#SBATCH --output=candi_output_%j.log # Redirect standard output to file
-#SBATCH --error=candi_error_%j.log   # Redirect standard error to file
+#SBATCH --output=candi_output_%j.out # Redirect standard output to file
+#SBATCH --error=candi_error_%j.err   # Redirect standard error to file
 
 set -x  # Enable debug mode (prints commands before executing)
 
