@@ -76,7 +76,6 @@
   },
   "slurm": [
     {
-      "slurm file": "./files/slurm_files/240317/job_frontera-normal.sh",
       "slurm file": "./tests/fixtures/research/haoyuan_2d_subduction/slurm_files/240317/job_frontera-normal.sh",
       "build directory": "master_TwoD_9.4.0",
       "tasks per node": 56,

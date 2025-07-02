@@ -1,10 +1,49 @@
 #### import the simple module from the paraview
 import os
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 from paraview.simple import *
 #### disable automatic camera reset on 'Show'
 paraview.simple._DisableFirstRenderCameraReset()
 
 #### Utility functions
+def rotate_spherical_point_paraview_style(r, theta, phi, rotate_deg=[0, 0, 0], translate=[0, 0, 0]):
+    """
+    Rotate a point in spherical coordinates using ParaView-style rotation (ZYX Euler order).
+    
+    Parameters:
+        r (float): Radius
+        theta (float): Inclination from z-axis (in radians)
+        phi (float): Azimuth from x-axis in xy-plane (in radians)
+        rotate_deg (list of 3): Rotation angles around X, Y, Z axes (in degrees)
+        translate (list of 3): Translation to apply before rotation (center of rotation)
+    
+    Returns:
+        rotated_cartesian (np.array): [x', y', z']
+        rotated_spherical (tuple): (r', theta', phi') in radians
+    """
+
+    # Step 1: Convert spherical to Cartesian
+    x = r * np.sin(theta) * np.cos(phi)
+    y = r * np.sin(theta) * np.sin(phi)
+    z = r * np.cos(theta)
+    point = np.array([x, y, z])
+
+    # Step 2: Translate to origin (if needed)
+    point_shifted = point - np.array(translate)
+
+    # Step 3: Apply rotation using ZYX Euler angles (ParaView-style)
+    rot = R.from_euler('XYZ', rotate_deg, degrees=True)
+    rotated = rot.apply(point_shifted)
+
+    # Step 4: Translate back (if needed)
+    rotated += np.array(translate)
+
+    # Step 5: Convert back to spherical
+    x_, y_, z_ = rotated
+
+    return x_, y_, z_
+
 def set_viscosity_plot(sourceDisplay, eta_min, eta_max):
     '''
     set the viscosity plot
@@ -19,6 +58,21 @@ def set_viscosity_plot(sourceDisplay, eta_min, eta_max):
     fieldLUT.MapControlPointsToLogSpace()
     fieldLUT.UseLogScale = 1
     fieldLUT.ApplyPreset("bilbao", True)
+
+def set_slab_volume_plot(sourceDisplay, max_depth, **kwargs):
+    '''
+    set the viscosity plot
+    Inputs:
+        eta_min (float): minimum viscosity
+        eta_max (float): maximum viscosity
+    '''
+    opacity = kwargs.get("opacity", 1.0)
+    field = "radius"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, OUTER_RADIUS-max_depth, OUTER_RADIUS)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("imola", True)
+    sourceDisplay.Opacity = opacity
 
 
 def add_glyph1(_source, field, scale_factor, **kwargs):
@@ -42,8 +96,8 @@ def add_glyph1(_source, field, scale_factor, **kwargs):
     # add glyph
     glyph1 = Glyph(registrationName=registrationName, Input=pvd, GlyphType='2D Glyph')
     # adjust orientation and scale
-    glyph1.OrientationArray = ['POINTS', 'velocity']
-    glyph1.ScaleArray = ['POINTS', 'velocity']
+    glyph1.OrientationArray = ['POINTS', field]
+    glyph1.ScaleArray = ['POINTS', field]
     glyph1.ScaleFactor = scale_factor
     glyph1.MaximumNumberOfSamplePoints = 20000
 
@@ -172,23 +226,93 @@ def adjust_glyph_properties(registrationName, scale_factor, n_value, point_cente
     textName = registrationName + "_text"
     text1 = FindSource(textName)
 
-def load_center_slice(data_output_dir, snapshot):
-    # load slice center
-    slice_center_filepath = '%s/../pyvista_outputs/%05d/slice_center_%05d.vtp' % (data_output_dir, snapshot, snapshot)
-    assert(os.path.isfile(slice_center_filepath))
-    slice_center_vtp = XMLPolyDataReader(registrationName='slice_center_%05d.vtp' % snapshot, FileName=[slice_center_filepath])
-    slice_center_vtp.PointArrayStatus = ['velocity', 'p', 'T', 'sp_upper', 'sp_lower', 'density', 'viscosity', 'dislocation_viscosity', 'diffusion_viscosity', 'peierls_viscosity', 'strain_rate', 'velocity_slice']
+def load_pyvista_source(data_output_dir, source_name, snapshot, **kwargs):
+
+    # options
+    file_type = kwargs.get("file_type", "vtp")
+    add_glyph = kwargs.get("add_glyph", False)
+    assign_field = kwargs.get("assign_field", False)
+
+    # load source file
+    if file_type == "vtp":
+        READER = XMLPolyDataReader
+    elif file_type == "vtu":
+        READER = XMLUnstructuredGridReader
+    else:
+        raise NotImplementedError("file_type needs to be vtp, vtu")
+
+    if snapshot is None:
+        filepath = '%s/../pyvista_outputs/%s.%s' % (data_output_dir, source_name, file_type)
+        registration_name = source_name
+    else:
+        filepath = '%s/../pyvista_outputs/%05d/%s_%05d.%s' % (data_output_dir, snapshot, source_name, snapshot, file_type)
+        registration_name = '%s_%05d' % (source_name, snapshot)
+    if not os.path.isfile(filepath):
+        raise FileNotFoundError("File %s is not found" % filepath)
+
+    source = READER(registrationName=registration_name, FileName=[filepath])
+
+    if assign_field:
+        source.PointArrayStatus = ['velocity', 'p', 'T', 'sp_upper', 'sp_lower', 'density', 'viscosity',\
+            'dislocation_viscosity', 'diffusion_viscosity', 'peierls_viscosity', 'strain_rate', 'velocity_slice', "radius"]
 
     # add rotation
-    solutionpvd = FindSource('slice_center_%05d.vtp' % snapshot)
-    transform = Transform(registrationName="slice_center_transform_%05d" % snapshot, Input=solutionpvd)
+    if snapshot is None:
+        registration_name_transform = '%s_transform' % (source_name)
+    else:
+        registration_name_transform = '%s_transform_%05d' % (source_name, snapshot)
+    solutionpvd = FindSource(registration_name)
+    transform = Transform(registrationName=registration_name_transform, Input=solutionpvd)
     transform.Transform = 'Transform'
     transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
     transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
     Hide3DWidgets()
 
     # add glyph 
-    add_glyph1("slice_center_transform_%05d" % snapshot, "velocity_slice", 1e6, registrationName="slice_center_glyph_%05d" % snapshot)
+    if add_glyph:
+        if snapshot is None:
+            registration_name_glyph = '%s_glyph' % (source_name)
+        else:
+            registration_name_glyph = '%s_glyph_%05d' % (source_name, snapshot)
+        add_glyph1("%s_transform_%05d" % (source_name, snapshot), "velocity_slice", 1e6, registrationName=registration_name_glyph)
+
+
+def add_trench_triangle(registration_name, cx, cy, cz, size):
+    # get active source.
+    trenchTrSource = ProgrammableSource(registrationName=registration_name)
+    trenchTrSource.Script = """from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
+from vtkmodules.vtkCommonCore import vtkPoints, vtkIdList
+
+# === Set the center location of the triangle ===
+cx, cy, cz = %.1f, %.1f, %.1f  # <-- CHANGE THIS TO WHERE YOU WANT THE MARKER
+
+# === Triangle defined relative to the center ===
+# This triangle lies in the XY plane, pointing downward
+size = %.1f # overall size scale
+
+p0 = [cx - size, cy,     cz]      # left base
+p1 = [cx + size, cy,     cz]      # right base
+p2 = [cx,         cy - size*2, cz]  # tip (pointing down)
+
+# === Build triangle ===
+points = vtkPoints()
+points.InsertNextPoint(p0)
+points.InsertNextPoint(p1)
+points.InsertNextPoint(p2)
+
+triangle = vtkIdList()
+triangle.InsertNextId(0)
+triangle.InsertNextId(1)
+triangle.InsertNextId(2)
+
+triangles = vtkCellArray()
+triangles.InsertNextCell(triangle)
+
+output.SetPoints(points)
+output.SetPolys(triangles)""" % (cx, cy, cz, size)
+    trenchTrSource.ScriptRequestInformation = ''
+    trenchTrSource.PythonPath = ''
+
 
 def plot_slice_center_viscosity(snapshot, pv_output_dir):
 
@@ -255,6 +379,88 @@ def plot_slice_center_viscosity(snapshot, pv_output_dir):
     HideScalarBarIfNotNeeded(fieldLUT, renderView1)
 
 
+def plot_slab_velocity_field(snapshot, pv_output_dir):
+    # get the renderView
+    renderView1 = GetActiveViewOrCreate('RenderView')
+    
+    # Show the model boundary
+    transform_bd = FindSource("model_boundary_transform")
+    SetActiveSource(transform_bd)
+    transform_bdDisplay = Show(transform_bd, renderView1, 'GeometryRepresentation')
+    transform_bdDisplay.SetRepresentationType('Feature Edges')
+
+    # Show the slab surface
+    transform_slab = FindSource("sp_lower_above_0.8_filtered_pe_transform_%05d" % snapshot)
+    SetActiveSource(transform_slab)
+    transform_slabDisplay = Show(transform_slab, renderView1, 'GeometryRepresentation')
+    set_slab_volume_plot(transform_slabDisplay, 1000e3, opacity=0.05)
+
+    # Show the slice center glyph
+    # And Adjust glyph properties based on the specified parameters.
+    sourceV1 = FindSource("slice_center_glyph_%05d" % snapshot)
+    sourceV1.GlyphMode = 'Uniform Spatial Distribution (Surface Sampling)'
+    sourceV1Display = Show(sourceV1, renderView1, 'GeometryRepresentation')
+    ColorBy(sourceV1Display, None)
+    sourceV1Display.AmbientColor = [0.6666666666666666, 0.0, 1.0]
+    sourceV1Display.DiffuseColor = [0.6666666666666666, 0.0, 1.0]
+
+    scale_factor = 5e6
+    n_sample_points = 1000
+    if "GEOMETRY" == "chunk":
+        point_source_center = [0, 6.4e6, 0]
+    elif "GEOMETRY" == "box":
+        point_source_center = [4.65e6, 2.95e6, 0]
+    else:
+        raise NotImplementedError()
+    adjust_glyph_properties("slice_center_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
+
+    # Show the slice at 200 km depth glyph
+    # And Adjust glyph properties based on the specified parameters.
+    sourceV2 = FindSource("slice_depth_200.0km_glyph_%05d" % snapshot)
+    sourceV2.GlyphMode = 'Uniform Spatial Distribution (Surface Sampling)'
+    sourceV2Display = Show(sourceV2, renderView1, 'GeometryRepresentation')
+    ColorBy(sourceV2Display, None)
+    sourceV2Display.AmbientColor = [0.0, 0.3333333333333333, 1.0]
+    sourceV2Display.DiffuseColor = [0.0, 0.3333333333333333, 1.0]
+
+    scale_factor = 5e6
+    n_sample_points = 10000
+    if "GEOMETRY" == "chunk":
+        point_source_center = [0, 6.4e6, 0]
+    elif "GEOMETRY" == "box":
+        point_source_center = [4.65e6, 2.95e6, 0]
+    else:
+        raise NotImplementedError()
+    adjust_glyph_properties("slice_depth_200.0km_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
+
+    # Show the original trench position
+    sourceTrOrigTrian = FindSource("trench_orig_triangle")
+    sourceTrOrigTrianDisplay = Show(sourceTrOrigTrian, renderView1, 'GeometryRepresentation')
+
+    # Show the trench position
+    sourceTr = FindSource("trench_transform_%05d" % snapshot)
+    sourceTrDisplay = Show(sourceTr, renderView1, 'GeometryRepresentation')
+    # ColorBy(sourceTrDisplay, None)
+    sourceTrDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0]
+    sourceTrDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
+
+    # Configure layout and camera settings based on geometry.
+    layout_resolution = (1350, 704)
+    layout1 = GetLayout()
+    layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+    # renderView1.InteractionMode = '2D'
+    if "GEOMETRY" == "chunk":
+        renderView1.CameraPosition = [-4836584.013744108, 8089634.7649268415, 7308574.720701834]
+        renderView1.CameraFocalPoint = [1528057.7205373822, 3628014.9415879566, -1225784.3147636713]
+        renderView1.CameraViewUp = [0.4547624702546983, 0.8822092047301953, -0.1220574239330037]
+        renderView1.CameraParallelScale = 600000.0
+    elif "GEOMETRY" == "box":
+        return NotImplementedError()
+
+    # hide objects
+    # Hide(transform_bd, renderView1)
+
+
 
 steps = GRAPHICAL_STEPS
 times = GRAPHICAL_TIMES
@@ -265,19 +471,50 @@ pv_output_dir = os.path.abspath(os.path.join("DATA_OUTPUT_DIR", "..", "img", "pv
 renderView1 = GetActiveViewOrCreate('RenderView')
 
 # load model boundary
-model_boundary_filepath = '%s/../pyvista_outputs/model_boundary.vtp' % (data_output_dir)
-assert(os.path.isfile(model_boundary_filepath))
-model_boundary_vtp = XMLPolyDataReader(registrationName='model_boundary.vtp', FileName=[model_boundary_filepath])
-model_boundary_Display = Show(model_boundary_vtp, renderView1, 'GeometryRepresentation')
-model_boundary_Display.SetRepresentationType('Feature Edges')
-Hide(model_boundary_vtp, renderView1)
+load_pyvista_source(data_output_dir, "model_boundary", None)
+
+# add a position of the original trench
+if "GEOMETRY" == "chunk":
+    x_tr_orig, y_tr_orig, z_tr_orig = rotate_spherical_point_paraview_style(OUTER_RADIUS+150e3, np.pi/2.0, THETA_REF_TRENCH, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+    add_trench_triangle("trench_orig_triangle", x_tr_orig, y_tr_orig, z_tr_orig, 60e3)
+    trench_orig = FindSource("trench_orig_triangle")
+    trench_origDisplay = Show(trench_orig, renderView1, 'GeometryRepresentation')
+    trench_origDisplay.AmbientColor = [1.0, 0.6666666666666666, 0.0]
+    trench_origDisplay.DiffuseColor = [1.0, 0.6666666666666666, 0.0]
+    Hide(trench_orig, renderView1)
+else:
+    raise NotImplementedError()
+
+# add a position of the current trench
+if "GEOMETRY" == "chunk":
+    x_tr, y_tr, z_tr = rotate_spherical_point_paraview_style(OUTER_RADIUS+150e3, np.pi/2.0, TRENCH_CENTER, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+    add_trench_triangle("trench_triangle", x_tr_orig, y_tr_orig, z_tr_orig, 60e3)
+    trench = FindSource("trench_triangle")
+    trenchDisplay = Show(trench, renderView1, 'GeometryRepresentation')
+    trenchDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0]
+    trenchDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
+    Hide(trench, renderView1)
+else:
+    raise NotImplementedError()
 
 # loop every step to plot
 for i, step in enumerate(steps):
     snapshot = INITIAL_ADAPTIVE_REFINEMENT+step
 
     # load slice center
-    load_center_slice(data_output_dir, snapshot)
+    load_pyvista_source(data_output_dir, "slice_center", snapshot, assign_field=True, add_glyph=True)
+
+    # load slice at 200 km depth
+    load_pyvista_source(data_output_dir, "slice_depth_200.0km", snapshot, file_type="vtu", assign_field=True, add_glyph=True)
+
+    # load subducting plate 
+    load_pyvista_source(data_output_dir, "sp_lower_above_0.8_filtered_pe", snapshot, file_type="vtu", assign_field=True)
+    
+    # load trench position
+    load_pyvista_source(data_output_dir, "trench", snapshot, file_type="vtp")
 
     # plot slice center viscosity
-    plot_slice_center_viscosity(snapshot, pv_output_dir)
+    # plot_slice_center_viscosity(snapshot, pv_output_dir)
+    
+    # plot slab_velocity_field
+    plot_slab_velocity_field(snapshot, pv_output_dir)

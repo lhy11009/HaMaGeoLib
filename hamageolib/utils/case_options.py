@@ -38,6 +38,7 @@ import os
 import re
 import subprocess
 import pandas as pd
+import numpy as np
 from .dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
 from .exception_handler import my_assert
 from .handy_shortcuts_haoyuan import func_name, strip_and_split
@@ -57,6 +58,7 @@ class CASE_OPTIONS:
         idict (dict): Dictionary containing parsed parameters from the .prm file.
         wb_dict (dict): Dictionary containing parsed parameters from the .wb file if it exists.
         options (dict): Dictionary storing interpreted options for data output and model parameters.
+        summary_df (panda object): case summary
     """
 
     def __init__(self, case_dir):
@@ -110,6 +112,9 @@ class CASE_OPTIONS:
 
         # Initialize options dictionary
         self.options = {}
+        
+        # Initialize summary dictionary
+        self.summary_df = {}
 
         # Read statistic results
         self.statistic_df = None
@@ -168,6 +173,26 @@ class CASE_OPTIONS:
 
             self.visualization_df.attrs["Time between graphical output"] = time_between_graphical_output
 
+    def SummaryCase(self):
+        '''
+        Generate a Case Summary
+        '''
+        my_assert(self.options != {}, ValueError, "The Case needs to be interpreted first")
+        # todo_data
+        # Get a summary of case status
+        initial_adaptive_refinement = int(self.options['INITIAL_ADAPTIVE_REFINEMENT'])
+        Time = self.visualization_df["Time"].iloc[initial_adaptive_refinement:]
+        Time_step_number = self.visualization_df["Time step number"].iloc[initial_adaptive_refinement:]
+        Vtu_step = np.arange(0, Time_step_number.size, dtype=int)
+        Vtu_snapshot = Vtu_step + initial_adaptive_refinement
+        self.summary_df = df = pd.DataFrame({
+            "Time": Time,
+            "Time step number": Time_step_number,
+            "Vtu step": Vtu_step,
+            "Vtu snapshot": Vtu_snapshot
+            })
+
+
     def resample_visualization_df(self, time_interval):
 
             resampled_df = resample_time_series_df(self.visualization_df, time_interval)
@@ -218,6 +243,9 @@ class CASE_OPTIONS:
                 self.options["BACK"] = float(self.idict['Geometry model']['Box']['Y extent'])
             else: 
                 raise ValueError("%d is not a dimension option" % self.options['DIMENSION'])
+
+        # adaptive mesh
+        self.options['INITIAL_ADAPTIVE_REFINEMENT'] = self.idict['Mesh refinement'].get('Initial adaptive refinement', '0')
             
 class CASE_SUMMARY:
 
@@ -801,3 +829,34 @@ class ModelConfigManager:
 
         with open(output_path, "w") as fout:
             save_parameters_from_dict(fout, self.config)
+
+# todo_data
+class SimulationStatus:
+    def __init__(self, initial_data=None):
+        """
+        Initialize the simulation status tracker.
+        `initial_data` can be a list of dicts, a DataFrame, or None.
+        """
+        columns = ["time", "time_step", "vtu_step", "vtu_snapshot"]
+        if initial_data is None:
+            self.df = pd.DataFrame(columns=columns)
+        elif isinstance(initial_data, pd.DataFrame):
+            self.df = initial_data
+        else:
+            self.df = pd.DataFrame(initial_data, columns=columns)
+
+    def add_entry(self, time, time_step, vtu_step, vtu_snapshot):
+        """Add a new row to the DataFrame."""
+        new_row = {"time": time, "time_step": time_step, "vtu_step": vtu_step, "vtu_snapshot": vtu_snapshot}
+        self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
+
+    def save_to_csv(self, filename):
+        """Save the current DataFrame to a CSV file."""
+        self.df.to_csv(filename, index=False)
+
+    def load_from_csv(self, filename):
+        """Load a DataFrame from a CSV file."""
+        self.df = pd.read_csv(filename)
+
+    def __repr__(self):
+        return repr(self.df)

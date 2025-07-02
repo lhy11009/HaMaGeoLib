@@ -11726,6 +11726,7 @@ intiation stage causes the slab to break in the middle",\
         '''
         CASE_OPT.check(self)
         geometry = self.values[3]
+        version = self.values[23]
         # geometry options
         my_assert(geometry in ['chunk', 'box'], ValueError,\
         "%s: The geometry for TwoDSubduction cases must be \"chunk\" or \"box\"" \
@@ -11808,6 +11809,10 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         refine_wedge = self.values[self.start + 68]
         if geometry == "box" and refine_wedge:
             raise NotImplementedError
+        include_meta = self.values[self.start + 73]
+        # metastable setup
+        if include_meta:
+            assert(version >= 3.0 and comp_method == "particle")
 
     def to_configure_prm(self):
         if_wb = self.values[8]
@@ -12782,7 +12787,7 @@ $ASPECT_SOURCE_DIR/build%s/isosurfaces_TwoD1/libisosurfaces_TwoD1.so" % (branch_
                 o_dict['Material model']['Visco Plastic TwoD']['Peierls stresses'] = '%.4e' % Peierls['sigp0']
                 o_dict['Material model']['Visco Plastic TwoD']['Activation energies for Peierls creep'] = '%.4e' % Peierls['E']
                 o_dict['Material model']['Visco Plastic TwoD']['Activation volumes for Peierls creep'] = '0.0'
-                if fix_peierls_V_as is not "":
+                if fix_peierls_V_as != "":
                     o_dict['Material model']['Visco Plastic TwoD']['Activation volume differences for Peierls creep'] =\
                         '%.4e' % rheology[fix_peierls_V_as + '_creep']['V']
                 A = Peierls['A']
@@ -12950,6 +12955,21 @@ opcrust: 1e+31, opharz: 1e+31", \
         else:
             raise NotImplementedError()
 
+        if version >= 3.0 and comp_method == "particle":
+            # fix the particle properties
+            particle_options = o_dict["Postprocess"]["Particles"]
+            particle_visualization_options = {}
+            particle_visualization_options["Data output format"] = particle_options.pop("Data output format")
+            particle_visualization_options["Time between data output"] = particle_options.pop("Time between data output")
+            o_dict["Postprocess"]["Particles"] = particle_visualization_options
+            n_particles = particle_options.pop("Number of particles")
+            particle_options["Generator"] = {"Random uniform": {"Number of particles": n_particles}}
+            o_dict["Particles"] = particle_options
+
+            o_dict["Particles"]["List of particle properties"] = "initial composition"
+            o_dict["Particles"]["Maximum particles per cell"] = "140"
+            o_dict["Particles"]["Integration scheme"] = "rk4"
+        
         if include_meta:
             # expand composition fields
             # o_dict = expand_multi_composition_isosurfaces(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
@@ -12973,19 +12993,8 @@ opcrust: 1e+31, opharz: 1e+31", \
             material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:0.0"
             o_dict["Material model"] = material_model
 
-            # fix the particle properties
-            particle_options = o_dict["Postprocess"]["Particles"]
-            particle_visualization_options = {}
-            particle_visualization_options["Data output format"] = particle_options.pop("Data output format")
-            particle_visualization_options["Time between data output"] = particle_options.pop("Time between data output")
-            o_dict["Postprocess"]["Particles"] = particle_visualization_options
-            n_particles = particle_options.pop("Number of particles")
-            particle_options["Generator"] = {"Random uniform": {"Number of particles": n_particles}}
-            o_dict["Particles"] = particle_options
-
-            o_dict["Particles"]["List of particle properties"] = "initial composition, metastable"
-            o_dict["Particles"]["Maximum particles per cell"] = "140"
-            o_dict["Particles"]["Integration scheme"] = "rk4"
+            # change the particle properties
+            o_dict["Particles"]["List of particle properties"] += ", metastable"
         
         # crustal phase transition
         if use_lookup_table_morb:
@@ -15576,7 +15585,7 @@ class CASE_THD(CASE):
         # 4. The peierls rheology
         if  if_peierls:
             o_dict['Material model'][material_model_subsection]['Include Peierls creep'] = 'true'
-            if fix_peierls_V_as is not "":
+            if fix_peierls_V_as != "":
                 o_dict['Material model']['Visco Plastic TwoD']['Activation volume differences for Peierls creep'] =\
                     '%.4e' % rheology[fix_peierls_V_as + '_creep']['V']
         # rewrite the reset viscosity part
@@ -17259,6 +17268,7 @@ class VISIT_OPTIONS_THD(VISIT_OPTIONS_TWOD):
             else:
                 feature_sp = self.wb_dict['features'][index]
                 trench_x = feature_sp["coordinates"][2][0]
+                self.options['THETA_REF_TRENCH'] = trench_x
                 try:
                     spreading_velocity = feature_sp["temperature models"][0]["spreading velocity"]
                 except KeyError:
@@ -17297,6 +17307,7 @@ class VISIT_OPTIONS_THD(VISIT_OPTIONS_TWOD):
                 # rotate to center on the slab
                 feature_sp = self.wb_dict['features'][index]
                 trench_phi = feature_sp["coordinates"][2][0]
+                self.options['THETA_REF_TRENCH'] = trench_phi * np.pi/180.0
                 rotation_angle = 90.0 - trench_phi - 2.0 + rotation_plus
                 try:
                     spreading_velocity = feature_sp["temperature models"][0]["spreading velocity"]
@@ -17448,15 +17459,20 @@ class PLOT_CASE_RUN_THD():
         '''
         pyvista processing
         '''
+        outputs = {"trench_center": []}
         for vtu_step in self.Visit_Options.options['GRAPHICAL_STEPS']:
             pvtu_step = vtu_step + int(self.Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
-            ProcessVtuFileThDStep(self.case_path, pvtu_step)
+            outputs_foo = ProcessVtuFileThDStep(self.case_path, pvtu_step)
+            outputs["trench_center"].append(outputs_foo["trench_center"])
+        return outputs
+            
 
-    def GenerateParaviewScript(self, ofile_list):
+    def GenerateParaviewScript(self, ofile_list, additional_options):
         '''
         generate paraview script
         Inputs:
             ofile_list - a list of file to include in paraview
+            additional_options - options to append
         '''
         require_base = self.kwargs.get('require_base', True)
         for ofile_base in ofile_list:
@@ -17467,18 +17483,21 @@ class PLOT_CASE_RUN_THD():
                 self.Visit_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
             else:
                 self.Visit_Options.read_contents(paraview_script)  # this part combines two scripts
+            self.Visit_Options.options.update(additional_options)
             self.Visit_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
             ofile_path = self.Visit_Options.save(ofile, relative=False)  # save the altered script
             print("\t File generated: %s" % ofile_path)
 
 
-def ProcessVtuFileThDStep(case_path, pvtu_step):
+def ProcessVtuFileThDStep(case_path, pvtu_step, **kwargs):
     '''
     Process with pyvsita for a single step
     Inputs:
         case_path - full path of a 3-d case
         pvtu_step - pvtu_step of vtu output files
     '''
+    geometry = kwargs.get("geometry", "chunk")
+    
     # output directory
     if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
         os.mkdir(os.path.join(case_path, "pyvista_outputs"))
@@ -17493,8 +17512,11 @@ def ProcessVtuFileThDStep(case_path, pvtu_step):
     PprocessThD = PYVISTA_PROCESS_THD(pyvista_outdir=pyvista_outdir)
 
     # make domain boundary
-    p_marker_coordinates = {"r": 6371e3 - np.arange(0, 6000e3, 1000e3), "lon": np.arange(0, 90, 10)*np.pi/180.0, "lat": np.arange(0, 50.0, 10.0)*np.pi/180.0}
-    PprocessThD.make_boundary(marker_coordinates=p_marker_coordinates)
+    if geometry == "chunk":
+        p_marker_coordinates = {"r": 6371e3 - np.arange(0, 6000e3, 1000e3), "lon": np.arange(0, 90, 10)*np.pi/180.0, "lat": np.arange(0, 50.0, 10.0)*np.pi/180.0}
+        PprocessThD.make_boundary_spherical(marker_coordinates=p_marker_coordinates)
+    else:
+        PprocessThD.make_boundary_cartesian(marker_coordinates=p_marker_coordinates)
 
     # read vtu file
     pvtu_filepath = os.path.join(case_path, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
@@ -17517,3 +17539,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step):
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
+
+    outputs = {"trench_center": PprocessThD.trench_center}
+    return outputs
