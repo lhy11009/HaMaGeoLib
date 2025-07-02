@@ -443,15 +443,16 @@ def run_2d_subduction_visualization(local_dir, config):
     parse_log_file_for_solver_info(file_path, output_path, major_version=major_version)
 
     # Basic runtime plot
-    PlotCaseRun_base(
-        local_dir,
-        time_range=None,
-        run_visual=False,
-        time_interval=None,
-        visualization="paraview",
-        step=graphical_steps
-    )
-    plt.close()
+    if PlotCaseRun_base is not None:
+        PlotCaseRun_base(
+            local_dir,
+            time_range=None,
+            run_visual=False,
+            time_interval=None,
+            visualization="paraview",
+            step=graphical_steps
+        )
+        plt.close()
 
     # Full visual plotting
     Visit_Options = PlotCaseRun_project(

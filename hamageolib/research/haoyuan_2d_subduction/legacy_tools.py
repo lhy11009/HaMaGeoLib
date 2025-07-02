@@ -763,6 +763,9 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE):
             self.options['SP_AGE'] = sp_age
             self.options['OV_AGE'] =  ov_age
         elif self.options['GEOMETRY'] == 'box':
+            self.options['BOX_LENGTH'] = self.idict["Geometry model"]["Box"]["X extent"]
+            self.options['BOX_THICKNESS'] = self.idict["Geometry model"]["Box"]["Y extent"]
+
             sp_age = -1.0
             ov_age = -1.0
             try:
@@ -17256,6 +17259,7 @@ class VISIT_OPTIONS_THD(VISIT_OPTIONS_TWOD):
         ov_age = np.nan
         self.options['ROTATION_ANGLE'] = 0.0
         if self.options["GEOMETRY"] == "box":
+            self.options['BOX_LENGTH'] = self.idict["Geometry model"]["Box"]["X extent"]
             box_width = self.idict["Geometry model"]["Box"]["Y extent"]
             self.options['TRENCH_EDGE_Y'] = sub_plate_extends[1] * 0.75
             self.options['TRENCH_EDGE_Y_FULL'] = sub_plate_extends[1]

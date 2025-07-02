@@ -294,8 +294,8 @@ class SLAB(PARAVIEW_PLOT):
             renderView1.CameraFocalPoint = [-74708.2999944719, 5867664.065060813, 0.0]
             renderView1.CameraParallelScale = 651407.1273990012
         elif "GEOMETRY" == "box":
-            renderView1.CameraPosition = [4700895.868280185, 2538916.5897593317, 15340954.822755022]
-            renderView1.CameraFocalPoint = [4700895.868280185, 2538916.5897593317, 0.0]
+            renderView1.CameraPosition = [4700895.868280185, BOX_THICKNESS-351083.410241, 15340954.822755022]
+            renderView1.CameraFocalPoint = [4700895.868280185, BOX_THICKNESS-351083.410241, 0.0]
             renderView1.CameraParallelScale = 487763.78047352127
         
         # Simply comments all the following to debug
