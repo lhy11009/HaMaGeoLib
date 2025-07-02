@@ -26,10 +26,10 @@ class PYVISTA_PROCESS_THD():
     
     Attributes:
         geometry (str): Simulation geometry, currently only "chunk" is supported.
-        Ro (float): Planetary radius in meters.
+        Max0 (float): Planetary radius in meters.
         pyvista_outdir (str): Output directory for saving generated VTK files.
-        max1 (float): Maximum colatitude in radians (default: π/2).
-        max2 (float): Maximum longitude in radians (default: 140°).
+        Max1 (float): Maximum colatitude in radians (default: π/2).
+        phi_max (float): Maximum longitude in radians (default: 140°).
         pvtu_step (int): Timestep index associated with current file.
         pvtu_filepath (str): Path to the .pvtu file being processed.
         grid (pv.UnstructuredGrid): Loaded PyVista grid from .pvtu file.
@@ -38,17 +38,15 @@ class PYVISTA_PROCESS_THD():
         iso_plate_edge (pv.UnstructuredGrid): Iso-volume of 'plate_edge' above threshold.
         slab_surface_points (np.ndarray): Extracted (x, y, z) coordinates of slab surface.
         pe_edge_points (np.ndarray): Extracted (x, y, z) coordinates of plate edge surface.
-        trench_points (np.ndarray): Extracted (x, y, z) coordinates of trench.
-        trench_center (np.ndarray): Extracted (x, y, z) point of the center at the model center.
     """
 
     def __init__(self, **kwargs):
         # Required settings and geometry assumption
         self.geometry = "chunk"
-        self.Ro = 6371e3
+        self.Max0 = 6371e3
         self.pyvista_outdir = kwargs.get("pyvista_outdir", ".")
-        self.max1 = np.pi / 2.0
-        self.max2 = 140.0 * np.pi / 180.0
+        self.Max1 = np.pi / 2.0
+        self.Max2 = 140.0 * np.pi / 180.0
 
         # Initialize runtime variables
         self.pvtu_step = None
@@ -83,7 +81,7 @@ class PYVISTA_PROCESS_THD():
         assert(os.path.isfile(self.pvtu_filepath))
 
         self.grid = pv.read(self.pvtu_filepath)
-
+        
         points = self.grid.points
         if self.geometry == "chunk":
             radius = np.linalg.norm(points, axis=1)
@@ -106,7 +104,7 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
         assert self.grid is not None
 
-        origin = (self.Ro, 0.0, 0.0)
+        origin = (self.Max0, 0.0, 0.0)
         normal = (0.0, 0.0, -1.0)
 
         sliced = self.grid.slice(normal=normal, origin=origin, generate_triangles=True)
@@ -132,12 +130,12 @@ class PYVISTA_PROCESS_THD():
         This method:
             - Applies a narrow threshold around the outer radius (Ro ± 5 km).
             - Extracts a thin surface shell of data near the planetary surface.
-            - Saves the result as a .vtu file.
+            - Saves the result as a .vtk file.
         """
         start = time.time()
         indent = 4
 
-        r_slice = self.Ro
+        r_slice = self.Max0
         r_diff = 5e3
 
         slice_shell = self.grid.threshold([r_slice - r_diff, r_slice + r_diff], scalars="radius")
@@ -150,25 +148,26 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: slice_surface takes %.1f s" % (indent * " ", end - start))
 
-    def slice_at_depth(self, depth):
+    def slice_at_depth(self, depth, **kwargs):
         """
         Extract a horizontal shell at a specified depth below the surface.
 
         Parameters:
             depth (float): Depth in meters from the planetary surface.
+            kwargs:
+                r_diff: range of radius / z values to clip
 
         This method:
             - Applies a radius threshold around Ro - depth with ±10 km tolerance.
             - Extracts a shell of data at the given depth.
-            - Saves the result as a .vtu file.
+            - Saves the result as a .vtk file.
         """
         start = time.time()
         indent = 4
 
-        r_slice = self.Ro - depth
-        r_diff = 10e3
+        r_slice = self.Max0 - depth
+        r_diff = kwargs.get("r_diff", 10e3)
 
-        # Get slice shell
         slice_shell = self.grid.threshold([r_slice - r_diff, r_slice + r_diff], scalars="radius")
 
         # Project velocity onto the surface
@@ -190,7 +189,7 @@ class PYVISTA_PROCESS_THD():
 
         slice_shell.point_data["velocity_slice"] = v_tangent
 
-        # Export file
+        # Export results
         filename = "slice_depth_%.1fkm_%05d.vtu" % (depth / 1e3, self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
         slice_shell.save(filepath)
@@ -299,20 +298,20 @@ class PYVISTA_PROCESS_THD():
         dr = 0.001
 
         # build the KDTREE
-        vals0 = np.linspace(0, self.Ro, N0)
-        vals1 = np.linspace(min1, self.max1, N1)
+        vals0 = np.linspace(0, self.Max0, N0)
+        vals1 = np.linspace(min1, self.Max1, N1)
         vals2 = np.full((N0, N1), np.nan)
         vals2_tr = np.full(N1, np.nan)
 
         upper_points = self.iso_volume_upper.points
         v0_u, v1_u, v2_u = cartesian_to_spherical(*upper_points.T)
-        rt_upper = np.vstack([v0_u/self.Ro, v1_u/self.max1]).T
+        rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
         rt_tree = cKDTree(rt_upper)
 
         # extract slab surface points
         for i, v0 in enumerate(vals0):
             for j, v1 in enumerate(vals1):
-                query_pt = np.array([v0/self.Ro, v1/self.max1])
+                query_pt = np.array([v0/self.Max0, v1/self.Max1])
                 idxs = rt_tree.query_ball_point(query_pt, r=dr)
 
                 if not idxs:
@@ -358,13 +357,13 @@ class PYVISTA_PROCESS_THD():
         v2_tr = vals2_tr[mask_tr]
 
         if self.geometry == "chunk": 
-            x_tr = self.Ro * np.sin(v1_tr) * np.cos(v2_tr)
-            y_tr = self.Ro * np.sin(v1_tr) * np.sin(v2_tr)
-            z_tr = self.Ro * np.cos(v1_tr)
+            x_tr = self.Max0 * np.sin(v1_tr) * np.cos(v2_tr)
+            y_tr = self.Max0 * np.sin(v1_tr) * np.sin(v2_tr)
+            z_tr = self.Max0 * np.cos(v1_tr)
         else:
             x_tr = v2_tr
             y_tr = v1_tr
-            z_tr = self.Ro
+            z_tr = self.Max0
         
         self.trench_points = np.vstack([x_tr, y_tr, z_tr]).T
         _, _, self.trench_center = cartesian_to_spherical(self.trench_points[-1, 0], self.trench_points[-1, 1], self.trench_points[-1, 2])
@@ -379,8 +378,6 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
-        
-
 
     def extract_plate_edge_surface(self):
         """
@@ -393,59 +390,67 @@ class PYVISTA_PROCESS_THD():
         """
         # Extracting parameters
         # N0 - number along radius
-        # N2_1 - number along theta
+        # N2 - number along theta
         # Note these two are chosen so that resolutions along the radius and phi
         # have roughly the same value.
-        # R_min_1 - starting value of extraction along radius. This should be
+        # min0 - starting value of extraction along radius. This should be
         # deeper than the lower-theta boundary of the subducting slab.
         # dr - normalized tolerance. This correlates to a dimensional value of
-        # self.Ro * dr
-        min0 =  self.Ro - 200e3; N0 = 40
-        N2_1 = 3000
+        # self.Max0 * dr
+        min0 =  self.Max0 - 200e3; N0 = 40
+        N2 = 3000
         dr = 0.001
         
         # Build KDTree with (r, theta)
         plate_edge_points = self.iso_plate_edge.points
-        r_pe, theta_pe, phi_pe = cartesian_to_spherical(*plate_edge_points.T)
-        rt_pe = np.vstack([r_pe/self.Ro, phi_pe/self.max2]).T
+        if self.geometry == "chunk":
+            l0_pe, l1_pe, l2_pe = cartesian_to_spherical(*plate_edge_points.T)
+        else:
+            l0_pe, l1_pe, l2_pe = plate_edge_points[:, 2], plate_edge_points[:, 1], plate_edge_points[:, 0]
+        rt_pe = np.vstack([l0_pe/self.Max0, l2_pe/self.Max2]).T
         rt_tree_pe = cKDTree(rt_pe)
 
         # Create a mesh on r, phi
-        r_vals_1 = np.linspace(min0, self.Ro, N0)
-        phi_vals_1 = np.linspace(0.0, self.max2, N2_1)
-        theta_field_pe = np.full((N0, N2_1), np.nan)
+        l0_vals = np.linspace(min0, self.Max0, N0)
+        l2_vals = np.linspace(0.0, self.Max2, N2)
+        l1_field_pe = np.full((N0, N2), np.nan)
 
         # Loop over each (r, phi), get theta
         # 1. get indexes of adjacent points in the plate_edge composition
         # 2. get minimum theta values within the adjacent points
-        for i, r in enumerate(r_vals_1):
-            for j, phi in enumerate(phi_vals_1):
-                query_pt = np.array([r/self.Ro, phi/self.max2])
+        for i, r in enumerate(l0_vals):
+            for j, phi in enumerate(l2_vals):
+                query_pt = np.array([r/self.Max0, phi/self.Max2])
                 idxs = rt_tree_pe.query_ball_point(query_pt, r=dr)  # tolerance
 
                 if not idxs:
                     continue
 
                 # get all φ values at this (r, θ)
-                theta_s = theta_pe[idxs]
-                min_theta = np.min(theta_s)
+                l1_s = l1_pe[idxs]
+                min1 = np.min(l1_s)
 
                 # Check: is max_theta unique (i.e., no greater theta exists)?
-                if np.all(theta_s >= min_theta):
-                    theta_field_pe[i, j] = min_theta
+                if np.all(l1_s >= min1):
+                    l1_field_pe[i, j] = min1
 
         # Recover the 3D coordinates from (r, theta, phi_field)
-        R_pe, Phi_pe = np.meshgrid(r_vals_1, phi_vals_1, indexing='ij')
+        L0_pe, L2_pe = np.meshgrid(l0_vals, l2_vals, indexing='ij')
 
-        mask = ~np.isnan(theta_field_pe)
+        mask = ~np.isnan(l1_field_pe)
 
-        r_pe_surf = R_pe[mask]
-        phi_pe_surf = Phi_pe[mask]
-        theta_pe_surf = theta_field_pe[mask]
+        l0_pe_surf = L0_pe[mask]
+        l2_pe_surf = L2_pe[mask]
+        l1_pe_surf = l1_field_pe[mask]
 
-        x_pe_surf = r_pe_surf * np.sin(theta_pe_surf) * np.cos(phi_pe_surf)
-        y_pe_surf = r_pe_surf * np.sin(theta_pe_surf) * np.sin(phi_pe_surf)
-        z_pe_surf = r_pe_surf * np.cos(theta_pe_surf)
+        if self.geometry == "chunk":
+            x_pe_surf = l0_pe_surf * np.sin(l1_pe_surf) * np.cos(l2_pe_surf)
+            y_pe_surf = l0_pe_surf * np.sin(l1_pe_surf) * np.sin(l2_pe_surf)
+            z_pe_surf = l0_pe_surf * np.cos(l1_pe_surf)
+        else:
+            x_pe_surf = l2_pe_surf
+            y_pe_surf = l1_pe_surf
+            z_pe_surf = l0_pe_surf
 
         self.pe_edge_points = np.vstack([x_pe_surf, y_pe_surf, z_pe_surf]).T
 
@@ -480,14 +485,14 @@ class PYVISTA_PROCESS_THD():
 
         # mesh the slab surface points by kd tree
         r_surf, theta_surf, _ = cartesian_to_spherical(*self.slab_surface_points.T)
-        normalized_rt = np.vstack([r_surf/self.Ro, theta_surf/self.max1]).T  # shape (N, 2)
+        normalized_rt = np.vstack([r_surf/self.Max0, theta_surf/self.Max1]).T  # shape (N, 2)
         rt_tree_slab_surface = cKDTree(normalized_rt)
         
         # query points in the sp_lower iso-volume and get points that has 
         # matching pair in (r, theta) within slab surface points
         lower_points = self.iso_volume_lower.points
         r_l, theta_l, phi_l = cartesian_to_spherical(*lower_points.T)
-        query_points = np.vstack([r_l/self.Ro, theta_l/self.max1]).T
+        query_points = np.vstack([r_l/self.Max0, theta_l/self.Max1]).T
 
         distances, indices = rt_tree_slab_surface.query(query_points, k=1, distance_upper_bound=d_upper_bound)
         valid_mask = (indices != rt_tree_slab_surface.n)
@@ -543,14 +548,14 @@ class PYVISTA_PROCESS_THD():
 
         # mesh a slab edge point by kd tree
         r_pe_surf, theta_pe_surf, phi_pe_surf = cartesian_to_spherical(*self.pe_edge_points.T)
-        normalized_pe_rt = np.vstack([r_pe_surf/self.Ro, phi_pe_surf/self.max2]).T  # shape (N, 2)
+        normalized_pe_rt = np.vstack([r_pe_surf/self.Max0, phi_pe_surf/self.Max2]).T  # shape (N, 2)
         rt_tree_pe_surface = cKDTree(normalized_pe_rt)
 
         # query points in the sp_lower iso-volume and get points that has 
         # matching pair in (r, phi) within slab edge points
         lower_points = self.iso_volume_lower.points
         r_l, theta_l, phi_l = cartesian_to_spherical(*lower_points.T)
-        query_points_1 = np.vstack([r_l/self.Ro, phi_l/self.max2]).T
+        query_points_1 = np.vstack([r_l/self.Max0, phi_l/self.Max2]).T
 
         distances, indices = rt_tree_pe_surface.query(query_points_1, k=1, distance_upper_bound=d_upper_bound)
         valid_pe_mask = (indices != rt_tree_pe_surface.n)
@@ -680,7 +685,6 @@ class PYVISTA_PROCESS_THD():
             full_marker_point.save(filepath)
             print("saved file: %s" % filepath)
 
-
     def make_boundary_spherical(self, **kwargs):
         """
         Generate and save the six boundary surfaces for a spherical shell model domain.
@@ -698,7 +702,7 @@ class PYVISTA_PROCESS_THD():
 
         # Chunk parameters
         r_inner = 3.481e6
-        r_outer = self.Ro
+        r_outer = self.Max0
         lon_min = 0.0
         lon_max = 80.00365006253027 * np.pi / 180.0
         lat_min = 0.0

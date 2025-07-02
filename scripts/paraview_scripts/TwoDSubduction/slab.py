@@ -219,6 +219,7 @@ class SLAB(PARAVIEW_PLOT):
         HideScalarBarIfNotNeeded(field3LUT, renderView1)
         source1Display.SetScalarBarVisibility(renderView1, True)
         rescale_transfer_function_combined('T', 273.0, 1673.0)
+            
 
         # Configure the color bar for the temperature field.
         field1LUTColorBar = GetScalarBar(field1LUT, renderView1)
@@ -237,6 +238,7 @@ class SLAB(PARAVIEW_PLOT):
         # Display the vector field (sourceV) and configure its color transfer function.
         sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
         sourceVDisplay.SetScalarBarVisibility(renderView1, True)
+        ColorBy(sourceVDisplay, None)
         fieldVLUT = GetColorTransferFunction('velocity')
         if MAX_VELOCITY > 0.0:
             fieldVLUT.RescaleTransferFunction(0.0, MAX_VELOCITY)
@@ -269,10 +271,10 @@ class SLAB(PARAVIEW_PLOT):
         scale_factor = 1e6
         n_sample_points = 20000
         point_source_center = [0.0, 0.0, 0.0]
-        if "chunk" == "chunk":
+        if "GEOMETRY" == "chunk":
             point_source_center = [0, 6.4e6, 0]
-        elif "chunk" == "box":
-            point_source_center = [4.65e6, 2.95e6, 0]
+        elif "GEOMETRY" == "box":
+            point_source_center = [4.65e6, BOX_THICKNESS + 60e3, 0]
         else:
             raise NotImplementedError()
         self.adjust_glyph_properties('Glyph1', scale_factor, n_sample_points, point_source_center)
@@ -442,8 +444,6 @@ class SLAB(PARAVIEW_PLOT):
         # Adjust the position of the point source and show related annotations.
         pointName = "PointSource_" + glyphRegistrationName
         pointSource1 = FindSource(pointName)
-        if "chunk" == "chunk":
-            pointSource1.Center = [0, 6.7e6, 0]
         _source_v_re = _source_v + "_representative"
         sourceVRE = FindSource(_source_v_re)
         sourceVREDisplay = Show(sourceVRE, renderView1, 'GeometryRepresentation')

@@ -26,7 +26,7 @@ def test_pyvista_process_thd():
     # slice at surface
     PprocessThD.slice_surface()
     # slice at depth
-    PprocessThD.slice_at_depth(200e3)
+    PprocessThD.slice_at_depth(200e3, r_diff=20e3)
     # extract sp_upper composition beyond a threshold
     PprocessThD.extract_iso_volume_upper(0.8)
     # extract sp_lower composition beyond a threshold
@@ -41,12 +41,32 @@ def test_pyvista_process_thd():
     PprocessThD.filter_slab_lower_points()
 
     # compare file outputs
-    slab_surface_file_std = os.path.join(local_dir, "sp_upper_surface_00002_std.vtp")
-    slab_surface_file = os.path.join(pyvista_outdir, "sp_upper_surface_00002.vtp")
-    assert(os.path.isfile(slab_surface_file))
-    assert(filecmp.cmp(slab_surface_file, slab_surface_file_std))
+    depth_slice_file_std = os.path.join(local_dir, "slice_depth_200.0km_00002_std.vtu")
+    depth_slice_file = os.path.join(pyvista_outdir, "slice_depth_200.0km_00002.vtu")
+    assert(os.path.isfile(depth_slice_file_std))
+    assert(filecmp.cmp(depth_slice_file, depth_slice_file_std))
+    
+    sp_upper_file_std = os.path.join(local_dir, "sp_upper_surface_00002_std.vtp")
+    sp_upper_file = os.path.join(pyvista_outdir, "sp_upper_surface_00002.vtp")
+    assert(os.path.isfile(sp_upper_file))
+    assert(filecmp.cmp(sp_upper_file, sp_upper_file_std))
 
+    sp_lower_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
+    sp_lower_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
+    assert(os.path.isfile(sp_lower_file))
+    assert(filecmp.cmp(sp_lower_file, sp_lower_file_std))
+    
     slab_surface_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
     slab_surface_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
     assert(os.path.isfile(slab_surface_file))
     assert(filecmp.cmp(slab_surface_file, slab_surface_file_std))
+    
+    pe_surface_file_std = os.path.join(local_dir, "plate_edge_surface_00002_std.vtp")
+    pe_surface_file = os.path.join(pyvista_outdir, "plate_edge_surface_00002.vtp")
+    assert(os.path.isfile(pe_surface_file))
+    assert(filecmp.cmp(pe_surface_file, pe_surface_file_std))
+    
+    sp_plate_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
+    sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
+    assert(os.path.isfile(sp_plate_file))
+    assert(filecmp.cmp(sp_plate_file, sp_plate_file_std))
