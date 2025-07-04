@@ -17301,7 +17301,6 @@ class VISIT_OPTIONS_THD(VISIT_OPTIONS_TWOD):
             ridge_edge_x, ridge_edge_y, ridge_edge_z = ggr2cart(sub_plate_extends[1]*to_rad*0.75, 0.0, Ro)
             self.options["CHUNK_RIDGE_EDGE_X"] = ridge_edge_x
             self.options["CHUNK_RIDGE_EDGE_Z"] = ridge_edge_z
-            # todo_3d_visual
             self.options["MAX_LATITUDE"] = float(self.idict['Geometry model']['Chunk']['Chunk maximum latitude']) * np.pi / 180.0
             self.options["MAX_LONGITUDE"] = float(self.idict['Geometry model']['Chunk']['Chunk maximum longitude']) * np.pi / 180.0
             
@@ -17467,12 +17466,11 @@ class PLOT_CASE_RUN_THD():
         '''
         pyvista processing
         '''
-        outputs = {"trench_center": []}
+        # todo_3d_visual
         for vtu_step in self.Visit_Options.options['GRAPHICAL_STEPS']:
             pvtu_step = vtu_step + int(self.Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
-            outputs_foo = ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Visit_Options)
-            outputs["trench_center"].append(outputs_foo["trench_center"])
-        return outputs
+            ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Visit_Options)
+        return
             
 
     def GenerateParaviewScript(self, ofile_list, additional_options):
@@ -17574,6 +17572,3 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
-
-    outputs = {"trench_center": PprocessThD.trench_center}
-    return outputs

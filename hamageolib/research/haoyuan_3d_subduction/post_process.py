@@ -44,7 +44,6 @@ class PYVISTA_PROCESS_THD():
         pe_edge_points (np.ndarray): Extracted (x, y, z) coordinates of plate edge surface.
     """
 
-    # todo_3d_visual
     def __init__(self, config, **kwargs):
         # Required settings and geometry assumption
         self.geometry = "chunk"
@@ -699,7 +698,6 @@ class PYVISTA_PROCESS_THD():
             full_marker_point.save(filepath)
             print("saved file: %s" % filepath)
 
-    # todo_3d_visual
     def make_boundary_spherical(self, **kwargs):
         """
         Generate and save the six boundary surfaces for a spherical shell model domain.
@@ -847,3 +845,15 @@ class PYVISTA_PROCESS_THD():
             full_marker_point.save(filepath)
             print("saved file: %s" % filepath)
 
+
+# todo_3d_visual
+def get_trench_position_from_file(pyvista_outdir, pvtu_step):
+    '''
+    Get the position of trench from a file generated previously
+    '''
+    filename = "trench_%05d.vtp" % pvtu_step
+    filepath = os.path.join(pyvista_outdir, filename)
+    point_cloud_tr = pv.read(filepath)
+    points = point_cloud_tr.points
+    _, _, trench_center = cartesian_to_spherical(points[-1, 0], points[-1, 1], points[-1, 2])
+    return trench_center
