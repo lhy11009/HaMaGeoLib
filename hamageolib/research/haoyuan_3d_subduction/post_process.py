@@ -26,9 +26,13 @@ class PYVISTA_PROCESS_THD():
     
     Attributes:
         geometry (str): Simulation geometry, currently only "chunk" is supported.
-        Max0 (float): Planetary radius in meters.
         pyvista_outdir (str): Output directory for saving generated VTK files.
+        Max0 (float): Outer radius / box thickness in meters.
+        Min0 (float): Inner radius in meters.
         Max1 (float): Maximum colatitude in radians (default: π/2).
+        Min1 (float): Minimum colatitude in radians (default: 0.0).
+        Max2 (float): Maximum longitude in radians (default: π/2).
+        Min2 (float): Minimum longitude in radians (default: 0.0).
         phi_max (float): Maximum longitude in radians (default: 140°).
         pvtu_step (int): Timestep index associated with current file.
         pvtu_filepath (str): Path to the .pvtu file being processed.
@@ -40,13 +44,18 @@ class PYVISTA_PROCESS_THD():
         pe_edge_points (np.ndarray): Extracted (x, y, z) coordinates of plate edge surface.
     """
 
-    def __init__(self, **kwargs):
+    # todo_3d_visual
+    def __init__(self, config, **kwargs):
         # Required settings and geometry assumption
         self.geometry = "chunk"
-        self.Max0 = 6371e3
+        self.Max0 = config["Max0"]
+        self.Min0 = config["Min0"]
+        # self.Max1 = config["Max1"]
+        self.Max1 = np.pi/2.0
+        # self.Min1 = 0.0
+        self.Max2 = config["Max2"]
+        self.Min2 = 0.0
         self.pyvista_outdir = kwargs.get("pyvista_outdir", ".")
-        self.Max1 = np.pi / 2.0
-        self.Max2 = 140.0 * np.pi / 180.0
 
         # Initialize runtime variables
         self.pvtu_step = None
@@ -304,8 +313,13 @@ class PYVISTA_PROCESS_THD():
         vals2_tr = np.full(N1, np.nan)
 
         upper_points = self.iso_volume_upper.points
-        v0_u, v1_u, v2_u = cartesian_to_spherical(*upper_points.T)
-        rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
+        
+        if self.geometry == "chunk":
+            v0_u, v1_u, v2_u = cartesian_to_spherical(*upper_points.T)
+            rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
+        else:
+            rt_upper = np.vstack([upper_points[:, 2]/self.Max0, upper_points[:, 1]/self.Max1]).T
+            v2_u = upper_points[:, 0]
         rt_tree = cKDTree(rt_upper)
 
         # extract slab surface points
@@ -674,17 +688,18 @@ class PYVISTA_PROCESS_THD():
 
         # Save to file
         filename = "model_boundary.vtu"
-        filepath = os.path.join(self.pyvista_outdir, filename)
+        filepath = os.path.join(self.pyvista_outdir, "..", filename)
         full_surface.save(filepath)
         print("saved file: %s" % filepath)
 
         # deal with the annotation points
         if marker_coordinates is not None: 
             filename = "model_boundary_marker_points.vtp"
-            filepath = os.path.join(self.pyvista_outdir, filename)
+            filepath = os.path.join(self.pyvista_outdir, "..", filename)
             full_marker_point.save(filepath)
             print("saved file: %s" % filepath)
 
+    # todo_3d_visual
     def make_boundary_spherical(self, **kwargs):
         """
         Generate and save the six boundary surfaces for a spherical shell model domain.
@@ -701,12 +716,12 @@ class PYVISTA_PROCESS_THD():
         marker_coordinates = kwargs.get("marker_coordinates", None)
 
         # Chunk parameters
-        r_inner = 3.481e6
+        r_inner = self.Min0
         r_outer = self.Max0
-        lon_min = 0.0
-        lon_max = 80.00365006253027 * np.pi / 180.0
         lat_min = 0.0
-        lat_max = 71.94572847349845 * np.pi / 180.0
+        lat_max = 35.972864236749224 * np.pi / 180.0
+        lon_min = self.Min2
+        lon_max = self.Max2
 
         # Resolution (adjust for finer mesh)
         n_r = 2
@@ -821,14 +836,14 @@ class PYVISTA_PROCESS_THD():
 
         # Save to file
         filename = "model_boundary.vtu"
-        filepath = os.path.join(self.pyvista_outdir, filename)
+        filepath = os.path.join(self.pyvista_outdir, "..", filename)
         full_surface.save(filepath)
         print("saved file: %s" % filepath)
 
         # deal with the annotation points
         if marker_coordinates is not None: 
             filename = "model_boundary_marker_points.vtp"
-            filepath = os.path.join(self.pyvista_outdir, filename)
+            filepath = os.path.join(self.pyvista_outdir, "..", filename)
             full_marker_point.save(filepath)
             print("saved file: %s" % filepath)
 

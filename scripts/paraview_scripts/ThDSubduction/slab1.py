@@ -393,7 +393,7 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
     transform_slab = FindSource("sp_lower_above_0.8_filtered_pe_transform_%05d" % snapshot)
     SetActiveSource(transform_slab)
     transform_slabDisplay = Show(transform_slab, renderView1, 'GeometryRepresentation')
-    set_slab_volume_plot(transform_slabDisplay, 1000e3, opacity=0.05)
+    set_slab_volume_plot(transform_slabDisplay, 1000e3)
 
     # Show the slice center glyph
     # And Adjust glyph properties based on the specified parameters.
@@ -440,7 +440,6 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
     # Show the trench position
     sourceTr = FindSource("trench_transform_%05d" % snapshot)
     sourceTrDisplay = Show(sourceTr, renderView1, 'GeometryRepresentation')
-    # ColorBy(sourceTrDisplay, None)
     sourceTrDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0]
     sourceTrDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
 
@@ -469,9 +468,11 @@ pv_output_dir = os.path.abspath(os.path.join("DATA_OUTPUT_DIR", "..", "img", "pv
 
 # get active view
 renderView1 = GetActiveViewOrCreate('RenderView')
-
+    
 # load model boundary
-load_pyvista_source(data_output_dir, "model_boundary", None)
+load_pyvista_source(data_output_dir, "model_boundary", None, file_type="vtu")
+load_pyvista_source(data_output_dir, "model_boundary_marker_points", None)
+
 
 # add a position of the original trench
 if "GEOMETRY" == "chunk":
@@ -500,6 +501,7 @@ else:
 # loop every step to plot
 for i, step in enumerate(steps):
     snapshot = INITIAL_ADAPTIVE_REFINEMENT+step
+
 
     # load slice center
     load_pyvista_source(data_output_dir, "slice_center", snapshot, assign_field=True, add_glyph=True)

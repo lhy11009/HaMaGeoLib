@@ -17,7 +17,8 @@ def test_pyvista_process_thd():
     os.mkdir(pyvista_outdir)
 
     # initiate the object
-    PprocessThD = PYVISTA_PROCESS_THD(pyvista_outdir=pyvista_outdir)
+    config = {"Max0": 6371e3, "Min0": 3.4810e+06, "Max1": 35.972864236749224*np.pi/180.0, "Max2": 80.00365006253027*np.pi/180.0}
+    PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
     # read vtu file
     pvtu_filepath = os.path.join(local_dir, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
     PprocessThD.read(pvtu_step, pvtu_filepath)
