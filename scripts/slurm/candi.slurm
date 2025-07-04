@@ -1,27 +1,46 @@
 #!/bin/bash
 #SBATCH --account=billengrp          # SLURM account to use
-#SBATCH --partition=p-billen         # Partition to submit the job
+#SBATCH --partition=high         # Partition to submit the job
 #SBATCH --time=24:00:00              # Max execution time (24 hours)
 #SBATCH -N 1                         # Number of nodes
-#SBATCH -n 64                        # Number of CPUs
+#SBATCH -n 8                        # Number of CPUs
 #SBATCH --exclusive                  # Exclusive use of node (no sharing with other jobs)
 #SBATCH --job-name=candi-toolchain   # Job name
 
 #SBATCH --mail-type=ALL              # Notify user by email on all events
 #SBATCH --mail-user=hylli@ucdavis.edu # Email address for notifications
 
-#SBATCH --output=candi_output_%j.log # Redirect standard output to file
-#SBATCH --error=candi_error_%j.log   # Redirect standard error to file
+#SBATCH --output=candi_output_%j.out # Redirect standard output to file
+#SBATCH --error=candi_error_%j.err   # Redirect standard error to file
 
 set -x  # Enable debug mode (prints commands before executing)
 
-# Path to candi (a script for installing deal.ii and dependencies)
-CANDI_DIR=/home/lochy/software/candi
-INSTALL_PREFIX=/group/billengrp/Software/deal.ii/dealii-9.6.1-toolchain-gcc-13.2.0-openmpi5.0.5
+# Build options
+CANDI_DIR=/home/lochy/software/candi # Path to candi (a script for installing deal.ii and dependencies)
+INSTALL_PREFIX=/quobyte/billengrp/Software/deal.ii/deal.ii-9.6.1-toolchain-gcc-13.2.0-openmpi5.0.5
 PACKAGE_LIST="openblas sundials p4est trilinos dealii"
-# ASPECT_INSTALL_DIR="/group/billengrp/Software/aspect"
-# WORLD_BUILDER_DIR="
-ASPECT_BRANCH="main"
+ASPECT_INSTALL_DIR="/quobyte/billengrp/lochy/Software/aspect"
+WORLD_BUILDER_DIR="/quobyte/billengrp/lochy/Software/WorldBuilder"
+
+TASK="aspect" # Different tasks
+# choices:
+# build_all - build deal.ii, configure and build aspect (recommand starting with the main branch)
+# aspect - only configure and build aspect
+# aspect_build_only - using existing build directory and build
+
+ASPECT_BRANCH="master_TwoD_rebase" # Choices for aspect
+#ASPECT_BRANCH="main"
+ASPECT_MODE="debug"
+#ASPECT_MODE="debugrelease"
+# choices of ASPECT_MODE:
+# debugrelease (default), the build directory is named as "build_debugrelease"
+# release, the build directory is named as "build_release"
+# debug, the build directory is named as "build_debug"
+
+# Loading modules
+echo "Loading required modules..."
+module load gcc/13.2.0
+module load cmake/3.28.1
 
 # Path to download, unpack and build. candi will use these path to build deal.ii
 export DOWNLOAD_PATH=/tmp/src1
@@ -70,12 +89,6 @@ remove_if_exists "$DOWNLOAD_PATH"
 remove_if_exists "$UNPACK_PATH"
 remove_if_exists "$BUILD_PATH"
 
-# Loading modules
-echo "Loading required modules..."
-module load openmpi/5.0.5
-module load gcc/13.2.0
-
-
 # Setting up MPI compilers
 echo "Setting up MPI compilers..."
 export CC=$(which mpicc)
@@ -94,35 +107,42 @@ echo "Fortran compiler (mpif90) located at: $(which mpif90)"
 echo "CMAKE located at: $(which cmake)"
 
 # Build deal.II
-if ls "$INSTALL_PREFIX"/deal.II* >/dev/null 2>&1; then
-    DEAL_II_DIR=$(ls -d "$INSTALL_PREFIX"/deal.II* | head -n 1)
-    if [[ -d "$DEAL_II_DIR/include" && -d "$DEAL_II_DIR/lib" ]]; then
-        echo "deal.II* exists in $INSTALL_PREFIX and contains 'include' and 'lib' directories."
-        echo "Skipping the build process of dealii"
-    else
-        echo "deal.II* exists in $INSTALL_PREFIX, but 'include' or 'lib' is missing."
-        echo "Clean the old directory before re-running this script."
-        exit 1
-    fi
-else
-    echo "deal.II* does not exist in $INSTALL_PREFIX"
 
-    # Build necessary dependencies for deal.II using candi
-    echo "Starting the build process of dealii"
-    
-    cd ${CANDI_DIR}
-    yes | ./candi.sh --prefix=$INSTALL_PREFIX --packages="${PACKAGE_LIST}" -j $SLURM_NTASKS
-    quit_if_fail "Error: candi.sh encountered an issue during installation. Terminating job."
-    
-    echo "Installation of dealii succeeds. Cleaning up directories..."
-    rm -rf "$DOWNLOAD_PATH" "$UNPACK_PATH" "$BUILD_PATH"
-    
-    echo "Building of dealii successful"
+if [ "$TASK" = "build_all" ]; then
+	if ls "$INSTALL_PREFIX"/deal.II* >/dev/null 2>&1; then
+	    DEAL_II_DIR=$(ls -d "$INSTALL_PREFIX"/deal.II* | head -n 1)
+	    if [[ -d "$DEAL_II_DIR/include" && -d "$DEAL_II_DIR/lib" ]]; then
+	        echo "deal.II* exists in $INSTALL_PREFIX and contains 'include' and 'lib' directories."
+	        echo "Skipping the build process of dealii"
+	    else
+	        echo "deal.II* exists in $INSTALL_PREFIX, but 'include' or 'lib' is missing."
+	        echo "Clean the old directory before re-running this script."
+	        exit 1
+	    fi
+	else
+	    echo "deal.II* does not exist in $INSTALL_PREFIX"
+	
+	    # Build necessary dependencies for deal.II using candi
+	    echo "Starting the build process of dealii"
+	    
+	    cd ${CANDI_DIR}
+	    yes | ./candi.sh --prefix=$INSTALL_PREFIX --packages="${PACKAGE_LIST}" -j $SLURM_NTASKS
+	    quit_if_fail "Error: candi.sh encountered an issue during installation. Terminating job."
+	    
+	    echo "Installation of dealii succeeds. Cleaning up directories..."
+	    rm -rf "$DOWNLOAD_PATH" "$UNPACK_PATH" "$BUILD_PATH"
+	    
+	    echo "Building of dealii successful"
+	fi
+else
+	echo "Skip building dealii"
 fi
 
 # Compile ASPECT
 echo "Sourcing up DEAL.II configuration..."
 source "$INSTALL_PREFIX/configuration/enable.sh"
+source /quobyte/billengrp/lochy/Software/aspectLib/enable.sh
+export ASPECT_SOURCE_DIR="$ASPECT_INSTALL_DIR"
 echo "Setting up ASPECT build directory..."
 if [[ -z "${ASPECT_INSTALL_DIR}" ]]; then
     ASPECT_INSTALL_DIR="${INSTALL_PREFIX}/aspect"
@@ -131,51 +151,79 @@ fi
 
 if [[ -d ${ASPECT_INSTALL_DIR} ]]; then
     echo "Retrieving existing ASPECT directory: ${ASPECT_INSTALL_DIR}"
-    cd "${ASPECT_INSTALL_DIR}"
 else
     echo "Creating ASPECT directory: ${ASPECT_INSTALL_DIR}"
     mkdir -p "${ASPECT_INSTALL_DIR}"
-    cd "${ASPECT_INSTALL_DIR}"
 fi
 
+cd "${ASPECT_INSTALL_DIR}" # go into the "aspect" directory
 
 ASPECT_BRANCH="${ASPECT_BRANCH:-main}"  # check aspect branch
+
+echo "Checkout branch" # checkout the branch
+git checkout $ASPECT_BRANCH # checkout the branch
+quit_if_fail "Error checking out branch $ASPECT_BRANCH"
 
 if [ "$ASPECT_BRANCH" = "main" ]; then
 	echo "Using default configuration for main branch."
 	ASPECT_BUILD_DIR="${ASPECT_INSTALL_DIR}/build"
 else
 	echo "Using default configuration for $ASPECT_BRANCH branch."
-	echo "Error: You must specify configuration for branch '$ASPECT_BRANCH' explicitly. Then comment out the exit commend"
-	exit 1
-	ASPECT_BUILD_DIR="${ASPECT_INSTALL_DIR}/build_$ASPECT_BRANCH"
+	# echo "Error: You must specify configuration for branch '$ASPECT_BRANCH' explicitly. Then comment out the exit commend"
+	# exit 1
+	ASPECT_BUILD_DIR="${ASPECT_INSTALL_DIR}/build_${ASPECT_BRANCH}"
 fi
 
-remove_if_exists $ASPECT_BUILD_DIR # make build directory
-echo "Creating ASPECT build directory ${ASPECT_BUILD_DIR}"
-mkdir -p "${ASPECT_BUILD_DIR}"
-
-
-cd ${ASPECT_BUILD_DIR}
-
-git checkout $ASPECT_BRANCH # checkout the branch
-
-echo "Configuring ASPECT with CMake..."  # configuration
-echo "Use dealii ${INSTALL_PREFIX}"
-if [ -z "$WORLD_BUILDER_DIR" ]; then
-	echo "Use built-in world builder"
-	cmake -DDEAL_II_DIR="${INSTALL_PREFIX}" ..
-elif [ ! -d "$WORLD_BUILDER_DIR" ]; then
-	echo "Error: WORLD_BUILDER_DIR is set to '$WORLD_BUILDER_DIR', but this is not a valid directory."
-	exit 1
+if [ "$ASPECT_MODE" = "release" ]; then
+	echo "Building in release mode"
 else
-	echo "Using World Builder directory: $WORLD_BUILDER_DIR"
-	cmake -DDEAL_II_DIR="${INSTALL_PREFIX}" -DWORLD_BUILDER_SOURCE_DIR="$WORLD_BUILDER_DIR" ..
+	echo "Building in $ASPECT_MODE mode"
+	ASPECT_BUILD_DIR="${ASPECT_BUILD_DIR}_${ASPECT_MODE}"
 fi
-quit_if_fail "Error: Configuring ASPECT repository failed. Terminating job."
+
+
+if [ "$TASK" = "aspect_build_only" ]; then
+	echo "Using existing ASPECT build directory ${ASPECT_BUILD_DIR}"
+	[ -d "$ASPECT_BUILD_DIR" ] || { echo "Error: Directory '$ASPECT_BUILD_DIR' does not exist." >&2; exit 1; }
+else
+	remove_if_exists $ASPECT_BUILD_DIR # make build directory
+	echo "Creating ASPECT build directory ${ASPECT_BUILD_DIR}"
+	mkdir -p "${ASPECT_BUILD_DIR}"
+fi
+quit_if_fail "Error: Setting ASPECT build directory failed. Terminating job."
+
+cd ${ASPECT_BUILD_DIR} # go into the "aspect/build" directory
+
+if [ "$TASK" = "aspect_build_only" ]; then
+	echo "Skip ASPECT configuration"
+else
+	echo "Configuring ASPECT with CMake..."  # configuration
+        echo "Use dealii ${INSTALL_PREFIX}"
+        if [ -z "$WORLD_BUILDER_DIR" ]; then
+        	echo "Use built-in world builder"
+        	cmake -DDEAL_II_DIR="${INSTALL_PREFIX}" ..
+        elif [ ! -d "$WORLD_BUILDER_DIR" ]; then
+        	echo "Error: WORLD_BUILDER_DIR is set to '$WORLD_BUILDER_DIR', but this is not a valid directory."
+        	exit 1
+        else
+        	echo "Using World Builder directory: $WORLD_BUILDER_DIR"
+        	cmake -DDEAL_II_DIR="${INSTALL_PREFIX}" -DWORLD_BUILDER_SOURCE_DIR="$WORLD_BUILDER_DIR" ..
+        fi
+        quit_if_fail "Error: Configuring ASPECT repository failed. Terminating job."
+fi
+
+make ${ASPECT_MODE}  # mode of aspect
 
 echo "Compiling ASPECT in directory ${ASPECT_BUILD_DIR}..." # compile
-make -j $SLURM_NTASKS
+if  [ "$ASPECT_BRANCH" = "master_TwoD_rebase" ]; then
+	if [ "$ASPECT_MODE" = "release" ]; then
+		Lib_build_aspect ${ASPECT_MODE} master_TwoD_rebase 0
+	else
+		Lib_build_aspect ${ASPECT_MODE} master_TwoD_rebase 0 $ASPECT_MODE
+	fi
+else
+	make -j $SLURM_NTASKS
+fi
 quit_if_fail "Error: Building ASPECT repository failed. Terminating job."
 
 [[ -e ${ASPECT_BUILD_DIR}/aspect ]] && echo "ASPECT build completed successfully." || echo "ASPECT failed to build."
