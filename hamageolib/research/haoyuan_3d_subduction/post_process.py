@@ -5,6 +5,7 @@ import pyvista as pv
 import numpy as np
 from hamageolib.utils.geometry_utilities import cartesian_to_spherical
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
+from hamageolib.utils.exception_handler import my_assert
 from scipy.spatial import cKDTree
 
 class PYVISTA_PROCESS_THD():
@@ -44,13 +45,13 @@ class PYVISTA_PROCESS_THD():
         pe_edge_points (np.ndarray): Extracted (x, y, z) coordinates of plate edge surface.
     """
 
+    # todo_3d_visual
     def __init__(self, config, **kwargs):
         # Required settings and geometry assumption
-        self.geometry = "chunk"
+        self.geometry = config["geometry"]
         self.Max0 = config["Max0"]
         self.Min0 = config["Min0"]
-        # self.Max1 = config["Max1"]
-        self.Max1 = np.pi/2.0
+        self.Max1 = config["Max1"]
         # self.Min1 = 0.0
         self.Max2 = config["Max2"]
         self.Min2 = 0.0
@@ -66,10 +67,6 @@ class PYVISTA_PROCESS_THD():
         self.slab_surface_points = None
         self.pe_edge_points = None
 
-        # Validate geometry
-        if self.geometry != "chunk":
-            raise NotImplementedError("Only 'chunk' geometry is supported.") 
-        
     def read(self, pvtu_step, pvtu_filepath):
         """
         Read a .pvtu file and initialize the PyVista grid object.
@@ -86,7 +83,7 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
         self.pvtu_step = pvtu_step
         self.pvtu_filepath = pvtu_filepath
-        assert(os.path.isfile(self.pvtu_filepath))
+        my_assert(os.path.isfile(self.pvtu_filepath), FileNotFoundError, "File %s is not found" % self.pvtu_filepath)
 
         self.grid = pv.read(self.pvtu_filepath)
         
@@ -94,7 +91,7 @@ class PYVISTA_PROCESS_THD():
         if self.geometry == "chunk":
             radius = np.linalg.norm(points, axis=1)
         else:
-            radius = points[:, 3]
+            radius = points[:, 2]
         self.grid["radius"] = radius
 
         end = time.time()
@@ -300,8 +297,7 @@ class PYVISTA_PROCESS_THD():
         if self.geometry == "chunk":
             min1 = 70.0 * np.pi / 180.0
         else:
-            raise NotImplementedError()
-            # min1 = 
+            min1 = 0.0
 
         dr = 0.001
 
@@ -497,36 +493,48 @@ class PYVISTA_PROCESS_THD():
         d_upper_bound = 0.01
 
         # mesh the slab surface points by kd tree
-        r_surf, theta_surf, _ = cartesian_to_spherical(*self.slab_surface_points.T)
-        normalized_rt = np.vstack([r_surf/self.Max0, theta_surf/self.Max1]).T  # shape (N, 2)
+        if self.geometry == "chunk":
+            r_surf, theta_surf, _ = cartesian_to_spherical(*self.slab_surface_points.T)
+            normalized_rt = np.vstack([r_surf/self.Max0, theta_surf/self.Max1]).T  # shape (N, 2)
+        else:
+            normalized_rt = np.vstack([self.slab_surface_points[:, 2]/self.Max0, self.slab_surface_points[:, 1]/self.Max1]).T  # shape (N, 2)
+        
         rt_tree_slab_surface = cKDTree(normalized_rt)
         
         # query points in the sp_lower iso-volume and get points that has 
         # matching pair in (r, theta) within slab surface points
         lower_points = self.iso_volume_lower.points
-        r_l, theta_l, phi_l = cartesian_to_spherical(*lower_points.T)
-        query_points = np.vstack([r_l/self.Max0, theta_l/self.Max1]).T
+
+        if self.geometry == "chunk":
+            r_l, theta_l, l2_l = cartesian_to_spherical(*lower_points.T)
+            query_points = np.vstack([r_l/self.Max0, theta_l/self.Max1]).T
+        else:
+            query_points = np.vstack([lower_points[:, 2]/self.Max0, lower_points[:, 1]/self.Max1]).T
+            l2_l = lower_points[:, 0]
 
         distances, indices = rt_tree_slab_surface.query(query_points, k=1, distance_upper_bound=d_upper_bound)
         valid_mask = (indices != rt_tree_slab_surface.n)
 
         indices_valid = indices[valid_mask]
         lower_points_valid = lower_points[valid_mask]
-        phi_l_valid = phi_l[valid_mask]
+        l2_valid = l2_l[valid_mask]
 
         # get mask for points that has higher phi value
         # than their matching points in the slab surface points
-        _, _, phi_surf = cartesian_to_spherical(*self.slab_surface_points.T)
-        large_phi_mask = phi_l_valid > phi_surf[indices_valid]
+        if self.geometry == "chunk":
+            _, _, l2_surf = cartesian_to_spherical(*self.slab_surface_points.T)
+        else:
+            l2_surf = self.slab_surface_points[:, 0]
+        large_l2_mask = l2_valid > l2_surf[indices_valid]
 
-        large_phi_points = lower_points_valid[large_phi_mask]
+        large_l2_points = lower_points_valid[large_l2_mask]
 
         # export by pyvista
-        point_cloud_large_phi = pv.PolyData(large_phi_points)
+        point_cloud_large_l2 = pv.PolyData(large_l2_points)
 
-        filename = "sp_lower_large_phi_points_%05d.vtp" % (self.pvtu_step)
+        filename = "sp_lower_large_l2_points_%05d.vtp" % (self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
-        point_cloud_large_phi.save(filepath)
+        point_cloud_large_l2.save(filepath)
         print("Save file %s" % filepath)
         
         end = time.time()
@@ -534,11 +542,11 @@ class PYVISTA_PROCESS_THD():
 
 
         # Derive the indices of large phi points within the original iso_volume_lower
-        is_large_phi_point = np.zeros(self.iso_volume_lower.n_points, dtype=bool)
+        is_large_l2_point = np.zeros(self.iso_volume_lower.n_points, dtype=bool)
 
         idx1 = np.flatnonzero(valid_mask)
-        large_phi_point_indices = idx1[large_phi_mask]
-        is_large_phi_point[large_phi_point_indices] = True
+        large_l2_point_indices = idx1[large_l2_mask]
+        is_large_l2_point[large_l2_point_indices] = True
 
         # Initiate cell_mask with all True value (every cell is included)
         cell_mask = np.ones(self.iso_volume_lower.n_cells, dtype=bool)
@@ -547,7 +555,7 @@ class PYVISTA_PROCESS_THD():
         for cid in range(self.iso_volume_lower.n_cells):
             pt_ids = self.iso_volume_lower.get_cell(cid).point_ids
             # pt_ids = self.iso_volume_lower.Get_Cell(cid).GetPointIds()
-            if np.any(is_large_phi_point[pt_ids]):
+            if np.any(is_large_l2_point[pt_ids]):
                 cell_mask[cid] = False
 
         filtered = self.iso_volume_lower.extract_cells(cell_mask)
@@ -560,51 +568,58 @@ class PYVISTA_PROCESS_THD():
         # print("Save file %s" % filepath)
 
         # mesh a slab edge point by kd tree
-        r_pe_surf, theta_pe_surf, phi_pe_surf = cartesian_to_spherical(*self.pe_edge_points.T)
-        normalized_pe_rt = np.vstack([r_pe_surf/self.Max0, phi_pe_surf/self.Max2]).T  # shape (N, 2)
+        if self.geometry == "chunk":
+            r_pe_surf, l1_pe_surf, phi_pe_surf = cartesian_to_spherical(*self.pe_edge_points.T)
+            normalized_pe_rt = np.vstack([r_pe_surf/self.Max0, phi_pe_surf/self.Max2]).T  # shape (N, 2)
+        else:
+            normalized_pe_rt = np.vstack([self.pe_edge_points[:, 2]/self.Max0, self.pe_edge_points[:, 0]/self.Max2]).T  # shape (N, 2)
+        
         rt_tree_pe_surface = cKDTree(normalized_pe_rt)
 
         # query points in the sp_lower iso-volume and get points that has 
         # matching pair in (r, phi) within slab edge points
         lower_points = self.iso_volume_lower.points
-        r_l, theta_l, phi_l = cartesian_to_spherical(*lower_points.T)
-        query_points_1 = np.vstack([r_l/self.Max0, phi_l/self.Max2]).T
+        if self.geometry == "chunk":
+            r_l, l1_l, phi_l = cartesian_to_spherical(*lower_points.T)
+            query_points_1 = np.vstack([r_l/self.Max0, phi_l/self.Max2]).T
+        else:
+            query_points_1 = np.vstack([lower_points[:, 2]/self.Max0, lower_points[:, 0]/self.Max2]).T
 
         distances, indices = rt_tree_pe_surface.query(query_points_1, k=1, distance_upper_bound=d_upper_bound)
         valid_pe_mask = (indices != rt_tree_pe_surface.n)
 
         indices_pe_valid = indices[valid_pe_mask]
         lower_points_pe_valid = lower_points[valid_pe_mask]
-        theta_l_pe_valid = theta_l[valid_pe_mask]
+        l1_l_pe_valid = l1_l[valid_pe_mask]
 
         # get mask for points that has smaller theta value
         # than their matching points in the plate edge surface points
-        small_theta_mask = theta_l_pe_valid < theta_pe_surf[indices_pe_valid]
+        small_l1_mask = l1_l_pe_valid < l1_pe_surf[indices_pe_valid]
 
-        small_theta_points = lower_points_pe_valid[small_theta_mask]
+        small_l1_points = lower_points_pe_valid[small_l1_mask]
 
         # export by pyvista
-        point_cloud_small_theta = pv.PolyData(small_theta_points)
+        point_cloud_small_l1 = pv.PolyData(small_l1_points)
 
-        filename = "sp_lower_small_theta_points_%05d.vtp" % (self.pvtu_step)
+        filename = "sp_lower_small_l1_points_%05d.vtp" % (self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
-        point_cloud_small_theta.save(filepath)
+        point_cloud_small_l1.save(filepath)
         print("Save file %s" % filepath)
 
 
         # filter out cells that has small theta values
         # Derive the indices of large theta points within the original iso_volume_lower
-        is_small_theta_point = np.zeros(self.iso_volume_lower.n_points, dtype=bool)
+        is_small_l1_point = np.zeros(self.iso_volume_lower.n_points, dtype=bool)
 
         idx1 = np.flatnonzero(valid_pe_mask)
-        small_theta_point_indices = idx1[small_theta_mask]
-        is_small_theta_point[small_theta_point_indices] = True
+        small_l1_point_indices = idx1[small_l1_mask]
+        is_small_l1_point[small_l1_point_indices] = True
 
         # Use PyVista's connectivity and cell arrays if available
         # Note the cell_mask continues from the previous step
         for cid in range(self.iso_volume_lower.n_cells):
             pt_ids = self.iso_volume_lower.get_cell(cid).point_ids
-            if np.any(is_small_theta_point[pt_ids]):
+            if np.any(is_small_l1_point[pt_ids]):
                 cell_mask[cid] = False
 
         # Extract the final filtered points
@@ -846,7 +861,6 @@ class PYVISTA_PROCESS_THD():
             print("saved file: %s" % filepath)
 
 
-# todo_3d_visual
 def get_trench_position_from_file(pyvista_outdir, pvtu_step):
     '''
     Get the position of trench from a file generated previously

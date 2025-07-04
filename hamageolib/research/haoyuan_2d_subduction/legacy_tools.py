@@ -17466,7 +17466,6 @@ class PLOT_CASE_RUN_THD():
         '''
         pyvista processing
         '''
-        # todo_3d_visual
         for vtu_step in self.Visit_Options.options['GRAPHICAL_STEPS']:
             pvtu_step = vtu_step + int(self.Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
             ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Visit_Options)
@@ -17534,7 +17533,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
     # initialize the class
     # todo_3d_visual
     # fix the meaning of Max1 - latitude
-    config = {"Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2}
+    config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": np.pi/2.0, "Max2": Max2}
     PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
 
     # make domain boundary
