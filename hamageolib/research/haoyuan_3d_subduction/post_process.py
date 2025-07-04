@@ -372,7 +372,7 @@ class PYVISTA_PROCESS_THD():
         else:
             x_tr = v2_tr
             y_tr = v1_tr
-            z_tr = self.Max0
+            z_tr = self.Max0 * np.ones(v1_tr.shape)
         
         self.trench_points = np.vstack([x_tr, y_tr, z_tr]).T
         _, _, self.trench_center = cartesian_to_spherical(self.trench_points[-1, 0], self.trench_points[-1, 1], self.trench_points[-1, 2])
@@ -572,6 +572,7 @@ class PYVISTA_PROCESS_THD():
             r_pe_surf, l1_pe_surf, phi_pe_surf = cartesian_to_spherical(*self.pe_edge_points.T)
             normalized_pe_rt = np.vstack([r_pe_surf/self.Max0, phi_pe_surf/self.Max2]).T  # shape (N, 2)
         else:
+            l1_pe_surf = self.pe_edge_points[:, 1]
             normalized_pe_rt = np.vstack([self.pe_edge_points[:, 2]/self.Max0, self.pe_edge_points[:, 0]/self.Max2]).T  # shape (N, 2)
         
         rt_tree_pe_surface = cKDTree(normalized_pe_rt)
@@ -584,6 +585,7 @@ class PYVISTA_PROCESS_THD():
             query_points_1 = np.vstack([r_l/self.Max0, phi_l/self.Max2]).T
         else:
             query_points_1 = np.vstack([lower_points[:, 2]/self.Max0, lower_points[:, 0]/self.Max2]).T
+            l1_l = lower_points[:, 1]
 
         distances, indices = rt_tree_pe_surface.query(query_points_1, k=1, distance_upper_bound=d_upper_bound)
         valid_pe_mask = (indices != rt_tree_pe_surface.n)
