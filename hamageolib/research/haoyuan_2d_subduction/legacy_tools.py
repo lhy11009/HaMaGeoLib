@@ -17509,15 +17509,16 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
         marker_intervals = [500e3, 500e3, 500e3]
 
     if geometry == "chunk":
-        Max0 = Visit_Options.options["OUTER_RADIUS"]
-        Min0 = Visit_Options.options["INNER_RADIUS"]
-        Max1 = Visit_Options.options["MAX_LATITUDE"]
-        Max2 = Visit_Options.options["MAX_LONGITUDE"]
+        Max0 = float(Visit_Options.options["OUTER_RADIUS"])
+        Min0 = float(Visit_Options.options["INNER_RADIUS"])
+        # Max1 = float(Visit_Options.options["MAX_LATITUDE"])
+        Max1 = np.pi / 2.0
+        Max2 = float(Visit_Options.options["MAX_LONGITUDE"])
     else:
-        Max0 = Visit_Options.options["BOX_THICKNESS"]
+        Max0 = float(Visit_Options.options["BOX_THICKNESS"])
         Min0 = 0.0
-        Max1 = Visit_Options.options["BOX_WIDTH"]
-        Max2 = Visit_Options.options["BOX_LENGTH"]
+        Max1 = float(Visit_Options.options["BOX_WIDTH"])
+        Max2 = float(Visit_Options.options["BOX_LENGTH"])
 
     
     # output directory
@@ -17533,7 +17534,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
     # initialize the class
     # todo_3d_visual
     # fix the meaning of Max1 - latitude
-    config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": np.pi/2.0, "Max2": Max2}
+    config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2}
     PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
 
     # make domain boundary
@@ -17548,6 +17549,9 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
             "lon": np.arange(0, Max2, marker_intervals[2])}
         PprocessThD.make_boundary_spherical(marker_coordinates=p_marker_coordinates)
     else:
+        p_marker_coordinates = {"x": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0]),\
+                "y": np.arange(0, Max1, marker_intervals[1]),\
+            "z": np.arange(0, Max2, marker_intervals[2])}
         PprocessThD.make_boundary_cartesian(marker_coordinates=p_marker_coordinates)
 
     # read vtu file

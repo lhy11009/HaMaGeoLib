@@ -110,7 +110,11 @@ class PYVISTA_PROCESS_THD():
         assert self.grid is not None
 
         origin = (self.Max0, 0.0, 0.0)
-        normal = (0.0, 0.0, -1.0)
+
+        if self.geometry == "chunk":
+            normal = (0.0, 0.0, -1.0)
+        else:
+            normal = (0.0, -1.0, 0.0)
 
         sliced = self.grid.slice(normal=normal, origin=origin, generate_triangles=True)
 
@@ -291,9 +295,8 @@ class PYVISTA_PROCESS_THD():
         assert self.iso_volume_upper is not None
         indent = 4
 
-        N0 = 1000
-
-        N1 = 200
+        N0 = 2000
+        N1 = 1000
         if self.geometry == "chunk":
             min1 = 70.0 * np.pi / 180.0
         else:
@@ -413,7 +416,8 @@ class PYVISTA_PROCESS_THD():
         # Build KDTree with (r, theta)
         plate_edge_points = self.iso_plate_edge.points
         if self.geometry == "chunk":
-            l0_pe, l1_pe, l2_pe = cartesian_to_spherical(*plate_edge_points.T)
+            l0_pe, theta_pe, l2_pe = cartesian_to_spherical(*plate_edge_points.T)
+            l1_pe = np.pi/2.0 - theta_pe
         else:
             l0_pe, l1_pe, l2_pe = plate_edge_points[:, 2], plate_edge_points[:, 1], plate_edge_points[:, 0]
         rt_pe = np.vstack([l0_pe/self.Max0, l2_pe/self.Max2]).T
@@ -437,11 +441,11 @@ class PYVISTA_PROCESS_THD():
 
                 # get all φ values at this (r, θ)
                 l1_s = l1_pe[idxs]
-                min1 = np.min(l1_s)
+                max1 = np.max(l1_s)
 
                 # Check: is max_theta unique (i.e., no greater theta exists)?
-                if np.all(l1_s >= min1):
-                    l1_field_pe[i, j] = min1
+                if np.all(l1_s <= max1):
+                    l1_field_pe[i, j] = max1
 
         # Recover the 3D coordinates from (r, theta, phi_field)
         L0_pe, L2_pe = np.meshgrid(l0_vals, l2_vals, indexing='ij')
@@ -453,9 +457,9 @@ class PYVISTA_PROCESS_THD():
         l1_pe_surf = l1_field_pe[mask]
 
         if self.geometry == "chunk":
-            x_pe_surf = l0_pe_surf * np.sin(l1_pe_surf) * np.cos(l2_pe_surf)
-            y_pe_surf = l0_pe_surf * np.sin(l1_pe_surf) * np.sin(l2_pe_surf)
-            z_pe_surf = l0_pe_surf * np.cos(l1_pe_surf)
+            x_pe_surf = l0_pe_surf * np.sin(np.pi/2.0 - l1_pe_surf) * np.cos(l2_pe_surf)
+            y_pe_surf = l0_pe_surf * np.sin(np.pi/2.0 - l1_pe_surf) * np.sin(l2_pe_surf)
+            z_pe_surf = l0_pe_surf * np.cos(np.pi/2.0 - l1_pe_surf)
         else:
             x_pe_surf = l2_pe_surf
             y_pe_surf = l1_pe_surf
@@ -527,7 +531,13 @@ class PYVISTA_PROCESS_THD():
             l2_surf = self.slab_surface_points[:, 0]
         large_l2_mask = l2_valid > l2_surf[indices_valid]
 
-        large_l2_points = lower_points_valid[large_l2_mask]
+        # also get points that has absolutely large phi value,
+        # larger than the maximum in slab surface points
+        large_l2_abs_mask = l2_l > np.max(l2_surf) # debug
+
+        combined_mask = np.zeros(valid_mask.shape, dtype=bool)
+        combined_mask[valid_mask] = large_l2_mask
+        large_l2_points = lower_points[combined_mask | large_l2_abs_mask]
 
         # export by pyvista
         point_cloud_large_l2 = pv.PolyData(large_l2_points)
@@ -547,6 +557,7 @@ class PYVISTA_PROCESS_THD():
         idx1 = np.flatnonzero(valid_mask)
         large_l2_point_indices = idx1[large_l2_mask]
         is_large_l2_point[large_l2_point_indices] = True
+        is_large_l2_point[large_l2_abs_mask] = True
 
         # Initiate cell_mask with all True value (every cell is included)
         cell_mask = np.ones(self.iso_volume_lower.n_cells, dtype=bool)
@@ -569,7 +580,8 @@ class PYVISTA_PROCESS_THD():
 
         # mesh a slab edge point by kd tree
         if self.geometry == "chunk":
-            r_pe_surf, l1_pe_surf, phi_pe_surf = cartesian_to_spherical(*self.pe_edge_points.T)
+            r_pe_surf, theta_pe_surf, phi_pe_surf = cartesian_to_spherical(*self.pe_edge_points.T)
+            l1_pe_surf = np.pi/2.0 - theta_pe_surf
             normalized_pe_rt = np.vstack([r_pe_surf/self.Max0, phi_pe_surf/self.Max2]).T  # shape (N, 2)
         else:
             l1_pe_surf = self.pe_edge_points[:, 1]
@@ -581,7 +593,8 @@ class PYVISTA_PROCESS_THD():
         # matching pair in (r, phi) within slab edge points
         lower_points = self.iso_volume_lower.points
         if self.geometry == "chunk":
-            r_l, l1_l, phi_l = cartesian_to_spherical(*lower_points.T)
+            r_l, theta_l, phi_l = cartesian_to_spherical(*lower_points.T)
+            l1_l = np.pi / 2.0 - theta_l
             query_points_1 = np.vstack([r_l/self.Max0, phi_l/self.Max2]).T
         else:
             query_points_1 = np.vstack([lower_points[:, 2]/self.Max0, lower_points[:, 0]/self.Max2]).T
@@ -596,32 +609,32 @@ class PYVISTA_PROCESS_THD():
 
         # get mask for points that has smaller theta value
         # than their matching points in the plate edge surface points
-        small_l1_mask = l1_l_pe_valid < l1_pe_surf[indices_pe_valid]
+        big_l1_mask = l1_l_pe_valid > l1_pe_surf[indices_pe_valid]
 
-        small_l1_points = lower_points_pe_valid[small_l1_mask]
+        big_l1_points = lower_points_pe_valid[big_l1_mask]
 
         # export by pyvista
-        point_cloud_small_l1 = pv.PolyData(small_l1_points)
+        point_cloud_big_l1 = pv.PolyData(big_l1_points)
 
-        filename = "sp_lower_small_l1_points_%05d.vtp" % (self.pvtu_step)
+        filename = "sp_lower_big_l1_points_%05d.vtp" % (self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
-        point_cloud_small_l1.save(filepath)
+        point_cloud_big_l1.save(filepath)
         print("Save file %s" % filepath)
 
 
         # filter out cells that has small theta values
         # Derive the indices of large theta points within the original iso_volume_lower
-        is_small_l1_point = np.zeros(self.iso_volume_lower.n_points, dtype=bool)
+        is_big_l1_point = np.zeros(self.iso_volume_lower.n_points, dtype=bool)
 
         idx1 = np.flatnonzero(valid_pe_mask)
-        small_l1_point_indices = idx1[small_l1_mask]
-        is_small_l1_point[small_l1_point_indices] = True
+        big_l1_point_indices = idx1[big_l1_mask]
+        is_big_l1_point[big_l1_point_indices] = True
 
         # Use PyVista's connectivity and cell arrays if available
         # Note the cell_mask continues from the previous step
         for cid in range(self.iso_volume_lower.n_cells):
             pt_ids = self.iso_volume_lower.get_cell(cid).point_ids
-            if np.any(is_small_l1_point[pt_ids]):
+            if np.any(is_big_l1_point[pt_ids]):
                 cell_mask[cid] = False
 
         # Extract the final filtered points
@@ -634,7 +647,7 @@ class PYVISTA_PROCESS_THD():
 
         print("Save file %s" % filepath)
 
-    def make_boundary_cartesian(self, length_x, length_y, length_z, **kwargs):
+    def make_boundary_cartesian(self, **kwargs):
         """
         Generate and save the six boundary surfaces for a cartesian box model domain.
 
@@ -645,9 +658,9 @@ class PYVISTA_PROCESS_THD():
         marker_coordinates = kwargs.get("marker_coordinates", None)
         
         # Box parameters
-        x_min = 0.0; x_max = length_x
-        y_min = 0.0; y_max = length_y
-        z_min = 0.0; z_max = length_z
+        x_min = 0.0; x_max = self.Max2
+        y_min = 0.0; y_max = self.Max1
+        z_min = 0.0; z_max = self.Max0
 
         n_x = 2
         n_y = 2
@@ -667,6 +680,15 @@ class PYVISTA_PROCESS_THD():
         if marker_coordinates is not None:
             marker_points = []
 
+        # x walls (x = min, max)
+        x_edges = [x_min, x_max]
+        for x_edge in x_edges:
+            y_vals = np.linspace(y_min, y_max, n_x)
+            z_vals = np.linspace(z_min, z_max, n_z)
+            y_grid, z_grid = np.meshgrid(y_vals, z_vals)
+            x_edge_grid = np.full(y_grid.shape, x_edge)
+            surfaces.append(pv.StructuredGrid(x_edge_grid, y_grid, z_grid))
+
         # y walls (y = min, max)
         y_edges = [y_min, y_max]
         for y_edge in y_edges:
@@ -675,6 +697,30 @@ class PYVISTA_PROCESS_THD():
             x_grid, z_grid = np.meshgrid(x_vals, z_vals)
             y_edge_grid = np.full(x_grid.shape, y_edge)
             surfaces.append(pv.StructuredGrid(x_grid, y_edge_grid, z_grid))
+        
+        # x walls (x = min, max)
+        z_edges = [z_min, z_max]
+        for z_edge in z_edges:
+            x_vals = np.linspace(x_min, x_max, n_x)
+            y_vals = np.linspace(y_min, y_max, n_x)
+            x_grid, y_grid = np.meshgrid(x_vals, y_vals)
+            z_edge_grid = np.full(x_grid.shape, z_edge)
+            surfaces.append(pv.StructuredGrid(x_grid, y_grid, z_edge_grid))
+        
+        # x axis markers 
+        if marker_coordinates is not None:
+            points_array = np.array([[], [], []]).T
+            y_grid_marker, z_grid_marker = np.meshgrid((y_min, y_max), (z_min, z_max))
+            for x in marker_x:
+                x_grid_marker = np.full(y_grid_marker.shape, x)
+                new_points_array = np.column_stack([
+                     x_grid_marker.ravel(),
+                     y_grid_marker.ravel(),
+                     z_grid_marker.ravel()
+                ])
+                points_array = np.concatenate([points_array, new_points_array], axis=0)
+
+            marker_points.append(pv.PolyData(points_array))
 
         # y axis markers
         if marker_coordinates is not None:
@@ -682,6 +728,21 @@ class PYVISTA_PROCESS_THD():
             x_grid_marker, z_grid_marker = np.meshgrid((x_min, x_max), (z_min, z_max))
             for y in marker_y:
                 y_grid_marker = np.full(x_grid_marker.shape, y)
+                new_points_array = np.column_stack([
+                     x_grid_marker.ravel(),
+                     y_grid_marker.ravel(),
+                     z_grid_marker.ravel()
+                ])
+                points_array = np.concatenate([points_array, new_points_array], axis=0)
+
+            marker_points.append(pv.PolyData(points_array))
+        
+        # z axis markers
+        if marker_coordinates is not None:
+            points_array = np.array([[], [], []]).T
+            x_grid_marker, y_grid_marker = np.meshgrid((x_min, x_max), (y_min, y_max))
+            for z in marker_z:
+                z_grid_marker = np.full(x_grid_marker.shape, z)
                 new_points_array = np.column_stack([
                      x_grid_marker.ravel(),
                      y_grid_marker.ravel(),

@@ -53,13 +53,13 @@ def test_pyvista_process_thd_chunk():
     assert(os.path.isfile(sp_upper_file))
     assert(filecmp.cmp(sp_upper_file, sp_upper_file_std))
 
-    sp_lower_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
-    sp_lower_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
+    sp_lower_file_std = os.path.join(local_dir, "sp_lower_above_0.80_00002_std.vtu")
+    sp_lower_file = os.path.join(pyvista_outdir, "sp_lower_above_0.80_00002.vtu")
     assert(os.path.isfile(sp_lower_file))
     assert(filecmp.cmp(sp_lower_file, sp_lower_file_std))
     
-    slab_surface_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
-    slab_surface_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
+    slab_surface_file_std = os.path.join(local_dir, "sp_upper_surface_00002_std.vtp")
+    slab_surface_file = os.path.join(pyvista_outdir, "sp_upper_surface_00002.vtp")
     assert(os.path.isfile(slab_surface_file))
     assert(filecmp.cmp(slab_surface_file, slab_surface_file_std))
     

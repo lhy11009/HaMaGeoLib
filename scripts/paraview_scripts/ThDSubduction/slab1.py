@@ -257,16 +257,17 @@ def load_pyvista_source(data_output_dir, source_name, snapshot, **kwargs):
             'dislocation_viscosity', 'diffusion_viscosity', 'peierls_viscosity', 'strain_rate', 'velocity_slice', "radius"]
 
     # add rotation
-    if snapshot is None:
-        registration_name_transform = '%s_transform' % (source_name)
-    else:
-        registration_name_transform = '%s_transform_%05d' % (source_name, snapshot)
-    solutionpvd = FindSource(registration_name)
-    transform = Transform(registrationName=registration_name_transform, Input=solutionpvd)
-    transform.Transform = 'Transform'
-    transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
-    transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
-    Hide3DWidgets()
+    if "GEOMETRY" == "chunk":
+        if snapshot is None:
+            registration_name_transform = '%s_transform' % (source_name)
+        else:
+            registration_name_transform = '%s_transform_%05d' % (source_name, snapshot)
+        solutionpvd = FindSource(registration_name)
+        transform = Transform(registrationName=registration_name_transform, Input=solutionpvd)
+        transform.Transform = 'Transform'
+        transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
+        transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
+        Hide3DWidgets()
 
     # add glyph 
     if add_glyph:
@@ -274,7 +275,10 @@ def load_pyvista_source(data_output_dir, source_name, snapshot, **kwargs):
             registration_name_glyph = '%s_glyph' % (source_name)
         else:
             registration_name_glyph = '%s_glyph_%05d' % (source_name, snapshot)
-        add_glyph1("%s_transform_%05d" % (source_name, snapshot), "velocity_slice", 1e6, registrationName=registration_name_glyph)
+        if "GEOMETRY" == "chunk":
+            add_glyph1("%s_transform_%05d" % (source_name, snapshot), "velocity_slice", 1e6, registrationName=registration_name_glyph)
+        else:
+            add_glyph1("%s_%05d" % (source_name, snapshot), "velocity_slice", 1e6, registrationName=registration_name_glyph)
 
 
 def add_trench_triangle(registration_name, cx, cy, cz, size):
@@ -382,15 +386,21 @@ def plot_slice_center_viscosity(snapshot, pv_output_dir):
 def plot_slab_velocity_field(snapshot, pv_output_dir):
     # get the renderView
     renderView1 = GetActiveViewOrCreate('RenderView')
+
+    # trailer of source name
+    if "GEOMETRY" == "chunk":
+        trailer = "_transform"
+    else:
+        trailer = ""
     
     # Show the model boundary
-    transform_bd = FindSource("model_boundary_transform")
+    transform_bd = FindSource("model_boundary%s" % trailer)
     SetActiveSource(transform_bd)
     transform_bdDisplay = Show(transform_bd, renderView1, 'GeometryRepresentation')
     transform_bdDisplay.SetRepresentationType('Feature Edges')
 
     # Show the slab surface
-    transform_slab = FindSource("sp_lower_above_0.8_filtered_pe_transform_%05d" % snapshot)
+    transform_slab = FindSource("sp_lower_above_0.8_filtered_pe%s_%05d" % (trailer, snapshot))
     SetActiveSource(transform_slab)
     transform_slabDisplay = Show(transform_slab, renderView1, 'GeometryRepresentation')
     set_slab_volume_plot(transform_slabDisplay, 1000e3)
@@ -438,7 +448,7 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
     sourceTrOrigTrianDisplay = Show(sourceTrOrigTrian, renderView1, 'GeometryRepresentation')
 
     # Show the trench position
-    sourceTr = FindSource("trench_transform_%05d" % snapshot)
+    sourceTr = FindSource("trench%s_%05d" % (trailer, snapshot))
     sourceTrDisplay = Show(sourceTr, renderView1, 'GeometryRepresentation')
     sourceTrDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0]
     sourceTrDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
@@ -484,7 +494,7 @@ if "GEOMETRY" == "chunk":
     trench_origDisplay.DiffuseColor = [1.0, 0.6666666666666666, 0.0]
     Hide(trench_orig, renderView1)
 else:
-    raise NotImplementedError()
+    pass
 
 # add a position of the current trench
 if "GEOMETRY" == "chunk":
@@ -496,7 +506,7 @@ if "GEOMETRY" == "chunk":
     trenchDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
     Hide(trench, renderView1)
 else:
-    raise NotImplementedError()
+    pass
 
 # loop every step to plot
 for i, step in enumerate(steps):
