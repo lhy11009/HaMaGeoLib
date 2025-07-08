@@ -91,11 +91,38 @@ remove_if_exists "$BUILD_PATH"
 
 # Setting up MPI compilers
 echo "Setting up MPI compilers..."
-export CC=$(which mpicc)
-export FC=$(which mpif90)
-export CXX=$(which mpic++)
-export FF=$(which mpif77)
-export MPI_CXX=$(which mpic++)
+# C compiler
+if command -v mpicc >/dev/null 2>&1; then
+    export CC=$(command -v mpicc)
+else
+    echo "Error: mpicc not found."
+    exit 1
+fi
+# Fortran 90 compiler
+if command -v mpif90 >/dev/null 2>&1; then
+    export FC=$(command -v mpif90)
+else
+    echo "Error: mpif90 not found."
+    exit 1
+fi
+# Fortran 77 compiler
+if command -v mpif77 >/dev/null 2>&1; then
+    export FF=$(command -v mpif77)
+else
+    echo "Error: mpif77 not found."
+    exit 1
+fi
+# C++ compiler: try mpic++ first, fallback to mpicxx
+if command -v mpic++ >/dev/null 2>&1; then
+    export CXX=$(command -v mpic++)
+    export MPI_CXX=$(command -v mpic++)
+elif command -v mpicxx >/dev/null 2>&1; then
+    export CXX=$(command -v mpicxx)
+    export MPI_CXX=$(command -v mpicxx)
+else
+    echo "Error: No MPI C++ compiler wrapper found (mpic++ or mpicxx)."
+    exit 1
+fi
 
 # Checking environment
 echo "Listing loaded modules:"
