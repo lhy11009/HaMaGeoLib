@@ -531,6 +531,10 @@ for i, step in enumerate(steps):
     # load subducting plate 
     load_pyvista_source(data_output_dir, "sp_lower_above_0.8_filtered_pe", snapshot, file_type="vtu", assign_field=True)
     
+    # load slab surfaces
+    load_pyvista_source(data_output_dir, "sp_upper_surface", snapshot, file_type="vtp", assign_field=True)
+    load_pyvista_source(data_output_dir, "sp_lower_surface", snapshot, file_type="vtp", assign_field=True)
+    
     # load trench position
     load_pyvista_source(data_output_dir, "trench", snapshot, file_type="vtp")
 

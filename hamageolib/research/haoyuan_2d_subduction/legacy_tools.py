@@ -17571,9 +17571,11 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
     PprocessThD.extract_iso_volume_lower(iso_volume_threshold)
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(iso_volume_threshold)
-    # extract slab surface
-    PprocessThD.extract_slab_surface()
+    # extract slab surface and trench position, using "sp_upper" composition
+    PprocessThD.extract_slab_surface("sp_upper", True)
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
+    # extract slab surface using "sp_lower" composition
+    PprocessThD.extract_slab_surface("sp_lower")

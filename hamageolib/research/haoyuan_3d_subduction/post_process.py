@@ -41,6 +41,8 @@ class PYVISTA_PROCESS_THD():
         iso_volume_upper (pv.UnstructuredGrid): Iso-volume of 'sp_upper' above threshold.
         iso_volume_lower (pv.UnstructuredGrid): Iso-volume of 'sp_lower' above threshold.
         iso_plate_edge (pv.UnstructuredGrid): Iso-volume of 'plate_edge' above threshold.
+        iso_volume_lower_filtered_pe (pv.UnstructuredGrid): Iso-volume of 'sp_lower' above threshold,
+            with redundent points outside of the slab filtered.
         slab_surface_points (np.ndarray): Extracted (x, y, z) coordinates of slab surface.
         pe_edge_points (np.ndarray): Extracted (x, y, z) coordinates of plate edge surface.
     """
@@ -63,6 +65,7 @@ class PYVISTA_PROCESS_THD():
         self.grid = None
         self.iso_volume_upper = None
         self.iso_volume_lower = None
+        self.iso_volume_lower_filtered_pe = None
         self.iso_plate_edge = None
         self.slab_surface_points = None
         self.pe_edge_points = None
@@ -292,9 +295,13 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
-    def extract_slab_surface(self):
+    def extract_slab_surface(self, field_name, extract_trench=False):
         """
         Extract the 3D surface of the subducting slab from the sp_upper iso-volume.
+
+        Inputs:
+            field_name (str): extract from this field
+            extract_trench (bool): whether to extract trench position
 
         This method:
             - Creates a (r, θ) mesh and queries the maximum φ values for each node using KDTree.
@@ -302,7 +309,17 @@ class PYVISTA_PROCESS_THD():
             - Stores the result in `self.slab_surface_points` and exports it as a `.vtp` file.
         """
         start = time.time()
-        assert self.iso_volume_upper is not None
+
+        if field_name == "sp_upper":
+            assert self.iso_volume_upper is not None
+            source = self.iso_volume_upper
+
+        elif field_name == "sp_lower":
+            assert self.iso_volume_lower_filtered_pe is not None
+            source = self.iso_volume_lower_filtered_pe 
+        else:
+            raise NotImplementedError()
+
         indent = 4
 
         N0 = 2000
@@ -320,7 +337,7 @@ class PYVISTA_PROCESS_THD():
         vals2 = np.full((N0, N1), np.nan)
         vals2_tr = np.full(N1, np.nan)
 
-        upper_points = self.iso_volume_upper.points
+        upper_points = source.points
         
         if self.geometry == "chunk":
             v0_u, v1_u, v2_u = cartesian_to_spherical(*upper_points.T)
@@ -367,36 +384,38 @@ class PYVISTA_PROCESS_THD():
 
         # save slab surface points
         point_cloud = pv.PolyData(self.slab_surface_points)
-        filename = "sp_upper_surface_%05d.vtp" % self.pvtu_step
+        filename = "%s_surface_%05d.vtp" % (field_name, self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
         point_cloud.save(filepath)
 
         print("Save file %s" % filepath)
 
         # extract trench points
-        mask_tr = ~np.isnan(vals2_tr)
-        v1_tr = vals1[mask_tr]
-        v2_tr = vals2_tr[mask_tr]
+        if extract_trench:
+            mask_tr = ~np.isnan(vals2_tr)
+            v1_tr = vals1[mask_tr]
+            v2_tr = vals2_tr[mask_tr]
 
-        if self.geometry == "chunk": 
-            x_tr = self.Max0 * np.sin(v1_tr) * np.cos(v2_tr)
-            y_tr = self.Max0 * np.sin(v1_tr) * np.sin(v2_tr)
-            z_tr = self.Max0 * np.cos(v1_tr)
-        else:
-            x_tr = v2_tr
-            y_tr = v1_tr
-            z_tr = self.Max0 * np.ones(v1_tr.shape)
-        
-        self.trench_points = np.vstack([x_tr, y_tr, z_tr]).T
-        _, _, self.trench_center = cartesian_to_spherical(self.trench_points[-1, 0], self.trench_points[-1, 1], self.trench_points[-1, 2])
+            if self.geometry == "chunk": 
+                x_tr = self.Max0 * np.sin(v1_tr) * np.cos(v2_tr)
+                y_tr = self.Max0 * np.sin(v1_tr) * np.sin(v2_tr)
+                z_tr = self.Max0 * np.cos(v1_tr)
+            else:
+                x_tr = v2_tr
+                y_tr = v1_tr
+                z_tr = self.Max0 * np.ones(v1_tr.shape)
+            
+            self.trench_points = np.vstack([x_tr, y_tr, z_tr]).T
+            _, _, self.trench_center = cartesian_to_spherical(self.trench_points[-1, 0], self.trench_points[-1, 1], self.trench_points[-1, 2])
 
-        # save trench points
-        point_cloud_tr = pv.PolyData(self.trench_points)
-        filename = "trench_%05d.vtp" % self.pvtu_step
-        filepath = os.path.join(self.pyvista_outdir, filename)
-        point_cloud_tr.save(filepath)
+            # save trench points
+            point_cloud_tr = pv.PolyData(self.trench_points)
+            filename = "trench_%05d.vtp" % self.pvtu_step
+            filepath = os.path.join(self.pyvista_outdir, filename)
+            point_cloud_tr.save(filepath)
 
-        print("Save file %s" % filepath)
+            print("Save file %s" % filepath)
+
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
@@ -648,12 +667,12 @@ class PYVISTA_PROCESS_THD():
                 cell_mask[cid] = False
 
         # Extract the final filtered points
-        filtered_pe = self.iso_volume_lower.extract_cells(cell_mask)
+        self.iso_volume_lower_filtered_pe = self.iso_volume_lower.extract_cells(cell_mask)
 
         # Save to file for ParaView or future use
         filename = "sp_lower_above_0.8_filtered_pe_%05d.vtu" % (self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
-        filtered_pe.save(filepath)
+        self.iso_volume_lower_filtered_pe.save(filepath)
 
         print("Save file %s" % filepath)
 
@@ -1012,3 +1031,19 @@ def get_trench_position_from_file(pyvista_outdir, pvtu_step):
     points = point_cloud_tr.points
     _, _, trench_center = cartesian_to_spherical(points[-1, 0], points[-1, 1], points[-1, 2])
     return trench_center
+
+
+def get_slab_depth_from_file(pyvista_outdir, geometry, Max0, field_name, pvtu_step):
+    '''
+    Get the position of trench from a file generated previously
+    '''
+    filename = "%s_surface_%05d.vtp" % (field_name, pvtu_step)
+    filepath = os.path.join(pyvista_outdir, filename)
+    point_cloud_tr = pv.read(filepath)
+    points = point_cloud_tr.points
+    if geometry == "chunk":
+        l0, _, _ = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
+    else:
+        l0 = points[:, 2]
+    slab_depth = Max0 - np.min(l0)
+    return slab_depth
