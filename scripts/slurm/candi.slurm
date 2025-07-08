@@ -37,6 +37,9 @@ ASPECT_MODE="debug"
 # release, the build directory is named as "build_release"
 # debug, the build directory is named as "build_debug"
 
+# expicitly set this up for my branch
+# source /work2/06806/hyli/frontera/Softwares/aspectLib/enable.sh
+
 # Loading modules
 echo "Loading required modules..."
 module load gcc/13.2.0
@@ -168,7 +171,6 @@ fi
 # Compile ASPECT
 echo "Sourcing up DEAL.II configuration..."
 source "$INSTALL_PREFIX/configuration/enable.sh"
-source /quobyte/billengrp/lochy/Software/aspectLib/enable.sh
 export ASPECT_SOURCE_DIR="$ASPECT_INSTALL_DIR"
 echo "Setting up ASPECT build directory..."
 if [[ -z "${ASPECT_INSTALL_DIR}" ]]; then
