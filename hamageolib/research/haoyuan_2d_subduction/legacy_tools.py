@@ -17548,11 +17548,13 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
                 "lat": np.arange(0, Max1, marker_intervals[1]),\
             "lon": np.arange(0, Max2, marker_intervals[2])}
         PprocessThD.make_boundary_spherical(marker_coordinates=p_marker_coordinates)
+        PprocessThD.create_spherical_plane(660e3)
     else:
-        p_marker_coordinates = {"x": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0]),\
+        p_marker_coordinates = {"x": Max2 - np.arange(0, Max2, marker_intervals[2]),\
                 "y": np.arange(0, Max1, marker_intervals[1]),\
-            "z": np.arange(0, Max2, marker_intervals[2])}
+            "z": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0])}
         PprocessThD.make_boundary_cartesian(marker_coordinates=p_marker_coordinates)
+        PprocessThD.create_cartesian_plane(660e3)
 
     # read vtu file
     pvtu_filepath = os.path.join(case_path, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
@@ -17562,7 +17564,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
     # slice at surface
     PprocessThD.slice_surface()
     # slice at depth
-    PprocessThD.slice_at_depth(slice_depth)
+    PprocessThD.slice_at_depth(slice_depth, rdiff=40e3)
     # extract sp_upper composition beyond a threshold
     PprocessThD.extract_iso_volume_upper(iso_volume_threshold)
     # extract sp_lower composition beyond a threshold

@@ -177,31 +177,41 @@ class PYVISTA_PROCESS_THD():
         r_slice = self.Max0 - depth
         r_diff = kwargs.get("r_diff", 10e3)
 
-        slice_shell = self.grid.threshold([r_slice - r_diff, r_slice + r_diff], scalars="radius")
-
-        # Project velocity onto the surface
-        # Get point coordinates and velocity vectors
-        # Compute normalized radial direction vectors at each point
-        # Project velocity onto tangent plane of sphere: v_tangent = v - (v · r̂) r̂
-        # Store new vector field
-        points = slice_shell.points                   # (N, 3)
-        velocities = slice_shell.point_data["velocity"]  # (N, 3)
-
         if self.geometry == 'chunk':
+            slice_at_depth = self.grid.threshold([r_slice - r_diff, r_slice + r_diff], scalars="radius")
+
+            # Project velocity onto the surface
+            # Get point coordinates and velocity vectors
+            # Compute normalized radial direction vectors at each point
+            # Project velocity onto tangent plane of sphere: v_tangent = v - (v · r̂) r̂
+            # Store new vector field
+            points = slice_at_depth.points                   # (N, 3)
+            velocities = slice_at_depth.point_data["velocity"]  # (N, 3)
+
             radial_dirs = points / np.linalg.norm(points, axis=1)[:, np.newaxis]  # (N, 3)
+
+            v_dot_r = np.sum(velocities * radial_dirs, axis=1)  # (N,)
+            v_radial = (v_dot_r[:, np.newaxis]) * radial_dirs   # (N, 3)
+            v_tangent = velocities - v_radial                   # (N, 3)
+
+            slice_at_depth.point_data["velocity_slice"] = v_tangent
+            filename = "slice_depth_%.1fkm_%05d.vtu" % (depth / 1e3, self.pvtu_step)
         else:
-            radial_dirs = np.array([0, 0, 1.0])
+            origin = (0, 0, r_slice)
+            normal = (0, 0, 1.0)
 
-        v_dot_r = np.sum(velocities * radial_dirs, axis=1)  # (N,)
-        v_radial = (v_dot_r[:, np.newaxis]) * radial_dirs   # (N, 3)
-        v_tangent = velocities - v_radial                   # (N, 3)
+            slice_at_depth = self.grid.slice(normal=normal, origin=origin, generate_triangles=True)
 
-        slice_shell.point_data["velocity_slice"] = v_tangent
+            V = slice_at_depth["velocity"]
+            dot_products = np.dot(V, normal)
+            V_proj = V - np.outer(dot_products, normal)
+
+            slice_at_depth["velocity_slice"] = V_proj
+            filename = "slice_depth_%.1fkm_%05d.vtp" % (depth / 1e3, self.pvtu_step)
 
         # Export results
-        filename = "slice_depth_%.1fkm_%05d.vtu" % (depth / 1e3, self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
-        slice_shell.save(filepath)
+        slice_at_depth.save(filepath)
         print("%ssaved file: %s" % (indent * " ", filepath))
 
         end = time.time()
@@ -922,6 +932,74 @@ class PYVISTA_PROCESS_THD():
             filepath = os.path.join(self.pyvista_outdir, "..", filename)
             full_marker_point.save(filepath)
             print("saved file: %s" % filepath)
+
+
+    def create_cartesian_plane(self, depth, resolution=(50, 50)):
+        """
+        Create a rectangular plane at a constant z-depth.
+
+        Parameters:
+            depth: constant depth for the plane
+            resolution: (nx, ny) number of subdivisions in x and y
+            filename: output file name (.vtp)
+        """
+        # Create linspace
+        x = np.linspace(0.0, self.Max2, resolution[0])
+        y = np.linspace(0.0, self.Max1, resolution[1])
+        x_grid, y_grid = np.meshgrid(x, y)
+
+        # Constant z
+        z_grid = np.full_like(x_grid, self.Max0 - depth)
+
+        # Combine to points
+        points = np.column_stack((x_grid.ravel(), y_grid.ravel(), z_grid.ravel()))
+
+        # Create structured grid
+        grid = pv.StructuredGrid()
+        grid.points = points
+        grid.dimensions = (resolution[0], resolution[1], 1)
+
+        # Save and return
+        filename="plane_%.1fkm.vtk" % (depth/1e3)
+        filepath = os.path.join(self.pyvista_outdir, "..", filename)
+        grid.save(filepath)
+        print("saved file: %s" % filepath)
+
+
+    def create_spherical_plane(self, depth, resolution=(50, 50)):
+        """
+        Create a spherical plane at a constant radius.
+
+        Parameters:
+            depth: offset from base radius (final radius = radius + depth)
+            resolution: (n_theta, n_phi) grid resolution
+        """
+        # Compute actual surface radius
+        surface_radius = self.Max0 - depth
+
+        # Create theta and phi arrays (already in radians)
+        theta = np.linspace(self.Min1, self.Max1, resolution[0])
+        phi = np.linspace(self.Min2, self.Max2, resolution[1])
+        theta_grid, phi_grid = np.meshgrid(theta, phi)
+
+        # Spherical to Cartesian conversion
+        x = surface_radius * np.sin(phi_grid) * np.cos(theta_grid)
+        y = surface_radius * np.sin(phi_grid) * np.sin(theta_grid)
+        z = surface_radius * np.cos(phi_grid)
+
+        # Combine to points
+        points = np.column_stack((x.ravel(), y.ravel(), z.ravel()))
+
+        # Create structured grid
+        grid = pv.StructuredGrid()
+        grid.points = points
+        grid.dimensions = (resolution[0], resolution[1], 1)
+        
+        # Save and return
+        filename="plane_%.1fkm.vtk" % (depth/1e3)
+        filepath = os.path.join(self.pyvista_outdir, "..", filename)
+        grid.save(filepath)
+        print("saved file: %s" % filepath)
 
 
 def get_trench_position_from_file(pyvista_outdir, pvtu_step):

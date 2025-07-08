@@ -434,7 +434,7 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
     sourceV2Display.DiffuseColor = [0.0, 0.3333333333333333, 1.0]
 
     scale_factor = 5e6
-    n_sample_points = 10000
+    n_sample_points = 2000
     if "GEOMETRY" == "chunk":
         point_source_center = [0, 6.4e6, 0]
     elif "GEOMETRY" == "box":
@@ -464,7 +464,10 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
         renderView1.CameraViewUp = [0.4547624702546983, 0.8822092047301953, -0.1220574239330037]
         renderView1.CameraParallelScale = 600000.0
     elif "GEOMETRY" == "box":
-        return NotImplementedError()
+        renderView1.CameraPosition = [10420037.17156642, 5096774.770188813, 6264706.593871739]
+        renderView1.CameraFocalPoint = [954463.8330784661, -1150881.9263552597, -281716.0365199686]
+        renderView1.CameraViewUp = [-0.3922048999477372, -0.31237589777368785, 0.8652147796628696]
+        renderView1.CameraParallelScale = 600000.0
 
     # hide objects
     # Hide(transform_bd, renderView1)
@@ -482,6 +485,7 @@ renderView1 = GetActiveViewOrCreate('RenderView')
 # load model boundary
 load_pyvista_source(data_output_dir, "model_boundary", None, file_type="vtu")
 load_pyvista_source(data_output_dir, "model_boundary_marker_points", None)
+# load_pyvista_source(data_output_dir, "plane_660.0km", None, file_type="vtp")
 
 
 # add a position of the original trench
@@ -517,7 +521,12 @@ for i, step in enumerate(steps):
     load_pyvista_source(data_output_dir, "slice_center", snapshot, assign_field=True, add_glyph=True)
 
     # load slice at 200 km depth
-    load_pyvista_source(data_output_dir, "slice_depth_200.0km", snapshot, file_type="vtu", assign_field=True, add_glyph=True)
+    if "GEOMETRY" == "chunk":
+        slice_depth_file_type = "vtu"
+    else:
+        slice_depth_file_type = "vtp"
+
+    load_pyvista_source(data_output_dir, "slice_depth_200.0km", snapshot, file_type=slice_depth_file_type, assign_field=True, add_glyph=True)
 
     # load subducting plate 
     load_pyvista_source(data_output_dir, "sp_lower_above_0.8_filtered_pe", snapshot, file_type="vtu", assign_field=True)
