@@ -180,9 +180,10 @@ class CASE_OPTIONS:
 
             self.visualization_df.attrs["Time between graphical output"] = time_between_graphical_output
 
-    def SummaryCase(self):
+    def SummaryCaseVtuStep(self):
         '''
         Generate a Case Summary
+        ofile (str): if this provided, output the csv summary
         '''
         my_assert(self.options != {}, ValueError, "The Case needs to be interpreted first")
         # todo_data
@@ -192,12 +193,20 @@ class CASE_OPTIONS:
         Time_step_number = self.visualization_df["Time step number"].iloc[initial_adaptive_refinement:]
         Vtu_step = np.arange(0, Time_step_number.size, dtype=int)
         Vtu_snapshot = Vtu_step + initial_adaptive_refinement
-        self.summary_df = df = pd.DataFrame({
+        self.summary_df = pd.DataFrame({
+            "Vtu step": Vtu_step,
             "Time": Time,
             "Time step number": Time_step_number,
-            "Vtu step": Vtu_step,
             "Vtu snapshot": Vtu_snapshot
             })
+    
+    def SummaryCaseVtuStepExport(self, ofile):
+        '''
+        exprot summary based on vtu steps
+        '''
+        self.summary_df.to_csv(ofile, index=False)
+        print("%s: saved file %s" % (func_name(), ofile))
+
 
 
     def resample_visualization_df(self, time_interval):
@@ -207,7 +216,7 @@ class CASE_OPTIONS:
 
             return resampled_df
     
-    def interpret(self):
+    def Interpret(self, **kwargs):
 
         # paths
         self.options["OUTPUT_DIRECTORY"] = self.output_dir

@@ -3,10 +3,12 @@ import math
 import time
 import pyvista as pv
 import numpy as np
+from scipy.spatial import cKDTree
 from hamageolib.utils.geometry_utilities import cartesian_to_spherical
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
-from scipy.spatial import cKDTree
+from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS
+SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
 class PYVISTA_PROCESS_THD():
 
@@ -1047,6 +1049,83 @@ def get_slab_depth_from_file(pyvista_outdir, geometry, Max0, field_name, pvtu_st
         l0 = points[:, 2]
     slab_depth = Max0 - np.min(l0)
     return slab_depth
+
+
+class PLOT_CASE_RUN_THD():
+    '''
+    Plot case run result
+    Attributes:
+        case_path(str): path to the case
+        Visit_Options: options for case
+        kwargs:
+            time_range
+            step(int): if this is given as an int, only plot this step
+
+    Returns:
+        -
+    '''
+    def __init__(self, case_path, **kwargs):
+        '''
+        Initiation
+        Inputs:
+            case_path - full path to a 3-d case
+            kwargs
+        '''
+
+        self.case_path = case_path
+        self.kwargs = kwargs
+        print("PlotCaseRun in ThDSubduction: operating")
+        step = kwargs.get('step', None)
+        last_step = kwargs.get('last_step', 3)
+
+        # steps to plot: here I use the keys in kwargs to allow different
+        # options: by steps, a single step, or the last step
+        if type(step) == int:
+            self.kwargs["steps"] = [step]
+        elif type(step) == list:
+            self.kwargs["steps"] = step
+        elif type(step) == str:
+            self.kwargs["steps"] = step
+        else:
+            self.kwargs["last_step"] = last_step
+
+        # get case parameters
+        # prm_path = os.path.join(self.case_path, 'output', 'original.prm')
+        
+        # initiate options
+        self.Visit_Options = CASE_OPTIONS(self.case_path)
+        self.Visit_Options.Interpret(**self.kwargs)
+
+    def ProcessPyvista(self):
+        '''
+        pyvista processing
+        '''
+        for vtu_step in self.Visit_Options.options['GRAPHICAL_STEPS']:
+            pvtu_step = vtu_step + int(self.Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
+            ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Visit_Options)
+        return
+            
+
+    def GenerateParaviewScript(self, ofile_list, additional_options):
+        '''
+        generate paraview script
+        Inputs:
+            ofile_list - a list of file to include in paraview
+            additional_options - options to append
+        '''
+        require_base = self.kwargs.get('require_base', True)
+        for ofile_base in ofile_list:
+            ofile = os.path.join(self.case_path, 'paraview_scripts', ofile_base)
+            paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts',"ThDSubduction", ofile_base)
+            if require_base:
+                paraview_base_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')  # base.py : base file
+                self.Visit_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
+            else:
+                self.Visit_Options.read_contents(paraview_script)  # this part combines two scripts
+            self.Visit_Options.options.update(additional_options)
+            self.Visit_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
+            ofile_path = self.Visit_Options.save(ofile, relative=False)  # save the altered script
+            print("\t File generated: %s" % ofile_path)
 
 
 def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):

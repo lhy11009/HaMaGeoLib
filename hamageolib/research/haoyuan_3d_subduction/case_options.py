@@ -1,31 +1,14 @@
 # todo_data
 import os
 import numpy as np
-from hamageolib.utils.case_options import CASE_OPTIONS
-from hamageolib.research.haoyuan_2d_subduction.legacy_tools import VISIT_OPTIONS_BASE, FindWBFeatures, WBFeatureNotFoundError, COMPOSITION, GetSnapsSteps
-from hamageolib.research.haoyuan_2d_subduction.legacy_utilities import ggr2cart, string2list
-from hamageolib.research.haoyuan_3d_subduction.post_process import ProcessVtuFileThDStep
+import pandas as pd
+from hamageolib.research.haoyuan_2d_subduction.legacy_tools import VISIT_OPTIONS_BASE, VISIT_OPTIONS_TWOD, FindWBFeatures, WBFeatureNotFoundError, COMPOSITION, GetSnapsSteps
+from hamageolib.research.haoyuan_2d_subduction.legacy_utilities import ggr2cart, string2list, func_name
 from hamageolib.utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
 
-# class CASE_OPTIONS_THD(CASE_OPTIONS):
-#     def __init__(self, case_dir):
-#         CASE_OPTIONS.__init__(self, case_dir)
-    
-#     def interpret(self):
-#         return CASE_OPTIONS.interpret(self)
-
-#     def SummaryCase(self):
-#         """
-#         Generate Case Summary
-#         """
-#         CASE_OPTIONS.SummaryCase(self)
-#         # add specific columns
-#         self.summary_df["trench"] = np.nan
-
-
-class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
+class CASE_OPTIONS(VISIT_OPTIONS_TWOD, CASE_OPTIONS_BASE):
     """
     parse .prm file to a option file that bash can easily read
     """
@@ -47,6 +30,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         
         to_rad = np.pi / 180.0
         # call function from parent
+        CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
         idx = FindWBFeatures(self.wb_dict, "Subducting plate")
         idx1 = FindWBFeatures(self.wb_dict, "Slab")
@@ -218,82 +202,42 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
                 psnaps.append(snap)
                 ptimes.append(time)
         return ptimes, psnaps
-
-
-class PLOT_CASE_RUN_THD():
-    '''
-    Plot case run result
-    Attributes:
-        case_path(str): path to the case
-        Visit_Options: options for case
-        kwargs:
-            time_range
-            step(int): if this is given as an int, only plot this step
-
-    Returns:
-        -
-    '''
-    def __init__(self, case_path, **kwargs):
+    
+    def SummaryCaseVtuStep(self, ofile=None):
         '''
-        Initiation
-        Inputs:
-            case_path - full path to a 3-d case
-            kwargs
+        Summary case result
+        ofile (str): if this provided, import old results
         '''
+        CASE_OPTIONS_BASE.SummaryCaseVtuStep(self)
 
-        self.case_path = case_path
-        self.kwargs = kwargs
-        print("PlotCaseRun in ThDSubduction: operating")
-        step = kwargs.get('step', None)
-        last_step = kwargs.get('last_step', 3)
+        # Here we want to reset it to not mess up old results
+        summary_df_foo = self.summary_df.copy(deep=True)
 
-        # steps to plot: here I use the keys in kwargs to allow different
-        # options: by steps, a single step, or the last step
-        if type(step) == int:
-            self.kwargs["steps"] = [step]
-        elif type(step) == list:
-            self.kwargs["steps"] = step
-        elif type(step) == str:
-            self.kwargs["steps"] = step
-        else:
-            self.kwargs["last_step"] = last_step
+        # start from old file
+        if os.path.isfile(ofile):
+            # rewrite the results from file
+            self.summary_df = pd.read_csv(ofile)
 
-        # get case parameters
-        # prm_path = os.path.join(self.case_path, 'output', 'original.prm')
-        
-        # initiate options
-        self.Visit_Options = CASE_OPTIONS(self.case_path)
-        self.Visit_Options.Interpret(**self.kwargs)
+            # Identify new rows in summary_df_foo
+            old_vtu_steps = set(self.summary_df["Vtu step"])
+            new_rows_mask = ~summary_df_foo["Vtu step"].isin(old_vtu_steps)
+            new_rows = summary_df_foo[new_rows_mask]
 
-    def ProcessPyvista(self):
-        '''
-        pyvista processing
-        '''
-        for vtu_step in self.Visit_Options.options['GRAPHICAL_STEPS']:
-            pvtu_step = vtu_step + int(self.Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
-            ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Visit_Options)
-        return
-            
+            # Concatenate new rows to the existing summary
+            self.summary_df = pd.concat([self.summary_df, new_rows], ignore_index=True)
 
-    def GenerateParaviewScript(self, ofile_list, additional_options):
-        '''
-        generate paraview script
-        Inputs:
-            ofile_list - a list of file to include in paraview
-            additional_options - options to append
-        '''
-        require_base = self.kwargs.get('require_base', True)
-        for ofile_base in ofile_list:
-            ofile = os.path.join(self.case_path, 'paraview_scripts', ofile_base)
-            paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts',"ThDSubduction", ofile_base)
-            if require_base:
-                paraview_base_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')  # base.py : base file
-                self.Visit_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
-            else:
-                self.Visit_Options.read_contents(paraview_script)  # this part combines two scripts
-            self.Visit_Options.options.update(additional_options)
-            self.Visit_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
-            ofile_path = self.Visit_Options.save(ofile, relative=False)  # save the altered script
-            print("\t File generated: %s" % ofile_path)
+            # Sort by "Vtu step"
+            self.summary_df.sort_values("Vtu step", inplace=True)
+            self.summary_df.reset_index(drop=True, inplace=True)
+
+        # Add new columns you want to add
+        new_columns = ["Slab depth", "Trench (center)"]
+
+        for col in new_columns:
+            if col not in self.summary_df.columns:
+                self.summary_df[col] = np.nan
+
+
+
 
 
