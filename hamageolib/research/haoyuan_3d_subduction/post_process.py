@@ -1047,3 +1047,90 @@ def get_slab_depth_from_file(pyvista_outdir, geometry, Max0, field_name, pvtu_st
         l0 = points[:, 2]
     slab_depth = Max0 - np.min(l0)
     return slab_depth
+
+
+def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
+    '''
+    Process with pyvsita for a single step
+    Inputs:
+        case_path - full path of a 3-d case
+        pvtu_step - pvtu_step of vtu output files
+    '''
+    geometry = Visit_Options.options["GEOMETRY"]
+
+    if geometry == "chunk":
+        marker_intervals = [500e3, 10.0*np.pi/180.0, 10.0*np.pi/180.0]
+    else:
+        marker_intervals = [500e3, 500e3, 500e3]
+
+    if geometry == "chunk":
+        Max0 = float(Visit_Options.options["OUTER_RADIUS"])
+        Min0 = float(Visit_Options.options["INNER_RADIUS"])
+        # Max1 = float(Visit_Options.options["MAX_LATITUDE"])
+        Max1 = np.pi / 2.0
+        Max2 = float(Visit_Options.options["MAX_LONGITUDE"])
+    else:
+        Max0 = float(Visit_Options.options["BOX_THICKNESS"])
+        Min0 = 0.0
+        Max1 = float(Visit_Options.options["BOX_WIDTH"])
+        Max2 = float(Visit_Options.options["BOX_LENGTH"])
+
+    
+    # output directory
+    if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
+        os.mkdir(os.path.join(case_path, "pyvista_outputs"))
+    pyvista_outdir = os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)
+    if not os.path.isdir(pyvista_outdir):
+        os.mkdir(pyvista_outdir)
+
+    slice_depth = 200e3
+    iso_volume_threshold = 0.8
+
+    # initialize the class
+    # todo_3d_visual
+    # fix the meaning of Max1 - latitude
+    config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2}
+    PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
+
+    # make domain boundary
+    if geometry == "chunk":
+        # p_marker_coordinates = {"r": 6371e3 - np.arange(0, 6000e3, 1000e3), "lon": np.arange(0, 90, 10)*np.pi/180.0, "lat": np.arange(0, 90.0, 10.0)*np.pi/180.0}
+        # d1 = np.floor((Max0 - Min0) / marker_intervals[0]) * marker_intervals[0]
+        # lat1 = np.floor(Max1 / marker_intervals[1]) * marker_intervals[1]
+        # lon1 = np.floor(Max2 / marker_intervals[2]) * marker_intervals[2]
+
+        p_marker_coordinates = {"r": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0]),\
+                "lat": np.arange(0, Max1, marker_intervals[1]),\
+            "lon": np.arange(0, Max2, marker_intervals[2])}
+        PprocessThD.make_boundary_spherical(marker_coordinates=p_marker_coordinates)
+        PprocessThD.create_spherical_plane(660e3)
+    else:
+        p_marker_coordinates = {"x": Max2 - np.arange(0, Max2, marker_intervals[2]),\
+                "y": np.arange(0, Max1, marker_intervals[1]),\
+            "z": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0])}
+        PprocessThD.make_boundary_cartesian(marker_coordinates=p_marker_coordinates)
+        PprocessThD.create_cartesian_plane(660e3)
+
+    # read vtu file
+    pvtu_filepath = os.path.join(case_path, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
+    PprocessThD.read(pvtu_step, pvtu_filepath)
+    # slice at center
+    PprocessThD.slice_center()
+    # slice at surface
+    PprocessThD.slice_surface()
+    # slice at depth
+    PprocessThD.slice_at_depth(slice_depth, rdiff=40e3)
+    # extract sp_upper composition beyond a threshold
+    PprocessThD.extract_iso_volume_upper(iso_volume_threshold)
+    # extract sp_lower composition beyond a threshold
+    PprocessThD.extract_iso_volume_lower(iso_volume_threshold)
+    # extract plate_edge composition beyond a threshold
+    PprocessThD.extract_plate_edge(iso_volume_threshold)
+    # extract slab surface and trench position, using "sp_upper" composition
+    PprocessThD.extract_slab_surface("sp_upper", True)
+    # extract slab edge
+    PprocessThD.extract_plate_edge_surface()
+    # filter the slab lower points
+    PprocessThD.filter_slab_lower_points()
+    # extract slab surface using "sp_lower" composition
+    PprocessThD.extract_slab_surface("sp_lower")

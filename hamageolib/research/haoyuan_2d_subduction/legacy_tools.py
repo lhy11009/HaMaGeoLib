@@ -17229,7 +17229,7 @@ class PLATE_MODEL():
             return T
 
 
-class VISIT_OPTIONS_THD(VISIT_OPTIONS_TWOD):
+class VISIT_OPTIONS_THD(VISIT_OPTIONS_BASE):
     """
     parse .prm file to a option file that bash can easily read
     """
