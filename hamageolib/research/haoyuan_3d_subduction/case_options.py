@@ -29,6 +29,13 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
     """
     parse .prm file to a option file that bash can easily read
     """
+    def __init__(self, case_dir):
+        '''
+        class initiation
+        '''
+        VISIT_OPTIONS_BASE.__init__(self, case_dir)
+        CASE_OPTIONS_BASE.__init__(self, case_dir)
+
     def Interpret(self, **kwargs):
         """
         Interpret the inputs, to be reloaded in children

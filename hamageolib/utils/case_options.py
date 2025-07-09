@@ -124,16 +124,23 @@ class CASE_OPTIONS:
 
         # Log file
         log_file_path = os.path.join(self.output_dir, "log.txt")
-        my_assert(os.access(log_file_path, os.R_OK), FileNotFoundError,
-                  'BASH_OPTIONS.__init__: log file - %s cannot be read' % log_file_path)
-        self.time_df = parse_log_file_for_time_info_to_pd(log_file_path)
-        # header infomation: versions
-        results = parse_log_file_for_header_info(log_file_path)
-        self.aspect_version = results[0]
-        self.dealii_version = results[1]
-        self.world_builder_version = results[2]
-        self.n_mpi = int(results[3])
-    
+        # my_assert(os.access(log_file_path, os.R_OK), FileNotFoundError,
+                #   'BASH_OPTIONS.__init__: log file - %s cannot be read' % log_file_path)
+        if os.access(log_file_path, os.R_OK):
+            # header infomation: versions
+            self.time_df = parse_log_file_for_time_info_to_pd(log_file_path)
+            results = parse_log_file_for_header_info(log_file_path)
+            self.aspect_version = results[0]
+            self.dealii_version = results[1]
+            self.world_builder_version = results[2]
+            self.n_mpi = int(results[3])
+        else:
+            self.time_df = None
+            self.aspect_version = None
+            self.dealii_version = None
+            self.world_builder_version = None
+            self.n_mpi = None
+        
 
         # Read visualization files
         # parse information of the output file
