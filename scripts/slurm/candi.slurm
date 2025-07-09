@@ -1,3 +1,11 @@
+# This script submits a job to compile deal.ii and then ASPECT
+# For deal.ii, a repository of candi is given
+# For ASPECT, a repository of ASPECT is given
+# Before running, make sure all modules are loaded
+# Also, adjust the ASPECT branch and mode (debugrelease, release, debug)you want to compile
+# There are options to only compile ASPECT, in this case, an existing deal.ii directory should be given.
+# Before the compilation of ASPECT, the script will source the configuration/enable.sh file from deal.ii
+
 #!/bin/bash
 #SBATCH --account=billengrp          # SLURM account to use
 #SBATCH --partition=high         # Partition to submit the job
@@ -28,10 +36,9 @@ TASK="aspect" # Different tasks
 # aspect - only configure and build aspect
 # aspect_build_only - using existing build directory and build
 
-ASPECT_BRANCH="master_TwoD_rebase" # Choices for aspect
-#ASPECT_BRANCH="main"
-ASPECT_MODE="debug"
-#ASPECT_MODE="debugrelease"
+ASPECT_BRANCH="main" # Choices for aspect
+#ASPECT_MODE="debug"
+ASPECT_MODE="debugrelease"
 # choices of ASPECT_MODE:
 # debugrelease (default), the build directory is named as "build_debugrelease"
 # release, the build directory is named as "build_release"
@@ -42,8 +49,8 @@ ASPECT_MODE="debug"
 
 # Loading modules
 echo "Loading required modules..."
-module load gcc/13.2.0
-module load cmake/3.28.1
+# module load gcc/13.2.0
+# module load cmake/3.28.1
 
 # Path to download, unpack and build. candi will use these path to build deal.ii
 export DOWNLOAD_PATH=/tmp/src1
@@ -203,7 +210,7 @@ else
 	ASPECT_BUILD_DIR="${ASPECT_INSTALL_DIR}/build_${ASPECT_BRANCH}"
 fi
 
-if [ "$ASPECT_MODE" = "release" ]; then
+if [ "$ASPECT_MODE" = "debugrelease" ]; then
 	echo "Building in release mode"
 else
 	echo "Building in $ASPECT_MODE mode"
