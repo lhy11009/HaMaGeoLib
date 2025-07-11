@@ -1,0 +1,32 @@
+Host billen-nas
+	HostName billen-nas.geology.ucdavis.edu
+	User hli
+	IdentityFile ~/.ssh/keys_billen_nas/id_ed25519
+	IdentitiesOnly yes
+
+Host billen-nas.geology.ucdavis.edu
+	IdentityFile ~/.ssh/keys_billen_nas/id_ed25519
+
+Host peloton
+  HostName peloton.hpc.ucdavis.edu
+  User lochy
+  IdentityFile ~/.ssh/id_rsa
+  IdentitiesOnly yes
+
+Host stampede2
+  HostName stampede2.tacc.utexas.edu
+  User hyli
+  IdentityFile ~/.ssh/id_rsa
+  IdentitiesOnly yes
+
+Host frontera
+  HostName frontera.tacc.utexas.edu
+  User hyli
+  IdentityFile ~/.ssh/id_rsa
+  IdentitiesOnly yes
+
+Host hive
+  HostName hive.hpc.ucdavis.edu
+  User lochy
+  IdentityFile ~/.ssh/id_rsa
+  IdentitiesOnly yes
