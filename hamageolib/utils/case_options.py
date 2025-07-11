@@ -199,6 +199,20 @@ class CASE_OPTIONS:
             "Time step number": Time_step_number,
             "Vtu snapshot": Vtu_snapshot
             })
+
+    def SummaryCaseVtuStepUpdateValue(self, field_name, vtu_step, value):
+        '''
+        Update the value of a give field at vtu_step with value
+        '''
+        # Get the matching index
+        index_list = self.summary_df.index[self.summary_df["Vtu step"] == vtu_step].tolist()
+        my_assert(len(index_list)==1, ValueError, "Given value of vtu_step should match exact one value in the recorded values")
+        index = index_list[0]
+
+        # assign value
+        my_assert(field_name in self.summary_df.columns, ValueError, "Given field_name is not an entry of summary")
+        self.summary_df.at[index, field_name] = value
+    
     
     def SummaryCaseVtuStepExport(self, ofile):
         '''

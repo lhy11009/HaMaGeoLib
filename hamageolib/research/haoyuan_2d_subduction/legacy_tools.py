@@ -478,7 +478,7 @@ class VISIT_OPTIONS_BASE(CASE_OPTIONS):
         #   1. a list of steps
         #   2. the last few steps
         #   3. only the last step
-        if type(steps) == list:
+        if type(steps) == list or type(steps) == np.ndarray:
             for step in steps:
                 assert(type(step) == int)
             self.options['GRAPHICAL_STEPS'] = steps  # always plot the 0 th step

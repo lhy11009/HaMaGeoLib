@@ -1023,7 +1023,7 @@ class PYVISTA_PROCESS_THD():
         print("saved file: %s" % filepath)
 
 
-def get_trench_position_from_file(pyvista_outdir, pvtu_step):
+def get_trench_position_from_file(pyvista_outdir, pvtu_step, geometry):
     '''
     Get the position of trench from a file generated previously
     '''
@@ -1031,11 +1031,14 @@ def get_trench_position_from_file(pyvista_outdir, pvtu_step):
     filepath = os.path.join(pyvista_outdir, filename)
     point_cloud_tr = pv.read(filepath)
     points = point_cloud_tr.points
-    _, _, trench_center = cartesian_to_spherical(points[-1, 0], points[-1, 1], points[-1, 2])
+    if geometry == "chunk":
+        _, _, trench_center = cartesian_to_spherical(points[-1, 0], points[-1, 1], points[-1, 2])
+    else:
+        trench_center = points[-1, 0]
     return trench_center
 
 
-def get_slab_depth_from_file(pyvista_outdir, geometry, Max0, field_name, pvtu_step):
+def get_slab_depth_from_file(pyvista_outdir, pvtu_step, geometry, Max0, field_name):
     '''
     Get the position of trench from a file generated previously
     '''
@@ -1082,7 +1085,7 @@ class PLOT_CASE_RUN_THD():
         # options: by steps, a single step, or the last step
         if type(step) == int:
             self.kwargs["steps"] = [step]
-        elif type(step) == list:
+        elif type(step) == list or type(step) == np.ndarray:
             self.kwargs["steps"] = step
         elif type(step) == str:
             self.kwargs["steps"] = step
