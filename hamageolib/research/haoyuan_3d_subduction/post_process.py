@@ -56,7 +56,7 @@ class PYVISTA_PROCESS_THD():
         self.Max0 = config["Max0"]
         self.Min0 = config["Min0"]
         self.Max1 = config["Max1"]
-        # self.Min1 = 0.0
+        self.Min1 = 0.0
         self.Max2 = config["Max2"]
         self.Min2 = 0.0
         self.pyvista_outdir = kwargs.get("pyvista_outdir", ".")
