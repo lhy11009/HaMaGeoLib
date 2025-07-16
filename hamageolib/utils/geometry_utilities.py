@@ -288,3 +288,10 @@ def cartesian_to_spherical(x, y, z):
     theta = np.arccos(z / r)
     phi = np.arctan2(y, x) % (2 * np.pi)
     return r, theta, phi
+
+
+def spherical_to_cartesian(r, theta, phi):
+    x = r * np.sin(theta) * np.cos(phi)
+    y = r * np.sin(theta) * np.sin(phi)
+    z = r * np.cos(theta)
+    return x, y, z

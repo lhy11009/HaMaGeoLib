@@ -4,7 +4,8 @@ import time
 import pyvista as pv
 import numpy as np
 from scipy.spatial import cKDTree
-from hamageolib.utils.geometry_utilities import cartesian_to_spherical
+from vtk import VTK_QUAD
+from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS
@@ -36,6 +37,7 @@ class PYVISTA_PROCESS_THD():
         Min1 (float): Minimum colatitude in radians (default: 0.0).
         Max2 (float): Maximum longitude in radians (default: π/2).
         Min2 (float): Minimum longitude in radians (default: 0.0).
+        clip (list): contains, 3 smaller list, Range of coordinates to clip
         phi_max (float): Maximum longitude in radians (default: 140°).
         pvtu_step (int): Timestep index associated with current file.
         pvtu_filepath (str): Path to the .pvtu file being processed.
@@ -59,7 +61,9 @@ class PYVISTA_PROCESS_THD():
         self.Min1 = 0.0
         self.Max2 = config["Max2"]
         self.Min2 = 0.0
+        self.time = config["time"]
         self.pyvista_outdir = kwargs.get("pyvista_outdir", ".")
+        self.clip = kwargs.get("clip", None)
 
         # Initialize runtime variables
         self.pvtu_step = None
@@ -90,8 +94,10 @@ class PYVISTA_PROCESS_THD():
         self.pvtu_filepath = pvtu_filepath
         my_assert(os.path.isfile(self.pvtu_filepath), FileNotFoundError, "File %s is not found" % self.pvtu_filepath)
 
+        # read data
         self.grid = pv.read(self.pvtu_filepath)
-        
+
+        # append a "radius" field 
         points = self.grid.points
         if self.geometry == "chunk":
             radius = np.linalg.norm(points, axis=1)
@@ -99,10 +105,21 @@ class PYVISTA_PROCESS_THD():
             radius = points[:, 2]
         self.grid["radius"] = radius
 
+        # clip data if needed
+        # the order of coordinates are in l0, l1, l2
+        # in cartesian, this is z, y, x
+        # in spherical, this is phi, theta, r
+        if self.clip is not None:
+            if self.geometry == "chunk":
+                self.grid = clip_grid_by_spherical_range(self.grid, r_range=self.clip[0],\
+                     theta_range=[np.pi/2.0 - self.clip[1][1], np.pi/2.0 - self.clip[1][0]], phi_range=self.clip[2])
+            else:
+                self.grid = clip_grid_by_xyz_range(self.grid, x_range=self.clip[2], y_range=self.clip[1], z_range=self.clip[0])
+
         end = time.time()
         print("PYVISTA_PROCESS_THD: Read file takes %.1f s" % (end - start))
 
-    def slice_center(self):
+    def slice_center(self, **kwargs):
         """
         Extract a 2D slice at the center of the domain in the x-y plane.
 
@@ -111,6 +128,8 @@ class PYVISTA_PROCESS_THD():
             - Projects the 'velocity' field onto the plane.
             - Saves the resulting slice and velocity projection as a .vtp file.
         """
+        boundary_range = kwargs.get("boundary_range", None)
+
         start = time.time()
         assert self.grid is not None
 
@@ -129,7 +148,57 @@ class PYVISTA_PROCESS_THD():
 
         sliced["velocity_slice"] = V_proj
 
-        filename = "slice_center_%05d.vtp" % self.pvtu_step
+        # save the unbounded version
+        filename = "slice_center_unbounded_%05d.vtp" % self.pvtu_step
+        filepath = os.path.join(self.pyvista_outdir, filename)
+        sliced.save(filepath)
+
+        print("saved file %s" % filepath)
+
+        # filter data with the given boundary
+        if boundary_range is not None:
+            points = sliced.points
+
+            if self.geometry == "chunk":
+                r_min = boundary_range[0][0]
+                r_max = boundary_range[0][1]
+                lat_min = boundary_range[1][0]
+                lat_max = boundary_range[1][1]
+                lon_min = boundary_range[2][0]
+                lon_max = boundary_range[2][1]
+                r, theta, phi = cartesian_to_spherical(*points.T)
+                
+                # Check which points are inside the bounds
+                in_r = (r >= r_min) & (r <= r_max)
+                in_theta = (theta >= np.pi/2.0 - lat_max) & (theta <= np.pi/2.0 - lat_min)
+                in_phi = (phi >= lon_min) & (phi <= lon_max)
+                is_in_bounds = in_r & in_theta & in_phi
+            else:
+                x_min = boundary_range[2][0]
+                x_max = boundary_range[2][1]
+                y_min = boundary_range[1][0]
+                y_max = boundary_range[1][1]
+                z_min = boundary_range[0][0]
+                z_max = boundary_range[0][1]
+
+                # Check which points are inside the bounds
+                is_in_x = (points[:, 0] >= x_min) & (points[:, 0] <= x_max)
+                is_in_y = (points[:, 1] >= y_min) & (points[:, 1] <= y_max)
+                is_in_z = (points[:, 2] >= z_min) & (points[:, 2] <= z_max)
+                is_in_bounds = is_in_x & is_in_y & is_in_z
+                
+            cell_mask = np.ones(sliced.n_cells, dtype=bool)
+                
+            # Use PyVista's connectivity and cell arrays if available
+            for cid in range(sliced.n_cells):
+                pt_ids = sliced.get_cell(cid).point_ids
+                if np.any(~is_in_bounds[pt_ids]):
+                    cell_mask[cid] = False
+
+
+            sliced = sliced.extract_cells(cell_mask)
+
+        filename = "slice_center_%05d.vtu" % self.pvtu_step
         filepath = os.path.join(self.pyvista_outdir, filename)
         sliced.save(filepath)
 
@@ -180,19 +249,62 @@ class PYVISTA_PROCESS_THD():
         indent = 4
 
         r_slice = self.Max0 - depth
-        r_diff = kwargs.get("r_diff", 10e3)
+        r_diff = kwargs.get("r_diff", 50e3)
 
         if self.geometry == 'chunk':
-            slice_at_depth = self.grid.threshold([r_slice - r_diff, r_slice + r_diff], scalars="radius")
+            slice_clip = self.grid.threshold([r_slice - r_diff, r_slice + r_diff], scalars="radius")
 
             # Project velocity onto the surface
             # Get point coordinates and velocity vectors
             # Compute normalized radial direction vectors at each point
             # Project velocity onto tangent plane of sphere: v_tangent = v - (v · r̂) r̂
             # Store new vector field
-            points = slice_at_depth.points                   # (N, 3)
-            velocities = slice_at_depth.point_data["velocity"]  # (N, 3)
 
+            # interpolate the slice
+            # Create the new mesh surface_points
+            # Build KDTree and interpolate
+            # Interpolate velocity field
+            resolution_radian = 0.1*np.pi/180.0
+            theta = np.arange(np.pi/2.0 - self.clip[1][1], np.pi/2.0 - self.clip[1][0], resolution_radian)
+            n_theta = theta.size
+            phi = np.arange(self.clip[2][0], self.clip[2][1], resolution_radian)
+            n_phi = phi.size
+
+            theta_grid, phi_grid = np.meshgrid(theta, phi)
+            x, y, z = spherical_to_cartesian(r_slice, theta_grid, phi_grid)
+            surface_points = np.c_[x.ravel(), y.ravel(), z.ravel()]
+
+            cells = []
+            cell_types = []
+
+            for j in range(n_phi - 1):
+                for i in range(n_theta - 1):
+                    # Index in flat array
+                    p0 = j * n_theta + i
+                    p1 = p0 + 1
+                    p2 = p0 + n_theta + 1
+                    p3 = p0 + n_theta
+
+                    # Each cell is prefixed with number of points (4 for quad)
+                    cells.append([4, p0, p1, p2, p3])
+                    cell_types.append(VTK_QUAD)
+
+            cells = np.array(cells, dtype=np.int64).flatten()
+            cell_types = np.array(cell_types, dtype=np.uint8)
+
+            tree = cKDTree(slice_clip.points)
+            _, idx = tree.query(surface_points)
+
+            slice_at_depth = pv.UnstructuredGrid(cells, cell_types, surface_points)
+            slice_at_depth["velocity"] = slice_clip.point_data["velocity"][idx, :]
+            slice_at_depth["radius"] = slice_clip.point_data["radius"][idx]
+
+            # take the clip as the slice
+            # slice_at_depth = slice_clip
+
+            # project the velocity
+            points = slice_at_depth.points
+            velocities = slice_at_depth.point_data["velocity"]
             radial_dirs = points / np.linalg.norm(points, axis=1)[:, np.newaxis]  # (N, 3)
 
             v_dot_r = np.sum(velocities * radial_dirs, axis=1)  # (N,)
@@ -200,6 +312,7 @@ class PYVISTA_PROCESS_THD():
             v_tangent = velocities - v_radial                   # (N, 3)
 
             slice_at_depth.point_data["velocity_slice"] = v_tangent
+            print("slice_at_depth: ", slice_at_depth) # debug
             filename = "slice_depth_%.1fkm_%05d.vtu" % (depth / 1e3, self.pvtu_step)
         else:
             origin = (0, 0, r_slice)
@@ -564,7 +677,7 @@ class PYVISTA_PROCESS_THD():
 
         # also get points that has absolutely large phi value,
         # larger than the maximum in slab surface points
-        large_l2_abs_mask = l2_l > np.max(l2_surf) # debug
+        large_l2_abs_mask = l2_l > np.max(l2_surf)
 
         combined_mask = np.zeros(valid_mask.shape, dtype=bool)
         combined_mask[valid_mask] = large_l2_mask
@@ -687,11 +800,16 @@ class PYVISTA_PROCESS_THD():
             - Combines them into a single surface and exports to a `.vtu` file.
         """
         marker_coordinates = kwargs.get("marker_coordinates", None)
-        
-        # Box parameters
-        x_min = 0.0; x_max = self.Max2
-        y_min = 0.0; y_max = self.Max1
-        z_min = 0.0; z_max = self.Max0
+        boundary_range = kwargs.get("boundary_range",\
+            [[self.Min0, self.Max0], [self.Min1, self.Max1], [self.Min2, self.Max2]])
+
+        # Chunk parameters
+        x_min = boundary_range[2][0]
+        x_max = boundary_range[2][1]
+        y_min = boundary_range[1][0]
+        y_max = boundary_range[1][1]
+        z_min = boundary_range[0][0]
+        z_max = boundary_range[0][1]
 
         n_x = 2
         n_y = 2
@@ -821,14 +939,16 @@ class PYVISTA_PROCESS_THD():
         """
 
         marker_coordinates = kwargs.get("marker_coordinates", None)
+        boundary_range = kwargs.get("boundary_range",\
+            [[self.Min0, self.Max0], [0.0, 35.972864236749224 * np.pi / 180.0], [self.Min2, self.Max2]])
 
         # Chunk parameters
-        r_inner = self.Min0
-        r_outer = self.Max0
-        lat_min = 0.0
-        lat_max = 35.972864236749224 * np.pi / 180.0
-        lon_min = self.Min2
-        lon_max = self.Max2
+        r_inner = boundary_range[0][0]
+        r_outer = boundary_range[0][1]
+        lat_min = boundary_range[1][0]
+        lat_max = boundary_range[1][1]
+        lon_min = boundary_range[2][0]
+        lon_max = boundary_range[2][1]
 
         # Resolution (adjust for finer mesh)
         n_r = 2
@@ -955,7 +1075,7 @@ class PYVISTA_PROCESS_THD():
             print("saved file: %s" % filepath)
 
 
-    def create_cartesian_plane(self, depth, resolution=(50, 50)):
+    def create_cartesian_plane(self, depth, resolution=(50, 50), **kwargs):
         """
         Create a rectangular plane at a constant z-depth.
 
@@ -964,9 +1084,11 @@ class PYVISTA_PROCESS_THD():
             resolution: (nx, ny) number of subdivisions in x and y
             filename: output file name (.vtp)
         """
+        boundary_range = kwargs.get("boundary_range",\
+            [[self.Min0, self.Max0], [self.Min1, self.Max1], [self.Min2, self.Max2]])
         # Create linspace
-        x = np.linspace(0.0, self.Max2, resolution[0])
-        y = np.linspace(0.0, self.Max1, resolution[1])
+        x = np.linspace(boundary_range[2][0], boundary_range[2][1], resolution[0])
+        y = np.linspace(boundary_range[1][0], boundary_range[1][1], resolution[1])
         x_grid, y_grid = np.meshgrid(x, y)
 
         # Constant z
@@ -980,14 +1102,17 @@ class PYVISTA_PROCESS_THD():
         grid.points = points
         grid.dimensions = (resolution[0], resolution[1], 1)
 
+        # cast to unstructured
+        unstructured = grid.cast_to_unstructured_grid()
+
         # Save and return
-        filename="plane_%.1fkm.vtk" % (depth/1e3)
+        filename="plane_%.1fkm.vtu" % (depth/1e3)
         filepath = os.path.join(self.pyvista_outdir, "..", filename)
-        grid.save(filepath)
+        unstructured.save(filepath)
         print("saved file: %s" % filepath)
 
 
-    def create_spherical_plane(self, depth, resolution=(50, 50)):
+    def create_spherical_plane(self, depth, resolution=(50, 50), **kwargs):
         """
         Create a spherical plane at a constant radius.
 
@@ -995,18 +1120,21 @@ class PYVISTA_PROCESS_THD():
             depth: offset from base radius (final radius = radius + depth)
             resolution: (n_theta, n_phi) grid resolution
         """
+        boundary_range = kwargs.get("boundary_range",\
+            [[self.Min0, self.Max0], [self.Min1, self.Max1], [self.Min2, self.Max2]])
+
         # Compute actual surface radius
         surface_radius = self.Max0 - depth
 
         # Create theta and phi arrays (already in radians)
-        theta = np.linspace(self.Min1, self.Max1, resolution[0])
-        phi = np.linspace(self.Min2, self.Max2, resolution[1])
+        theta = np.linspace(np.pi/2.0-boundary_range[1][1], np.pi/2.0-boundary_range[1][0], resolution[0])
+        phi = np.linspace(boundary_range[2][0], boundary_range[2][1], resolution[1])
         theta_grid, phi_grid = np.meshgrid(theta, phi)
 
         # Spherical to Cartesian conversion
-        x = surface_radius * np.sin(phi_grid) * np.cos(theta_grid)
-        y = surface_radius * np.sin(phi_grid) * np.sin(theta_grid)
-        z = surface_radius * np.cos(phi_grid)
+        x = surface_radius * np.sin(theta_grid) * np.cos(phi_grid)
+        y = surface_radius * np.sin(theta_grid) * np.sin(phi_grid)
+        z = surface_radius * np.cos(theta_grid)
 
         # Combine to points
         points = np.column_stack((x.ravel(), y.ravel(), z.ravel()))
@@ -1016,10 +1144,13 @@ class PYVISTA_PROCESS_THD():
         grid.points = points
         grid.dimensions = (resolution[0], resolution[1], 1)
         
+        # cast to unstructured
+        unstructured = grid.cast_to_unstructured_grid()
+        
         # Save and return
-        filename="plane_%.1fkm.vtk" % (depth/1e3)
+        filename="plane_%.1fkm.vtu" % (depth/1e3)
         filepath = os.path.join(self.pyvista_outdir, "..", filename)
-        grid.save(filepath)
+        unstructured.save(filepath)
         print("saved file: %s" % filepath)
 
 
@@ -1059,7 +1190,7 @@ class PLOT_CASE_RUN_THD():
     Plot case run result
     Attributes:
         case_path(str): path to the case
-        Visit_Options: options for case
+        Case_Options: options for case
         kwargs:
             time_range
             step(int): if this is given as an int, only plot this step
@@ -1096,17 +1227,25 @@ class PLOT_CASE_RUN_THD():
         # prm_path = os.path.join(self.case_path, 'output', 'original.prm')
         
         # initiate options
-        self.Visit_Options = CASE_OPTIONS(self.case_path)
-        self.Visit_Options.Interpret(**self.kwargs)
+        self.Case_Options = CASE_OPTIONS(self.case_path)
+        self.Case_Options.Interpret(**self.kwargs)
+        self.Case_Options.SummaryCaseVtuStep(os.path.join(self.case_path, "summary.csv"))
 
     def ProcessPyvista(self):
         '''
         pyvista processing
         '''
-        for vtu_step in self.Visit_Options.options['GRAPHICAL_STEPS']:
-            pvtu_step = vtu_step + int(self.Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
-            ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Visit_Options)
-        return
+        # use a list to record whether files are found
+        file_found_list = []
+        for vtu_step in self.Case_Options.options['GRAPHICAL_STEPS']:
+            pvtu_step = vtu_step + int(self.Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
+            try:
+                ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Case_Options)
+                file_found_list.append(True)
+            except FileNotFoundError:
+                file_found_list.append(False)
+                pass
+        return file_found_list
             
 
     def GenerateParaviewScript(self, ofile_list, additional_options):
@@ -1122,40 +1261,84 @@ class PLOT_CASE_RUN_THD():
             paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts',"ThDSubduction", ofile_base)
             if require_base:
                 paraview_base_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')  # base.py : base file
-                self.Visit_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
+                self.Case_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
             else:
-                self.Visit_Options.read_contents(paraview_script)  # this part combines two scripts
-            self.Visit_Options.options.update(additional_options)
-            self.Visit_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
-            ofile_path = self.Visit_Options.save(ofile, relative=False)  # save the altered script
+                self.Case_Options.read_contents(paraview_script)  # this part combines two scripts
+            self.Case_Options.options.update(additional_options)
+            self.Case_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
+            ofile_path = self.Case_Options.save(ofile, relative=False)  # save the altered script
             print("\t File generated: %s" % ofile_path)
 
 
-def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
+def clip_grid_by_xyz_range(grid, x_range=None, y_range=None, z_range=None):
+    '''
+    Clip the grid by given x, y and z range
+    '''
+    points = grid.points
+    mask = np.ones(points.shape[0], dtype=bool)
+
+    if x_range:
+        mask &= (points[:, 0] >= x_range[0]) & (points[:, 0] <= x_range[1])
+    if y_range:
+        mask &= (points[:, 1] >= y_range[0]) & (points[:, 1] <= y_range[1])
+    if z_range:
+        mask &= (points[:, 2] >= z_range[0]) & (points[:, 2] <= z_range[1])
+
+    return grid.extract_points(mask, adjacent_cells=True)
+
+
+def clip_grid_by_spherical_range(grid, r_range=None, theta_range=None, phi_range=None):
+    '''
+    Clip the grid by given r, theta and phi range
+    '''
+    points = grid.points
+
+    # Convert Cartesian to spherical
+    r, theta, phi = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
+
+    mask = np.ones(points.shape[0], dtype=bool)
+
+    if r_range:
+        mask &= (r >= r_range[0]) & (r <= r_range[1])
+    if theta_range:
+        mask &= (theta >= theta_range[0]) & (theta <= theta_range[1])
+    if phi_range:
+        mask &= (phi >= phi_range[0]) & (phi <= phi_range[1])
+
+    return grid.extract_points(mask, adjacent_cells=True)
+
+
+def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     '''
     Process with pyvsita for a single step
     Inputs:
         case_path - full path of a 3-d case
         pvtu_step - pvtu_step of vtu output files
     '''
-    geometry = Visit_Options.options["GEOMETRY"]
+    geometry = Case_Options.options["GEOMETRY"]
 
+    idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
+    _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
+
+    # geometry information
     if geometry == "chunk":
         marker_intervals = [500e3, 10.0*np.pi/180.0, 10.0*np.pi/180.0]
     else:
-        marker_intervals = [500e3, 500e3, 500e3]
+        marker_intervals = [500e3, 1000e3, 1000e3]
 
     if geometry == "chunk":
-        Max0 = float(Visit_Options.options["OUTER_RADIUS"])
-        Min0 = float(Visit_Options.options["INNER_RADIUS"])
-        # Max1 = float(Visit_Options.options["MAX_LATITUDE"])
+        Max0 = float(Case_Options.options["OUTER_RADIUS"])
+        Min0 = float(Case_Options.options["INNER_RADIUS"])
+        # Max1 = float(Case_Options.options["MAX_LATITUDE"])
         Max1 = np.pi / 2.0
-        Max2 = float(Visit_Options.options["MAX_LONGITUDE"])
+        Max2 = float(Case_Options.options["MAX_LONGITUDE"])
+        trench_initial = float(Case_Options.options["TRENCH_INITIAL"]) * np.pi/180.0
     else:
-        Max0 = float(Visit_Options.options["BOX_THICKNESS"])
+        Max0 = float(Case_Options.options["BOX_THICKNESS"])
         Min0 = 0.0
-        Max1 = float(Visit_Options.options["BOX_WIDTH"])
-        Max2 = float(Visit_Options.options["BOX_LENGTH"])
+        Max1 = float(Case_Options.options["BOX_WIDTH"])
+        Max2 = float(Case_Options.options["BOX_LENGTH"])
+        trench_initial = float(Case_Options.options["TRENCH_INITIAL"])
 
     
     # output directory
@@ -1171,8 +1354,28 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
     # initialize the class
     # todo_3d_visual
     # fix the meaning of Max1 - latitude
-    config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2}
-    PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
+    config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2, "time": _time}
+
+    if geometry == "chunk":
+        l0_section = 1000e3
+        l1_section = 10.0 * np.pi / 180.0
+        l2_section = 10.0 * np.pi / 180.0
+    else:
+        l0_section = 1000e3
+        l1_section = 1000e3
+        l2_section = 1000e3
+    tolerance = 1e-6
+    clip_l0_min = Max0-l0_section
+    clip_l0_max = Max0
+    clip_l1_min = 0.0
+    clip_l1_max = l1_section*2.0
+    clip_l2_min = np.ceil(trench_initial / l2_section) * l2_section - 2 * l2_section
+    clip_l2_max = np.ceil(trench_initial / l2_section) * l2_section + 2 * l2_section
+    clip = [[clip_l0_min-tolerance, clip_l0_max+tolerance] , [clip_l1_min-tolerance, clip_l1_max+tolerance], [clip_l2_min-tolerance, clip_l2_max+tolerance]]
+    boundary_range=[[clip_l0_min, clip_l0_max] , [clip_l1_min, clip_l1_max], [clip_l2_min, clip_l2_max]]
+    
+    # initiate PYVISTA_PROCESS_THD class
+    PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir, clip=clip)
 
     # make domain boundary
     if geometry == "chunk":
@@ -1184,20 +1387,22 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Visit_Options, **kwargs):
         p_marker_coordinates = {"r": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0]),\
                 "lat": np.arange(0, Max1, marker_intervals[1]),\
             "lon": np.arange(0, Max2, marker_intervals[2])}
-        PprocessThD.make_boundary_spherical(marker_coordinates=p_marker_coordinates)
-        PprocessThD.create_spherical_plane(660e3)
+        PprocessThD.make_boundary_spherical(marker_coordinates=p_marker_coordinates,\
+             boundary_range=boundary_range)
+        PprocessThD.create_spherical_plane(660e3, boundary_range=boundary_range)
     else:
-        p_marker_coordinates = {"x": Max2 - np.arange(0, Max2, marker_intervals[2]),\
+        p_marker_coordinates = {"x": np.arange(0, Max2, marker_intervals[2]),\
                 "y": np.arange(0, Max1, marker_intervals[1]),\
             "z": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0])}
-        PprocessThD.make_boundary_cartesian(marker_coordinates=p_marker_coordinates)
-        PprocessThD.create_cartesian_plane(660e3)
+        PprocessThD.make_boundary_cartesian(marker_coordinates=p_marker_coordinates,\
+            boundary_range=boundary_range)
+        PprocessThD.create_cartesian_plane(660e3, boundary_range=boundary_range)
 
     # read vtu file
     pvtu_filepath = os.path.join(case_path, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
     PprocessThD.read(pvtu_step, pvtu_filepath)
     # slice at center
-    PprocessThD.slice_center()
+    PprocessThD.slice_center(boundary_range=boundary_range)
     # slice at surface
     PprocessThD.slice_surface()
     # slice at depth

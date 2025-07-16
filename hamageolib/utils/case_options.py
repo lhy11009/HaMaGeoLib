@@ -197,7 +197,8 @@ class CASE_OPTIONS:
             "Vtu step": Vtu_step,
             "Time": Time,
             "Time step number": Time_step_number,
-            "Vtu snapshot": Vtu_snapshot
+            "Vtu snapshot": Vtu_snapshot,
+            "File found": [True for i in range(Time_step_number.size)]
             })
 
     def SummaryCaseVtuStepUpdateValue(self, field_name, vtu_step, value):

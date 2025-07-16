@@ -281,10 +281,11 @@ def load_pyvista_source(data_output_dir, source_name, snapshot, **kwargs):
             add_glyph1("%s_%05d" % (source_name, snapshot), "velocity_slice", 1e6, registrationName=registration_name_glyph)
 
 
-def add_trench_triangle(registration_name, cx, cy, cz, size):
+def add_trench_triangle(registration_name, geometry, cx, cy, cz, size):
     # get active source.
     trenchTrSource = ProgrammableSource(registrationName=registration_name)
-    trenchTrSource.Script = """from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
+    if geometry == "chunk":
+        trenchTrSource.Script = """from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
 from vtkmodules.vtkCommonCore import vtkPoints, vtkIdList
 
 # === Set the center location of the triangle ===
@@ -314,6 +315,38 @@ triangles.InsertNextCell(triangle)
 
 output.SetPoints(points)
 output.SetPolys(triangles)""" % (cx, cy, cz, size)
+    else:
+        trenchTrSource.Script = """from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
+from vtkmodules.vtkCommonCore import vtkPoints, vtkIdList
+
+# === Set the center location of the triangle ===
+cx, cy, cz = %.1f, %.1f, %.1f  # <-- CHANGE THIS TO WHERE YOU WANT THE MARKER
+
+# === Triangle defined relative to the center ===
+# This triangle lies in the XY plane, pointing downward
+size = %.1f # overall size scale
+
+p0 = [cx - size, cy,     cz]      # left base
+p1 = [cx + size, cy,     cz]      # right base
+p2 = [cx, cy,     cz - 2*size]  # tip (pointing down)
+
+# === Build triangle ===
+points = vtkPoints()
+points.InsertNextPoint(p0)
+points.InsertNextPoint(p1)
+points.InsertNextPoint(p2)
+
+triangle = vtkIdList()
+triangle.InsertNextId(0)
+triangle.InsertNextId(1)
+triangle.InsertNextId(2)
+
+triangles = vtkCellArray()
+triangles.InsertNextCell(triangle)
+
+output.SetPoints(points)
+output.SetPolys(triangles)""" % (cx, cy, cz, size)
+
     trenchTrSource.ScriptRequestInformation = ''
     trenchTrSource.PythonPath = ''
 
@@ -321,7 +354,7 @@ output.SetPolys(triangles)""" % (cx, cy, cz, size)
 def plot_slice_center_viscosity(snapshot, pv_output_dir):
 
     # Show the slab center plot and viscosities
-    transform1 = FindSource("slice_center_transform_%05d" % snapshot)
+    transform1 = FindSource("slice_center_unbounded_transform_%05d" % snapshot)
     SetActiveSource(transform1)
     renderView1 = GetActiveViewOrCreate('RenderView')
     transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
@@ -329,21 +362,23 @@ def plot_slice_center_viscosity(snapshot, pv_output_dir):
     set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
     
     # Adjust the position of the point source and show related annotations.
-    sourceV = FindSource("slice_center_glyph_%05d" % snapshot)
-    sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
-    # sourceVDisplay.SetScalarBarVisibility(renderView1, True)
-    pointSource1 = FindSource("PointSource_slice_center_glyph_%05d" % snapshot)
-    if "GEOMETRY" == "chunk":
-        pointSource1.Center = [0, 6.7e6, 0]
-    sourceVRE = FindSource("slice_center_glyph_%05d_representative" % snapshot)
-    sourceVREDisplay = Show(sourceVRE, renderView1, 'GeometryRepresentation')
-    sourceVTXT = FindSource("slice_center_glyph_%05d_text" % snapshot)
-    sourceVTXTDisplay = Show(sourceVTXT, renderView1, 'GeometryRepresentation')
-    sourceVTXTDisplay.Color = [0.0, 0.0, 0.0]
-
     # Adjust glyph properties based on the specified parameters.
-    scale_factor = 1e6
-    n_sample_points = 20000
+    sourceV = FindSource("slice_center_unbounded_glyph_%05d" % snapshot)
+    sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
+    ColorBy(sourceVDisplay, None)
+    # sourceVDisplay.SetScalarBarVisibility(renderView1, True)
+    pointSource1 = FindSource("PointSource_slice_center_unbounded_glyph_%05d" % snapshot)
+
+    if False:
+        # show the representative vector
+        sourceVRE = FindSource("slice_center_unbounded_glyph_%05d_representative" % snapshot)
+        sourceVREDisplay = Show(sourceVRE, renderView1, 'GeometryRepresentation')
+        sourceVTXT = FindSource("slice_center_unbounded_glyph_%05d_text" % snapshot)
+        sourceVTXTDisplay = Show(sourceVTXT, renderView1, 'GeometryRepresentation')
+        sourceVTXTDisplay.Color = [0.0, 0.0, 0.0]
+
+    scale_factor = 2.8e6
+    n_sample_points = 2500
     point_source_center = [0.0, 0.0, 0.0]
     if "GEOMETRY" == "chunk":
         point_source_center = [0, 6.4e6, 0]
@@ -351,7 +386,16 @@ def plot_slice_center_viscosity(snapshot, pv_output_dir):
         point_source_center = [4.65e6, 2.95e6, 0]
     else:
         raise NotImplementedError()
-    adjust_glyph_properties("slice_center_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
+    adjust_glyph_properties("slice_center_unbounded_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
+
+
+    # Show the original trench position
+    sourceTrOrigTrian = FindSource("trench_orig_triangle")
+    sourceTrOrigTrianDisplay = Show(sourceTrOrigTrian, renderView1, 'GeometryRepresentation')
+    
+    # Show the current trench position
+    sourceTrTrian = FindSource("trench_triangle")
+    sourceTrTrianDisplay = Show(sourceTrTrian, renderView1, 'GeometryRepresentation')
 
     # Configure layout and camera settings based on geometry.
     layout_resolution = (1350, 704)
@@ -372,15 +416,17 @@ def plot_slice_center_viscosity(snapshot, pv_output_dir):
     fig_png_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.png" % times[i])
     SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
     ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
 
     # hide objects
-    Hide(transform1, renderView1)
-    Hide(sourceV, renderView1)
-    Hide(pointSource1, renderView1)
-    Hide(sourceVRE, renderView1)
-    Hide(sourceVTXT, renderView1)
-    fieldLUT = GetColorTransferFunction("viscosity")
-    HideScalarBarIfNotNeeded(fieldLUT, renderView1)
+    # Hide(transform1, renderView1)
+    # Hide(sourceV, renderView1)
+    # Hide(pointSource1, renderView1)
+    # Hide(sourceVRE, renderView1)
+    # Hide(sourceVTXT, renderView1)
+    # fieldLUT = GetColorTransferFunction("viscosity")
+    # HideScalarBarIfNotNeeded(fieldLUT, renderView1)
 
 
 def plot_slab_velocity_field(snapshot, pv_output_dir):
@@ -399,11 +445,31 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
     transform_bdDisplay = Show(transform_bd, renderView1, 'GeometryRepresentation')
     transform_bdDisplay.SetRepresentationType('Feature Edges')
 
+    # Show the plane at 660 km
+    transform_660 = FindSource("plane_660.0km%s" % trailer)
+    SetActiveSource(transform_660)
+    transform_660Display = Show(transform_660, renderView1, 'GeometryRepresentation')
+    transform_660Display.SetRepresentationType('Feature Edges')
+    transform_660Display.AmbientColor = [1.0, 0.3333333333333333, 0.0]
+    transform_660Display.DiffuseColor = [1.0, 0.3333333333333333, 0.0]
+    transform_660Display.LineWidth = 2.0
+
     # Show the slab surface
     transform_slab = FindSource("sp_lower_above_0.8_filtered_pe%s_%05d" % (trailer, snapshot))
     SetActiveSource(transform_slab)
     transform_slabDisplay = Show(transform_slab, renderView1, 'GeometryRepresentation')
     set_slab_volume_plot(transform_slabDisplay, 1000e3)
+
+
+    # Show the slice center surface
+    source_center = FindSource("slice_center%s_%05d" % (trailer, snapshot))
+    source_centerDisplay = Show(source_center, renderView1, 'GeometryRepresentation')
+    ColorBy(source_centerDisplay, None)
+    source_centerDisplay.Opacity = 0.3
+
+    radiusLUT = GetColorTransferFunction('radius')
+    HideScalarBarIfNotNeeded(radiusLUT, renderView1)
+
 
     # Show the slice center glyph
     # And Adjust glyph properties based on the specified parameters.
@@ -414,38 +480,61 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
     sourceV1Display.AmbientColor = [0.6666666666666666, 0.0, 1.0]
     sourceV1Display.DiffuseColor = [0.6666666666666666, 0.0, 1.0]
 
-    scale_factor = 5e6
-    n_sample_points = 1000
+    scale_factor = 1e7
+    n_sample_points = 500
     if "GEOMETRY" == "chunk":
-        point_source_center = [0, 6.4e6, 0]
+        x_p, y_p, z_p = rotate_spherical_point_paraview_style(OUTER_RADIUS+250e3, np.pi/2.0, TRENCH_INITIAL*np.pi/180.0, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+        point_source_center = [x_p, y_p, z_p]
     elif "GEOMETRY" == "box":
-        point_source_center = [4.65e6, 2.95e6, 0]
+        point_source_center = [TRENCH_INITIAL*np.pi/180.0, 0.0, OUTER_RADIUS+250e3]
     else:
         raise NotImplementedError()
     adjust_glyph_properties("slice_center_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
+
+    # Show the slice at 200 km depth surface
+    source_slice_200km = FindSource("slice_depth_200.0km%s_%05d" % (trailer, snapshot))
+    source_slice_200kmDisplay = Show(source_slice_200km, renderView1, 'GeometryRepresentation')
+    if "GEOMETRY" == "box":
+        ColorBy(source_slice_200kmDisplay, None)
+    source_slice_200kmDisplay.Opacity = 0.2
+
+    radiusLUT = GetColorTransferFunction('radius')
+    HideScalarBarIfNotNeeded(radiusLUT, renderView1)
+
 
     # Show the slice at 200 km depth glyph
     # And Adjust glyph properties based on the specified parameters.
     sourceV2 = FindSource("slice_depth_200.0km_glyph_%05d" % snapshot)
     sourceV2.GlyphMode = 'Uniform Spatial Distribution (Surface Sampling)'
     sourceV2Display = Show(sourceV2, renderView1, 'GeometryRepresentation')
-    ColorBy(sourceV2Display, None)
+    if "GEOMETRY" == "box":
+        ColorBy(sourceV2Display, None)
     sourceV2Display.AmbientColor = [0.0, 0.3333333333333333, 1.0]
     sourceV2Display.DiffuseColor = [0.0, 0.3333333333333333, 1.0]
 
-    scale_factor = 5e6
-    n_sample_points = 2000
+    scale_factor = 1e7
+    n_sample_points = 1000
     if "GEOMETRY" == "chunk":
-        point_source_center = [0, 6.4e6, 0]
+        x_p, y_p, z_p = rotate_spherical_point_paraview_style(OUTER_RADIUS+250e3, np.pi/2.0, TRENCH_INITIAL*np.pi/180.0, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+        point_source_center = [x_p, y_p, z_p]
     elif "GEOMETRY" == "box":
-        point_source_center = [4.65e6, 2.95e6, 0]
+        point_source_center = [TRENCH_INITIAL*np.pi/180.0, 0.0, OUTER_RADIUS+250e3]
     else:
         raise NotImplementedError()
     adjust_glyph_properties("slice_depth_200.0km_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
+    
+    # Show the slice at 200 km depth glyph representative
+    if False:
+        sourceV2_rep = FindSource("slice_depth_200.0km_glyph_%05d_representative" % snapshot)
+        sourceV2_repDisplay = Show(sourceV2_rep, renderView1, 'GeometryRepresentation')
 
     # Show the original trench position
     sourceTrOrigTrian = FindSource("trench_orig_triangle")
     sourceTrOrigTrianDisplay = Show(sourceTrOrigTrian, renderView1, 'GeometryRepresentation')
+    
+    # Show the current trench position
+    sourceTrTrian = FindSource("trench_triangle")
+    sourceTrTrianDisplay = Show(sourceTrTrian, renderView1, 'GeometryRepresentation')
 
     # Show the trench position
     sourceTr = FindSource("trench%s_%05d" % (trailer, snapshot))
@@ -459,19 +548,24 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
     layout1.SetSize((layout_resolution[0], layout_resolution[1]))
     # renderView1.InteractionMode = '2D'
     if "GEOMETRY" == "chunk":
-        renderView1.CameraPosition = [-4836584.013744108, 8089634.7649268415, 7308574.720701834]
-        renderView1.CameraFocalPoint = [1528057.7205373822, 3628014.9415879566, -1225784.3147636713]
-        renderView1.CameraViewUp = [0.4547624702546983, 0.8822092047301953, -0.1220574239330037]
+        renderView1.CameraPosition = [-3977427.3881134638, 9412059.879205279, 6047215.552680263]
+        renderView1.CameraFocalPoint = [1731504.8595461769, 3105601.1729913107, -1755775.615996314]
+        renderView1.CameraViewUp = [0.4314695504273366, 0.8294679274563145, -0.35470689924973053]
         renderView1.CameraParallelScale = 600000.0
     elif "GEOMETRY" == "box":
-        renderView1.CameraPosition = [10420037.17156642, 5096774.770188813, 6264706.593871739]
-        renderView1.CameraFocalPoint = [954463.8330784661, -1150881.9263552597, -281716.0365199686]
-        renderView1.CameraViewUp = [-0.3922048999477372, -0.31237589777368785, 0.8652147796628696]
+        renderView1.CameraPosition = [7901107.27312585, 5768057.049286575, 5496301.138370097]
+        renderView1.CameraFocalPoint = [2242318.5206255154, -1901461.3695231928, 369527.98904717574]
+        renderView1.CameraViewUp = [-0.3457156989670518, -0.3316734584620678, 0.8777661262771159]
         renderView1.CameraParallelScale = 600000.0
 
-    # hide objects
-    # Hide(transform_bd, renderView1)
-
+    # save figure
+    fig_name = "3d_velocity_%.4e" % (float(PLOT_TIME))
+    fig_path = os.path.join(pv_output_dir, "%s.png" % (fig_name))
+    fig_pdf_path = os.path.join(pv_output_dir, "%s.pdf" % (fig_name))
+    SaveScreenshot(fig_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_pdf_path, view=renderView1)
+    print("Figure saved: %s" % fig_path)
+    print("Figure saved: %s" % fig_pdf_path)
 
 
 steps = GRAPHICAL_STEPS
@@ -485,40 +579,52 @@ renderView1 = GetActiveViewOrCreate('RenderView')
 # load model boundary
 load_pyvista_source(data_output_dir, "model_boundary", None, file_type="vtu")
 load_pyvista_source(data_output_dir, "model_boundary_marker_points", None)
-# load_pyvista_source(data_output_dir, "plane_660.0km", None, file_type="vtp")
+load_pyvista_source(data_output_dir, "plane_660.0km", None, file_type="vtu")
 
 
 # add a position of the original trench
 if "GEOMETRY" == "chunk":
-    x_tr_orig, y_tr_orig, z_tr_orig = rotate_spherical_point_paraview_style(OUTER_RADIUS+150e3, np.pi/2.0, THETA_REF_TRENCH, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
-    add_trench_triangle("trench_orig_triangle", x_tr_orig, y_tr_orig, z_tr_orig, 60e3)
+    x_tr_orig, y_tr_orig, z_tr_orig = rotate_spherical_point_paraview_style(OUTER_RADIUS+100e3, np.pi/2.0, TRENCH_INITIAL*np.pi/180.0, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+    add_trench_triangle("trench_orig_triangle", "GEOMETRY", x_tr_orig, y_tr_orig, z_tr_orig, 45e3)
     trench_orig = FindSource("trench_orig_triangle")
     trench_origDisplay = Show(trench_orig, renderView1, 'GeometryRepresentation')
     trench_origDisplay.AmbientColor = [1.0, 0.6666666666666666, 0.0]
     trench_origDisplay.DiffuseColor = [1.0, 0.6666666666666666, 0.0]
     Hide(trench_orig, renderView1)
 else:
-    pass
+    x_tr_orig, y_tr_orig, z_tr_orig = TRENCH_INITIAL*np.pi/180.0, 0.0, OUTER_RADIUS+100e3
+    add_trench_triangle("trench_orig_triangle", "GEOMETRY", x_tr_orig, y_tr_orig, z_tr_orig, 45e3)
+    trench_orig = FindSource("trench_orig_triangle")
+    trench_origDisplay = Show(trench_orig, renderView1, 'GeometryRepresentation')
+    trench_origDisplay.AmbientColor = [1.0, 0.6666666666666666, 0.0]
+    trench_origDisplay.DiffuseColor = [1.0, 0.6666666666666666, 0.0]
+    Hide(trench_orig, renderView1)
 
 # add a position of the current trench
 if "GEOMETRY" == "chunk":
-    x_tr, y_tr, z_tr = rotate_spherical_point_paraview_style(OUTER_RADIUS+150e3, np.pi/2.0, TRENCH_CENTER, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
-    add_trench_triangle("trench_triangle", x_tr_orig, y_tr_orig, z_tr_orig, 60e3)
+    x_tr, y_tr, z_tr = rotate_spherical_point_paraview_style(OUTER_RADIUS+100e3, np.pi/2.0, TRENCH_CENTER, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+    add_trench_triangle("trench_triangle", "GEOMETRY", x_tr, y_tr, z_tr, 45e3)
     trench = FindSource("trench_triangle")
     trenchDisplay = Show(trench, renderView1, 'GeometryRepresentation')
     trenchDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0]
     trenchDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
     Hide(trench, renderView1)
 else:
-    pass
+    x_tr, y_tr, z_tr = TRENCH_CENTER, 0.0, OUTER_RADIUS+100e3
+    add_trench_triangle("trench_triangle", "GEOMETRY", x_tr, y_tr, z_tr, 45e3)
+    trench = FindSource("trench_triangle")
+    trenchDisplay = Show(trench, renderView1, 'GeometryRepresentation')
+    trenchDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0]
+    trenchDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
+    Hide(trench, renderView1)
 
 # loop every step to plot
 for i, step in enumerate(steps):
     snapshot = INITIAL_ADAPTIVE_REFINEMENT+step
 
-
     # load slice center
-    load_pyvista_source(data_output_dir, "slice_center", snapshot, assign_field=True, add_glyph=True)
+    load_pyvista_source(data_output_dir, "slice_center_unbounded", snapshot, file_type="vtp", assign_field=True, add_glyph=True)
+    load_pyvista_source(data_output_dir, "slice_center", snapshot, file_type="vtu", assign_field=True, add_glyph=True)
 
     # load slice at 200 km depth
     if "GEOMETRY" == "chunk":

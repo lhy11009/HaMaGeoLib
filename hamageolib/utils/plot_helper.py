@@ -220,7 +220,7 @@ def overlay_images_on_blank_canvas(
                 original_width, original_height = image.size
                 new_width = int(round(original_width * scale_factor))
                 new_height = int(round(original_height * scale_factor))
-                image = image.resize((new_width, new_height), Image.ANTIALIAS)
+                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
                 print(f"Scaled size of image {idx + 1}: {image.size}")
 
         # Get the position for this image
