@@ -1,3 +1,4 @@
+#!/bin/bash
 # This script submits a job to compile deal.ii and then ASPECT
 # For deal.ii, a repository of candi is given
 # For ASPECT, a repository of ASPECT is given
@@ -6,7 +7,6 @@
 # There are options to only compile ASPECT, in this case, an existing deal.ii directory should be given.
 # Before the compilation of ASPECT, the script will source the configuration/enable.sh file from deal.ii
 
-#!/bin/bash
 #SBATCH --account=billengrp          # SLURM account to use
 #SBATCH --partition=high         # Partition to submit the job
 #SBATCH --time=24:00:00              # Max execution time (24 hours)
