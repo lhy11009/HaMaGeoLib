@@ -2,13 +2,13 @@
 import os
 import numpy as np
 import pandas as pd
-from hamageolib.research.haoyuan_2d_subduction.legacy_tools import VISIT_OPTIONS_BASE, VISIT_OPTIONS_TWOD, FindWBFeatures, WBFeatureNotFoundError, COMPOSITION, GetSnapsSteps
+from hamageolib.research.haoyuan_2d_subduction.legacy_tools import VISIT_OPTIONS_BASE, FindWBFeatures, WBFeatureNotFoundError, COMPOSITION, GetSnapsSteps
 from hamageolib.research.haoyuan_2d_subduction.legacy_utilities import ggr2cart, string2list, func_name, my_assert
 from hamageolib.utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
 
-class CASE_OPTIONS(VISIT_OPTIONS_TWOD, CASE_OPTIONS_BASE):
+class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
     """
     parse .prm file to a option file that bash can easily read
     """
@@ -203,32 +203,12 @@ class CASE_OPTIONS(VISIT_OPTIONS_TWOD, CASE_OPTIONS_BASE):
                 ptimes.append(time)
         return ptimes, psnaps
     
-    def SummaryCaseVtuStep(self, ofile=None):
+    def SummaryCaseVtuStep(self, ifile=None):
         '''
         Summary case result
         ofile (str): if this provided, import old results
         '''
-        CASE_OPTIONS_BASE.SummaryCaseVtuStep(self)
-
-        # Here we want to reset it to not mess up old results
-        summary_df_foo = self.summary_df.copy(deep=True)
-
-        # start from old file
-        if os.path.isfile(ofile):
-            # rewrite the results from file
-            self.summary_df = pd.read_csv(ofile)
-
-            # Identify new rows in summary_df_foo
-            old_vtu_steps = set(self.summary_df["Vtu step"])
-            new_rows_mask = ~summary_df_foo["Vtu step"].isin(old_vtu_steps)
-            new_rows = summary_df_foo[new_rows_mask]
-
-            # Concatenate new rows to the existing summary
-            self.summary_df = pd.concat([self.summary_df, new_rows], ignore_index=True)
-
-            # Sort by "Vtu step"
-            self.summary_df.sort_values("Vtu step", inplace=True)
-            self.summary_df.reset_index(drop=True, inplace=True)
+        CASE_OPTIONS_BASE.SummaryCaseVtuStep(self, ifile)
 
         # Add new columns you want to add
         new_columns = ["Slab depth", "Trench (center)"]
@@ -236,3 +216,174 @@ class CASE_OPTIONS(VISIT_OPTIONS_TWOD, CASE_OPTIONS_BASE):
         for col in new_columns:
             if col not in self.summary_df.columns:
                 self.summary_df[col] = np.nan
+
+# todo_visual
+class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
+
+    def __init__(self, case_dir):
+        '''
+        class initiation
+        '''
+        VISIT_OPTIONS_BASE.__init__(self, case_dir)
+        CASE_OPTIONS_BASE.__init__(self, case_dir) 
+    
+    def Interpret(self, **kwargs):
+        """
+        Interpret the inputs, to be reloaded in children.
+        This class is different from the class for the 2d cases
+        kwargs: options
+            last_step(list): plot the last few steps
+        """
+        # call function from parent
+        VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
+
+        # Rotation angles 
+        self.options['ROTATION_ANGLE'] = 0.0
+        rotation_plus = kwargs.get("rotation_plus", 0.0) # additional rotation
+
+        # Maximum and minimum viscosity
+        try:
+            self.options['ETA_MIN'] =\
+                string2list(self.idict['Material model']['Visco Plastic TwoD']['Minimum viscosity'], float)[0]
+        except ValueError:
+            eta_min_inputs =\
+                COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Minimum viscosity']) 
+            self.options['ETA_MIN'] = eta_min_inputs.data['background'][0] # use phases
+        try:
+            self.options['ETA_MAX'] =\
+                string2list(self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity'], float)[0]
+        except ValueError:
+            eta_max_inputs =\
+                COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity']) 
+            self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
+
+        # Domain and rotation
+        if self.options['GEOMETRY'] == 'chunk':
+            try:
+                index = FindWBFeatures(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                rotation_angle = 52.0 + rotation_plus
+            else:
+                # rotate to center on the slab
+                feature_sp = self.wb_dict['features'][index]
+                rotation_angle = 90.0 - feature_sp["coordinates"][2][0] - 2.0 + rotation_plus
+            self.options['ROTATION_ANGLE'] = rotation_angle
+        elif self.options['GEOMETRY'] == 'box':
+            try:
+                index = FindWBFeatures(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                trench_x = 4e6
+            else:
+                # reset the view point
+                feature_sp = self.wb_dict['features'][index]
+                trench_x = feature_sp["coordinates"][2][0]
+            window_width = 1.8e6
+            self.options['GLOBAL_UPPER_MANTLE_VIEW_BOX'] =\
+            "(%.4e, %.4e, 1.9e6, 2.9e6)" % (trench_x - window_width/2.0, trench_x + window_width/2.0)
+        else:
+            raise ValueError("Geometry should be \"chunk\" or \"box\"")
+
+        # plate setup
+        if self.options['GEOMETRY'] == 'chunk':
+            sp_age = -1.0
+            ov_age = -1.0
+            Ro = 6371e3
+            try:
+                index = FindWBFeatures(self.wb_dict, "Subducting plate")
+                index1 = FindWBFeatures(self.wb_dict, "Overiding plate")
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                sp_age = -1.0
+                ov_age = -1.0
+            else:
+                feature_sp = self.wb_dict['features'][index]
+                feature_ov = self.wb_dict['features'][index1]
+                trench_angle = feature_sp["coordinates"][2][0]
+                spreading_velocity = feature_sp["temperature models"][0]["spreading velocity"]
+                sp_age = trench_angle * np.pi / 180.0 * Ro/ spreading_velocity 
+                ov_age = feature_ov["temperature models"][0]["plate age"]
+            self.options['SP_AGE'] = sp_age
+            self.options['OV_AGE'] =  ov_age
+        elif self.options['GEOMETRY'] == 'box':
+            self.options['BOX_LENGTH'] = self.idict["Geometry model"]["Box"]["X extent"]
+            self.options['BOX_THICKNESS'] = self.idict["Geometry model"]["Box"]["Y extent"]
+
+            sp_age = -1.0
+            ov_age = -1.0
+            try:
+                # todo_ptable
+                index = FindWBFeatures(self.wb_dict, 'Subducting plate')
+                index1 = FindWBFeatures(self.wb_dict, "Overiding plate")
+                feature_sp = self.wb_dict['features'][index]
+                feature_ov = self.wb_dict['features'][index1]
+                trench_x = feature_sp["coordinates"][2][0]
+                spreading_velocity = feature_sp["temperature models"][0]["spreading velocity"]
+                sp_age = trench_x / spreading_velocity 
+                ov_age = feature_ov["temperature models"][0]["plate age"]
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                sp_age = -1.0
+                ov_age = -1.0
+                pass
+            self.options['SP_AGE'] = sp_age
+            self.options['OV_AGE'] =  ov_age
+        else:
+            raise ValueError("Geometry should be \"chunk\" or \"box\"")
+        
+        # Shear Zone configuration
+        index = FindWBFeatures(self.wb_dict, 'Subducting plate')
+        feature_sp = self.wb_dict['features'][index]
+        self.options["INITIAL_SHEAR_ZONE_THICKNESS"] = feature_sp["composition models"][0]["max depth"]
+        decoupling_eclogite_viscosity = self.idict['Material model']['Visco Plastic TwoD'].get('Decoupling eclogite viscosity', 'false')
+        if decoupling_eclogite_viscosity == 'true':
+            self.options["SHEAR_ZONE_CUTOFF_DEPTH"] = float(self.idict['Material model']['Visco Plastic TwoD']["Eclogite decoupled viscosity"]["Decoupled depth"])
+        else:
+            self.options["SHEAR_ZONE_CUTOFF_DEPTH"] = -1.0
+
+        A_diff_inputs = COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Prefactors for diffusion creep'])
+        self.options["SHEAR_ZONE_CONSTANT_VISCOSITY"] = 1.0 / 2.0 / A_diff_inputs.data['spcrust'][0] # use phases
+    
+        # yield stress
+        try:
+            self.options["MAXIMUM_YIELD_STRESS"] = float(self.idict['Material model']['Visco Plastic TwoD']["Maximum yield stress"])
+        except KeyError:
+            self.options["MAXIMUM_YIELD_STRESS"] = 1e8
+
+        # peierls rheology
+        try:
+            include_peierls_rheology = self.idict['Material model']['Visco Plastic TwoD']['Include Peierls creep']
+            if include_peierls_rheology == 'true':
+                self.options['INCLUDE_PEIERLS_RHEOLOGY'] = True
+            else:
+                self.options['INCLUDE_PEIERLS_RHEOLOGY'] = False
+        except KeyError:
+            self.options['INCLUDE_PEIERLS_RHEOLOGY'] = False
+
+       # reference trench point
+        self.options['THETA_REF_TRENCH'] = 0.0  # initial value
+        if self.options['GEOMETRY'] == 'chunk':
+            try:
+                index = FindWBFeatures(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                theta_ref_trench = 0.63
+            else:
+                # rotate to center on the slab
+                feature_sp = self.wb_dict['features'][index]
+                theta_ref_trench = feature_sp["coordinates"][2][0] / 180.0 * np.pi
+        elif self.options['GEOMETRY'] == 'box':
+            try:
+                index = FindWBFeatures(self.wb_dict, 'Subducting plate')
+            except KeyError:
+                # either there is no wb file found, or the feature 'Subducting plate' is not defined
+                # for the box geometry, this is the x distance of the trench
+                theta_ref_trench = 4000000.0
+            else:
+                # rotate to center on the slab
+                feature_sp = self.wb_dict['features'][index]
+                theta_ref_trench = feature_sp["coordinates"][2][0]        
+        else:
+            raise ValueError("Value of geometry must be either \"chunk\" or \"box\"")
+        self.options['THETA_REF_TRENCH'] = theta_ref_trench

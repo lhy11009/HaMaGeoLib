@@ -180,7 +180,7 @@ class CASE_OPTIONS:
 
             self.visualization_df.attrs["Time between graphical output"] = time_between_graphical_output
 
-    def SummaryCaseVtuStep(self):
+    def SummaryCaseVtuStep(self, ifile=None):
         '''
         Generate a Case Summary
         ofile (str): if this provided, output the csv summary
@@ -200,6 +200,32 @@ class CASE_OPTIONS:
             "Vtu snapshot": Vtu_snapshot,
             "File found": [True for i in range(Time_step_number.size)]
             })
+
+        if ifile is not None and os.path.isfile(ifile): 
+            self.SummaryCaseVtuStepUpdateFromFile(ifile, self.summary_df.copy(deep=True))
+        
+    def SummaryCaseVtuStepUpdateFromFile(self, ifile, summary_df_foo):
+        '''
+        Read a csv file and update values in self.summary_df
+        Start from an exisiting pandas object summary_df_foo
+        '''
+        # start from old file
+        assert(os.path.isfile(ifile))
+
+        # rewrite the results from file
+        self.summary_df = pd.read_csv(ifile)
+
+        # Identify new rows in summary_df_foo
+        old_vtu_steps = set(self.summary_df["Vtu step"])
+        new_rows_mask = ~summary_df_foo["Vtu step"].isin(old_vtu_steps)
+        new_rows = summary_df_foo[new_rows_mask]
+
+        # Concatenate new rows to the existing summary
+        self.summary_df = pd.concat([self.summary_df, new_rows], ignore_index=True)
+
+        # Sort by "Vtu step"
+        self.summary_df.sort_values("Vtu step", inplace=True)
+        self.summary_df.reset_index(drop=True, inplace=True)
 
     def SummaryCaseVtuStepUpdateValue(self, field_name, vtu_step, value):
         '''

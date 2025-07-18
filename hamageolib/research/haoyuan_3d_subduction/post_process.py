@@ -8,8 +8,10 @@ from vtk import VTK_QUAD
 from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
-from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS
+from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS, CASE_OPTIONS_TWOD1
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
+
+
 
 class PYVISTA_PROCESS_THD():
 
@@ -1421,3 +1423,57 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     PprocessThD.filter_slab_lower_points()
     # extract slab surface using "sp_lower" composition
     PprocessThD.extract_slab_surface("sp_lower")
+
+
+# todo_2d_visual
+def PlotCaseRunTwoD1(case_path, **kwargs):
+    '''
+    Plot case run result
+    Inputs:
+        case_path(str): path to the case
+        kwargs:
+            step(int): if this is given as an int, only plot this step
+            last_step: number of last steps to plot
+    Returns:
+        -
+    '''
+    step = kwargs.get('step', None)
+    last_step = kwargs.get('last_step', 3)
+    rotation_plus = kwargs.get("rotation_plus", 0.0)
+    # todo_velo
+    print("%s: start" % func_name())
+    # get case parameters
+    prm_path = os.path.join(case_path, 'output', 'original.prm')
+
+    # steps to plot: here I use the keys in kwargs to allow different
+    # options: by steps, a single step, or the last step
+    if type(step) == int:
+        kwargs["steps"] = [step]
+    elif type(step) == list:
+        kwargs["steps"] = step
+    elif type(step) == str:
+        kwargs["steps"] = step
+    else:
+        kwargs["last_step"] = last_step
+
+    # Inititiate the class and intepret the options
+    # Note that all the options defined by kwargs is passed to the interpret function
+    Case_Options_2d = CASE_OPTIONS_TWOD1(case_path)
+    Case_Options_2d.Interpret(**kwargs)
+
+    # todo_pexport
+    # generate scripts base on the method of plotting
+    odir = os.path.join(case_path, 'paraview_scripts')
+    if not os.path.isdir(odir):
+        os.mkdir(odir)
+    print("Generating paraview scripts")
+    py_script = 'slab1.py'
+    ofile = os.path.join(odir, py_script)
+    paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'ThDSubduction', py_script)
+    paraview_script_base = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')
+    Case_Options_2d.read_contents(paraview_script_base, paraview_script)  # combine these two scripts
+    Case_Options_2d.substitute()
+
+    ofile_path = Case_Options_2d.save(ofile, relative=True)
+
+    return Case_Options_2d
