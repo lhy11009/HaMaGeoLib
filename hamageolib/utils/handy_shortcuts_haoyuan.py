@@ -91,3 +91,5 @@ class Mute:
         sys.stdout = self._stdout
         sys.stderr = self._stderr
         self._warnings.__exit__(exc_type, exc_val, exc_tb)
+
+

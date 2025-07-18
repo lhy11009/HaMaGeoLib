@@ -661,3 +661,25 @@ def fix_wallclock_time(df):
     })
 
     return df
+
+
+def MatplotlibFormatPrep():
+    '''
+    Load a set of setting that generally make figure better
+    '''
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 1.5 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.8
+    line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
+
+    # scale the matplotlib params
+    scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
