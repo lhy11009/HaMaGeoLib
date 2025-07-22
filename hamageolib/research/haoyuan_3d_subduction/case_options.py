@@ -211,7 +211,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         CASE_OPTIONS_BASE.SummaryCaseVtuStep(self, ifile)
 
         # Add new columns you want to add
-        new_columns = ["Slab depth", "Trench (center)"]
+        new_columns = ["Slab depth", "Trench (center)", "Dip 100 (center)"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:
@@ -362,7 +362,6 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             self.options['INCLUDE_PEIERLS_RHEOLOGY'] = False
 
        # reference trench point
-        self.options['THETA_REF_TRENCH'] = 0.0  # initial value
         if self.options['GEOMETRY'] == 'chunk':
             try:
                 index = FindWBFeatures(self.wb_dict, 'Subducting plate')
@@ -386,4 +385,18 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
                 theta_ref_trench = feature_sp["coordinates"][2][0]        
         else:
             raise ValueError("Value of geometry must be either \"chunk\" or \"box\"")
-        self.options['THETA_REF_TRENCH'] = theta_ref_trench
+        self.options['TRENCH_INITIAL'] = theta_ref_trench
+
+    def SummaryCaseVtuStep(self, ifile=None):
+        '''
+        Summary case result
+        ofile (str): if this provided, import old results
+        '''
+        CASE_OPTIONS_BASE.SummaryCaseVtuStep(self, ifile)
+
+        # Add new columns you want to add
+        new_columns = ["Slab depth", "Trench", "Dip 100"]
+
+        for col in new_columns:
+            if col not in self.summary_df.columns:
+                self.summary_df[col] = np.nan

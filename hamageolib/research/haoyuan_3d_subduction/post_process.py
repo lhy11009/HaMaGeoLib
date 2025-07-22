@@ -314,7 +314,6 @@ class PYVISTA_PROCESS_THD():
             v_tangent = velocities - v_radial                   # (N, 3)
 
             slice_at_depth.point_data["velocity_slice"] = v_tangent
-            print("slice_at_depth: ", slice_at_depth) # debug
             filename = "slice_depth_%.1fkm_%05d.vtu" % (depth / 1e3, self.pvtu_step)
         else:
             origin = (0, 0, r_slice)
@@ -1186,6 +1185,38 @@ def get_slab_depth_from_file(pyvista_outdir, pvtu_step, geometry, Max0, field_na
     slab_depth = Max0 - np.min(l0)
     return slab_depth
 
+def get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, geometry, Max0, field_name, depth0, depth1):
+    '''
+    Get the position of trench from a file generated previously
+    Inputs:
+        depth0, depth1 - get slab dip angle between these depth
+    '''
+    filename = "%s_surface_%05d.vtp" % (field_name, pvtu_step)
+    filepath = os.path.join(pyvista_outdir, filename)
+    point_cloud_tr = pv.read(filepath)
+    points = point_cloud_tr.points
+
+    d0 = 5e3 # tolerance along dimention 0
+    if geometry == "chunk":
+        d1 = 0.1 * np.pi / 180.0  # tolerance along dimention 1
+        l0_mean = Max0 - (depth0 + depth1)/2.0
+        l0, theta, l2 = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
+        l1 = np.pi/2.0 - theta
+        mask0 = ((np.abs((Max0 - l0) - depth0) < d0) & (l1 < d1))
+        l2_mean_0 = np.average(l2[mask0])
+        mask1 = ((np.abs((Max0 - l0) - depth1) < d0) & (l1 < d1))
+        l2_mean_1 = np.average(l2[mask1])
+        dip_angle = np.arctan2(depth1 - depth0, l0_mean * (l2_mean_1 - l2_mean_0))
+    else:
+        d1 = 10e3
+        l0 = points[:, 2]; l1 = points[:, 1]; l2 = points[:, 0]
+        mask0 = ((np.abs((Max0 - l0) - depth0) < d0) & (l1 < d1))
+        l2_mean_0 = np.average(l2[mask0])
+        mask1 = ((np.abs((Max0 - l0) - depth1) < d0) & (l1 < d1))
+        l2_mean_1 = np.average(l2[mask1])
+        dip_angle = np.arctan2(depth1 - depth0, l2_mean_1 - l2_mean_0)
+
+    return dip_angle
 
 class PLOT_CASE_RUN_THD():
     '''
@@ -1250,23 +1281,35 @@ class PLOT_CASE_RUN_THD():
         return file_found_list
             
 
-    def GenerateParaviewScript(self, ofile_list, additional_options):
+    def GenerateParaviewScript(self, ofile_list, additional_options, **kwargs):
         '''
         generate paraview script
         Inputs:
             ofile_list - a list of file to include in paraview
             additional_options - options to append
         '''
+        animation = kwargs.get("animation", False)
         require_base = self.kwargs.get('require_base', True)
         for ofile_base in ofile_list:
-            ofile = os.path.join(self.case_path, 'paraview_scripts', ofile_base)
+            # Different file name if make animation
+            if animation:
+                snapshot = self.kwargs["steps"][0] + int(self.Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
+                odir = os.path.join(self.case_path, 'paraview_scripts', "%05d" % snapshot)
+                if not os.path.isdir(odir):
+                    os.mkdir(odir)
+                ofile = os.path.join(self.case_path, 'paraview_scripts', "%05d" % snapshot, ofile_base)
+            else:
+                ofile = os.path.join(self.case_path, 'paraview_scripts', ofile_base)
+            # Read base file
             paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts',"ThDSubduction", ofile_base)
             if require_base:
                 paraview_base_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')  # base.py : base file
                 self.Case_Options.read_contents(paraview_base_script, paraview_script)  # this part combines two scripts
             else:
                 self.Case_Options.read_contents(paraview_script)  # this part combines two scripts
+            # Update additional options
             self.Case_Options.options.update(additional_options)
+            # Generate scripts
             self.Case_Options.substitute()  # substitute keys in these combined file with values determined by Interpret() function
             ofile_path = self.Case_Options.save(ofile, relative=False)  # save the altered script
             print("\t File generated: %s" % ofile_path)
@@ -1310,12 +1353,13 @@ def clip_grid_by_spherical_range(grid, r_range=None, theta_range=None, phi_range
     return grid.extract_points(mask, adjacent_cells=True)
 
 
-def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
+def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options):
     '''
     Process with pyvsita for a single step
     Inputs:
         case_path - full path of a 3-d case
         pvtu_step - pvtu_step of vtu output files
+        Case_Options - options for the case
     '''
     geometry = Case_Options.options["GEOMETRY"]
 
@@ -1425,7 +1469,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     PprocessThD.extract_slab_surface("sp_lower")
 
 
-# todo_2d_visual
 def PlotCaseRunTwoD1(case_path, **kwargs):
     '''
     Plot case run result
@@ -1440,6 +1483,7 @@ def PlotCaseRunTwoD1(case_path, **kwargs):
     step = kwargs.get('step', None)
     last_step = kwargs.get('last_step', 3)
     rotation_plus = kwargs.get("rotation_plus", 0.0)
+    additional_options = kwargs.get("additional_options", {})
     # todo_velo
     print("%s: start" % func_name())
     # get case parameters
@@ -1461,7 +1505,9 @@ def PlotCaseRunTwoD1(case_path, **kwargs):
     Case_Options_2d = CASE_OPTIONS_TWOD1(case_path)
     Case_Options_2d.Interpret(**kwargs)
 
-    # todo_pexport
+    for key, value in additional_options.items():
+        Case_Options_2d.options[key] = value
+
     # generate scripts base on the method of plotting
     odir = os.path.join(case_path, 'paraview_scripts')
     if not os.path.isdir(odir):
@@ -1477,3 +1523,150 @@ def PlotCaseRunTwoD1(case_path, **kwargs):
     ofile_path = Case_Options_2d.save(ofile, relative=True)
 
     return Case_Options_2d
+
+# todo_2d_visual
+def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
+    """
+    Inputs:
+        case_path - full path of a 3-d case
+        pvtu_step - pvtu_step of vtu output files
+        Case_Options - options for the case
+    """
+    output_dict = {}
+    geometry = Case_Options.options["GEOMETRY"]
+    Min0 = Case_Options.options["INNER_RADIUS"]
+    Max0 = Case_Options.options["OUTER_RADIUS"]
+
+    idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
+    _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
+
+    
+    # output directory
+    if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
+        os.mkdir(os.path.join(case_path, "pyvista_outputs"))
+    pyvista_outdir = os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)
+    if not os.path.isdir(pyvista_outdir):
+        os.mkdir(pyvista_outdir)
+
+    # Read data
+    # append a "radius" field 
+    start = time.time()
+    pvtu_step = pvtu_step
+    
+    pvtu_filepath = os.path.join(case_path, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
+    my_assert(os.path.isfile(pvtu_filepath), FileNotFoundError, "File %s is not found" % pvtu_filepath)
+
+    grid = pv.read(pvtu_filepath)
+
+    points = grid.points
+    if geometry == "chunk":
+        radius = np.linalg.norm(points, axis=1)
+    else:
+        radius = points[:, 2]
+    grid["radius"] = radius
+    
+    end = time.time()
+    print("%s: Read file takes %.1f s" % (func_name(), end - start))
+
+    # take iso-volumes
+    start = time.time()
+
+    threshold = 0.8
+    
+    iso_volume_upper = grid.threshold(value=threshold, scalars="spcrust", invert=False)
+    iso_volume_lower = grid.threshold(value=threshold, scalars="spharz", invert=False)
+    
+    end = time.time()
+    print("%s: Making iso-volumes takes %.1f s" % (func_name(), end - start))
+
+    # Extract slab surface points
+    # First construct a KDTree from data
+    # Then figure out the max phi value
+    # Record the trench position, slab depth and save slab surface points
+    start = time.time()
+    N0 = 2000
+    vals0 = np.linspace(Min0, Max0, N0)
+    vals1 = np.pi/2.0
+    vals2 = np.full(N0, np.nan)
+
+    upper_points = iso_volume_upper.points
+
+    if geometry == "chunk":
+        v0_u, _, v2_u = cartesian_to_spherical(*upper_points.T)
+        rt_upper = np.vstack([v0_u/Max0]).T
+    else:
+        rt_upper = np.vstack([upper_points[:, 1]/Max0]).T
+        v2_u = upper_points[:, 0]
+    rt_tree = cKDTree(rt_upper)
+
+    dr = 0.001
+    for i, v0 in enumerate(vals0):
+        query_pt = np.array([v0/Max0])
+        idxs = rt_tree.query_ball_point(query_pt, r=dr)
+
+        if not idxs:
+            continue
+
+        v2s = v2_u[idxs]
+        max_v2 = np.max(v2s)
+
+        if np.all(v2s <= max_v2):
+            vals2[i] = max_v2
+    
+    mask = ~np.isnan(vals2)
+
+    v0_surf = vals0[mask]
+    v1_surf = np.pi / 2.0 * np.ones(v0_surf.shape)
+    v2_surf = vals2[mask]
+
+    if geometry == "chunk":
+        x = v0_surf * np.sin(v1_surf) * np.cos(v2_surf)
+        y = v0_surf * np.sin(v1_surf) * np.sin(v2_surf)
+        z = v0_surf * np.cos(v1_surf)
+    else:
+        x = v2_surf
+        y = v0_surf
+        z = np.zeros(v0_surf.shape)
+
+    slab_surface_points = np.vstack([x, y, z]).T
+
+    # derive trench center, slab depth and dip angle
+    depth0 = 0.0; depth1 = 100e3
+    d0 = 5e3 # tolerance along dimention 0
+    if geometry == "chunk": 
+        l0_mean = Max0 - (depth0 + depth1)/2.0
+        l0, _, l2 = cartesian_to_spherical(slab_surface_points[:, 0], slab_surface_points[:, 1], slab_surface_points[:, 2])
+        trench_center = l2[-1]
+        slab_depth = Max0 - np.min(l0)
+        # dip angle
+        mask0 = ((np.abs((Max0 - l0) - depth0) < d0))
+        l2_mean_0 = np.average(l2[mask0])
+        mask1 = ((np.abs((Max0 - l0) - depth1) < d0))
+        l2_mean_1 = np.average(l2[mask1])
+        dip_angle = np.arctan2(depth1 - depth0, l0_mean * (l2_mean_1 - l2_mean_0))
+    else:
+        d1 = 10e3
+        trench_center = slab_surface_points[-1, 0]
+        slab_depth = Max0 - np.min(slab_surface_points[:, 1])
+        # dip angle
+        l0 = slab_surface_points[:, 1]; l2 = slab_surface_points[:, 0]
+        mask0 = ((np.abs((Max0 - l0) - depth0) < d0))
+        l2_mean_0 = np.average(l2[mask0])
+        mask1 = ((np.abs((Max0 - l0) - depth1) < d0))
+        l2_mean_1 = np.average(l2[mask1])
+        dip_angle = np.arctan2(depth1 - depth0, l2_mean_1 - l2_mean_0)
+    
+    output_dict["trench_center"] = trench_center
+    output_dict["slab_depth"] = slab_depth
+    output_dict["dip_100"] = dip_angle
+        
+    point_cloud = pv.PolyData(slab_surface_points)
+    filename = "spcrust_surface_%05d.vtp" % pvtu_step
+    filepath = os.path.join(pyvista_outdir, filename)
+    point_cloud.save(filepath)
+    print("Save file %s" % filepath)
+    
+    end = time.time()
+    print("%s: Extract trench center takes %.1f s" % (func_name(), end - start))
+
+    return output_dict

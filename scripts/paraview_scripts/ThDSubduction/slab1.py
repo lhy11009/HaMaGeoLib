@@ -350,11 +350,13 @@ output.SetPolys(triangles)""" % (cx, cy, cz, size)
     trenchTrSource.ScriptRequestInformation = ''
     trenchTrSource.PythonPath = ''
 
-
-def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir):
+def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
 
     # Show the slab center plot and viscosities
-    transform1 = FindSource("%s_transform_%05d" % (source_name, snapshot))
+    if "GEOMETRY" == "chunk":
+        transform1 = FindSource("%s_transform_%05d" % (source_name, snapshot))
+    else:
+        transform1 = FindSource("%s_%05d" % (source_name, snapshot))
     SetActiveSource(transform1)
     renderView1 = GetActiveViewOrCreate('RenderView')
     transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
@@ -365,7 +367,8 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir):
     # Adjust glyph properties based on the specified parameters.
     sourceV = FindSource("%s_glyph_%05d" % (source_name, snapshot))
     sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
-    ColorBy(sourceVDisplay, None)
+    if int("DIMENSION") == 3:
+        ColorBy(sourceVDisplay, None)
     # sourceVDisplay.SetScalarBarVisibility(renderView1, True)
     pointSource1 = FindSource("PointSource_%s_glyph_%05d" % (source_name, snapshot))
 
@@ -412,8 +415,8 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir):
         renderView1.CameraParallelScale = 487763.78047352127
 
     # save figure
-    fig_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.pdf" % times[i])
-    fig_png_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.png" % times[i])
+    fig_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.png" % _time)
     SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)
@@ -429,7 +432,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir):
     # HideScalarBarIfNotNeeded(fieldLUT, renderView1)
 
 
-def plot_slab_velocity_field(snapshot, pv_output_dir):
+def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     # get the renderView
     renderView1 = GetActiveViewOrCreate('RenderView')
 
@@ -480,10 +483,10 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
     scale_factor = 1e7
     n_sample_points = 500
     if "GEOMETRY" == "chunk":
-        x_p, y_p, z_p = rotate_spherical_point_paraview_style(OUTER_RADIUS+250e3, np.pi/2.0, TRENCH_INITIAL*np.pi/180.0, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+        x_p, y_p, z_p = rotate_spherical_point_paraview_style(OUTER_RADIUS+250e3, np.pi/2.0, TRENCH_INI_DERIVED, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
         point_source_center = [x_p, y_p, z_p]
     elif "GEOMETRY" == "box":
-        point_source_center = [TRENCH_INITIAL*np.pi/180.0, 0.0, OUTER_RADIUS+250e3]
+        point_source_center = [TRENCH_INI_DERIVED, 0.0, OUTER_RADIUS+250e3]
     else:
         raise NotImplementedError()
     adjust_glyph_properties("slice_center_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
@@ -508,10 +511,10 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
     scale_factor = 1e7
     n_sample_points = 1000
     if "GEOMETRY" == "chunk":
-        x_p, y_p, z_p = rotate_spherical_point_paraview_style(OUTER_RADIUS+250e3, np.pi/2.0, TRENCH_INITIAL*np.pi/180.0, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+        x_p, y_p, z_p = rotate_spherical_point_paraview_style(OUTER_RADIUS+250e3, np.pi/2.0, TRENCH_INI_DERIVED, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
         point_source_center = [x_p, y_p, z_p]
     elif "GEOMETRY" == "box":
-        point_source_center = [TRENCH_INITIAL*np.pi/180.0, 0.0, OUTER_RADIUS+250e3]
+        point_source_center = [TRENCH_INI_DERIVED, 0.0, OUTER_RADIUS+250e3]
     else:
         raise NotImplementedError()
     adjust_glyph_properties("slice_depth_200.0km_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
@@ -552,7 +555,7 @@ def plot_slab_velocity_field(snapshot, pv_output_dir):
         renderView1.CameraParallelScale = 600000.0
 
     # save figure
-    fig_name = "3d_velocity_%.4e" % (float(PLOT_TIME))
+    fig_name = "3d_velocity_%.4e" % (float(_time))
     fig_path = os.path.join(pv_output_dir, "%s.png" % (fig_name))
     fig_pdf_path = os.path.join(pv_output_dir, "%s.pdf" % (fig_name))
     SaveScreenshot(fig_path, renderView1, ImageResolution=layout_resolution)
@@ -568,7 +571,7 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
 
     # add a position of the original trench
     if "GEOMETRY" == "chunk":
-        x_tr_orig, y_tr_orig, z_tr_orig = rotate_spherical_point_paraview_style(OUTER_RADIUS+100e3, np.pi/2.0, TRENCH_INITIAL*np.pi/180.0, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+        x_tr_orig, y_tr_orig, z_tr_orig = rotate_spherical_point_paraview_style(OUTER_RADIUS+100e3, np.pi/2.0, TRENCH_INI_DERIVED, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
         add_trench_triangle("trench_orig_triangle", "GEOMETRY", x_tr_orig, y_tr_orig, z_tr_orig, 45e3)
         trench_orig = FindSource("trench_orig_triangle")
         trench_origDisplay = Show(trench_orig, renderView1, 'GeometryRepresentation')
@@ -576,7 +579,7 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
         trench_origDisplay.DiffuseColor = [1.0, 0.6666666666666666, 0.0]
         Hide(trench_orig, renderView1)
     else:
-        x_tr_orig, y_tr_orig, z_tr_orig = TRENCH_INITIAL*np.pi/180.0, 0.0, OUTER_RADIUS+100e3
+        x_tr_orig, y_tr_orig, z_tr_orig = TRENCH_INI_DERIVED, 0.0, OUTER_RADIUS+100e3
         add_trench_triangle("trench_orig_triangle", "GEOMETRY", x_tr_orig, y_tr_orig, z_tr_orig, 45e3)
         trench_orig = FindSource("trench_orig_triangle")
         trench_origDisplay = Show(trench_orig, renderView1, 'GeometryRepresentation')
@@ -605,6 +608,7 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
     # loop every step to plot
     for i, step in enumerate(steps):
         snapshot = INITIAL_ADAPTIVE_REFINEMENT+step
+        _time = times[i]
 
         # load slice center
         load_pyvista_source(data_output_dir, "slice_center_unbounded", snapshot, file_type="vtp", assign_field=True, add_glyph=True)
@@ -629,39 +633,85 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
         load_pyvista_source(data_output_dir, "trench", snapshot, file_type="vtp")
 
         # plot slice center viscosity
-        # plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir)
+        # plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir, _time)
         
         # plot slab_velocity_field
-        plot_slab_velocity_field(snapshot, pv_output_dir)
+        plot_slab_velocity_field(snapshot, _time, pv_output_dir)
 
-# todo_2d_visual
 def twod_workflow(pv_output_dir, data_output_dir, steps, times):
-    
+    '''
+    Workflow for the twod case
+    Inputs:
+        pv_output_dir - directory for figure
+        data_output_dir - where the original case output locates
+        steps - time steps
+        times - corresponding times
+    '''
+    # add a position of the original trench
+    if "GEOMETRY" == "chunk":
+        x_tr_orig, y_tr_orig, z_tr_orig = rotate_spherical_point_paraview_style(OUTER_RADIUS+100e3, np.pi/2.0, TRENCH_INI_DERIVED, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+        add_trench_triangle("trench_orig_triangle", "GEOMETRY", x_tr_orig, y_tr_orig, z_tr_orig, 45e3)
+        trench_orig = FindSource("trench_orig_triangle")
+        trench_origDisplay = Show(trench_orig, renderView1, 'GeometryRepresentation')
+        trench_origDisplay.AmbientColor = [1.0, 0.6666666666666666, 0.0]
+        trench_origDisplay.DiffuseColor = [1.0, 0.6666666666666666, 0.0]
+        Hide(trench_orig, renderView1)
+    else:
+        x_tr_orig, y_tr_orig, z_tr_orig = TRENCH_INI_DERIVED, 0.0, OUTER_RADIUS+100e3
+        add_trench_triangle("trench_orig_triangle", "GEOMETRY", x_tr_orig, y_tr_orig, z_tr_orig, 45e3)
+        trench_orig = FindSource("trench_orig_triangle")
+        trench_origDisplay = Show(trench_orig, renderView1, 'GeometryRepresentation')
+        trench_origDisplay.AmbientColor = [1.0, 0.6666666666666666, 0.0]
+        trench_origDisplay.DiffuseColor = [1.0, 0.6666666666666666, 0.0]
+        Hide(trench_orig, renderView1)
+
+    # add a position of the current trench
+    if "GEOMETRY" == "chunk":
+        x_tr, y_tr, z_tr = rotate_spherical_point_paraview_style(OUTER_RADIUS+100e3, np.pi/2.0, TRENCH_CENTER, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
+        add_trench_triangle("trench_triangle", "GEOMETRY", x_tr, y_tr, z_tr, 45e3)
+        trench = FindSource("trench_triangle")
+        trenchDisplay = Show(trench, renderView1, 'GeometryRepresentation')
+        trenchDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0]
+        trenchDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
+        Hide(trench, renderView1)
+    else:
+        x_tr, y_tr, z_tr = TRENCH_CENTER, 0.0, OUTER_RADIUS+100e3
+        add_trench_triangle("trench_triangle", "GEOMETRY", x_tr, y_tr, z_tr, 45e3)
+        trench = FindSource("trench_triangle")
+        trenchDisplay = Show(trench, renderView1, 'GeometryRepresentation')
+        trenchDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0]
+        trenchDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
+        Hide(trench, renderView1)
+        
     for i, step in enumerate(steps):
         snapshot = INITIAL_ADAPTIVE_REFINEMENT+step
+        _time = times[i]
     
         # add source
         filein = os.path.join(data_output_dir, "solution", "solution-%05d.pvtu" %snapshot) 
-        
-        source_name = "solution.pvd"
-        PVDReader(registrationName=source_name, FileName=filein)
+
+        source_name = 'solution' 
+        XMLPartitionedUnstructuredGridReader(registrationName=source_name, FileName=[filein])
         
         # add rotation
         if "GEOMETRY" == "chunk":
-            if snapshot is None:
-                registration_name_transform = '%s_transform' % (source_name)
-            else:
-                registration_name_transform = '%s_transform_%05d' % (source_name, snapshot)
-            solutionpvd = FindSource("solution.pvd")
-            transform = Transform(registrationName=registration_name_transform, Input=solutionpvd)
+            registration_name_transform = '%s_transform_%05d' % (source_name, snapshot)
+            solution = FindSource(source_name)
+            transform = Transform(registrationName=registration_name_transform, Input=solution)
             transform.Transform = 'Transform'
             transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
             transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
             Hide3DWidgets()
         pass
 
+        registration_name_glyph = '%s_glyph_%05d' % (source_name, snapshot)
+        if "GEOMETRY" == "chunk":
+            add_glyph1("%s_transform_%05d" % (source_name, snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
+        else:
+            add_glyph1("%s_%05d" % (source_name, snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
+
         # plot slice
-        plot_slice_center_viscosity(source_name, snapshot, pv_output_dir)
+        plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time)
 
 
 steps = GRAPHICAL_STEPS
@@ -677,5 +727,3 @@ if int("DIMENSION") == 3:
     thd_workflow(pv_output_dir, data_output_dir, steps, times)
 else:
     twod_workflow(pv_output_dir, data_output_dir, steps, times)
-    raise NotImplementedError()
-
