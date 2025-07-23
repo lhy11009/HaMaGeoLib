@@ -69,6 +69,7 @@ from ...utils.handy_shortcuts_haoyuan import func_name
 from ...utils.dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
 from ...utils.world_builder_param_parser import find_wb_feature
 from ...utils.geometry_utilities import offset_profile, compute_pairwise_distances
+from ...utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 # from ...research.haoyuan_3d_subduction.post_process import PYVISTA_PROCESS_THD
 
 JSON_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_json_files")
@@ -688,10 +689,15 @@ class COMPOSITION():
         return line
 
 
-class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE):
+class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
     """
     parse .prm file to a option file that bash can easily read
     """
+
+    def __init__(self, case_dir):
+        CASE_OPTIONS_BASE.__init__(self, case_dir)
+        VISIT_OPTIONS_BASE.__init__(self, case_dir)
+
     def Interpret(self, **kwargs):
         """
         Interpret the inputs, to be reloaded in children
@@ -699,6 +705,7 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE):
             last_step(list): plot the last few steps
         """
         # call function from parent
+        CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
         
         additional_fields = [] # initiate the additional fields list
