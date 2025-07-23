@@ -410,9 +410,10 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
         renderView1.CameraFocalPoint = [-74708.2999944719, 5867664.065060813, 0.0]
         renderView1.CameraParallelScale = 651407.1273990012
     elif "GEOMETRY" == "box":
-        renderView1.CameraPosition = [4700895.868280185, 2538916.5897593317, 15340954.822755022]
-        renderView1.CameraFocalPoint = [4700895.868280185, 2538916.5897593317, 0.0]
-        renderView1.CameraParallelScale = 487763.78047352127
+        renderView1.CameraPosition = [4012781.8124555387, 8150298.613651189, 2374146.9531437973]
+        renderView1.CameraFocalPoint = [4012781.8124555387, 0.0, 2374146.9531437973]
+        renderView1.CameraViewUp = [2.220446049250313e-16, 0.0, 1.0]
+        renderView1.CameraParallelScale = 802823.959456
 
     # save figure
     fig_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.pdf" % _time)
@@ -633,10 +634,10 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
         load_pyvista_source(data_output_dir, "trench", snapshot, file_type="vtp")
 
         # plot slice center viscosity
-        # plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir, _time)
+        plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir, _time)
         
         # plot slab_velocity_field
-        plot_slab_velocity_field(snapshot, _time, pv_output_dir)
+        # plot_slab_velocity_field(snapshot, _time, pv_output_dir)
 
 def twod_workflow(pv_output_dir, data_output_dir, steps, times):
     '''
