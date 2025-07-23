@@ -12,3 +12,4 @@ big_tests/
 parse_time_info_results
 .test
 py_temp_files
+*.png
