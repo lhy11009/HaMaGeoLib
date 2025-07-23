@@ -1670,3 +1670,163 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     print("%s: Extract trench center takes %.1f s" % (func_name(), end - start))
 
     return output_dict
+
+
+def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
+
+    import matplotlib.pyplot as plt
+    from matplotlib import gridspec
+    from matplotlib.ticker import MultipleLocator 
+    from matplotlib import rcdefaults
+
+    import hamageolib.utils.plot_helper as plot_helper
+
+    time_marker = kwargs.get("time_marker", None)
+    factor_3d = kwargs.get("factor_3d", 10)
+    factor_2d = kwargs.get("factor_2d", 5)
+    odir = kwargs.get("odir", os.path.join(local_dir, "img"))
+    
+    if not os.path.isdir(odir):
+        os.mkdir(odir)
+    
+    # Retrieve the default color cycle
+    default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+
+    # Example usage
+    # Rule of thumbs:
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 2. Set five major ticks for each axis
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 1.5 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.5
+    line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
+    t_lim = (0.0, 20.0)
+    t_tick_interval = 5.0   # tick interval along x
+    y_lim = (-5.0, 5.0)
+    y_tick_interval = 100.0  # tick interval along y
+    v_lim = (-1.5, 1.5)
+    v_level = 50  # number of levels in contourf plot
+    v_tick_interval = 0.5  # tick interval along v
+    n_minor_ticks = 4  # number of minor ticks between two major ones
+
+    # scale the matplotlib params
+    plot_helper.scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
+
+    # Initiate figure
+    fig = plt.figure(figsize=(10*scaling_factor, 3.5*scaling_factor), tight_layout=True)
+    gs = gridspec.GridSpec(1, 2)
+
+    # Initiate case options
+    Case_Options = CASE_OPTIONS(local_dir)
+
+    Case_Options.Interpret()
+    geometry = Case_Options.options["GEOMETRY"]
+    Ro = Case_Options.options["OUTER_RADIUS"]
+
+    Case_Options.SummaryCaseVtuStep(os.path.join(local_dir, "summary.csv"))
+
+    time_3d = Case_Options.summary_df["Time"].to_numpy()
+    trench_center_3d = Case_Options.summary_df["Trench (center)"].to_numpy()
+    slab_depth_3d = Case_Options.summary_df["Slab depth"].to_numpy()
+    dip_angle_center_3d = Case_Options.summary_df["Dip 100 (center)"].to_numpy()
+    if geometry == "chunk":
+        trench_center_3d *= Ro
+
+    Case_Options_2d = CASE_OPTIONS_TWOD1(local_dir_2d)
+    Case_Options_2d.Interpret()
+    Case_Options_2d.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary.csv"))
+
+    time_2d = Case_Options_2d.summary_df["Time"].to_numpy()
+    trench_center_2d = Case_Options_2d.summary_df["Trench"].to_numpy()
+    slab_depth_2d = Case_Options_2d.summary_df["Slab depth"].to_numpy()
+    dip_angle_2d = Case_Options_2d.summary_df["Dip 100"].to_numpy()
+    if geometry == "chunk":
+        trench_center_2d *= Ro
+
+    # plot
+    ax = fig.add_subplot(gs[0, 0])
+    ax_twin = ax.twinx()
+
+    Xs_3d = time_3d/1e6
+    Ys_3d = (trench_center_3d - trench_center_3d[0])/1e3
+    Ys_3d_1 = slab_depth_3d/1e3
+    dx_dy_3d = np.gradient(Ys_3d[::factor_3d], Xs_3d[::factor_3d]) / 1e3 * 1e2
+    dx_dy_3d_1 = np.gradient(Ys_3d_1[::factor_3d], Xs_3d[::factor_3d]) / 1e3 * 1e2
+    ax.plot(Xs_3d[::factor_3d],  Ys_3d[::factor_3d], label="Trench (center)", color=default_colors[0])
+    ax_twin.plot(Xs_3d[::factor_3d],  Ys_3d_1[::factor_3d], linestyle="-.", label="Slab Depth", color=default_colors[0])
+
+    Xs_2d = time_2d/1e6
+    Ys_2d = (trench_center_2d - trench_center_2d[0])/1e3
+    Ys_2d_1 = slab_depth_2d/1e3
+    dx_dy_2d = np.gradient(Ys_2d[::factor_2d], Xs_2d[::factor_2d]) / 1e3 * 1e2
+    dx_dy_2d_1 = np.gradient(Ys_2d_1[::factor_2d], Xs_2d[::factor_2d]) / 1e3 * 1e2
+    ax.plot(Xs_2d[::factor_2d],  Ys_2d[::factor_2d], label="Trench 2d", color=default_colors[1])
+    if time_marker is not None:
+        ax.vlines(time_marker/1e6, linestyle="--", color="k", ymin=-150.0, ymax=100.0, linewidth=1)
+    ax_twin.plot(Xs_2d[::factor_2d],  Ys_2d_1[::factor_2d], linestyle="-.", label="Slab Depth 2d", color=default_colors[1])
+
+    ax.set_xlim(t_lim)
+    ax.set_ylim([-150.0, 100.0])
+    ax_twin.set_ylim([0, 1000.0])
+    ax.set_xlabel("Time (Ma)")
+    ax.set_ylabel("Trench (km)")
+
+    # ax.legend()
+    ax.grid()
+
+    # Adjust spine thickness for this plot
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.5 * scaling_factor * line_width_scaling_multiplier)
+
+    ax.xaxis.set_major_locator(MultipleLocator(t_tick_interval))
+    ax.xaxis.set_minor_locator(MultipleLocator(t_tick_interval/(n_minor_ticks+1)))
+    ax.yaxis.set_major_locator(MultipleLocator(50.0))
+    ax.yaxis.set_minor_locator(MultipleLocator(50.0/(n_minor_ticks+1)))
+    ax_twin.yaxis.set_major_locator(MultipleLocator(200.0))
+    ax_twin.yaxis.set_minor_locator(MultipleLocator(200.0/(n_minor_ticks+1)))
+
+    ax1 = fig.add_subplot(gs[0, 1])
+
+    ax1.plot(Xs_3d[::factor_3d], dx_dy_3d, label="Trench Velocity (center)", color=default_colors[0])
+    ax1.plot(Xs_3d[::factor_3d], dx_dy_3d_1, linestyle="-.", label="Sinking Velocity (center)", color=default_colors[0])
+    ax1.plot(Xs_2d[::factor_2d], dx_dy_2d, label="Trench Velocity 2d", color=default_colors[1])
+    ax1.plot(Xs_2d[::factor_2d], dx_dy_2d_1, linestyle="-.", label="Sinking Velocity 2d", color=default_colors[1])
+    if time_marker is not None:
+        ax.vlines(time_marker/1e6, linestyle="--", color="k", ymin=-5.0, ymax=15.0, linewidth=1)
+
+    ax1.set_xlim(t_lim)
+    ax1.set_ylim([-5.0, 15.0])
+    ax1.set_xlabel("Time (Ma)")
+    ax1.set_ylabel("Velocity (cm/yr)")
+
+    ax1.grid()
+    # ax1.legend()
+
+    ax1.xaxis.set_major_locator(MultipleLocator(t_tick_interval))
+    ax1.xaxis.set_minor_locator(MultipleLocator(t_tick_interval/(n_minor_ticks+1)))
+    ax1.yaxis.set_major_locator(MultipleLocator(5.0))
+    ax1.yaxis.set_minor_locator(MultipleLocator(5.0/(n_minor_ticks+1)))
+    
+    ax1_twinx = ax1.twinx()
+    ax1_twinx.plot(Xs_3d[::factor_3d], dip_angle_center_3d[::factor_3d]*180.0/np.pi, label="Dip 100 (center)", linestyle="--", color=default_colors[0])
+    ax1_twinx.plot(Xs_2d[::factor_3d], dip_angle_2d[::factor_3d]*180.0/np.pi, label="Dip 100 2d", linestyle="--", color=default_colors[1])
+    ax1_twinx.set_ylim([20.0, 60.0])
+    ax1_twinx.yaxis.set_major_locator(MultipleLocator(10.0))
+    ax1_twinx.yaxis.set_minor_locator(MultipleLocator(10.0/(n_minor_ticks+1))) 
+
+    # save figure
+    filepath = os.path.join(odir, "slab_morphology.pdf")
+    fig.savefig(filepath)
+    print("Saved figure: ", filepath)
+
+    # Reset rcParams to defaults
+    rcdefaults()
