@@ -316,7 +316,8 @@ triangles.InsertNextCell(triangle)
 output.SetPoints(points)
 output.SetPolys(triangles)""" % (cx, cy, cz, size)
     else:
-        trenchTrSource.Script = """from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
+        if int("DIMENSION") == 3:
+            trenchTrSource.Script = """from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
 from vtkmodules.vtkCommonCore import vtkPoints, vtkIdList
 
 # === Set the center location of the triangle ===
@@ -346,7 +347,38 @@ triangles.InsertNextCell(triangle)
 
 output.SetPoints(points)
 output.SetPolys(triangles)""" % (cx, cy, cz, size)
+        else:
+            trenchTrSource.Script = """from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkCellArray
+from vtkmodules.vtkCommonCore import vtkPoints, vtkIdList
 
+# === Set the center location of the triangle ===
+cx, cy, cz = %.1f, %.1f, %.1f  # <-- CHANGE THIS TO WHERE YOU WANT THE MARKER
+
+# === Triangle defined relative to the center ===
+# This triangle lies in the XY plane, pointing downward
+size = %.1f # overall size scale
+
+p0 = [cx - size, cz,     cy]      # left base
+p1 = [cx + size, cz,     cy]      # right base
+p2 = [cx, cz - 2*size, cy]  # tip (pointing down)
+
+# === Build triangle ===
+points = vtkPoints()
+points.InsertNextPoint(p0)
+points.InsertNextPoint(p1)
+points.InsertNextPoint(p2)
+
+triangle = vtkIdList()
+triangle.InsertNextId(0)
+triangle.InsertNextId(1)
+triangle.InsertNextId(2)
+
+triangles = vtkCellArray()
+triangles.InsertNextCell(triangle)
+
+output.SetPoints(points)
+output.SetPolys(triangles)""" % (cx, cy, cz, size)
+            
     trenchTrSource.ScriptRequestInformation = ''
     trenchTrSource.PythonPath = ''
 
