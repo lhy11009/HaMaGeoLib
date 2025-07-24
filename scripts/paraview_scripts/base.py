@@ -456,3 +456,21 @@ def add_plot(_source, field, **kwargs):
     HideScalarBarIfNotNeeded(fieldLUT, renderView1)
     # hide data in view
     Hide(pvd, renderView1)
+
+def hide_everything():
+    """
+    hide all the plots and colorbars
+    """
+    # Get the active view
+    view = GetActiveView()
+
+    # Hide all sources
+    for key, proxy in GetSources().items():
+        Hide(proxy, view)
+
+    # Hide all color legends explicitly
+    for rep in GetRepresentations():
+        rep.SetScalarBarVisibility(view, False)
+
+    # Update the view
+    Render()

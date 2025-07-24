@@ -263,6 +263,9 @@ class CASE_OPTIONS:
         self.options["OUTPUT_DIRECTORY"] = self.output_dir
         self.options["IMAGE_DIRECTORY"] = self.img_dir
 
+        # default operations
+        self.options["ANIMATION"] = "False"
+
         # dimension
         dimension = int(self.idict['Dimension'])
         self.options['DIMENSION'] = dimension

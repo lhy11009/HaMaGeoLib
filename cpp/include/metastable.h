@@ -86,7 +86,6 @@ public:
     // implicit constructor
     MO_KINETICS();
 
-    // todo_metastable
     // explicit constructor
     MO_KINETICS(const double d0_, const double A_, const double n_, const double dS_, const double dV_, 
                        const double dHa_, const double Vstar_, const double fs_, const double Vm_
@@ -100,8 +99,11 @@ public:
     solveModifiedEquation(const std::pair<double, double>& t_span, const std::vector<double>& X_ini, 
                          bool is_saturated, int n_span = 10, bool debug = false);
 
+    // todo_meta_const
     std::vector<std::vector<double>> 
-    solve(double P, double T, double t_min, double t_max, int n_t, int n_span, bool debug = false, std::vector<double> X = {0.0, 0.0, 0.0, 0.0}, bool is_saturated = false);
+    solve(const double P, const double T, const double t_min, const double t_max, const int n_t,
+        const int n_span, const bool debug = false, const std::vector<double> X_ini = {0.0, 0.0, 0.0, 0.0},
+        const bool is_saturated_ini = false);
 
     class MO_INITIATION_Error : public std::runtime_error {
     public:

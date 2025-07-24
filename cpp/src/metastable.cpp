@@ -467,12 +467,13 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
     return {X_array, is_saturated_array};
 }
 
-std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t_min, double t_max, int n_t, int n_span, bool debug, 
-    std::vector<double> X, bool is_saturated) {
+// todo_meta_const
+std::vector<std::vector<double>> MO_KINETICS::solve(const double P, const double T, const double t_min, const double t_max,
+    const int n_t, const int n_span, const bool debug, const std::vector<double> X_ini, const bool is_saturated_ini) {
     
     // Initialize variables
     // Check if X has exactly 4 elements
-    if (X.size() != 4) {
+    if (X_ini.size() != 4) {
         throw std::invalid_argument("Error: X must have exactly 4 elements.");
     }
     
@@ -481,8 +482,10 @@ std::vector<std::vector<double>> MO_KINETICS::solve(double P, double T, double t
     // Compute equilibrium pressure
     double Peq = computeEqP(T);
 
-    // todo_metastable
+    // Set initial values
     double last_derivative = 0.0;
+    std::vector<double> X(X_ini) ;
+    bool is_saturated = is_saturated_ini;
     // Loop over time steps
     for (int i_t = 0; i_t < n_t; ++i_t) {
         if (debug) {

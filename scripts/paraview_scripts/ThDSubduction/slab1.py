@@ -196,7 +196,7 @@ def adjust_glyph_properties(registrationName, scale_factor, n_value, point_cente
             representative_value: a value to represent by the constant vector
             GlyphMode: mode of glyph
     '''
-    GlyphMode = kwargs.get("GlyphMode", "Uniform Spatial Distribution (Bounds Based)")
+    GlyphMode = kwargs.get("GlyphMode", "Uniform Spatial Distribution (Surface Sampling)")
 
     assert(type(n_value) == int)
     assert(type(point_center) == list and len(point_center) == 3)
@@ -205,7 +205,7 @@ def adjust_glyph_properties(registrationName, scale_factor, n_value, point_cente
     glyph1 = FindSource(registrationName)
     glyph1.ScaleFactor = scale_factor
 
-    if GlyphMode == "Uniform Spatial Distribution (Bounds Based)":
+    if GlyphMode == "Uniform Spatial Distribution (Surface Sampling)":
         glyph1.GlyphMode = GlyphMode
         glyph1.MaximumNumberOfSamplePoints = n_value
     elif GlyphMode == "Every Nth Point":
@@ -364,8 +364,13 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
     set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
     
     # Adjust the position of the point source and show related annotations.
+    # In box with 3-d setup, the 2d glyph is not in the slice plane. The solution is rotate it 90 degree.
     # Adjust glyph properties based on the specified parameters.
     sourceV = FindSource("%s_glyph_%05d" % (source_name, snapshot))
+    if "GEOMETRY" == "box" and int("DIMENSION") == 3:
+        sourceV.GlyphTransform.Rotate = [90.0, 0.0, 0.0]
+        sourceVRE = FindSource("%s_glyph_%05d_representative" % (source_name, snapshot))
+        sourceVRE.GlyphTransform.Rotate = [90.0, 0.0, 0.0]
     sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
     if int("DIMENSION") == 3:
         ColorBy(sourceVDisplay, None)
@@ -380,13 +385,22 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
         sourceVTXTDisplay = Show(sourceVTXT, renderView1, 'GeometryRepresentation')
         sourceVTXTDisplay.Color = [0.0, 0.0, 0.0]
 
-    scale_factor = 2.8e6
-    n_sample_points = 2500
-    point_source_center = [0.0, 0.0, 0.0]
+    # Adjust glyph property
+    # for 2d, use 3 times the sample points because I plotted the whole domain
+    # In Box geometry, used a different scale_factor because we first need to maintain the scale of length
+    if int("DIMENSION") == 3:
+        n_sample_points = 1000
+    else:
+        n_sample_points = 3000
     if "GEOMETRY" == "chunk":
         point_source_center = [0, 6.4e6, 0]
+        scale_factor = 2.8e6
     elif "GEOMETRY" == "box":
-        point_source_center = [4.65e6, 2.95e6, 0]
+        if int("DIMENSION") == 3:
+            point_source_center = [4.65e6, 0, 2.95e6]
+        else:
+            point_source_center = [4.65e6, 2.95e6, 0]
+        scale_factor = 3.21e6
     else:
         raise NotImplementedError()
     adjust_glyph_properties("%s_glyph_%05d" % (source_name, snapshot), scale_factor, n_sample_points, point_source_center)
@@ -410,9 +424,14 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
         renderView1.CameraFocalPoint = [-74708.2999944719, 5867664.065060813, 0.0]
         renderView1.CameraParallelScale = 651407.1273990012
     elif "GEOMETRY" == "box":
-        renderView1.CameraPosition = [4012781.8124555387, 8150298.613651189, 2374146.9531437973]
-        renderView1.CameraFocalPoint = [4012781.8124555387, 0.0, 2374146.9531437973]
-        renderView1.CameraViewUp = [2.220446049250313e-16, 0.0, 1.0]
+        if int("DIMENSION") == 3:
+            renderView1.CameraPosition = [4012781.8124555387, 8150298.613651189, 2374146.9531437973]
+            renderView1.CameraFocalPoint = [4012781.8124555387, 0.0, 2374146.9531437973]
+            renderView1.CameraViewUp = [2.220446049250313e-16, 0.0, 1.0]
+        else:
+            renderView1.CameraPosition = [4012781.8124555387, 2374146.9531437973, 8150298.613651189]
+            renderView1.CameraFocalPoint = [4012781.8124555387, 2374146.9531437973, 0.0]
+            renderView1.CameraViewUp = [2.220446049250313e-16, 1.0, 0.0]
         renderView1.CameraParallelScale = 802823.959456
 
     # save figure
@@ -424,13 +443,8 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
     print("Figure saved: %s" % fig_path)
 
     # hide objects
-    # Hide(transform1, renderView1)
-    # Hide(sourceV, renderView1)
-    # Hide(pointSource1, renderView1)
-    # Hide(sourceVRE, renderView1)
-    # Hide(sourceVTXT, renderView1)
-    # fieldLUT = GetColorTransferFunction("viscosity")
-    # HideScalarBarIfNotNeeded(fieldLUT, renderView1)
+    if ANIMATION:
+        hide_everything()
 
 
 def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
@@ -563,6 +577,10 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     ExportView(fig_pdf_path, view=renderView1)
     print("Figure saved: %s" % fig_path)
     print("Figure saved: %s" % fig_pdf_path)
+    
+    # hide objects
+    if ANIMATION:
+        hide_everything()
 
 def thd_workflow(pv_output_dir, data_output_dir, steps, times):
     # load model boundary
@@ -691,13 +709,12 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
         # add source
         filein = os.path.join(data_output_dir, "solution", "solution-%05d.pvtu" %snapshot) 
 
-        source_name = 'solution' 
-        XMLPartitionedUnstructuredGridReader(registrationName=source_name, FileName=[filein])
+        XMLPartitionedUnstructuredGridReader(registrationName='solution_%05d' % snapshot, FileName=[filein])
         
         # add rotation
         if "GEOMETRY" == "chunk":
-            registration_name_transform = '%s_transform_%05d' % (source_name, snapshot)
-            solution = FindSource(source_name)
+            registration_name_transform = 'solution_transform_%05d' % (snapshot)
+            solution = FindSource("solution")
             transform = Transform(registrationName=registration_name_transform, Input=solution)
             transform.Transform = 'Transform'
             transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
@@ -705,14 +722,14 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
             Hide3DWidgets()
         pass
 
-        registration_name_glyph = '%s_glyph_%05d' % (source_name, snapshot)
+        registration_name_glyph = 'solution_glyph_%05d' % (snapshot)
         if "GEOMETRY" == "chunk":
-            add_glyph1("%s_transform_%05d" % (source_name, snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
+            add_glyph1("solution_transform_%05d" % (snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
         else:
-            add_glyph1("%s_%05d" % (source_name, snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
+            add_glyph1("solution_%05d" % (snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
 
         # plot slice
-        plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time)
+        plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time)
 
 
 steps = GRAPHICAL_STEPS

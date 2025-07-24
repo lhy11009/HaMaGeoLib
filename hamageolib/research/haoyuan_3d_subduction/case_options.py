@@ -235,6 +235,7 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             last_step(list): plot the last few steps
         """
         # call function from parent
+        CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
 
         # Rotation angles 
