@@ -517,6 +517,29 @@ std::vector<std::vector<double>> MO_KINETICS::solve(const double P, const double
         std::vector<double> V_array(n_span+1);
         const double t_interval = (t_piece_max - t_piece_min) / n_span;
         for (int j = 0; j <= n_span; ++j) {
+
+                for (size_t i_x = 0; i_x < 4; ++i_x) {
+                    // local cpp
+                    if (X_array[i_x][j] < 0.0) {
+                        throw std::runtime_error(
+                            "Error: X_array contains negative value at index " + std::to_string(i_x) +
+                            " (value = " + std::to_string(X_array[i_x][j]) + ").\n"
+                            "Context: P = " + std::to_string(P) +
+                            ", Peq = " + std::to_string(Peq) +
+                            ", T = " + std::to_string(T) + 
+                            ".\nAll values in X_array must be > 0.");
+                    }
+                    // ASPECT
+                    /*
+                    AssertThrow (X_array[i_x][j] >= 0.0,
+                      ExcMessage("X_array contains negative value at index " + std::to_string(i_x) + ", " + std::to_string(j) + 
+                      " (value = " + std::to_string(X_array[i_x][j]) + ").\n"
+                      "Context: P = " + std::to_string(P) +
+                      ", Peq = " + std::to_string(Peq) +
+                      ", T = " + std::to_string(T) + ".\nAll values must be > 0."));
+                    */
+                }
+
             double threshold = 50.0; // Define a threshold for large values
             if (X_array[3][j] > threshold) {
                 // If X_array[3][j] is too large, directly set V_array[j] to 1
