@@ -1568,6 +1568,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     else:
         radius = points[:, 2]
     grid["radius"] = radius
+
+    # append a sp_total field
+    grid["sp_total"] = grid["spcrust"] + grid["spharz"]
     
     end = time.time()
     print("%s: Read file takes %.1f s" % (func_name(), end - start))
@@ -1575,10 +1578,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     # take iso-volumes
     start = time.time()
 
-    threshold = 0.8
+    threshold = 0.5
     
-    iso_volume_upper = grid.threshold(value=threshold, scalars="spcrust", invert=False)
-    iso_volume_lower = grid.threshold(value=threshold, scalars="spharz", invert=False)
+    iso_volume_total = grid.threshold(value=threshold, scalars="sp_total", invert=False)
     
     end = time.time()
     print("%s: Making iso-volumes takes %.1f s" % (func_name(), end - start))
@@ -1588,19 +1590,19 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     # Then figure out the max phi value
     # Record the trench position, slab depth and save slab surface points
     start = time.time()
-    N0 = 2000
-    vals0 = np.linspace(Min0, Max0, N0)
+    d0 = 5e3
+    vals0 = np.arange(Min0, Max0, d0)
     vals1 = np.pi/2.0
-    vals2 = np.full(N0, np.nan)
+    vals2 = np.full(vals0.size, np.nan)
 
-    upper_points = iso_volume_upper.points
+    slab_points = iso_volume_total.points
 
     if geometry == "chunk":
-        v0_u, _, v2_u = cartesian_to_spherical(*upper_points.T)
+        v0_u, _, v2_u = cartesian_to_spherical(*slab_points.T)
         rt_upper = np.vstack([v0_u/Max0]).T
     else:
-        rt_upper = np.vstack([upper_points[:, 1]/Max0]).T
-        v2_u = upper_points[:, 0]
+        rt_upper = np.vstack([slab_points[:, 1]/Max0]).T
+        v2_u = slab_points[:, 0]
     rt_tree = cKDTree(rt_upper)
 
     dr = 0.001
