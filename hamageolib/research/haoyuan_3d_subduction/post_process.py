@@ -80,6 +80,12 @@ class PYVISTA_PROCESS_THD():
         self.slab_surface_points = None
         self.pe_edge_points = None
 
+        # Initialize slab morphology variables
+        self.trench_points = None
+        self.trench_center = None
+        self.slab_depth = None
+        self.dip_100_center = None
+
     def read(self, pvtu_step, pvtu_filepath):
         """
         Read a .pvtu file and initialize the PyVista grid object.
@@ -360,6 +366,7 @@ class PYVISTA_PROCESS_THD():
         self.iso_volume_upper.save(filepath)
         print("Save file %s" % filepath)
 
+
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
@@ -378,13 +385,22 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
         indent = 4
 
+        # Iso volume of slab lower composition
         self.iso_volume_lower = self.grid.threshold(value=threshold, scalars="sp_lower", invert=False)
+        points = self.iso_volume_lower.points
 
         filename = "sp_lower_above_%.2f_%05d.vtu" % (threshold, self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
         self.iso_volume_lower.save(filepath)
         print("Save file %s" % filepath)
 
+        # Get slab depth
+        if self.geometry == "chunk":
+            l0, _, _ = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
+        else:
+            l0 = points[:, 2]
+        self.slab_depth = self.Max0 - np.min(l0)
+        
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
@@ -413,7 +429,7 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
-    def extract_slab_surface(self, field_name, extract_trench=False):
+    def extract_slab_surface(self, field_name, **kwargs):
         """
         Extract the 3D surface of the subducting slab from the sp_upper iso-volume.
 
@@ -427,6 +443,9 @@ class PYVISTA_PROCESS_THD():
             - Stores the result in `self.slab_surface_points` and exports it as a `.vtp` file.
         """
         start = time.time()
+
+        extract_trench=kwargs.get("extract_trench", False)
+        extract_dip=kwargs.get("extract_dip", False)
 
         if field_name == "sp_upper":
             assert self.iso_volume_upper is not None
@@ -507,6 +526,10 @@ class PYVISTA_PROCESS_THD():
         point_cloud.save(filepath)
 
         print("Save file %s" % filepath)
+        
+        # extract dip angle
+        if extract_dip:
+            self.dip_100_center = get_slab_dip_angle(self.slab_surface_points, self.geometry, self.Max0, 0.0, 100e3)
 
         # extract trench points
         if extract_trench:
@@ -524,7 +547,11 @@ class PYVISTA_PROCESS_THD():
                 z_tr = self.Max0 * np.ones(v1_tr.shape)
             
             self.trench_points = np.vstack([x_tr, y_tr, z_tr]).T
-            _, _, self.trench_center = cartesian_to_spherical(self.trench_points[-1, 0], self.trench_points[-1, 1], self.trench_points[-1, 2])
+
+            if self.geometry == "chunk":
+                _, _, self.trench_center = cartesian_to_spherical(self.trench_points[-1, 0], self.trench_points[-1, 1], self.trench_points[-1, 2])
+            else:
+                self.trench_center = self.trench_points[-1, 0]
 
             # save trench points
             point_cloud_tr = pv.PolyData(self.trench_points)
@@ -1198,6 +1225,13 @@ def get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, geometry, Max0, fiel
     point_cloud_tr = pv.read(filepath)
     points = point_cloud_tr.points
 
+    dip_angle = get_slab_dip_angle(points, geometry, Max0, depth0, depth1)
+
+    return dip_angle
+
+
+def get_slab_dip_angle(points, geometry, Max0, depth0, depth1):
+
     d0 = 5e3 # tolerance along dimention 0
     if geometry == "chunk":
         d1 = 0.1 * np.pi / 180.0  # tolerance along dimention 1
@@ -1219,6 +1253,7 @@ def get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, geometry, Max0, fiel
         dip_angle = np.arctan2(depth1 - depth0, l2_mean_1 - l2_mean_0)
 
     return dip_angle
+
 
 class PLOT_CASE_RUN_THD():
     '''
@@ -1356,7 +1391,6 @@ def clip_grid_by_spherical_range(grid, r_range=None, theta_range=None, phi_range
 
     return grid.extract_points(mask, adjacent_cells=True)
 
-
 def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options):
     '''
     Process with pyvsita for a single step
@@ -1369,6 +1403,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options):
 
     idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
     _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
+    
+    outputs = {}
 
     # geometry information
     if geometry == "chunk":
@@ -1464,13 +1500,22 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options):
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(iso_volume_threshold)
     # extract slab surface and trench position, using "sp_upper" composition
-    PprocessThD.extract_slab_surface("sp_upper", True)
+    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True)
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
     # extract slab surface using "sp_lower" composition
     PprocessThD.extract_slab_surface("sp_lower")
+    # extract outputs
+    assert(PprocessThD.trench_center is not None)
+    outputs["trench_center"] = PprocessThD.trench_center
+    assert(PprocessThD.slab_depth is not None)
+    outputs["slab_depth"] = PprocessThD.slab_depth
+    assert(PprocessThD.dip_100_center is not None)
+    outputs["dip_100_center"] = PprocessThD.dip_100_center
+
+    return outputs
 
 
 def PlotCaseRunTwoD1(case_path, **kwargs):
