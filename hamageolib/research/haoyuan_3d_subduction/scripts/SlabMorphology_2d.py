@@ -9,7 +9,7 @@ from hamageolib.research.haoyuan_3d_subduction.post_process import PlotCaseRunTw
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_subduction_visualization
 
 
-local_dir_2d = "/mnt/lochz/ASPECT_DATA/TwoDSubduction/EBA_CDPT_3dconsistent_chunk_1/eba_cdpt_coh300_SA80.0_OA40.0_width80_ss500.0"
+local_dir_2d = "/mnt/lochz/ASPECT_DATA/TwoDSubduction/EBA_CDPT_3dconsistent_9/eba_cdpt_coh300_SA80.0_OA40.0_width80_sc22"
 
 assert(local_dir_2d is not None)
 
@@ -25,6 +25,7 @@ graphical_steps = [int(step) for step in graphical_steps_np]
 for step in graphical_steps:
     pvtu_step = step + int(Case_Options_2d.options['INITIAL_ADAPTIVE_REFINEMENT'])
     output_dict = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_2d)
+    print("output_dict[\"slab_depth\"]: ", output_dict["slab_depth"]) # debug
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab depth", step, output_dict["slab_depth"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Trench", step, output_dict["trench_center"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Dip 100", step, output_dict["dip_100"])

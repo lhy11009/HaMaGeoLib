@@ -55,7 +55,6 @@ class PYVISTA_PROCESS_THD():
         pe_edge_points (np.ndarray): Extracted (x, y, z) coordinates of plate edge surface.
     """
 
-    # todo_3d_visual
     def __init__(self, config, **kwargs):
         # Required settings and geometry assumption
         self.geometry = config["geometry"]
@@ -477,7 +476,8 @@ class PYVISTA_PROCESS_THD():
         upper_points = source.points
         
         if self.geometry == "chunk":
-            v0_u, v1_u, v2_u = cartesian_to_spherical(*upper_points.T)
+            v0_u, theta_u, v2_u = cartesian_to_spherical(*upper_points.T)
+            v1_u = np.pi/2.0 - theta_u
             rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
         else:
             rt_upper = np.vstack([upper_points[:, 2]/self.Max0, upper_points[:, 1]/self.Max1]).T
@@ -509,9 +509,9 @@ class PYVISTA_PROCESS_THD():
         v2_surf = vals2[mask]
 
         if self.geometry == "chunk":
-            x = v0_surf * np.sin(v1_surf) * np.cos(v2_surf)
-            y = v0_surf * np.sin(v1_surf) * np.sin(v2_surf)
-            z = v0_surf * np.cos(v1_surf)
+            x = v0_surf * np.sin(np.pi/2.0 - v1_surf) * np.cos(v2_surf)
+            y = v0_surf * np.sin(np.pi/2.0 - v1_surf) * np.sin(v2_surf)
+            z = v0_surf * np.cos(np.pi/2.0 - v1_surf)
         else:
             x = v2_surf
             y = v1_surf
@@ -538,8 +538,8 @@ class PYVISTA_PROCESS_THD():
             v2_tr = vals2_tr[mask_tr]
 
             if self.geometry == "chunk": 
-                x_tr = self.Max0 * np.sin(v1_tr) * np.cos(v2_tr)
-                y_tr = self.Max0 * np.sin(v1_tr) * np.sin(v2_tr)
+                x_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.cos(v2_tr)
+                y_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.sin(v2_tr)
                 z_tr = self.Max0 * np.cos(v1_tr)
             else:
                 x_tr = v2_tr
@@ -549,9 +549,9 @@ class PYVISTA_PROCESS_THD():
             self.trench_points = np.vstack([x_tr, y_tr, z_tr]).T
 
             if self.geometry == "chunk":
-                _, _, self.trench_center = cartesian_to_spherical(self.trench_points[-1, 0], self.trench_points[-1, 1], self.trench_points[-1, 2])
+                _, _, self.trench_center = cartesian_to_spherical(self.trench_points[0, 0], self.trench_points[0, 1], self.trench_points[0, 2])
             else:
-                self.trench_center = self.trench_points[-1, 0]
+                self.trench_center = self.trench_points[0, 0]
 
             # save trench points
             point_cloud_tr = pv.PolyData(self.trench_points)
@@ -1193,9 +1193,9 @@ def get_trench_position_from_file(pyvista_outdir, pvtu_step, geometry):
     point_cloud_tr = pv.read(filepath)
     points = point_cloud_tr.points
     if geometry == "chunk":
-        _, _, trench_center = cartesian_to_spherical(points[-1, 0], points[-1, 1], points[-1, 2])
+        _, _, trench_center = cartesian_to_spherical(points[0, 0], points[0, 1], points[0, 2])
     else:
-        trench_center = points[-1, 0]
+        trench_center = points[0, 0]
     return trench_center
 
 
@@ -1305,12 +1305,15 @@ class PLOT_CASE_RUN_THD():
         '''
         pyvista processing
         '''
+        # options
+        config = {"threshold_lower": 0.8}
+        
         # use a list to record whether files are found
         file_found_list = []
         for vtu_step in self.Case_Options.options['GRAPHICAL_STEPS']:
             pvtu_step = vtu_step + int(self.Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
             try:
-                ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Case_Options)
+                ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Case_Options, config)
                 file_found_list.append(True)
             except FileNotFoundError:
                 file_found_list.append(False)
@@ -1391,7 +1394,7 @@ def clip_grid_by_spherical_range(grid, r_range=None, theta_range=None, phi_range
 
     return grid.extract_points(mask, adjacent_cells=True)
 
-def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options):
+def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, config):
     '''
     Process with pyvsita for a single step
     Inputs:
@@ -1399,10 +1402,13 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options):
         pvtu_step - pvtu_step of vtu output files
         Case_Options - options for the case
     '''
+    #   threshold_lower - threshold to take an iso-volume of the lower slab composition 
     geometry = Case_Options.options["GEOMETRY"]
 
     idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
     _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
+
+    threshold_lower = config.get("threshold_lower", 0.8)
     
     outputs = {}
 
@@ -1438,7 +1444,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options):
     iso_volume_threshold = 0.8
 
     # initialize the class
-    # todo_3d_visual
     # fix the meaning of Max1 - latitude
     config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2, "time": _time}
 
@@ -1496,7 +1501,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options):
     # extract sp_upper composition beyond a threshold
     PprocessThD.extract_iso_volume_upper(iso_volume_threshold)
     # extract sp_lower composition beyond a threshold
-    PprocessThD.extract_iso_volume_lower(iso_volume_threshold)
+    PprocessThD.extract_iso_volume_lower(threshold_lower)
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(iso_volume_threshold)
     # extract slab surface and trench position, using "sp_upper" composition
@@ -1515,7 +1520,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options):
     assert(PprocessThD.dip_100_center is not None)
     outputs["dip_100_center"] = PprocessThD.dip_100_center
 
-    return outputs
+    return PprocessThD, outputs
 
 
 def PlotCaseRunTwoD1(case_path, **kwargs):
