@@ -33,11 +33,9 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
         idx = FindWBFeatures(self.wb_dict, "Subducting plate")
-        idx1 = FindWBFeatures(self.wb_dict, "Slab")
 
         # Geometry
         sub_plate_feature = self.wb_dict["features"][idx]
-        slab_feature = self.wb_dict["features"][idx1]
         # this is point marking the extension of plate
         sub_plate_extends = sub_plate_feature['coordinates'][1]
         box_width = -1.0
@@ -138,7 +136,13 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             eta_max_inputs =\
                 COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity']) 
             self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
-        self.options['TRENCH_INITIAL'] = slab_feature['coordinates'][1][0] 
+
+        # slab
+        idx1 = FindWBFeatures(self.wb_dict, "Slab")
+        slab_feature = self.wb_dict["features"][idx1]
+        self.options['TRENCH_INITIAL'] = slab_feature['coordinates'][1][0]
+        self.options['INITIAL_SHEAR_ZONE_THICKNESS'] = slab_feature['segments'][0]["composition models"][0]["max distance slab top"]
+        
         
         # yield stress
         try:

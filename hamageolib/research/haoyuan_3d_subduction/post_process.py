@@ -5,7 +5,7 @@ import pyvista as pv
 import numpy as np
 from scipy.spatial import cKDTree
 from vtk import VTK_QUAD
-from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian
+from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian, convert_to_unified_coordinates_reference_2d
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS, CASE_OPTIONS_TWOD1
@@ -1952,3 +1952,75 @@ def finalize_visualization_2d_07222025_box(local_dir, file_name, _time, frame_pn
         add_text_to_image(output_image_file, output_image_file, text, position, font_path, font_size)
 
     return output_image_file
+
+
+def fix_shallow_trench(upper_points, lower_points):
+    '''
+    fix the shallow trench points based on profiles of slab surface and moho, based on the function fix_shallow_trench_2d
+    '''
+    pass
+
+
+def fix_shallow_trench_2d(upper_points, lower_points, thickness, is_spherical, Ro, **kwargs):
+    '''
+    fix the shallow trench points based on profiles of slab surface and moho
+    Inputs:
+        upper_points:
+            points on the slab surface
+        lower_points:
+            points on the slab moho
+        thickness:
+            thickness of the initial crust
+        is_spherical:
+            if in spherical geometry
+        Ro:
+            vertial extent (outer radius or box height)
+        kwargs:
+            n - lookup stepping
+            factor - factor * thickness is the distance to determine shallow trench points
+    Returns:
+        shallow_trench: trench position
+    '''
+    # free parameters
+    # n - lookup stepping
+    n = kwargs.get("n", 20)
+    factor = kwargs.get("factor", 1.1)
+
+        
+    lower_l0 = lower_points[:, 1]
+    lower_l2 = lower_points[:, 0]
+    id = np.argmax(lower_points[:, 1])
+    lower_end_l2 = lower_points[id, 0]
+    mask0 = (Ro - lower_l2 < thickness)
+    lower_l0_masked = lower_l0[mask0]
+    lower_l2_masked = lower_l2[mask0]
+
+    id = np.argmax(upper_points[:, 1])
+    trench_center = upper_points[id, 0]
+
+
+    # look for the shallow trench point
+    found = -1
+    shallow_trench = None
+    for i in range(n, -1, -1):
+        l2 = (i*trench_center + (n-i)* lower_end_l2)/n
+        if is_spherical:
+            dist_array = ((Ro - lower_l0_masked)**2.0 + (Ro*l2 - Ro*lower_l2_masked)**2.0)**0.5
+        else:
+            dist_array = ((Ro - lower_l0_masked)**2.0 + (l2-lower_l2_masked)**2.0)**0.5
+        id_min = np.argmin(dist_array)
+        dist = dist_array[id_min]
+        print("i: ", i)
+        print("id_min: ", id_min)
+        print("dist: ", dist)
+        if dist < factor * thickness:
+            found = i
+            shallow_trench = l2
+            break
+
+    my_assert(found >= 0, FixShallowTrenchError, "%s fail to find a shallow trench point." % func_name())
+
+    return shallow_trench
+
+class FixShallowTrenchError(Exception):
+    pass

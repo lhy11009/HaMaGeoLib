@@ -31,7 +31,6 @@ for step in graphical_steps:
     pyvista_outdir = os.path.join(local_dir, "pyvista_outputs", "%05d" % pvtu_step)
 
     # processing pyvista
-    # todo_3d_trench
     try:
         if prepare_pyvista:
             _, outputs = ProcessVtuFileThDStep(local_dir, pvtu_step, Case_Options, config)
