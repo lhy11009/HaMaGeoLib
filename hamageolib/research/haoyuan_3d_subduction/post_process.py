@@ -205,11 +205,13 @@ class PYVISTA_PROCESS_THD():
                     cell_mask[cid] = False
 
 
-            sliced = sliced.extract_cells(cell_mask)
+            sliced_u = sliced.extract_cells(cell_mask)
+        else:
+            sliced_u = sliced.cast_to_unstructured_grid()
 
         filename = "slice_center_%05d.vtu" % self.pvtu_step
         filepath = os.path.join(self.pyvista_outdir, filename)
-        sliced.save(filepath)
+        sliced_u.save(filepath)
 
         print("saved file %s" % filepath)
         end = time.time()
@@ -274,9 +276,13 @@ class PYVISTA_PROCESS_THD():
             # Build KDTree and interpolate
             # Interpolate velocity field
             resolution_radian = 0.1*np.pi/180.0
-            theta = np.arange(np.pi/2.0 - self.clip[1][1], np.pi/2.0 - self.clip[1][0], resolution_radian)
+            if self.clip is not None:
+                theta = np.arange(np.pi/2.0 - self.clip[1][1], np.pi/2.0 - self.clip[1][0], resolution_radian)
+                phi = np.arange(self.clip[2][0], self.clip[2][1], resolution_radian)
+            else:
+                theta = np.arange(np.pi/2.0 - self.Max1, np.pi/2.0 - self.Min1, resolution_radian)
+                phi = np.arange(self.Min2, self.Max2, resolution_radian)
             n_theta = theta.size
-            phi = np.arange(self.clip[2][0], self.clip[2][1], resolution_radian)
             n_phi = phi.size
 
             theta_grid, phi_grid = np.meshgrid(theta, phi)
@@ -460,16 +466,12 @@ class PYVISTA_PROCESS_THD():
 
         N0 = 2000
         N1 = 1000
-        if self.geometry == "chunk":
-            min1 = 70.0 * np.pi / 180.0
-        else:
-            min1 = 0.0
 
         dr = 0.001
 
         # build the KDTREE
         vals0 = np.linspace(0, self.Max0, N0)
-        vals1 = np.linspace(min1, self.Max1, N1)
+        vals1 = np.linspace(self.Min1, self.Max1, N1)
         vals2 = np.full((N0, N1), np.nan)
         vals2_tr = np.full(N1, np.nan)
 
@@ -673,7 +675,7 @@ class PYVISTA_PROCESS_THD():
         # mesh the slab surface points by kd tree
         if self.geometry == "chunk":
             r_surf, theta_surf, _ = cartesian_to_spherical(*self.slab_surface_points.T)
-            normalized_rt = np.vstack([r_surf/self.Max0, theta_surf/self.Max1]).T  # shape (N, 2)
+            normalized_rt = np.vstack([r_surf/self.Max0, (np.pi/2.0 - theta_surf)/self.Max1]).T  # shape (N, 2)
         else:
             normalized_rt = np.vstack([self.slab_surface_points[:, 2]/self.Max0, self.slab_surface_points[:, 1]/self.Max1]).T  # shape (N, 2)
         
@@ -684,8 +686,9 @@ class PYVISTA_PROCESS_THD():
         lower_points = self.iso_volume_lower.points
 
         if self.geometry == "chunk":
-            r_l, theta_l, l2_l = cartesian_to_spherical(*lower_points.T)
-            query_points = np.vstack([r_l/self.Max0, theta_l/self.Max1]).T
+            l0_l, theta_l, l2_l = cartesian_to_spherical(*lower_points.T)
+            l1_l = np.pi/2.0 - theta_l
+            query_points = np.vstack([l0_l/self.Max0, l1_l/self.Max1]).T
         else:
             query_points = np.vstack([lower_points[:, 2]/self.Max0, lower_points[:, 1]/self.Max1]).T
             l2_l = lower_points[:, 0]
@@ -1402,6 +1405,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, config):
         pvtu_step - pvtu_step of vtu output files
         Case_Options - options for the case
     '''
+    Case_Options = CASE_OPTIONS(case_path)
+    Case_Options.Interpret()
+    Case_Options.SummaryCaseVtuStep(os.path.join(case_path, "summary.csv"))
+
     #   threshold_lower - threshold to take an iso-volume of the lower slab composition 
     geometry = Case_Options.options["GEOMETRY"]
 
@@ -1421,8 +1428,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, config):
     if geometry == "chunk":
         Max0 = float(Case_Options.options["OUTER_RADIUS"])
         Min0 = float(Case_Options.options["INNER_RADIUS"])
-        # Max1 = float(Case_Options.options["MAX_LATITUDE"])
-        Max1 = np.pi / 2.0
+        Max1 = float(Case_Options.options["MAX_LATITUDE"])
+        # Max1 = np.pi / 2.0
         Max2 = float(Case_Options.options["MAX_LONGITUDE"])
         trench_initial = float(Case_Options.options["TRENCH_INITIAL"]) * np.pi/180.0
     else:

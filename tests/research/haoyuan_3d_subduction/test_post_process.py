@@ -18,7 +18,7 @@ def test_pyvista_process_thd_chunk():
 
     # initiate the object
     config = {"geometry": "chunk", "Max0": 6371e3, "Min0": 3.4810e+06,\
-         "Max1": np.pi/2.0, "Max2": 80.00365006253027*np.pi/180.0}
+         "Max1": 71.94572847349845*np.pi/180.0, "Max2": 80.00365006253027*np.pi/180.0, "time":0.0}
     PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
     # read vtu file
     pvtu_filepath = os.path.join(local_dir, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
@@ -36,7 +36,7 @@ def test_pyvista_process_thd_chunk():
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(0.8)
     # extract slab surface
-    PprocessThD.extract_slab_surface()
+    PprocessThD.extract_slab_surface("sp_upper")
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
@@ -58,11 +58,6 @@ def test_pyvista_process_thd_chunk():
     assert(os.path.isfile(sp_lower_file))
     assert(filecmp.cmp(sp_lower_file, sp_lower_file_std))
     
-    slab_surface_file_std = os.path.join(local_dir, "sp_upper_surface_00002_std.vtp")
-    slab_surface_file = os.path.join(pyvista_outdir, "sp_upper_surface_00002.vtp")
-    assert(os.path.isfile(slab_surface_file))
-    assert(filecmp.cmp(slab_surface_file, slab_surface_file_std))
-    
     pe_surface_file_std = os.path.join(local_dir, "plate_edge_surface_00002_std.vtp")
     pe_surface_file = os.path.join(pyvista_outdir, "plate_edge_surface_00002.vtp")
     assert(os.path.isfile(pe_surface_file))
@@ -83,7 +78,7 @@ def test_pyvista_process_thd_box():
     os.mkdir(pyvista_outdir)
 
     # initiate the object
-    config = {"geometry": "box", "Max0": 2890000.0, "Min0": 0.0, "Max1": 4000000.0, "Max2": 8896000.0}
+    config = {"geometry": "box", "Max0": 2890000.0, "Min0": 0.0, "Max1": 4000000.0, "Max2": 8896000.0, "time": 0.0}
     PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
     # read vtu file
     pvtu_filepath = os.path.join(local_dir, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
@@ -101,15 +96,15 @@ def test_pyvista_process_thd_box():
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(0.8)
     # extract slab surface
-    PprocessThD.extract_slab_surface()
+    PprocessThD.extract_slab_surface("sp_upper")
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
 
     # compare file outputs
-    depth_slice_file_std = os.path.join(local_dir, "slice_depth_200.0km_00002_std.vtu")
-    depth_slice_file = os.path.join(pyvista_outdir, "slice_depth_200.0km_00002.vtu")
+    depth_slice_file_std = os.path.join(local_dir, "slice_depth_200.0km_00002_std.vtp")
+    depth_slice_file = os.path.join(pyvista_outdir, "slice_depth_200.0km_00002.vtp")
     assert(os.path.isfile(depth_slice_file_std))
     assert(filecmp.cmp(depth_slice_file, depth_slice_file_std))
     
@@ -122,11 +117,6 @@ def test_pyvista_process_thd_box():
     sp_lower_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
     assert(os.path.isfile(sp_lower_file))
     assert(filecmp.cmp(sp_lower_file, sp_lower_file_std))
-    
-    slab_surface_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
-    slab_surface_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
-    assert(os.path.isfile(slab_surface_file))
-    assert(filecmp.cmp(slab_surface_file, slab_surface_file_std))
     
     pe_surface_file_std = os.path.join(local_dir, "plate_edge_surface_00002_std.vtp")
     pe_surface_file = os.path.join(pyvista_outdir, "plate_edge_surface_00002.vtp")
