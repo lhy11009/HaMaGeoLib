@@ -35,17 +35,6 @@ if path_ not in sys.path:
 from hamageolib.utils import case_options as C_Options
 from hamageolib.utils.geometry_utilities import convert_to_unified_coordinates_2d
 
-# todo_2d
-class CASE_OPTIONS(C_Options.CASE_OPTIONS):
-    """
-    A class to substitute existing code with specific values and parameters for geodynamic modeling cases.
-
-    Attributes:
-        attributs from C_Options.CASE_OPTIONS
-    """
-    def __init__(self, case_dir):
-        # call init function of C_Options.CASE_OPTIONS
-        C_Options.CASE_OPTIONS.__init__(self, case_dir)
 
 # todo_2d
 class CASE_SUMMARY(C_Options.CASE_SUMMARY):

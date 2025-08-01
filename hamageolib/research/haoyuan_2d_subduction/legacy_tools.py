@@ -63,7 +63,7 @@ from shutil import rmtree, copy2, copytree
 from difflib import unified_diff
 from copy import deepcopy
 from .legacy_utilities import JsonOptions, ReadHeader, CODESUB, cart2sph, SphBound, clamp, ggr2cart, point2dist, UNITCONVERT, ReadHeader2,\
-ggr2cart, var_subs, JSON_OPT, string2list, re_neat_word, ReadDashOptions, insert_dict_after
+ggr2cart, var_subs, JSON_OPT, string2list, re_neat_word, ReadDashOptions, insert_dict_after, WarningTypes, FindCasesInDir, TEX_TABLE
 from ...utils.exception_handler import my_assert
 from ...utils.handy_shortcuts_haoyuan import func_name
 from ...utils.dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
@@ -72,6 +72,7 @@ from ...utils.geometry_utilities import offset_profile, compute_pairwise_distanc
 from ...utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 # from ...research.haoyuan_3d_subduction.post_process import PYVISTA_PROCESS_THD
 
+root_dir = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..")
 JSON_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_json_files")
 LEGACY_FILE_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "legacy_files")
 RESULT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "dtemp", "rheology_results")
@@ -1181,11 +1182,11 @@ class LINEARPLOT():
                 self.data = np.loadtxt(_filename, comments='#', dtype=str)
             else:
                 raise ValueError("dtype must be float or str")
-            if (len(w) > 0):
-                assert(issubclass(w[-1].category, UserWarning))
-                assert('Empty input file' in str(w[-1].message))
-                warnings.warn('ReadData: %s, abort' % str(w[-1].message))
-                return 1
+            # if (len(w) > 0):
+            #     assert(issubclass(w[-1].category, UserWarning))
+            #     assert('Empty input file' in str(w[-1].message))
+            #     warnings.warn('ReadData: %s, abort' % str(w[-1].message))
+            #     return 1
         if len(self.data.shape) == 1:
             self.data = np.array([self.data])
         return 0
@@ -5753,7 +5754,7 @@ def SlabTemperatureCase(case_dir, **kwargs):
         for pvtu_snapshot in available_pvtu_snapshots)  # first run in parallel and get stepwise output
         ParallelWrapper.clear()
 
-def SlabMorphologyCase(case_dir, **kwargs):
+def SlabMorphologyCaseTwoD(case_dir, **kwargs):
     '''
     run vtk and get outputs for every snapshots
     Inputs:
@@ -14883,6 +14884,86 @@ def slab_surface_profile(p0_in, slab_lengths_in, slab_dips_in, coordinate_system
             ps[i, 1] = (intv_slab_length**2.0 + r0**2.0 - 2 * r0 * intv_slab_length * np.sin(slab_dip))**0.5
     return ps
 
+
+def PlotCaseRun(case_path, **kwargs):
+    '''
+    Plot case run result
+    Inputs:
+        case_path(str): path to the case
+        kwargs:
+            time_range
+    Returns:
+        -
+    '''
+    print("PlotCaseRun: operating")
+    # get case parameters
+    prm_path = os.path.join(case_path, 'output', 'original.prm')
+    if not os.path.isfile(prm_path):
+        print('original.prm is missing, it\'s likely that there is no outputs. Skip.')
+        return 1
+    with open(prm_path) as fin:
+        inputs = parse_parameters_to_dict(fin)
+    # get solver scheme
+    solver_scheme = inputs.get('Nonlinear solver scheme', 'single Advection, single Stokes')
+
+    log_file = os.path.join(case_path, 'output', 'log.txt')
+    assert(os.access(log_file, os.R_OK))
+    statistic_file = os.path.join(case_path, 'output', 'statistics')
+    assert(os.access(statistic_file, os.R_OK))
+
+    # statistic
+    # print('Ploting statistic results')
+    # fig_path = os.path.join(case_path, 'img', 'Statistic.png')
+    # PlotStatistics.PlotFigure(statistic_file, fig_path)
+
+    # run time
+    print('Ploting run time')
+    fig_path = os.path.join(case_path, 'img', 'run_time.png')
+    if not os.path.isdir(os.path.dirname(fig_path)):
+        os.mkdir(os.path.dirname(fig_path))
+    # time range
+    time_range = kwargs.get('time_range', None)
+    fig = plt.figure(tight_layout=True, figsize=(6, 18))
+    gs = gridspec.GridSpec(3,1)
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax2 = fig.add_subplot(gs[1, 0])
+    ax3 = fig.add_subplot(gs[2, 0])
+    if time_range is not None:
+        try:
+            fig_output_path, step_range = PlotRunTime.PlotFigure(log_file, fig_path, axis=ax1, ax2=ax2, ax3=ax3,\
+                                                             savefig=False, fix_restart=True, time_range=time_range) 
+            fig.savefig(fig_path)
+            print("New figure: %s" % fig_path)
+        except Exception:
+            print("PlotRunTime is unsuccessful\n")
+    else:
+        try:
+            fig_output_path = PlotRunTime.PlotFigure(log_file, fig_path, axis=ax1, ax2=ax2, ax3=ax3,\
+                                                             savefig=False, fix_restart=True, save_temp_file_local=True) 
+        
+            fig.savefig(fig_path)
+            step_range = None
+            print("New figure: %s" % fig_path)
+        except Exception:
+            step_range = None
+            print("PlotRunTime is unsuccessful\n")
+
+    # Newton history
+    # determine whether newton is used
+    print('solver_scheme, ', solver_scheme) # debug
+    fig_path = os.path.join(case_path, 'img', 'newton_solver_history.png')
+    # match object in solver scheme, so we only plot for these options
+    match_obj = re.search('Newton', solver_scheme)
+    match_obj1 = re.search('iterated defect correction Stokes', solver_scheme)
+    if match_obj or match_obj1:
+        print("Plotting newton solver history")
+        log_path = os.path.join(RESULT_DIR, 'run_time_output_newton')
+        # PlotNewtonSolverHistory(log_path, fig_path, step_range=step_range)
+    else:
+        print("Skipping newton solver history")
+    return 0
+
+
 def PlotCaseRunTwoD(case_path, **kwargs):
     '''
     Plot case run result
@@ -17238,3 +17319,1478 @@ class PLATE_MODEL():
                 sino = n * np.pi * y / self.L
                 T += (self.Tbot - self.Ttop) * 2 / np.pi / n * np.exp(expo) * np.sin(sino)
             return T
+
+
+def PlotDaFigure(depth_average_path, fig_path_base, **kwargs):
+    '''
+    plot figure
+    Inputs:
+        kwargs:
+            time_step - time_step to plot the figure, default is 0
+    '''
+    time = kwargs.get('time', 0.0)
+    assert(os.access(depth_average_path, os.R_OK))
+    # read that
+    DepthAverage = DEPTH_AVERAGE_PLOT('DepthAverage')
+    DepthAverage.ReadHeader(depth_average_path)
+    DepthAverage.ReadData(depth_average_path)
+    
+    # manage data
+    DepthAverage.SplitTimeStep()
+    names = ['depth', 'adiabatic_pressure', 'temperature', 'adiabatic_temperature', 'viscosity', 'vertical_heat_flux', 'vertical_mass_flux', 'adiabatic_density']
+    # plot the outputs of the log value of the viscosity if data presents
+    plot_log_viscosity = DepthAverage.Has("log_viscosity")
+    if plot_log_viscosity:
+        names.append("log_viscosity")
+    data, exact_time = DepthAverage.ExportDataByTime(time, names)
+
+    # get depth
+    depths = data[:, 0]
+    # get pressure
+    pressures = data[:, 1]
+    # get temperature
+    temperatures = data[:, 2]
+    adiabat = data[:, 3]
+    # get viscosity
+    eta = data[:, 4]
+    # heat_flux
+    hf = data[:, 5]
+    # heat_flux
+    mf = data[:, 6]
+    # density
+    densities = data[:, 7]
+    if plot_log_viscosity:
+        log_eta = data[:, 8]
+    else:
+        log_eta = None
+
+    # plot
+    fig, axs = plt.subplots(3, 2, figsize=(10, 10))
+    color = 'tab:blue'
+    axs[0, 0].plot(pressures/1e9, depths/1e3, color=color, label='pressure')
+    axs[0, 0].invert_yaxis()
+    axs[0, 0].set_ylabel('Depth [km]') 
+    axs[0, 0].set_xlabel('Pressure [GPa]', color=color) 
+    # axs[0].invert_yaxis()
+    # ax2: temperature
+    color = 'tab:red'
+    ax2 = axs[0, 0].twiny()
+    ax2.plot(temperatures, depths/1e3, color=color, label='temperature')
+    ax2.plot(adiabat, depths/1e3, '--', color=color, label='adiabat')
+    ax2.set_xlabel('Temperature [K]', color=color) 
+    ax2.legend()
+    # second: viscosity
+    axs[0, 1].semilogx(eta, depths/1e3, 'c', label='Viscosity')
+    if plot_log_viscosity:
+        axs[0, 1].semilogx(10**log_eta, depths/1e3, 'c--', label='Viscosity (from log)')
+    axs[0, 1].set_xlim([1e18,1e25])
+    axs[0, 1].invert_yaxis()
+    axs[0, 1].grid()
+    axs[0, 1].set_ylabel('Depth [km]') 
+    axs[0, 1].set_xlabel('Viscosity [Pa*s]')
+    axs[0, 1].legend()
+    # third: heat flux
+    axs[1, 0].plot(hf, depths/1e3, color='r', label='vertical heat flux')
+    axs[1, 0].invert_yaxis()
+    axs[1, 0].grid()
+    axs[1, 0].set_ylabel('Depth [km]') 
+    axs[1, 0].set_xlabel('Heat Flux [W / m2]') 
+    # fourth: mass flux
+    yr_to_s = 365 * 24 * 3600
+    axs[1, 1].plot(mf * yr_to_s, depths/1e3, color='b', label='vertical mass flux')
+    axs[1, 1].invert_yaxis()
+    axs[1, 1].grid()
+    axs[1, 1].set_ylabel('Depth [km]') 
+    axs[1, 1].set_xlabel('Mass Flux [kg / m2 / yr]') 
+    # fifth: density
+    axs[2, 0].plot(densities, depths/1e3, color='b', label='adiabatic density')
+    axs[2, 0].invert_yaxis()
+    axs[2, 0].grid()
+    axs[2, 0].set_ylabel('Depth [km]') 
+    axs[2, 0].set_xlabel('Density [kg / m3]') 
+    # title
+    fig.suptitle("Time = %.4e" % exact_time)
+    # layout:w
+    fig.tight_layout()
+    # check directory
+    fig_dir = os.path.dirname(fig_path_base)
+    if not os.path.isdir(fig_dir):
+        os.mkdir(fig_dir)
+    fig_path_base0 = fig_path_base.rpartition('.')[0]
+    fig_path_type = fig_path_base.rpartition('.')[2]
+    fig_path = "%s_t%.4e.%s" % (fig_path_base0, exact_time, fig_path_type)
+    plt.savefig(fig_path)
+    print("New figure: %s" % fig_path)
+
+
+
+class CASE_SUMMARY():
+    '''
+    Attributes:
+        n_case (int): number of cases
+        cases: name of cases
+        steps: end steps of cases
+        times: end times of cases
+        wallclocks: running time of cases on the wall clock
+        ab_paths: absolution_paths of cases
+        has_update: has update to perform
+        VISIT_OPTIONS: the VISIT_OPTIONS class. This could be initiated later in the
+            scope to parse case informations.
+    '''
+    def __init__(self, **kwargs):
+        '''
+        Initiation
+        Inputs:
+            kwargs:
+                VISIT_OPTIONS - the VISIT_OPTIONS class
+        '''
+        self.cases = []
+        self.names = []
+        self.steps = []
+        self.times = []
+        self.wallclocks = []
+        self.ab_paths = []
+        self.includes = []
+        self.attrs = ['includes', 'cases', 'names', 'steps', 'times', 'wallclocks']
+        self.n_case = 0
+
+        self.attrs_to_output = ['names', 'includes', 'steps', 'times', 'wallclocks']
+        self.headers = ['names', 'includes', 'steps', 'times (yr)', 'wallclocks (s)']
+
+        self.has_update = True
+        self.VISIT_OPTIONS = kwargs.get("VISIT_OPTIONS", None)
+
+    def export(self, _name):
+        return np.array([float(i) for i in getattr(self, _name)])
+
+    def __call__(self, _dir, **kwargs):
+        '''
+        Inputs:
+            _dir (str): directory to import
+        '''
+        format = kwargs.get("format", "txt")
+        # try to import a previous summary first
+        # if not found, import the cases in the directory
+        if format == "txt":
+            i_name = 'case_summary.txt'
+        elif format == "csv":
+            i_name = 'case_summary.csv'
+        else:
+            raise NotImplementedError()
+        i_path = os.path.join(_dir, i_name)
+
+        if os.path.isfile(i_path):
+            if format == "txt":
+                self.import_txt(i_path)
+            elif format == "csv":
+                self.import_csv(i_path)
+            self.Update(**kwargs)
+        else:
+            self.import_directory(_dir, **kwargs)
+
+    def Update(self, **kwargs):
+        '''
+        Update on properties
+        Inputs:
+            kwargs
+        '''
+        hr = 3600.0 # s in hr
+        # append the include field
+        if len(self.includes) < self.n_case:
+            self.includes += [1 for i in range(self.n_case - len(self.includes))]
+        # update step, time and wallclock time
+        for i in range(self.n_case):
+            # todo_time
+            step, _time, wallclock = -1, -1.0, -1.0
+            # log_file = os.path.join(self.ab_paths[i], 'output', 'log.txt')
+            # if os.path.isfile(log_file):
+            #     try:
+            #         step, _time, wallclock = RunTimeInfo(log_file, quiet=True)
+            #     except TypeError:
+            #         pass
+            
+            log_path = os.path.join(self.ab_paths[i], 'output', 'log.txt')
+            
+            if os.path.isfile(log_path):
+
+                output_dir = os.path.join(self.ab_paths[i], "awk_outputs")
+                if not os.path.isdir(output_dir):
+                    os.mkdir(output_dir)
+
+                output_path = os.path.join(output_dir, "run_time_output.txt") 
+
+                try:
+                    # parse time info
+                    parse_log_file_for_time_info(log_path, output_path)
+
+                    pd_data = read_aspect_header_file(output_path)
+                except TypeError:
+                    pass
+                else:
+                    # fix wallclock time
+                    pd_data = fix_wallclock_time(pd_data)
+                    step = pd_data["Time step number"].iloc[-1]
+                    _time = pd_data["Time"].iloc[-1]
+                    wallclock = pd_data["Wall Clock"].iloc[-1]
+
+            self.steps[i] = step
+            if _time > 0.0:
+                self.times[i] = _time / 1e6
+            else:
+                self.times[i] = -1.0
+            if wallclock > 0.0:
+                self.wallclocks[i] = wallclock / hr
+            else:
+                self.wallclocks[i] = -1.0
+        # These fields need to be mannualy assigned, so we
+        # only initiation a nan value for the first time
+        if self.names == []:
+            self.names = [np.nan for i in range(self.n_case)]
+        else:
+            pass
+
+    def import_directory(self, _dir, **kwargs):
+        '''
+        Import from a directory, look for groups and cases
+        Inputs:
+            _dir (str): directory to import
+        '''
+        hr = 3600.0 # s in hr
+        assert(os.path.isdir(_dir))
+        # first parse in run time information
+        case_list, step_list, time_list, wallclock_list = ReadBasicInfoGroup(_dir)
+        for i in range(len(case_list)):
+            _case = case_list[i]
+            step = step_list[i]
+            _time = time_list[i]
+            wallclock = wallclock_list[i]
+            if _case in self.cases:
+                j = self.cases.index(_case)
+                self.steps[j] = step
+                if _time > 0.0:
+                    self.times[j] = _time / 1e6
+                else:
+                    self.times[j] = -1.0
+                if wallclock > 0.0:
+                    self.wallclocks[j] = wallclock / hr
+                else:
+                    self.wallclocks[j] = -1.0
+            else:
+                self.n_case += 1
+                self.cases.append(_case)
+                self.steps.append(step)
+                if _time > 0.0:
+                    self.times.append(_time / 1e6)
+                else:
+                    self.times.append(-1.0)
+                if wallclock > 0.0:
+                    self.wallclocks.append(wallclock / hr)
+                else:
+                    self.wallclocks.append(-1.0)
+                self.ab_paths.append(os.path.join(_dir, _case))
+        
+        # append the include field
+        if len(self.includes) < self.n_case:
+            self.includes += [1 for i in range(self.n_case - len(self.includes))]
+
+    def import_txt(self, i_path):
+        '''
+        import an existing txt file
+        Inputs:
+            i_path: path to a txt file
+        '''
+        reader = LINEARPLOT('case_summary')
+
+        my_assert(os.path.isfile(i_path), self.SummaryFileNotExistError, "%s is not a file." % i_path)
+        reader.ReadHeader(i_path)
+        reader.ReadData(i_path, dtype=str)
+
+        # Read input cases
+        # if case already exists in the record, update
+        # else: append new case into the record
+        n_case_old = self.n_case
+        in_cases = reader.export_field_as_array("cases")
+        in_ab_paths = reader.export_field_as_array("ab_paths")
+        indexes = []
+        for i in range(len(in_cases)):
+            in_case = in_cases[i]
+            if in_case in self.cases:
+                j = self.cases.index(in_case)
+                indexes.append(j)
+            else:
+                self.cases.append(in_case)
+                self.ab_paths.append(in_ab_paths[i])
+                indexes.append(-1)
+                self.n_case += 1
+
+        # import data and either append or update fields
+        for attr in self.attrs:
+            # "cases" attribute is handled in the previous loop
+            if attr == "cases":
+                continue
+            temp = getattr(self, attr)
+            in_array = reader.export_field_as_array(attr)
+            if (len(in_array) == 0):
+                # no data input, continue
+                continue
+            if len(temp) > 0:
+                # field exist
+                for i in range(len(in_cases)):
+                    if indexes[i] < 0:
+                        # case doesn't preexist
+                        temp.append(in_array[i])
+                    else:
+                        # case preexist
+                        temp[indexes[i]] = in_array[i] 
+            else:
+                # field doesn't exist
+                # current: do nothing
+                # TODO: figure out updating strategy
+                for i in range(len(in_cases)):
+                    if indexes[i] < 0:
+                        # case doesn't preexist
+                        # compensate results for previous case by adding trivial values
+                        # then append the values for the new cases
+                        if i == 0:
+                            temp = [-1 for j in range(n_case_old)]
+                        temp.append(in_array[i])
+                    else:
+                        # case preexist
+                        # temp[indexes[i]] =in_array[i] 
+                        continue
+                # field doesn't exist
+            setattr(self, attr, temp)
+        
+        # set has_update to False
+        self.has_update = False
+
+    def import_file(self, i_path):
+        '''
+        import an existing file
+        Inputs:
+            i_path: path to a txt/csv file
+        '''
+        reader = LINEARPLOT('case_summary') # initiation, reading txt
+        df = None # initiation, pd object
+
+        my_assert(os.path.isfile(i_path), self.SummaryFileNotExistError, "%s is not a file." % i_path)
+
+        format = i_path.split('.')[-1]
+        if format == 'txt':
+            reader.ReadHeader(i_path)
+            reader.ReadData(i_path, dtype=str)
+        elif format == 'csv':
+            df = pd.read_csv(i_path, dtype=str)
+        else:
+            raise TypeError("%s: input file needs to be \"txt\" or \"csv\", but filename is %s" % func_name(), i_path)
+
+        # Read input cases
+        # if case already exists in the record, update
+        # else: append new case into the record
+        n_case_old = self.n_case
+        in_cases = None; in_ab_paths = None
+        if format == 'txt':
+            in_cases = reader.export_field_as_array("cases")
+            in_ab_paths = reader.export_field_as_array("ab_paths")
+        elif format == 'csv':
+            in_cases = df["cases"]
+            in_ab_paths = df["ab_paths"]
+        indexes = []
+        for i in range(len(in_cases)):
+            in_case = in_cases[i]
+            if in_case in self.cases:
+                j = self.cases.index(in_case)
+                indexes.append(j)
+            else:
+                self.cases.append(in_case)
+                self.ab_paths.append(in_ab_paths[i])
+                indexes.append(-1)
+                self.n_case += 1
+
+        # import data and either append or update fields
+        for attr in self.attrs:
+            # "cases" attribute is handled in the previous loop
+            if attr == "cases":
+                continue
+            temp = getattr(self, attr)
+            in_array = None
+            if format == 'txt':
+                in_array = reader.export_field_as_array(attr)
+            if format == 'csv':
+                in_array = None
+                try:
+                    in_array = df[attr]
+                except KeyError:
+                    in_array = []
+            if (len(in_array) == 0):
+                # no data input, continue
+                continue
+            if len(temp) > 0:
+                # field exist
+                for i in range(len(in_cases)):
+                    if indexes[i] < 0:
+                        # case doesn't preexist
+                        temp.append(in_array[i])
+                    else:
+                        # case preexist
+                        temp[indexes[i]] = in_array[i] 
+            else:
+                # field doesn't exist
+                # current: do nothing
+                # TODO: figure out updating strategy
+                for i in range(len(in_cases)):
+                    if indexes[i] < 0:
+                        # case doesn't preexist
+                        # compensate results for previous case by adding trivial values
+                        # then append the values for the new cases
+                        if i == 0:
+                            temp = [-1 for j in range(n_case_old)]
+                        temp.append(in_array[i])
+                    else:
+                        # case preexist
+                        # temp[indexes[i]] =in_array[i] 
+                        continue
+                # field doesn't exist
+            setattr(self, attr, temp)
+        
+        # set has_update to False
+        self.has_update = False
+
+        print("%s: file %s imported successfully" % (func_name(), i_path))
+    
+    def write(self, fout, attrs_to_output, headers):
+        '''
+        Write an output file
+        Inputs:
+            fout (object): object of output
+            attrs_to_output: attribute to output
+            headers: headers of the file
+        '''
+        # header and data to write
+        data_raw = []
+        oheaders = []
+        length_of_data = 0
+        for i in range(len(attrs_to_output)):
+            _attr = attrs_to_output[i]
+            header = headers[i]
+            temp = np.array(getattr(self, _attr))
+            if i == 0:
+                length_of_data = len(temp)
+            if len(temp) > 0:
+                # len(temp) == 0 marks an void field
+                my_assert(length_of_data == len(temp), ValueError,\
+                    "Data for field \'%s\'(%d) doesn't much the length of data (%d)" % (_attr, len(temp), length_of_data))
+                data_raw.append(temp)
+                oheaders.append(header)
+        data = np.column_stack(data_raw)
+        # output
+        # write header
+        i = 0
+        for header in oheaders:
+            fout.write("# %d: %s\n" % (i+1, header))
+            i += 1
+        np.savetxt(fout, data, delimiter=" ", fmt="%s")
+
+    def write_csv(self, fout, attrs_to_output, headers, mask=None):
+        '''
+        Write an output file in csv format
+        Inputs:
+            fout (object): object of output
+            attrs_to_output: attribute to output
+            headers: headers of the file
+        '''
+        # header and data to write
+        data = {} # a vacant dict
+        length_of_data = 0
+        for i in range(len(attrs_to_output)):
+            _attr = attrs_to_output[i]
+            header = headers[i]
+            temp = np.array(getattr(self, _attr))
+            if i == 0:
+                length_of_data = len(temp)
+            if len(temp) > 0:
+                # len(temp) == 0 marks an void field
+                my_assert(length_of_data == len(temp), ValueError,\
+                    "Data for field \'%s\'(%d) doesn't much the length of data (%d), " % (_attr, len(temp), length_of_data)\
+                        + str(temp))
+                if mask is not None:
+                    data[header] = temp[mask]
+                else:
+                    data[header] = temp
+        df = pd.DataFrame(data)
+        df.to_csv(fout) # save to csv file
+
+    def sort_out_case_attribute_by_absolution_path(self, full_path, _attr):
+        '''
+        Sort out the case name assigned to a case path
+        '''
+        value = None
+        for i in range(self.n_case):
+            if self.ab_paths[i] == full_path:
+                value = getattr(self, _attr)[i]
+        return value
+
+    def sort_out_by_attr_value(self, o_path, _attr, value):
+        '''
+        Sort out cases that have some value for an attribute
+        Inputs:
+            o_path (str) - file to output
+            _attr (str or list) - name of the attribute
+            value (float or list) - value of the attribute
+        '''
+        # append the case name first and the absolute path last
+        attrs_to_output = ["cases"] + self.attrs_to_output + ["ab_paths"]
+        headers = ["cases"] + self.attrs_to_output + ["ab_paths"]
+
+        # handle two different situation:
+        # 1. give 1 value
+        # 2. give a list of values
+        mask = None
+        if type(_attr) == str: 
+            temp = np.array(getattr(self, _attr))
+            mask = np.abs((temp - value) / value) < 1e-6
+        if type(_attr) == list:
+            assert(len(_attr) == len(value))
+            for i in range(len(_attr)):
+                a = _attr[i]
+                v = value[i]
+                temp = np.array(getattr(self, a))
+                mask1 = np.abs((temp - v) / v) < 1e-6
+                if i == 0:
+                    mask = mask1
+                else:
+                    mask = (mask & mask1)
+        
+        # write file
+        format = o_path.split('.')[-1]
+        if format == "csv":
+            with open(o_path, 'w') as fout: 
+                self.write_csv(fout, attrs_to_output, headers, mask)
+        else:
+            raise NotImplementedError()
+        my_assert(os.path.isfile(o_path), FileNotFoundError, "%s: file %s is not written successfully" % (func_name(), o_path)) 
+        print("%s: Write file %s" % (func_name(), o_path))
+        
+    def write_file(self, o_path):
+        '''
+        write file
+        Inputs:
+            o_path (str): path of output
+        '''
+        # append the case name first and the absolute path last
+        attrs_to_output = ["cases"] + self.attrs_to_output + ["ab_paths"]
+        headers = ["cases"] + self.attrs_to_output + ["ab_paths"]
+
+        # write file
+        format = o_path.split('.')[-1]
+        if format == "txt":
+            with open(o_path, 'w') as fout: 
+                self.write(fout, attrs_to_output, headers) 
+        elif format == "csv":
+            with open(o_path, 'w') as fout: 
+                self.write_csv(fout, attrs_to_output, headers)
+        elif format == "tex":
+            with open(o_path, 'w') as fout: 
+                self.export_to_latex_table(fout, attrs_to_output, headers)
+        else:
+            raise ValueError("%s: filename should end with \".txt\" or \".csv\", but the given name is %s" % (func_name(), o_path))
+
+        my_assert(os.path.isfile(o_path), FileNotFoundError, "%s: file %s is not written successfully" % (func_name(), o_path)) 
+        print("%s: Write file %s" % (func_name(), o_path))
+
+    def write_file_if_update(self, o_path):
+        '''
+        write file if there are updates
+        Inputs:
+            o_path (str): path of output
+        '''
+        if self.has_update:
+            self.write_file(o_path)
+        else:
+            print("%s: File already exists %s" % (func_name(), o_path))
+
+    # todo_export 
+    def export_to_latex_table(self, fout, attrs_to_output, headers):
+        '''
+        export summary results to a table in latex format
+        '''
+        # header and data to write
+        data_raw = []
+        oheaders = []
+        length_of_data = 0
+        for i in range(len(attrs_to_output)):
+            _attr = attrs_to_output[i]
+            header = headers[i]
+            temp = np.array(getattr(self, _attr))
+            if i == 0:
+                length_of_data = len(temp)
+            if len(temp) > 0:
+                # len(temp) == 0 marks an void field
+                my_assert(length_of_data == len(temp), ValueError,\
+                    "Data for field \'%s\'(%d) doesn't much the length of data (%d)" % (_attr, len(temp), length_of_data))
+                data_raw.append(temp)
+                oheaders.append(header)
+        data = np.column_stack(data_raw)
+        TexTable = TEX_TABLE("case-summary", header=oheaders, data=np.transpose(data).tolist()) # class initiation
+        table_contents = TexTable(format="latex", fix_underscore_in_content=False)
+        fout.write(table_contents)
+
+    # error types
+    class SummaryFileNotExistError(Exception):
+        pass
+
+    def mesh_data(self, x_name, y_name, z_name, **kwargs):
+        '''
+        plot diagram
+        Inputs:
+            x_name, y_name, z_name - name of fields
+            kwargs:
+                nx: number of point along x
+                ny: number of point along y
+        Returns:
+            XX, YY, ZZ - meshed data
+        '''
+        nx = kwargs.get("nx", 20)
+        ny = kwargs.get("ny", 30)
+        
+        # get the properties
+        Xs = getattr(self, x_name)
+        Ys = getattr(self, y_name)
+        Zs = getattr(self, z_name)
+        x_min = np.min(np.array(Xs))
+        x_max = np.max(np.array(Xs))
+        y_min = np.min(np.array(Ys))
+        y_max = np.max(np.array(Ys))
+
+        # map to a 2d mesh
+        x_temp = np.linspace(x_min, x_max, nx) 
+        y_temp = np.linspace(y_min, y_max, ny)
+        XX, YY = np.meshgrid(x_temp, y_temp)
+        ZZ = WeightedByDistance(Xs, Ys, Zs, XX, YY)
+
+        return XX, YY, ZZ
+    
+    def update_geometry(self, i):
+        '''
+        update info of geometry
+        '''
+        case_dir = self.ab_paths[i]
+        my_assert(os.path.isdir(case_dir), FileExistsError, "Directory doesn't exist %s" % case_dir)
+
+        try:
+            Visit_Options = self.VISIT_OPTIONS(case_dir)
+            Visit_Options.Interpret()
+            self.geometries[i] = Visit_Options.options["GEOMETRY"]
+        except FileNotFoundError:
+            self.geometries[i] = -1.0
+
+
+class CASE_SUMMARY_TWOD(CASE_SUMMARY):
+    '''
+    Attributes:
+        cases: name of cases
+        steps: end steps of cases
+        times: end times of cases
+        wallclocks: running time of cases on the wall clock
+        ab_paths: absolution_paths of cases
+        t660s: time the slab tip reaches 660 km
+    '''
+    def __init__(self, **kwargs):
+        '''
+        initiation
+        Inputs:
+            kwargs
+        '''
+        CASE_SUMMARY.__init__(self, **kwargs)
+
+        self.CASE_OPTIONS = CASE_OPTIONS
+
+        self.t660s = []
+        self.attrs.append("t660s")
+        # todo_ssum
+        self.t800s = []
+        self.attrs.append("t800s")
+        self.t1000s = []
+        self.attrs.append("t1000s")
+        self.sz_methods = []
+        self.attrs.append('sz_methods')
+        self.sz_thicks = []
+        self.attrs.append("sz_thicks")
+        self.sz_depths = []
+        self.attrs.append("sz_depths")
+        self.sz_viscs = []
+        self.attrs.append("sz_viscs")
+        self.slab_strs = []
+        self.attrs.append("slab_strs")
+        self.sd_modes = []
+        self.attrs.append("sd_modes")
+        self.V_sink_avgs = []
+        self.attrs.append("V_sink_avgs")
+        self.V_plate_avgs = []
+        self.attrs.append("V_plate_avgs")
+        self.V_ov_plate_avgs = []
+        self.attrs.append("V_ov_plate_avgs")
+        self.V_trench_avgs = []
+        self.attrs.append("V_trench_avgs")
+        self.sp_ages = []
+        self.attrs.append("sp_ages")
+        self.ov_ages = []
+        self.attrs.append("ov_ages")
+        self.dip660s = []
+        self.attrs.append("dip660s")
+        self.include_Ps = []
+        self.attrs.append("include_Ps")
+        # todo_check
+        self.data_avails = []
+        self.attrs.append("data_avails")
+
+        self.attrs_to_output += self.attrs
+        # ['t660s', "sz_thicks", "sz_depths", "sz_viscs", "slab_strs", "sd_modes", "V_sink_avgs", "V_plate_avgs", "V_ov_plate_avgs", "V_trench_avgs", "sp_ages", "ov_ages"]
+        # self.headers += ['t660s (yr)', "sz_thicks (m)", "sz_depths (m)", "sz_viscs (Pa s)", "slab_strs (Pa)", "sd_modes", "V_sink_avgs (m/s)", "V_plate_avgs (m/s)", "V_ov_plate_avgs (m/s)", "V_trench_avgs (m/s)", "sp_ages (yr)", "op_ages (yr)"]
+    
+    def Update(self, **kwargs):
+        '''
+        Update on properties
+        Inputs:
+            kwargs:
+                actions (list): actions to take
+        '''
+        actions = kwargs.get('actions', [])
+
+        CASE_SUMMARY.Update(self, **kwargs)
+
+        print("actions: ", actions) # debug
+
+        if "t660" in actions:
+            # initiate these field
+            self.t660s = [-1 for i in range(self.n_case)]
+            # update on specific properties
+            for i in range(self.n_case):
+                self.update_t660(i)
+        
+        # todo_ssum
+        if "t800" in actions:
+            # initiate these field
+            self.t800s = [-1 for i in range(self.n_case)]
+            # update on specific properties
+            for i in range(self.n_case):
+                self.update_t800(i)
+        
+        if "t1000" in actions:
+            # initiate these field
+            self.t1000s = [-1 for i in range(self.n_case)]
+            # update on specific properties
+            for i in range(self.n_case):
+                self.update_t1000(i)
+
+        if "shear_zone" in actions:
+            # initiate these field
+            self.sz_thicks = [-1 for i in range(self.n_case)]
+            self.sz_depths = [-1 for i in range(self.n_case)]
+            self.sz_viscs = [-1 for i in range(self.n_case)]
+            # update on specific properties
+            for i in range(self.n_case):
+                self.update_shear_zone(i)
+
+        if "strength" in actions:
+            self.slab_strs = [-1 for i in range(self.n_case)]
+            for i in range(self.n_case):
+                self.update_slab_strength(i)
+
+        if "sz_method" in actions:
+            self.sz_methods = [-1 for i in range(self.n_case)]
+            for i in range(self.n_case):
+                self.update_sz_methods(i)
+
+        if "sd_modes" in actions:
+            # assign an default value of 1 to the subducting modes
+            if len(self.sd_modes) < self.n_case:
+                self.sd_modes += [1 for i in range(self.n_case - len(self.sd_modes))]
+
+        if "Vage" in actions:
+            # calculate the average velocities
+            # initiate these field
+            self.V_sink_avgs = [-1 for i in range(self.n_case)]
+            self.V_plate_avgs = [-1 for i in range(self.n_case)]
+            self.V_ov_plate_avgs = [-1 for i in range(self.n_case)]
+            self.V_trench_avgs = [-1 for i in range(self.n_case)]
+            # update on specific properties
+            for i in range(self.n_case):
+                self.update_Vavg(i, **kwargs)
+        
+        if "ages" in actions:
+            # ov and sp ages
+            self.sp_ages = [-1 for i in range(self.n_case)]
+            self.ov_ages = [-1 for i in range(self.n_case)]
+            for i in range(self.n_case):
+                self.update_plate_ages(i)
+        
+        if "include_Ps" in actions:
+            # include Peierls creep
+            self.include_Ps = [np.nan for i in range(self.n_case)]
+            for i in range(self.n_case):
+                self.update_include_peierls(i)
+
+
+        # These fields need to be mannualy assigned, so we
+        # only initiation a nan value for the first time
+        if "dip660" in actions:
+            # initiate these field
+            if self.dip660s == []:
+                self.dip660s = [np.nan for i in range(self.n_case)]
+            else:
+                pass
+        
+        # todo_check
+        # check existance of data
+        if "data_avail" in actions:
+            self.data_avails = [False for i in range(self.n_case)]
+            for i in range(self.n_case):
+                self.check_data(i)
+
+    # todo_diagram
+    def generate_py_scripts(self):
+        '''
+        generate py script to generate missing slab_morph.txt files
+        '''
+        py_temp_file = os.path.join(ASPECT_LAB_DIR, 'py_temp.sh')
+        py_commands = []
+        for i in range(self.n_case):
+            if float(self.includes[i]) > 0.0 and self.t660s[i] < 0.0:
+                time_interval = 1e5
+                case_dir = self.ab_paths[i]
+                filename = "slab_morph_t%.2e.txt" % time_interval
+                file_path = os.path.join(case_dir, 'vtk_outputs', filename)
+                if not os.path.isfile(file_path):
+                    py_command = "python -m shilofue.TwoDSubduction0.VtkPp morph_case_parallel -i %s -ti %.2e\n" % (case_dir, time_interval)
+                    py_commands.append(py_command)
+
+        if len(py_commands) > 0: 
+            with open(py_temp_file, 'w') as fout:
+                fout.write("#!/bin/bash\n")
+                for py_command in py_commands:
+                    fout.write(py_command)
+            print("%d cases missing slab morphology outputs, generate morph script: %s" % (len(py_commands), py_temp_file))
+
+    def import_directory(self, _dir, **kwargs):
+        '''
+        Import from a directory, look for groups and cases
+        Inputs:
+            _dir (str): directory to import
+            kwargs
+        '''
+        assert(os.path.isdir(_dir))
+        CASE_SUMMARY.import_directory(self, _dir, **kwargs)
+        self.Update(**kwargs)
+
+    def update_t660(self, i):
+        '''
+        update t660
+        '''
+        case_dir = self.ab_paths[i]
+        my_assert(os.path.isdir(case_dir), FileExistsError, "Directory doesn't exist %s" % case_dir)
+        # use the SLABPLOT class to read the slab_morph.txt file
+        # and get the t660
+        # todo_fdata
+        SlabPlot = SLABPLOT('foo')
+        try:
+            t660 = SlabPlot.GetTimeDepthTip(case_dir, 660e3, filename="slab_morph_t1.00e+05.txt")
+        except SLABPLOT.SlabMorphFileNotExistError:
+            t660 = -1.0
+        self.t660s[i] = t660
+    
+    # todo_ssum
+    def update_t800(self, i):
+        '''
+        update t800
+        '''
+        case_dir = self.ab_paths[i]
+        my_assert(os.path.isdir(case_dir), FileExistsError, "Directory doesn't exist %s" % case_dir)
+        # use the SLABPLOT class to read the slab_morph.txt file
+        # and get the t800
+        SlabPlot = SLABPLOT('foo')
+        try:
+            t800 = SlabPlot.GetTimeDepthTip(case_dir, 800e3, filename="slab_morph_t1.00e+05.txt")
+        except SLABPLOT.SlabMorphFileNotExistError:
+            t800 = -1.0
+        self.t800s[i] = t800
+    
+    def update_t1000(self, i):
+        '''
+        update t1000
+        '''
+        case_dir = self.ab_paths[i]
+        my_assert(os.path.isdir(case_dir), FileExistsError, "Directory doesn't exist %s" % case_dir)
+        # use the SLABPLOT class to read the slab_morph.txt file
+        # and get the t1000
+        SlabPlot = SLABPLOT('foo')
+        try:
+            t1000 = SlabPlot.GetTimeDepthTip(case_dir, 1000e3, filename="slab_morph_t1.00e+05.txt")
+        except SLABPLOT.SlabMorphFileNotExistError:
+            t1000 = -1.0
+        self.t1000s[i] = t1000
+    
+    def update_Vavg(self, i, **kwargs):
+        '''
+        update the average velocities
+        '''
+        case_dir = self.ab_paths[i]
+        my_assert(os.path.isdir(case_dir), FileExistsError, "Directory doesn't exist %s" % case_dir)
+        t1_method = kwargs.get("t1_method", "value")
+        assert(t1_method in ["value", 't660'])
+        # t1 could either be assigned by value or by a factor * t660
+        if t1_method == "value":
+            # by default, a 30 Ma time window is used to average the velocity
+            t1 = kwargs.get("t1", 30e6)
+        elif t1_method == "t660":
+            # by default, 5.0 * t660 is the time window used to average the velocity
+            t1_factor = kwargs.get("t1_factor", 5.0)
+            t660 = self.t660s[i]
+            if t660 > 0.0:
+                t1 = 5.0 * t660
+            else:
+                # in case the t660 is not computed yet, take the -1.0 as the default
+                # this will lead to an invalid time range and trigger the value -2.0 in
+                # calculating the velocities.
+                t1 = -1.0
+        # use the SLABPLOT class to read the slab_morph.txt file
+        # and get the t660
+        SlabPlot = SLABPLOT('foo')
+        try:
+            # t660 = SlabPlot.GetTimeDepthTip(case_dir, 660e3, filename="slab_morph_t1.00e+05.txt")
+            t1000 = SlabPlot.GetTimeDepthTip(case_dir, 1000e3, filename="slab_morph_t1.00e+05.txt")
+            # sink velocity, sp plate velocity and the trench velocity averaged in a time range
+            # V_sink_avg, V_plate_avg, V_ov_plate_avg, V_trench_avg = SlabPlot.GetAverageVelocities(case_dir, t660, t1, filename="slab_morph_t1.00e+05.txt")
+            V_sink_avg, V_plate_avg, V_ov_plate_avg, V_trench_avg = SlabPlot.GetAverageVelocities(case_dir, 0.0, t1000, filename="slab_morph_t1.00e+05.txt")
+        except SLABPLOT.SlabMorphFileNotExistError:
+            print("morph file not exsit in dir: %s" % case_dir) # debug
+            V_sink_avg = -1.0
+            V_plate_avg = -1.0
+            V_ov_plate_avg = -1.0
+            V_trench_avg = -1.0
+        except FileNotFoundError:
+            print("Some other files not found for case %s" % case_dir)
+            V_sink_avg = -1.0
+            V_plate_avg = -1.0
+            V_ov_plate_avg = -1.0
+            V_trench_avg = -1.0
+        self.V_sink_avgs[i] = V_sink_avg
+        self.V_plate_avgs[i] = V_plate_avg
+        self.V_ov_plate_avgs[i] = V_ov_plate_avg
+        self.V_trench_avgs[i] = V_trench_avg
+        
+    def update_shear_zone(self, i):
+        '''
+        Update shear zone properties
+        ''' 
+        case_dir = self.ab_paths[i]
+        try:
+            Visit_Options = self.CASE_OPTIONS(case_dir)
+            Visit_Options.Interpret()
+            self.sz_viscs[i] = Visit_Options.options["SHEAR_ZONE_CONSTANT_VISCOSITY"]
+            self.sz_depths[i] = Visit_Options.options["SHEAR_ZONE_CUTOFF_DEPTH"]
+            self.sz_thicks[i] = Visit_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"]
+        except FileNotFoundError:
+            self.sz_viscs[i] = -1.0
+            self.sz_depths[i] = -1.0
+            self.sz_thicks[i] = -1.0
+
+    def update_slab_strength(self, i):
+        '''
+        Update slab strength properties
+        ''' 
+        case_dir = self.ab_paths[i]
+        try:
+            Visit_Options = self.CASE_OPTIONS(case_dir)
+            Visit_Options.Interpret()
+            self.slab_strs[i] = Visit_Options.options["MAXIMUM_YIELD_STRESS"] / 1e6
+        except FileNotFoundError:
+            self.slab_strs[i] = -1.0
+    
+    def update_sz_methods(self, i):
+        '''
+        Update method of shear zone viscosity
+        '''
+        case_dir = self.ab_paths[i]
+        try:
+            Visit_Options = self.CASE_OPTIONS(case_dir)
+            Visit_Options.Interpret()
+            self.sz_methods[i] = Visit_Options.options["SHEAR_ZONE_METHOD"]
+        except FileNotFoundError:
+            self.sz_methods[i] = -1
+        pass
+
+    def update_plate_ages(self, i):
+        '''
+        update plate ages
+        '''
+        case_dir = self.ab_paths[i]
+        try:
+            Visit_Options = self.CASE_OPTIONS(case_dir)
+            Visit_Options.Interpret()
+            self.sp_ages[i] = Visit_Options.options["SP_AGE"] / 1e6
+            self.ov_ages[i] = Visit_Options.options["OV_AGE"] / 1e6
+        except FileNotFoundError:
+            self.sp_ages[i] = -1.0
+            self.ov_ages[i] = -1.0
+    
+    def update_include_peierls(self, i):
+        '''
+        update if Peierls creep is included
+        '''
+        case_dir = self.ab_paths[i]
+        try:
+            Visit_Options = self.CASE_OPTIONS(case_dir)
+            Visit_Options.Interpret()
+            self.include_Ps[i] = Visit_Options.options["INCLUDE_PEIERLS_RHEOLOGY"]
+        except FileNotFoundError:
+            self.include_Ps[i] = np.nan
+    
+    def update_dip660(self, i, dip660):
+        '''
+        update the 660 dip angle
+        '''
+        self.dip660s[i] = dip660
+
+    # todo_check
+    def check_data(self, i):
+        '''
+        update data existance
+        '''
+        case_dir = self.ab_paths[i]
+        t1000 = self.t1000s[i]
+        if t1000 < 0:
+            t_inspect = (self.times[i] - 1.0)*1e6
+        else:
+            t_inspect = t1000
+
+        # set default to false
+        try:
+            Visit_Options = self.CASE_OPTIONS(case_dir)
+            Visit_Options.Interpret()
+        except FileNotFoundError:
+            return
+        
+        # if we fail to get the related vtu_step, do nothing
+        try:
+            _, _, vtu_step = Visit_Options.get_timestep_by_time(t_inspect)
+        except ValueError:
+            return
+        
+        vtu_snapshot = vtu_step + int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
+        pvtu_file = os.path.join(case_dir, "output", "solution", "solution-%05d.pvtu" % vtu_snapshot)
+        vtu_file = os.path.join(case_dir, "output", "solution", "solution-%05d.0000.vtu" % vtu_snapshot)
+        # print("pvtu_file: ", pvtu_file) # debug
+        # print("vtu_file: ", vtu_file) # debug
+        if os.path.isfile(pvtu_file) and os.path.isfile(vtu_file):
+            self.data_avails[i] = True
+
+    def plot_diagram_t660(self, **kwargs):
+        '''
+        plot a diagram of t660
+        '''
+        fig_path = kwargs.get('fig_path', None)
+
+        fig, ax = plt.subplots()
+        x_name = "sz_thicks"
+        y_name = "sz_depths"
+        z_name = "t660s"
+
+        # mesh data
+        includes = np.array([int(i) for i in getattr(self, "includes")])
+        SZTT = np.array(getattr(self, x_name))
+        SZDD= np.array(getattr(self, y_name))
+        tt660 = np.array(getattr(self, z_name))
+        sd_modes = np.array([int(i) for i in getattr(self, "sd_modes")])
+
+        # include only case with subducting mode 1
+        mask = (includes > 0) & (sd_modes == 1)
+
+        # generate the plot
+        # h = ax.pcolormesh(SZTT/1e3, SZDD/1e3, tt660)
+        h = ax.scatter(SZTT[mask]/1e3, SZDD[mask]/1e3, c=tt660[mask]/1e6, vmin=0.0, vmax=5.0)
+        ax.set_xlabel("shear zone thickness (km)")
+        ax.set_ylabel("shear zone depth (km)")
+        fig.colorbar(h, ax=ax, label='t_660 (Ma)')
+
+        # save figure
+        if fig_path is not None:
+            fig.savefig(fig_path)
+            print("figure generated: ", fig_path)
+
+    def plot_velocities_tr(self, **kwargs):
+        '''
+        plot a diagram of velocities
+        '''
+        fig_path = kwargs.get('fig_path', None)
+
+        x_name = "sz_thicks"
+        y_name = "sz_depths"
+
+        # mesh data
+        includes = np.array([int(i) for i in getattr(self, "includes")])
+        SZTT = np.array(getattr(self, x_name))
+        SZDD= np.array(getattr(self, y_name))
+        VVTR = np.array(getattr(self, "V_trench_avgs"))
+        VVSP = np.array(getattr(self, "V_plate_avgs"))
+        VVSK = np.array(getattr(self, "V_sink_avgs"))
+        VV = VVSP - VVTR
+        sd_modes = np.array([int(i) for i in getattr(self, "sd_modes")])
+
+        # include only case with subducting mode 1
+        mask1 = (includes > 0) & (sd_modes == 1)
+        mask2 = (VVTR > -1.0)
+        mask = mask1&mask2
+
+        # generate axis
+        fig = plt.figure(tight_layout=True, figsize=(12, 10))
+        gs = gridspec.GridSpec(2,2)
+        area_scale = 200.0 # scaling for the area of scatter points
+
+        # generate the plot
+        # figure 1: plate velocity 
+        ax0 = fig.add_subplot(gs[0, 0])
+        area = (area_scale*VVSP[mask])**2.0
+        h = ax0.scatter(SZTT[mask]/1e3, SZDD[mask]/1e3, s=area, c=100.0*VVSP[mask])
+        ax0.set_xlabel("shear zone thickness (km)")
+        ax0.set_ylabel("shear zone depth (km)")
+        ax0.set_title("V_plate_avgs")
+        fig.colorbar(h, ax=ax0, label='V (cm/yr)')
+
+        # figure 2: trench velocity
+        # negative value converted to positive here
+        # area = (200.0*VV[mask])**2.0
+        # h = ax.scatter(SZTT[mask&mask1]/1e3, SZDD[mask&mask1]/1e3, s=area, c=100.0*VV[mask&mask1], vmin=0.0, vmax=5.0)
+        ax1 = fig.add_subplot(gs[0, 1])
+        area = (area_scale*VVTR[mask])**2.0
+        h = ax1.scatter(SZTT[mask]/1e3, SZDD[mask]/1e3, s=area, c=-100.0*VVTR[mask], vmin=0.0, vmax=5.0)
+        # h = ax.scatter(SZTT[mask&mask1]/1e3, SZDD[mask&mask1]/1e3, c=-100.0*VVTR[mask&mask1], vmin=0.0, vmax=5.0)
+        ax1.set_xlabel("shear zone thickness (km)")
+        ax1.set_ylabel("shear zone depth (km)")
+        ax1.set_title("V_trench_avgs")
+        fig.colorbar(h, ax=ax1, label='V (cm/yr)')
+
+        # figure 3: trench and plate velocity
+        ax2 = fig.add_subplot(gs[1, 0])
+        area = (area_scale*VVTR[mask])**2.0
+        area1 = (area_scale*VV[mask])**2.0
+        ax2.scatter(SZTT[mask]/1e3, SZDD[mask]/1e3, s=area1, c='w', edgecolors='k') # plot the bigger points of total velocity
+        h = ax2.scatter(SZTT[mask]/1e3, SZDD[mask]/1e3, s=area, c=-100.0*VVTR[mask], vmin=0.0, vmax=5.0) # plot the smaller points of trench velocity
+        ax2.set_xlabel("shear zone thickness (km)")
+        ax2.set_ylabel("shear zone depth (km)")
+        ax2.set_title("V_trench_avgs")
+        fig.colorbar(h, ax=ax2, label='V (cm/yr)')
+        
+        # figure 4: trench and plate velocity - annotation
+        n_a = 5
+        dv = 0.02
+        ax3 = fig.add_subplot(gs[1, 1])
+        velocities = np.linspace(dv, dv*n_a, n_a)
+        xs = np.ones(n_a)
+        ys = np.linspace(1.0, 1.0*n_a, n_a)
+        area = (area_scale*velocities)**2.0
+        ax3.scatter(xs, ys, s=area, c='w', edgecolors='k')
+        for i in range(n_a):
+            ax3.annotate( "%.1f cm/yr" % (100.0*dv*(i+1)), xy=(1.0, 1.0*(i+1)),
+                    xytext=(0, 12),  # 4 points vertical offset.
+                    textcoords='offset points',
+                    ha='center', va='bottom')
+        ax3.set_xlim([0.0, 6.0])
+        ax3.set_ylim([0.5, n_a + 0.5])
+        ax3.set_axis_off()
+
+        # save figure
+        if fig_path is not None:
+            fig.savefig(fig_path)
+            print("figure generated: ", fig_path)
+
+    def plot_velocities_tr_publication(self, fig_path):
+        '''
+        plot a diagram of velocities
+        '''
+        x_name = "sz_thicks"
+        y_name = "sz_depths"
+
+        # mesh data
+        includes = np.array([int(i) for i in getattr(self, "includes")])
+        SZTT = np.array(getattr(self, x_name))
+        SZDD= np.array(getattr(self, y_name))
+        VVTR = np.array(getattr(self, "V_trench_avgs"))
+        VVSP = np.array(getattr(self, "V_plate_avgs"))
+        VVSK = np.array(getattr(self, "V_sink_avgs"))
+        VV = VVSP - VVTR
+        sd_modes = np.array([int(i) for i in getattr(self, "sd_modes")])
+
+        # include only case with subducting mode 1
+        mask1 = (includes > 0) & (sd_modes == 1)
+        mask2 = (VVTR > -1.0)
+        mask = mask1&mask2
+
+        # generate axis
+        fig = plt.figure(tight_layout=True, figsize=(18, 7.5))
+        gs = gridspec.GridSpec(1, 2)
+        area_scale = 200.0 # scaling for the area of scatter points
+
+        # figure: trench and plate velocity
+        ax0 = fig.add_subplot(gs[0, 0])
+        area = (area_scale*VVTR[mask])**2.0
+        area1 = (area_scale*VV[mask])**2.0
+        ax0.scatter(SZTT[mask]/1e3, SZDD[mask]/1e3, s=area1, c='w', edgecolors='k') # plot the bigger points of total velocity
+        h = ax0.scatter(SZTT[mask]/1e3, SZDD[mask]/1e3, s=area, c=-100.0*VVTR[mask], vmin=0.0, vmax=5.0) # plot the smaller points of trench velocity
+        ax0.set_xlabel("shear zone thickness (km)")
+        ax0.set_ylabel("shear zone depth (km)")
+        fig.colorbar(h, ax=ax0, label='V (cm/yr)')
+        
+        # figure annotation
+        n_a = 5
+        dv = 0.02
+        ax1 = fig.add_subplot(gs[0, 1])
+        velocities = np.linspace(dv, dv*n_a, n_a)
+        xs = np.ones(n_a)
+        ys = np.linspace(1.0, 1.0*n_a, n_a)
+        area = (area_scale*velocities)**2.0
+        ax1.scatter(xs, ys, s=area, c='w', edgecolors='k')
+        for i in range(n_a):
+            ax1.annotate( "%.1f cm/yr" % (100.0*dv*(i+1)), xy=(1.0, 1.0*(i+1)),
+                    xytext=(0, 12),  # 4 points vertical offset.
+                    textcoords='offset points',
+                    ha='center', va='bottom')
+        ax1.set_xlim([0.0, 6.0])
+        ax1.set_ylim([0.5, n_a + 0.5])
+        ax1.set_axis_off()
+            
+        fig.savefig(fig_path)
+        print("figure generated: ", fig_path)
+
+    def plot_velocities_ages_publication(self, fig_path):
+        '''
+        plot a diagram of velocities
+        '''
+        x_name = "sp_ages"
+        y_name = "ov_ages"
+
+        # mesh data
+        includes = np.array([int(i) for i in getattr(self, "includes")])
+        SPAG = self.export(x_name)
+        OVAG = self.export(y_name)
+        VVTR = self.export("V_trench_avgs")
+        VVSP = self.export("V_plate_avgs")
+        VVSK = self.export("V_sink_avgs")
+        VV = VVSP - VVTR
+        sd_modes = np.array([int(i) for i in getattr(self, "sd_modes")])
+
+        # include only case with subducting mode 1
+        mask1 = (includes > 0) & (sd_modes == 1)
+        mask2 = (VVTR > -1.0)
+        mask = mask1&mask2
+
+        # generate axis
+        fig = plt.figure(tight_layout=True, figsize=(18, 7.5))
+        gs = gridspec.GridSpec(1, 2)
+        area_scale = 200.0 # scaling for the area of scatter points
+
+        # figure: trench and plate velocity
+        ax0 = fig.add_subplot(gs[0, 0])
+        area = (area_scale*VVTR[mask])**2.0
+        area1 = (area_scale*VV[mask])**2.0
+        ax0.scatter(SPAG[mask]/1e6, OVAG[mask]/1e6, s=area1, c='w', edgecolors='k') # plot the bigger points of total velocity
+        h = ax0.scatter(SPAG[mask]/1e6, OVAG[mask]/1e6, s=area, c=-100.0*VVTR[mask], vmin=0.0, vmax=5.0) # plot the smaller points of trench velocity
+        ax0.set_xlabel("sp age (Ma)")
+        ax0.set_ylabel("ov age (Ma)")
+        fig.colorbar(h, ax=ax0, label='V (cm/yr)')
+        
+        # figure annotation
+        n_a = 5
+        dv = 0.02
+        ax1 = fig.add_subplot(gs[0, 1])
+        velocities = np.linspace(dv, dv*n_a, n_a)
+        xs = np.ones(n_a)
+        ys = np.linspace(1.0, 1.0*n_a, n_a)
+        area = (area_scale*velocities)**2.0
+        ax1.scatter(xs, ys, s=area, c='w', edgecolors='k')
+        for i in range(n_a):
+            ax1.annotate( "%.1f cm/yr" % (100.0*dv*(i+1)), xy=(1.0, 1.0*(i+1)),
+                    xytext=(0, 12),  # 4 points vertical offset.
+                    textcoords='offset points',
+                    ha='center', va='bottom')
+        ax1.set_xlim([0.0, 6.0])
+        ax1.set_ylim([0.5, n_a + 0.5])
+        ax1.set_axis_off()
+            
+        fig.savefig(fig_path)
+        print("figure generated: ", fig_path)
+    
+    def plot_velocities_sink(self, **kwargs):
+        '''
+        plot a diagram of sink velocities
+        '''
+        fig_path = kwargs.get('fig_path', None)
+
+        fig, ax = plt.subplots()
+        x_name = "sz_thicks"
+        y_name = "sz_depths"
+        z_name = kwargs.get("z_name", "V_sink_avgs")
+
+        # mesh data
+        includes = np.array([int(i) for i in getattr(self, "includes")])
+        SZTT = np.array(getattr(self, x_name))
+        SZDD= np.array(getattr(self, y_name))
+        VVSK = np.array(getattr(self, z_name))
+        sd_modes = np.array([int(i) for i in getattr(self, "sd_modes")])
+
+        # include only case with subducting mode 1
+        mask = (includes > 0) & (sd_modes == 1)
+        mask1 = (VVSK > -1.0)
+
+        # generate the plot
+        # negative value converted to positive here
+        h = ax.scatter(SZTT[mask&mask1]/1e3, SZDD[mask&mask1]/1e3, c=100.0*VVSK[mask&mask1])
+        ax.set_xlabel("shear zone thickness (km)")
+        ax.set_ylabel("shear zone depth (km)")
+        ax.set_title(z_name)
+        fig.colorbar(h, ax=ax, label='V (cm/yr)')
+
+        # save figure
+        if fig_path is not None:
+            fig.savefig(fig_path)
+            print("figure generated: ", fig_path)
+    
+    def write_file_for_sz_paper(self, o_path):
+        '''
+        Write output file, with a format we like for figure table
+        '''
+        # append the case name first and the absolute path last
+        table_columns = ["t660s", "t800s", "t1000s"]
+        attrs_to_output = ["names"] + table_columns
+        headers = ["names"] + table_columns
+
+        # write file
+        format = o_path.split('.')[-1]
+        if format == "txt":
+            with open(o_path, 'w') as fout: 
+                self.write(fout, attrs_to_output, headers) 
+        elif format == "csv":
+            with open(o_path, 'w') as fout: 
+                self.write_csv(fout, attrs_to_output, headers)
+        elif format == "tex":
+            with open(o_path, 'w') as fout: 
+                self.export_to_latex_table(fout, attrs_to_output, headers)
+        else:
+            raise ValueError("%s: filename should end with \".txt\" or \".csv\", but the given name is %s" % (func_name(), o_path))
+
+        my_assert(os.path.isfile(o_path), FileNotFoundError, "%s: file %s is not written successfully" % (func_name(), o_path)) 
+        print("%s: Write file %s" % (func_name(), o_path))
+
+    def write_file_for_3d_paper(self, o_path):
+        '''
+        Write output file, with a format we like for figure table
+        '''
+        # append the case name first and the absolute path last
+        table_columns = ["sp_ages", "ov_ages", "slab_strs", "t660s", "t800s", "t1000s", "dip660s"]
+        attrs_to_output = ["names"] + table_columns
+        headers = ["names"] + table_columns
+
+        # write file
+        format = o_path.split('.')[-1]
+        if format == "txt":
+            with open(o_path, 'w') as fout: 
+                self.write(fout, attrs_to_output, headers) 
+        elif format == "csv":
+            with open(o_path, 'w') as fout: 
+                self.write_csv(fout, attrs_to_output, headers)
+        elif format == "tex":
+            with open(o_path, 'w') as fout: 
+                self.export_to_latex_table(fout, attrs_to_output, headers)
+        else:
+            raise ValueError("%s: filename should end with \".txt\" or \".csv\", but the given name is %s" % (func_name(), o_path))
+
+        my_assert(os.path.isfile(o_path), FileNotFoundError, "%s: file %s is not written successfully" % (func_name(), o_path)) 
+        print("%s: Write file %s" % (func_name(), o_path))
+
+
+def ReadBasicInfoGroup(group_dir):
+    '''
+    Read basic information from a group
+    Inputs:
+        group_dir(str): directory contains a few cases
+    Return:
+        case_list, step_list, time_list, wallclock_list (list): list of outputs
+    '''
+    print("ReadBasicInfoGroup: reading group %s" % group_dir)
+    cases = FindCasesInDir(group_dir)
+    my_assert(len(cases)>0, FileExistsError, "%s doesn't have cases in it." % group_dir)
+    case_list = [] 
+    step_list = []
+    time_list = []
+    wallclock_list = []
+    for case in cases:
+        # pull out information
+        last_step = -1
+        last_time = -1.0
+        last_wallclock = -1.0
+        log_file = os.path.join(case, 'output', 'log.txt')
+        if os.path.isfile(log_file):
+            try:
+                last_step, last_time, last_wallclock = RunTimeInfo(log_file, quiet=True)
+            except TypeError:
+                pass
+        case_list.append(os.path.basename(case))
+        step_list.append(int(last_step))
+        time_list.append(float(last_time))
+        wallclock_list.append(float(last_wallclock))
+        print(" Found case %s" % os.path.basename(case))
+    return case_list, step_list, time_list, wallclock_list
+
+
+def RunTimeInfo(log_path, **kwargs):
+    '''
+    Read runtime info from log file and then print them
+    Inputs:
+        log_path(str) - path to log file
+    '''
+    save_temp_file_local = kwargs.get('save_temp_file_local', False)
+    quiet = kwargs.get("quiet")
+    if save_temp_file_local:
+        temp_dir = os.path.join(os.path.dirname(log_path), 'py_outputs')
+        if not os.path.isdir(temp_dir):
+            os.mkdir(temp_dir)
+        temp_path = os.path.join(temp_dir, 'run_time_output')
+    else:
+        temp_path = os.path.join(RESULT_DIR, 'run_time_output')
+    trailer = None # add this to filename
+    hr = 3600.0  # hr to s
+    # read log file
+    if not quiet:
+        print("awk -f %s/scripts/awk/parse_block_output.awk %s > %s" % (root_dir, log_path, temp_path))
+    os.system("awk -f %s/scripts/awk/parse_block_output.awk %s > %s" % (root_dir, log_path, temp_path))
+
+    Plotter = LINEARPLOT('RunTime', {})
+    Plotter.ReadHeader(temp_path)
+    Plotter.ReadData(temp_path)
+
+    # give warning if there is no data
+    # future: reorder error messages
+    if Plotter.data.size == 0:
+        warning_message = "func %s: There is no block data in file %s, Do nothing" % (func_name(), log_path)
+        warnings.warn(warning_message, WarningTypes.FileHasNoContentWarning)
+        return 0
+
+    # fix indexes
+    col_time = Plotter.header['Time']['col']
+    unit_time = Plotter.header['Time']['unit']
+    col_step = Plotter.header['Time_step_number']['col']
+    col_wallclock = Plotter.header['Wall_Clock']['col']
+    unit_wallclock = Plotter.header['Wall_Clock']['unit']
+    times = Plotter.data[:, col_time]
+    steps = Plotter.data[:, col_step]
+    wallclocks = Plotter.data[:, col_wallclock]
+    
+    # last step info
+    # todo
+    last_step = steps[-1]
+    last_time = times[-1] 
+    last_wallclock = wallclocks[-1]
+    if not quiet:
+        print("step: %d, time: %.4e, wallclock: %.4e" % (last_step, last_time, last_wallclock))
+    return last_step, last_time, last_wallclock
+

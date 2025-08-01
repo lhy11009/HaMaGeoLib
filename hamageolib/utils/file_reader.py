@@ -57,6 +57,8 @@ import numpy as np
 import os
 import pandas as pd
 import re
+import subprocess
+from .exception_handler import my_assert
 
 
 def parse_header_from_lines(lines):
@@ -143,3 +145,43 @@ def read_aspect_header_file(file_path):
     data.attrs["units"] = units_map
 
     return data
+
+def get_directory_size_du(path, unit="B"):
+    """
+    Uses the Unix 'du' command to get the total size of a directory.
+
+    Parameters:
+        path (str): The directory path.
+        unit (str): Unit for output. One of "B", "KB", "MB", "GB".
+
+    Returns:
+        float: Directory size in the specified unit.
+    """
+    result = subprocess.run(['du', '-sb', path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"du command failed: {result.stderr.strip()}")
+
+    size_bytes = int(result.stdout.split()[0])
+
+    unit = unit.upper()
+    if unit == "B":
+        return size_bytes
+    elif unit == "KB":
+        return size_bytes / 1024
+    elif unit == "MB":
+        return size_bytes / (1024**2)
+    elif unit == "GB":
+        return size_bytes / (1024**3)
+    else:
+        raise ValueError("Invalid unit. Choose from 'B', 'KB', 'MB', or 'GB'.")
+    
+
+def get_relative_path(ab_path, root_path):
+    ab_path = os.path.abspath(ab_path)
+    root_path = os.path.abspath(root_path)
+
+    # Ensure ab_path is under root_path
+    common = os.path.commonpath([ab_path, root_path])
+    my_assert(common == root_path, FileNotFoundError, f"{ab_path} is not under {root_path}")
+
+    return os.path.relpath(ab_path, root_path)
