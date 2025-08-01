@@ -116,6 +116,10 @@ def test_case_summary_big_test():
     case_path = os.path.join(os.path.dirname(__file__), "../../big_tests/TwoDSubduction/eba_cdpt_coh500_SA80.0_cd7.5_log_ss300.0")
 
     o_path = os.path.join(os.path.dirname(__file__), "../../dtemp/case_summary_big_test.csv")
+    if os.path.isfile(o_path):
+        # remove old files
+        os.remove(o_path)
+
     o_path_std = os.path.join(os.path.dirname(__file__), "../../big_tests/TwoDSubduction/case_summary_std.csv")
 
     # Check if the folder exists and contains test files

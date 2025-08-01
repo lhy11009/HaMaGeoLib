@@ -309,7 +309,7 @@ class CASE_OPTIONS:
             
 class CASE_SUMMARY:
 
-    def __init__(self):
+    def __init__(self, **kwargs):
 
         # initiate a data object to save the case summary
         self.df = pd.DataFrame(columns=["basename", "name", "end time step", "end time", "wall clock", "abs path"])
@@ -322,6 +322,8 @@ class CASE_SUMMARY:
         units_map["wall clock"] = 'hr'
     
         self.df.attrs["units"] = units_map
+
+        self.CASE_OPTIONS = CASE_OPTIONS
 
 
     def update_single_case(self, abs_path):

@@ -1654,3 +1654,18 @@ def calculate_bearing(lon1, lat1, lon2, lat2):
     return bearing
 
 clamp = lambda v, min_val, max_val: max(min(v, max_val), min_val)
+
+
+def FindCasesInDir(dir_path):
+    '''
+    Find cases within a directory
+    '''
+    cases = []
+    for _name in os.listdir(dir_path):
+        sub_dir_path = os.path.join(dir_path, _name)
+        if os.path.isdir(sub_dir_path):
+            prm_path = os.path.join(sub_dir_path, "case.prm")
+            json_path = os.path.join(sub_dir_path, "case.json")
+            if os.path.isfile(prm_path) and os.path.isfile(json_path):
+                cases.append(sub_dir_path)
+    return cases
