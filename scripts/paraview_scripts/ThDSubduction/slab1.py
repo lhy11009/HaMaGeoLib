@@ -429,9 +429,9 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
         scale_factor = 2.8e6
     elif "GEOMETRY" == "box":
         if int("DIMENSION") == 3:
-            point_source_center = [4.65e6, 0, 2.95e6]
+            point_source_center = [4.65e6, 0, 2.95e6 + TOP - 2890e3]
         else:
-            point_source_center = [4.65e6, 2.95e6, 0]
+            point_source_center = [4.65e6, 2.95e6 + TOP - 2890e3, 0]
         scale_factor = 3.21e6
     else:
         raise NotImplementedError()
@@ -457,12 +457,12 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
         renderView1.CameraParallelScale = 651407.1273990012
     elif "GEOMETRY" == "box":
         if int("DIMENSION") == 3:
-            renderView1.CameraPosition = [4012781.8124555387, 8150298.613651189, 2374146.9531437973]
-            renderView1.CameraFocalPoint = [4012781.8124555387, 0.0, 2374146.9531437973]
+            renderView1.CameraPosition = [4012781.8124555387, 8150298.613651189, 2374146.9531437973 + TOP - 2890e3]
+            renderView1.CameraFocalPoint = [4012781.8124555387, 0.0, 2374146.9531437973 + TOP - 2890e3]
             renderView1.CameraViewUp = [2.220446049250313e-16, 0.0, 1.0]
         else:
-            renderView1.CameraPosition = [4012781.8124555387, 2374146.9531437973, -8150298.613651189]
-            renderView1.CameraFocalPoint = [4012781.8124555387, 2374146.9531437973, 0.0]
+            renderView1.CameraPosition = [4012781.8124555387, 2374146.9531437973 + TOP - 2890e3, -8150298.613651189]
+            renderView1.CameraFocalPoint = [4012781.8124555387, 2374146.9531437973 + TOP - 2890e3, 0.0]
             renderView1.CameraViewUp = [2.220446049250313e-16, 1.0, 0.0]
         renderView1.CameraParallelScale = 802823.959456
 

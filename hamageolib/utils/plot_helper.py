@@ -564,7 +564,7 @@ def generate_solver_plot_history(file_path, output_dir="plots", **kwargs):
     # if time_step_range == None:
     #     s_mask = (time_steps >= 0)
     # else:
-    #     my_assert(type(time_step_range) == list and len(time_step_range) == 2, TypeError, "%s: time_step_range must be a list of 2." % Utilities.func_name())
+    #     my_assert(type(time_step_range) == list and len(time_step_range) == 2, TypeError, "%s: time_step_range must be a list of 2." % func_name())
     #     s_mask = ((time_steps >= time_step_range[0]) & (time_steps <= time_step_range[1]))  # this is hard coded to be 0 for now
     #     trailer = "%d_%d" % (time_step_range[0], time_step_range[1])
 
