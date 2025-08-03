@@ -5,7 +5,7 @@ import pyvista as pv
 import numpy as np
 from scipy.spatial import cKDTree
 from vtk import VTK_QUAD
-from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian, convert_to_unified_coordinates_reference_2d
+from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian, cartesian_to_spherical_2d
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS, CASE_OPTIONS_TWOD1
@@ -451,6 +451,7 @@ class PYVISTA_PROCESS_THD():
 
         extract_trench=kwargs.get("extract_trench", False)
         extract_dip=kwargs.get("extract_dip", False)
+        file_type = kwargs.get("file_type", "default")
 
         if field_name == "sp_upper":
             assert self.iso_volume_upper is not None
@@ -542,7 +543,7 @@ class PYVISTA_PROCESS_THD():
             if self.geometry == "chunk": 
                 x_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.cos(v2_tr)
                 y_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.sin(v2_tr)
-                z_tr = self.Max0 * np.cos(v1_tr)
+                z_tr = self.Max0 * np.cos(np.pi/2.0 - v1_tr)
             else:
                 x_tr = v2_tr
                 y_tr = v1_tr
@@ -556,10 +557,18 @@ class PYVISTA_PROCESS_THD():
                 self.trench_center = self.trench_points[0, 0]
 
             # save trench points
-            point_cloud_tr = pv.PolyData(self.trench_points)
-            filename = "trench_%05d.vtp" % self.pvtu_step
-            filepath = os.path.join(self.pyvista_outdir, filename)
-            point_cloud_tr.save(filepath)
+            # todo_3d_test
+            if file_type == "default":
+                point_cloud_tr = pv.PolyData(self.trench_points)
+                filename = "trench_%05d.vtp" % self.pvtu_step
+                filepath = os.path.join(self.pyvista_outdir, filename)
+                point_cloud_tr.save(filepath)
+            elif file_type == "txt":
+                filename = "trench_%05d.txt" % self.pvtu_step
+                filepath = os.path.join(self.pyvista_outdir, filename)
+                np.savetxt(filepath, self.trench_points, fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
+            else:
+                raise ValueError("file_type needs to be default or txt")
 
             print("Save file %s" % filepath)
 
@@ -1585,7 +1594,6 @@ def PlotCaseRunTwoD1(case_path, **kwargs):
 
     return Case_Options_2d
 
-# todo_2d_visual
 def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     """
     Inputs:
@@ -1655,7 +1663,8 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     slab_points = iso_volume_total.points
 
     if geometry == "chunk":
-        v0_u, _, v2_u = cartesian_to_spherical(*slab_points.T)
+        # v0_u, _, v2_u = cartesian_to_spherical(*slab_points.T)
+        v0_u, v2_u = cartesian_to_spherical_2d(slab_points[:, 0], slab_points[:, 1])
         rt_upper = np.vstack([v0_u/Max0]).T
     else:
         rt_upper = np.vstack([slab_points[:, 1]/Max0]).T
@@ -1679,13 +1688,12 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     mask = ~np.isnan(vals2)
 
     v0_surf = vals0[mask]
-    v1_surf = np.pi / 2.0 * np.ones(v0_surf.shape)
     v2_surf = vals2[mask]
 
     if geometry == "chunk":
-        x = v0_surf * np.sin(v1_surf) * np.cos(v2_surf)
-        y = v0_surf * np.sin(v1_surf) * np.sin(v2_surf)
-        z = v0_surf * np.cos(v1_surf)
+        x = v0_surf * np.cos(v2_surf)
+        y = v0_surf * np.sin(v2_surf)
+        z = np.zeros(v0_surf.shape)
     else:
         x = v2_surf
         y = v0_surf
@@ -1695,29 +1703,25 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
 
     # derive trench center, slab depth and dip angle
     depth0 = 0.0; depth1 = 100e3
-    d0 = 5e3 # tolerance along dimention 0
     if geometry == "chunk": 
         l0_mean = Max0 - (depth0 + depth1)/2.0
-        l0, _, l2 = cartesian_to_spherical(slab_surface_points[:, 0], slab_surface_points[:, 1], slab_surface_points[:, 2])
+        l0, l2 = cartesian_to_spherical_2d(slab_surface_points[:, 0], slab_surface_points[:, 1])
+        l2_1 = np.interp(Max0 - depth1, l0, l2)
+        l2_0 = np.interp(Max0 - depth0, l0, l2)
         trench_center = l2[-1]
         slab_depth = Max0 - np.min(l0)
         # dip angle
         mask0 = ((np.abs((Max0 - l0) - depth0) < d0))
         l2_mean_0 = np.average(l2[mask0])
-        mask1 = ((np.abs((Max0 - l0) - depth1) < d0))
-        l2_mean_1 = np.average(l2[mask1])
-        dip_angle = np.arctan2(depth1 - depth0, l0_mean * (l2_mean_1 - l2_mean_0))
+        dip_angle = np.arctan2(depth1 - depth0, l0_mean * (l2_1 - l2_0))
     else:
-        d1 = 10e3
         trench_center = slab_surface_points[-1, 0]
         slab_depth = Max0 - np.min(slab_surface_points[:, 1])
         # dip angle
         l0 = slab_surface_points[:, 1]; l2 = slab_surface_points[:, 0]
-        mask0 = ((np.abs((Max0 - l0) - depth0) < d0))
-        l2_mean_0 = np.average(l2[mask0])
-        mask1 = ((np.abs((Max0 - l0) - depth1) < d0))
-        l2_mean_1 = np.average(l2[mask1])
-        dip_angle = np.arctan2(depth1 - depth0, l2_mean_1 - l2_mean_0)
+        l2_1 = np.interp(Max0 - depth1, l0, l2)
+        l2_0 = np.interp(Max0 - depth0, l0, l2)
+        dip_angle = np.arctan2(depth1 - depth0, l2_1 - l2_0)
     
     output_dict["trench_center"] = trench_center
     output_dict["slab_depth"] = slab_depth

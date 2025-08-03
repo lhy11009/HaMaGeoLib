@@ -289,6 +289,22 @@ def cartesian_to_spherical(x, y, z):
     phi = np.arctan2(y, x) % (2 * np.pi)
     return r, theta, phi
 
+def cartesian_to_spherical_2d(x, y):
+    """
+    Convert 2D Cartesian coordinates (x, y) to polar coordinates (r, theta).
+
+    Parameters:
+        x (float or np.ndarray): x-coordinate(s)
+        y (float or np.ndarray): y-coordinate(s)
+
+    Returns:
+        r (same type as input): radial distance(s)
+        phi (same type as input): angle(s) in radians, in range [0, 2π)
+    """
+    r = np.sqrt(x**2 + y**2)
+    phi = np.arctan2(y, x) % (2 * np.pi)
+    return r, phi
+
 
 def spherical_to_cartesian(r, theta, phi):
     x = r * np.sin(theta) * np.cos(phi)
