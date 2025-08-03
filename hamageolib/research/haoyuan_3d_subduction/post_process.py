@@ -451,6 +451,7 @@ class PYVISTA_PROCESS_THD():
 
         extract_trench=kwargs.get("extract_trench", False)
         extract_dip=kwargs.get("extract_dip", False)
+        file_type = kwargs.get("file_type", "default")
 
         if field_name == "sp_upper":
             assert self.iso_volume_upper is not None
@@ -542,7 +543,7 @@ class PYVISTA_PROCESS_THD():
             if self.geometry == "chunk": 
                 x_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.cos(v2_tr)
                 y_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.sin(v2_tr)
-                z_tr = self.Max0 * np.cos(v1_tr)
+                z_tr = self.Max0 * np.cos(np.pi/2.0 - v1_tr)
             else:
                 x_tr = v2_tr
                 y_tr = v1_tr
@@ -556,10 +557,18 @@ class PYVISTA_PROCESS_THD():
                 self.trench_center = self.trench_points[0, 0]
 
             # save trench points
-            point_cloud_tr = pv.PolyData(self.trench_points)
-            filename = "trench_%05d.vtp" % self.pvtu_step
-            filepath = os.path.join(self.pyvista_outdir, filename)
-            point_cloud_tr.save(filepath)
+            # todo_3d_test
+            if file_type == "default":
+                point_cloud_tr = pv.PolyData(self.trench_points)
+                filename = "trench_%05d.vtp" % self.pvtu_step
+                filepath = os.path.join(self.pyvista_outdir, filename)
+                point_cloud_tr.save(filepath)
+            elif file_type == "txt":
+                filename = "trench_%05d.txt" % self.pvtu_step
+                filepath = os.path.join(self.pyvista_outdir, filename)
+                np.savetxt(filepath, self.trench_points, fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
+            else:
+                raise ValueError("file_type needs to be default or txt")
 
             print("Save file %s" % filepath)
 
