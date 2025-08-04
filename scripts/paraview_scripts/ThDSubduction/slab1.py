@@ -64,8 +64,7 @@ def set_metastable_plot(sourceDisplay):
     '''
     set the viscosity plot
     Inputs:
-        eta_min (float): minimum viscosity
-        eta_max (float): maximum viscosity
+        sourceDisplay - source of the display (renderview)
     '''
     field = "metastable"
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
@@ -73,12 +72,23 @@ def set_metastable_plot(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
 
+def set_density_plot(sourceDisplay):
+    '''
+    set the viscosity plot
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "density"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 3000.0, 4000.0)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("batlow", True)
+
 def set_slab_volume_plot(sourceDisplay, max_depth, **kwargs):
     '''
     set the viscosity plot
     Inputs:
-        eta_min (float): minimum viscosity
-        eta_max (float): maximum viscosity
+        sourceDisplay - source of the display (renderview)
     '''
     opacity = kwargs.get("opacity", 1.0)
     field = "radius"
@@ -489,6 +499,24 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
     print("Figure saved: %s" % fig_path)
     
     # todo_mow
+    # Plot the density
+    # get opacity transfer function/opacity map for 'field'
+    Hide(sourceV, renderView1)
+    Hide(sourceTrOrigTrian, renderView1)
+    Hide(sourceTrTrian, renderView1)
+    fieldLUT = GetColorTransferFunction("viscosity")
+    fieldPWF = GetOpacityTransferFunction("viscosity")
+    HideScalarBarIfNotNeeded(fieldLUT, renderView1)
+    HideScalarBarIfNotNeeded(fieldPWF, renderView1)
+    set_density_plot(transform1Display)
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "slice_center_density_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "slice_center_density_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+
     # Plot the mow contents. This options is only affective when there is
     # "metastable" presented in the name of compositions.
     if "MODEL_TYPE" == "mow":
