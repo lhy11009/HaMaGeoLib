@@ -508,8 +508,6 @@ class VISIT_OPTIONS_BASE(CASE_OPTIONS):
             if self.last_step > 0:
                 self.options['GRAPHICAL_STEPS'].append(self.last_step)
 
-        print("self.options['GRAPHICAL_STEPS']: ", self.options['GRAPHICAL_STEPS']) # debug
-
         # get time steps
         self.options['GRAPHICAL_TIME_STEPS'] = []
         self.options['GRAPHICAL_TIMES'] = []

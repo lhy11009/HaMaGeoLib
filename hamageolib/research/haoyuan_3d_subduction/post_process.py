@@ -404,6 +404,7 @@ class PYVISTA_PROCESS_THD():
             l0, _, _ = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
         else:
             l0 = points[:, 2]
+        print(points.shape) # debug
         self.slab_depth = self.Max0 - np.min(l0)
         
         end = time.time()

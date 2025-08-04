@@ -59,12 +59,35 @@ def set_viscosity_plot(sourceDisplay, eta_min, eta_max):
     fieldLUT.UseLogScale = 1
     fieldLUT.ApplyPreset("bilbao", True)
 
+def set_metastable_plot(sourceDisplay):
+    '''
+    set the viscosity plot
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "metastable"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 0.0, 1.0)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+
+def set_density_plot(sourceDisplay):
+    '''
+    set the viscosity plot
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "density"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 3000.0, 4000.0)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("batlow", True)
+
 def set_slab_volume_plot(sourceDisplay, max_depth, **kwargs):
     '''
     set the viscosity plot
     Inputs:
-        eta_min (float): minimum viscosity
-        eta_max (float): maximum viscosity
+        sourceDisplay - source of the display (renderview)
     '''
     opacity = kwargs.get("opacity", 1.0)
     field = "radius"
@@ -382,15 +405,49 @@ output.SetPolys(triangles)""" % (cx, cy, cz, size)
     trenchTrSource.ScriptRequestInformation = ''
     trenchTrSource.PythonPath = ''
 
+
+def add_eq_410_condition(source):
+    programmableFilter1 = ProgrammableFilter(registrationName="programmable_eq", Input=source)
+    programmableFilter1.Script = \
+"""
+import numpy as np 
+T = inputs[0].PointData["T"]
+p = inputs[0].PointData["p"]
+p_eq = (T - 1780.0)*2e6 + 1.34829e+10 
+eq_trans = (p-p_eq)
+output.PointData.append(eq_trans, 'eq_trans')
+"""
+    programmableFilter1.RequestInformationScript = ''
+    programmableFilter1.RequestUpdateExtentScript = ''
+    programmableFilter1.PythonPath = ''
+
+
+
 def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
 
-    # Show the slab center plot and viscosities
+    # Get the active view 
+    renderView1 = GetActiveViewOrCreate('RenderView')
+
+    # Select the slice center source
     if "GEOMETRY" == "chunk":
         transform1 = FindSource("%s_transform_%05d" % (source_name, snapshot))
     else:
         transform1 = FindSource("%s_%05d" % (source_name, snapshot))
+    
+    # Add programmable filter for equilibrium phase transition at 410.0
+    if "MODEL_TYPE" == "mow":
+        add_eq_410_condition(transform1)
+        source_eq_trans = FindSource("programmable_eq")
+        contourEq = Contour(registrationName='contour_eq_trans', Input=source_eq_trans)
+        contourEq.ContourBy = ['POINTS', 'eq_trans']
+        contourEq.Isosurfaces = [0.0]
+        contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
+        ColorBy(contourEqDisplay, None)
+        contourEqDisplay.LineWidth = 2.0
+        contourEqDisplay.Ambient = 1.0
+
+    # Show the slab center plot and viscosities
     SetActiveSource(transform1)
-    renderView1 = GetActiveViewOrCreate('RenderView')
     transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
 
     set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
@@ -473,6 +530,40 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)
     print("Figure saved: %s" % fig_path)
+    
+    # Plot the density
+    # get opacity transfer function/opacity map for 'field'
+    Hide(sourceV, renderView1)
+    Hide(sourceTrOrigTrian, renderView1)
+    Hide(sourceTrTrian, renderView1)
+    fieldLUT = GetColorTransferFunction("viscosity")
+    fieldPWF = GetOpacityTransferFunction("viscosity")
+    HideScalarBarIfNotNeeded(fieldLUT, renderView1)
+    HideScalarBarIfNotNeeded(fieldPWF, renderView1)
+    set_density_plot(transform1Display)
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "slice_center_density_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "slice_center_density_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+
+    # Plot the mow contents. This options is only affective when there is
+    # "metastable" presented in the name of compositions.
+    if "MODEL_TYPE" == "mow":
+        # hide old color bars
+        # HideAllScalarBars(renderView1)
+
+        # set up metastable plot
+        set_metastable_plot(transform1Display)
+        # save figure
+        fig_path = os.path.join(pv_output_dir, "slice_center_mow_t%.4e.pdf" % _time)
+        fig_png_path = os.path.join(pv_output_dir, "slice_center_mow_t%.4e.png" % _time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
 
     # hide objects
     if ANIMATION:
@@ -596,8 +687,8 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
         renderView1.CameraViewUp = [0.4314695504273366, 0.8294679274563145, -0.35470689924973053]
         renderView1.CameraParallelScale = 600000.0
     elif "GEOMETRY" == "box":
-        renderView1.CameraPosition = [7901107.27312585, 5768057.049286575, 5496301.138370097]
-        renderView1.CameraFocalPoint = [2242318.5206255154, -1901461.3695231928, 369527.98904717574]
+        renderView1.CameraPosition = [7901107.27312585, 5768057.049286575, 5496301.138370097 + OUTER_RADIUS-2890e3]
+        renderView1.CameraFocalPoint = [2242318.5206255154, -1901461.3695231928, 369527.98904717574 + OUTER_RADIUS-2890e3]
         renderView1.CameraViewUp = [-0.3457156989670518, -0.3316734584620678, 0.8777661262771159]
         renderView1.CameraParallelScale = 600000.0
 
@@ -609,6 +700,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     ExportView(fig_pdf_path, view=renderView1)
     print("Figure saved: %s" % fig_path)
     print("Figure saved: %s" % fig_pdf_path)
+
     
     # hide objects
     if ANIMATION:
