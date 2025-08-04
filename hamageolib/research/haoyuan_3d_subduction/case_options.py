@@ -138,9 +138,11 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
 
         # slab
+        # TRENCH_INI_DERIVED - we should derive this later
         idx1 = FindWBFeatures(self.wb_dict, "Slab")
         slab_feature = self.wb_dict["features"][idx1]
         self.options['TRENCH_INITIAL'] = slab_feature['coordinates'][1][0]
+        self.options['TRENCH_INI_DERIVED'] = -1.0
         self.options['INITIAL_SHEAR_ZONE_THICKNESS'] = slab_feature['segments'][0]["composition models"][0]["max distance slab top"]
         
         
@@ -366,7 +368,8 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         except KeyError:
             self.options['INCLUDE_PEIERLS_RHEOLOGY'] = False
 
-       # reference trench point
+        # reference trench point
+        # TRENCH_INI_DERIVED - we should derive this later
         if self.options['GEOMETRY'] == 'chunk':
             try:
                 index = FindWBFeatures(self.wb_dict, 'Subducting plate')
@@ -391,6 +394,7 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         else:
             raise ValueError("Value of geometry must be either \"chunk\" or \"box\"")
         self.options['TRENCH_INITIAL'] = theta_ref_trench
+        self.options['TRENCH_INI_DERIVED'] = -1.0
 
     def SummaryCaseVtuStep(self, ifile=None):
         '''

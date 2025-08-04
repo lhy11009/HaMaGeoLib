@@ -59,6 +59,20 @@ def set_viscosity_plot(sourceDisplay, eta_min, eta_max):
     fieldLUT.UseLogScale = 1
     fieldLUT.ApplyPreset("bilbao", True)
 
+# todo_mow
+def set_metastable_plot(sourceDisplay):
+    '''
+    set the viscosity plot
+    Inputs:
+        eta_min (float): minimum viscosity
+        eta_max (float): maximum viscosity
+    '''
+    field = "metastable"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 0.0, 1.0)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+
 def set_slab_volume_plot(sourceDisplay, max_depth, **kwargs):
     '''
     set the viscosity plot
@@ -473,6 +487,23 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)
     print("Figure saved: %s" % fig_path)
+    
+    # todo_mow
+    # Plot the mow contents. This options is only affective when there is
+    # "metastable" presented in the name of compositions.
+    if "MODEL_TYPE" == "mow":
+        # hide old color bars
+        # HideAllScalarBars(renderView1)
+
+        # set up metastable plot
+        set_metastable_plot(transform1Display)
+        # save figure
+        fig_path = os.path.join(pv_output_dir, "slice_center_mow_t%.4e.pdf" % _time)
+        fig_png_path = os.path.join(pv_output_dir, "slice_center_mow_t%.4e.png" % _time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
 
     # hide objects
     if ANIMATION:
@@ -609,6 +640,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     ExportView(fig_pdf_path, view=renderView1)
     print("Figure saved: %s" % fig_path)
     print("Figure saved: %s" % fig_pdf_path)
+
     
     # hide objects
     if ANIMATION:

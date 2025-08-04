@@ -175,7 +175,8 @@ def overlay_images_on_blank_canvas(
     image_positions,
     cropping_regions=None,
     image_scale_factors=None,
-    output_image_file="output.png"
+    output_image_file="output.png",
+    **kwargs
 ):
     """
     Create a blank canvas, crop and overlay multiple images, then save as an image.
@@ -190,6 +191,9 @@ def overlay_images_on_blank_canvas(
             If None, no scaling is applied.
         output_image_file (str): Path to save the final combined image.
     """
+    # Debug option
+    debug = kwargs.get("debug", False)
+
     # Validate inputs
     if len(image_files) != len(image_positions):
         raise ValueError("The number of image files must match the number of image positions.")
@@ -205,13 +209,15 @@ def overlay_images_on_blank_canvas(
     for idx, image_file in enumerate(image_files):
         # Load the image
         image = Image.open(image_file).convert("RGBA")
-        print(f"Original size of image {idx + 1}: {image.size}")
+        if debug:
+            print(f"Original size of image {idx + 1}: {image.size}")
 
         # Apply cropping if specified
         if cropping_regions:
             crop_region = cropping_regions[idx]
             image = image.crop(crop_region)
-            print(f"Cropped size of image {idx + 1}: {image.size}")
+            if debug:
+                print(f"Cropped size of image {idx + 1}: {image.size}")
 
         # Apply scaling if specified
         if image_scale_factors:
@@ -221,7 +227,8 @@ def overlay_images_on_blank_canvas(
                 new_width = int(round(original_width * scale_factor))
                 new_height = int(round(original_height * scale_factor))
                 image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                print(f"Scaled size of image {idx + 1}: {image.size}")
+                if debug:
+                    print(f"Scaled size of image {idx + 1}: {image.size}")
 
         # Get the position for this image
         position = image_positions[idx]

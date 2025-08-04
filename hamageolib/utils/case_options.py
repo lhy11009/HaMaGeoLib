@@ -259,6 +259,9 @@ class CASE_OPTIONS:
     
     def Interpret(self, **kwargs):
 
+        # set model_type to default
+        self.options["MODEL_TYPE"] = "default"
+
         # paths
         self.options["OUTPUT_DIRECTORY"] = self.output_dir
         self.options["IMAGE_DIRECTORY"] = self.img_dir
