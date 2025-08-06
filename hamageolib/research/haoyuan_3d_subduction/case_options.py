@@ -30,8 +30,8 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         
         to_rad = np.pi / 180.0
         # call function from parent
-        CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
+        CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         idx = FindWBFeatures(self.wb_dict, "Subducting plate")
 
         # Geometry
