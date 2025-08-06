@@ -11761,9 +11761,13 @@ intiation stage causes the slab to break in the middle",\
             my_assert(box_width_pre_adjust > sp_age_trench_default * sp_rate_default, ValueError,\
             "For the \"adjust box width\" method to work, the box width before adjusting needs to be wider\
 than the multiplication of the default values of \"sp rate\" and \"age trench\"")
+        # assert scheme to use for refinement
+        rf_scheme = self.values[self.start + 17]
+        assert(rf_scheme in ['2d', '3d consistent'])
         # check the option for refinement
         refinement_level = self.values[15]
-        assert(refinement_level in [-1, 9, 10, 11, 12, 13])  # it's either not turned on or one of the options for the total refinement levels
+        if rf_scheme == "2d":
+            assert(refinement_level in [-1, 9, 10, 11, 12, 13])  # it's either not turned on or one of the options for the total refinement levels
         # check the option for the type of boundary conditions
         type_of_bd = self.values[self.start + 5]
         assert(type_of_bd in ["all free slip", "top prescribed", "top prescribed with bottom right open", "top prescribed with bottom left open"])
@@ -11780,9 +11784,6 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
             HeFESTo_data_dir_pull_path = os.path.join(o_dir, ".." * (root_level - 1), HeFESTo_data_dir)
             my_assert(os.path.isdir(HeFESTo_data_dir_pull_path),\
             FileNotFoundError, "%s is not a directory" % HeFESTo_data_dir_pull_path)
-        # assert scheme to use for refinement
-        rf_scheme = self.values[self.start + 17]
-        assert(rf_scheme in ['2d', '3d consistent'])
         # assert scheme of peierls creep to use
         peierls_scheme = self.values[self.start + 18]
         assert(peierls_scheme in ['MK10', "MK10p", 'Idrissi16'])
@@ -12059,8 +12060,6 @@ def RefitRheology(rheology, diff_correction, disl_correction, ref_state):
     d_ref = ref_state['d'] # mu m
     strain_rate_diff_ref = CreepStrainRate(diffusion_creep_ori, stress_ref, P_ref, T_ref, d_ref, Coh_ref)
     strain_rate_disl_ref = CreepStrainRate(dislocation_creep_ori, stress_ref, P_ref, T_ref, d_ref, Coh_ref)
-    print("strain_rate_diff_ref: ", strain_rate_diff_ref)
-    print("strain_rate_disl_ref: ", strain_rate_disl_ref)
 
     # reference pseudo "strain rate" for correction 
     strain_rate_diff_correction = CreepStrainRate(diff_correction, stress_ref, P_ref, T_ref, d_ref, Coh_ref)
@@ -12299,7 +12298,6 @@ def AssignAspectViscoPlasticPhaseRheology(visco_plastic_dict, key, idx, diffusio
             diffusion_creep_aspect = diffusion_creep
         else:
             diffusion_creep_aspect = Convert2AspectInput(diffusion_creep, use_effective_strain_rate=True)
-        # print("visco_plastic_dict: ", visco_plastic_dict) # debug
         visco_plastic_dict["Prefactors for diffusion creep"] = \
             ReplacePhaseOption(visco_plastic_dict["Prefactors for diffusion creep"], key, idx, diffusion_creep_aspect['A'])
         visco_plastic_dict["Grain size exponents for diffusion creep"] = \
@@ -12596,7 +12594,14 @@ $ASPECT_SOURCE_DIR/build%s/isosurfaces_TwoD1/libisosurfaces_TwoD1.so" % (branch_
         # note the options for additional compositions and less compositions are handled later
         # options for using the particle method
         if comp_method == "particle":
-            o_dict = change_field_to_particle(o_dict, minimum_particles_per_cell=minimum_particles_per_cell, maximum_particles_per_cell=maximum_particles_per_cell)
+            if include_meta:
+                # in this case, tie the inital number of particles
+                # to mesh refinement
+                fix_by_refinement = True
+            else:
+                fix_by_refinement = False
+            o_dict = change_field_to_particle(o_dict, minimum_particles_per_cell=minimum_particles_per_cell,\
+                                              maximum_particles_per_cell=maximum_particles_per_cell, fix_by_refinement=fix_by_refinement)
         
         # set up subsection reset viscosity function
         visco_plastic_twoD = self.idict['Material model']['Visco Plastic TwoD']
@@ -12727,15 +12732,12 @@ $ASPECT_SOURCE_DIR/build%s/isosurfaces_TwoD1/libisosurfaces_TwoD1.so" % (branch_
             ref_state["T"] = 1250.0 + 273.15 # K
             ref_state["d"] = 15.0 # mu m
             # refit rheology
-            print("refit rheology") # debug
             rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
             # derive mantle rheology
             rheology, viscosity_profile = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
                                                         dislocation_creep=rheology_dict_refit['dislocation'], save_profile=1,\
                                                         use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
                                                         jump_lower_mantle=jump_lower_mantle)
-            print("rheology_dict_refit: ", rheology_dict_refit) # debug
-            print("rheology: ", rheology) # debug
             # assign to the prm file
             CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
             sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
@@ -12980,13 +12982,14 @@ opcrust: 1e+31, opharz: 1e+31", \
             o_dict["Particles"]["List of particle properties"] = "initial composition"
             o_dict["Particles"]["Maximum particles per cell"] = "140"
             o_dict["Particles"]["Integration scheme"] = "rk4"
-        
+
         if include_meta:
             # expand composition fields
             # o_dict = expand_multi_composition_isosurfaces(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
             o_dict = expand_multi_composition_composition_field(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
             o_dict["Compositional fields"]["Mapped particle properties"] = \
                   "spcrust:initial spcrust, spharz:initial spharz, opcrust:initial opcrust, opharz:initial opharz, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
+            o_dict["Compositional fields"]["Types of fields"] = "chemical composition, chemical composition, chemical composition, chemical composition, generic, generic, generic, generic, generic, generic, generic"
             
             # initial composition fields
             o_dict["Initial composition model"]["List of model names"] += ", metastable"
@@ -12997,6 +13000,18 @@ opcrust: 1e+31, opharz: 1e+31", \
                 "Phase transition temperature": "1740.0",
                 "Phase transition Clapeyron slope": "2e6"
             }
+
+            # composition limiter
+            # for now, don't use the limiter
+            o_dict["Discretization"]["Stabilization parameters"]["Use limiter for discontinuous composition solution"] = "false"
+            o_dict["Discretization"]["Stabilization parameters"].pop("Global composition maximum")
+            o_dict["Discretization"]["Stabilization parameters"].pop("Global composition minimum")
+
+            # add adiabatic condition model
+            o_dict["Adiabatic conditions model"] = {"Compute profile": 
+                                                    {"Composition reference profile": "function", 
+                                                     "Function expression": "0.0; 0.0; 0.0; 0.0; 1.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0"
+                                                    }}
             
             # change the material model
             material_model = o_dict["Material model"]
@@ -13225,6 +13240,7 @@ def change_field_to_particle(i_dict, **kwargs):
     '''
     minimum_particles_per_cell = kwargs.get("minimum_particles_per_cell", 33)
     maximum_particles_per_cell = kwargs.get("maximum_particles_per_cell", 50)
+    fix_by_refinement = kwargs.get("fix_by_refinement", False)
     o_dict = deepcopy(i_dict)
     comp_dict = o_dict["Compositional fields"]
     nof = int(o_dict["Compositional fields"]["Number of fields"])
@@ -13269,6 +13285,19 @@ def change_field_to_particle(i_dict, **kwargs):
         "Time between data output": "0.1e6",\
         "Allow cells without particles": "true"
     }
+    # fix number of particles from refinement level
+    if fix_by_refinement:
+        refinement_level = int(o_dict["Mesh refinement"]["Initial global refinement"])\
+              + int(o_dict["Mesh refinement"]["Initial adaptive refinement"])
+        if refinement_level == 7:
+            pp_dict['Particles']["Number of particles"] = "1e6"
+        if refinement_level == 8:
+            pp_dict['Particles']["Number of particles"] = "5e6"
+        if refinement_level == 9:
+            pp_dict['Particles']["Number of particles"] = "2e7"
+        else:
+            raise NotImplementedError()
+
     o_dict['Postprocess'] = pp_dict
     return o_dict
 

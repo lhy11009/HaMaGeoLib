@@ -445,6 +445,23 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
         ColorBy(contourEqDisplay, None)
         contourEqDisplay.LineWidth = 2.0
         contourEqDisplay.Ambient = 1.0
+        # todo_mow
+        if FOO00 == 0:
+            # default: turn off plot
+            Hide(contourEq, renderView1)
+
+    # Add T contour
+    if FOO01 == 1:
+        contourT_block = Contour(registrationName='ContourT_block', Input=transform1)
+        contourT_block.ContourBy = ['POINTS', 'T']
+        contourT_block.Isosurfaces = [725+273.15]
+        contourT_blockDisplay = Show(contourT_block, renderView1, 'GeometryRepresentation')
+        ColorBy(contourT_blockDisplay,"T")
+        rescale_transfer_function_combined('T', 273.0, 1673.0)
+        fieldLUT = GetColorTransferFunction("T")
+        fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+        contourT_blockDisplay.LineWidth = 2.0
+        contourT_blockDisplay.Ambient = 1.0
 
     # Show the slab center plot and viscosities
     SetActiveSource(transform1)

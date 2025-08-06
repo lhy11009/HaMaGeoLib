@@ -1295,20 +1295,6 @@ class PLOT_CASE_RUN_THD():
         step = kwargs.get('step', None)
         last_step = kwargs.get('last_step', 3)
 
-        # steps to plot: here I use the keys in kwargs to allow different
-        # options: by steps, a single step, or the last step
-        if type(step) == int:
-            self.kwargs["steps"] = [step]
-        elif type(step) == list or type(step) == np.ndarray:
-            self.kwargs["steps"] = step
-        elif type(step) == str:
-            self.kwargs["steps"] = step
-        else:
-            self.kwargs["last_step"] = last_step
-
-        # get case parameters
-        # prm_path = os.path.join(self.case_path, 'output', 'original.prm')
-        
         # initiate options
         self.Case_Options = CASE_OPTIONS(self.case_path)
         self.Case_Options.Interpret(**self.kwargs)

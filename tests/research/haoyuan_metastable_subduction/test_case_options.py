@@ -6,7 +6,6 @@ from shutil import rmtree  # for remove directories
 
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_subduction_visualization
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import PlotCaseRunTwoD, CASE_TWOD, CASE_OPT_TWOD, create_case_with_json
-from hamageolib.research.haoyuan_2d_subduction.post_process import CASE_OPTIONS
 package_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 
 # ---------------------------------------------------------------------

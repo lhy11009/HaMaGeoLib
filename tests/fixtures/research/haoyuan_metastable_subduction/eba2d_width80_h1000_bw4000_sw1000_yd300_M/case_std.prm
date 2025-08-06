@@ -23,9 +23,7 @@ subsection Discretization
     set Temperature polynomial degree = 2
     set Use discontinuous composition discretization = true
     subsection Stabilization parameters
-        set Use limiter for discontinuous composition solution = true
-        set Global composition maximum = 1,  1,  1,  1,  1,  1,  1,  1,  1,  1,  1
-        set Global composition minimum = 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0
+        set Use limiter for discontinuous composition solution = false
     end
 end
 
@@ -130,6 +128,7 @@ subsection Compositional fields
     set Names of fields = spcrust,spharz,opcrust,opharz,metastable,meta_x0,meta_x1,meta_x2,meta_x3,meta_is,meta_rate
     set Compositional field methods = particles, particles, particles, particles,particles,particles,particles,particles,particles,particles,particles
     set Mapped particle properties = spcrust:initial spcrust, spharz:initial spharz, opcrust:initial opcrust, opharz:initial opharz, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate
+    set Types of fields = chemical composition, chemical composition, chemical composition, chemical composition, generic, generic, generic, generic, generic, generic, generic
 end
 
 
@@ -320,9 +319,17 @@ subsection Particles
     set Allow cells without particles = true
     subsection Generator
         subsection Random uniform
-            set Number of particles = 5e7
+            set Number of particles = 1e6
         end
     end
     set Integration scheme = rk4
+end
+
+
+subsection Adiabatic conditions model
+    subsection Compute profile
+        set Composition reference profile = function
+        set Function expression = 0.0; 0.0; 0.0; 0.0; 1.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0
+    end
 end
 

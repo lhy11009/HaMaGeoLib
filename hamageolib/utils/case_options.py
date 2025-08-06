@@ -163,7 +163,9 @@ class CASE_OPTIONS:
             not_nan_indexes, non_nan_visualization_file_name, matched_series_list = \
                 filter_and_match(statistic_visualization_file_name, statistic_time, statistic_timestep)
 
+            # todo_mow
             data = {
+                "Vtu step": np.arange(0, matched_series_list[1].values.size, dtype=int) if matched_series_list else [],
                 "Index": not_nan_indexes,
                 "Visualization file name": non_nan_visualization_file_name.values,
                 "Time": matched_series_list[0].values if matched_series_list else [],
@@ -309,6 +311,32 @@ class CASE_OPTIONS:
 
         # adaptive mesh
         self.options['INITIAL_ADAPTIVE_REFINEMENT'] = self.idict['Mesh refinement'].get('Initial adaptive refinement', '0')
+
+        # get the graphical steps
+        vtu_step = kwargs.get("step", None)
+        if self.summary_df == {}:
+            # first make sure a summary is generated
+            self.SummaryCaseVtuStep(ifile=os.path.join(self.case_dir, "summary.csv"))
+            pass
+        if vtu_step is None:
+            self.options['GRAPHICAL_TIMES'] = self.summary_df["Time"].to_list()
+            self.options['GRAPHICAL_STEPS'] = self.summary_df["Vtu step"].to_list()
+            self.options['GRAPHICAL_TIME_STEPS'] = self.summary_df["Time step number"].to_list()
+        else:
+            row_idx = self.summary_df[self.summary_df["Vtu step"] == vtu_step].index[0]
+            self.options['GRAPHICAL_STEPS'] = [vtu_step]
+            self.options['GRAPHICAL_TIMES'] = [self.summary_df.loc[row_idx, "Time"]]
+            self.options['GRAPHICAL_TIME_STEPS'] = [self.summary_df.loc[row_idx, "Time step number"]]
+
+        # reserve some addition options
+        # todo_mow
+        for i in range(100):
+            key = "FOO%02d" % i
+            self.options[key] = 0
+
+
+
+
             
 class CASE_SUMMARY:
 
