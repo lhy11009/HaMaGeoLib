@@ -36,7 +36,6 @@ from hamageolib.utils import case_options as C_Options
 from hamageolib.utils.geometry_utilities import convert_to_unified_coordinates_2d
 
 
-# todo_2d
 class CASE_SUMMARY(C_Options.CASE_SUMMARY):
     """
     Manages case metadata, including file paths, simulation parameters, and time step tracking.
@@ -49,7 +48,7 @@ class CASE_SUMMARY(C_Options.CASE_SUMMARY):
         # call init function of C_Options.CASE_SUMMARY
         C_Options.CASE_SUMMARY.__init__()
 
-# todo_2d
+
 def extract_slab_outline_binned_unified(slab_polydata, is_spherical, **kwargs):
     """
     Extracts the slab outline using depth binning, converting coordinates to a unified system first.

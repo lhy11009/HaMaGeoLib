@@ -34,11 +34,12 @@ for i, step in enumerate(graphical_steps):
     # processing pyvista
     try:
         if prepare_pyvista:
-            _, outputs = ProcessVtuFileThDStep(local_dir, pvtu_step, Case_Options, config)
+            _, outputs = ProcessVtuFileThDStep(local_dir, pvtu_step, Case_Options)
 
         trench_center = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'])
         slab_depth = get_slab_depth_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_lower")
         dip_100_center = get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_upper", 0.0, 100e3)
+        
         Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, True)
     except FileNotFoundError:
         Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, False)
