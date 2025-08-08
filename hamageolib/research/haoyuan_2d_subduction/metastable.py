@@ -249,6 +249,7 @@ class PTKinetics:
         """
         return self.A * Coh**self.n * np.exp(-(self.dHa + P * self.V_star_growth) / (self.R * T))
 
+    # todo_metastable
     def growth_rate_interface_P2(self, P, T, P_eq, T_eq, Coh):
         """
         Full Hosoya (2006) Eq. 2: includes free energy driving force.
@@ -259,8 +260,7 @@ class PTKinetics:
             assert np.min(P - P_eq) > 0.0
         else:
             raise TypeError("P must be float or ndarray")
-
-        delta_G_d = self.dV * (P - P_eq) - self.dS * (T - T_eq)
+        delta_G_d = self.dV * (P - P_eq)
         base_growth = self.growth_rate_interface_P1(P, T, Coh)
         return base_growth * T * (1 - np.exp(-delta_G_d / (self.R * T)))
 
@@ -275,7 +275,7 @@ class PTKinetics:
         else:
             raise TypeError("P must be float or ndarray")
 
-        delta_G_d = self.dV * (P - P_eq) - self.dS * (T - T_eq)
+        delta_G_d = self.dV * (P - P_eq) # + self.dS * (T_eq - T)
         delta_G_hom = (16 * self.fs * np.pi * self.Vm**2 * self.gamma**3) / (3 * delta_G_d**2)
         Q_a = self.dHa + P * self.V_star_growth
 
@@ -292,7 +292,7 @@ class PTKinetics:
         else:
             raise TypeError("P must be float or ndarray")
 
-        delta_G_d = self.dV * (P - P_eq) - self.dS * (T - T_eq)
+        delta_G_d = self.dV * (P - P_eq)
         rc = 2 * self.fs**(1.0/3) * self.gamma * self.Vm / delta_G_d
         return rc
 
@@ -374,7 +374,6 @@ class MO_KINETICS:
         - Y_func (callable): Function for the growth rate Y(t).
         - I_func (callable): Function for the nucleation rate I(t).
         """
-        # todo_metastable
         self.post_process = kwargs.get("post_process", [])
         self.include_derivative = kwargs.get("include_derivative", False)
         assert(type(self.post_process) == list)
@@ -790,7 +789,6 @@ class MO_KINETICS:
 
     def solve(self, P, T, t_min, t_max, n_t, n_span, **kwargs):
 
-        # todo_metastable
         debug = kwargs.get("debug", False)
         initial = kwargs.get("initial", None)
         last_derivative = kwargs.get("last_derivative", 0.0) # the first value of last_derivative
@@ -856,12 +854,7 @@ class MO_KINETICS:
                         result_timestep.append((V_array[j_s]-V_array[j_s-1])/t_interval)
                     if j_s == n_span:
                         last_derivative = (V_array[j_s]-V_array[j_s-1])/t_interval
-                        print("j_s-1 = %d, V_array[j_s-1] = %.4e" % (j_s-1, V_array[j_s-1]))
-                        print("j_s = %d, V_array[j_s] = %.4e" % (j_s, V_array[j_s]))
-                        print("last_derivative = ", last_derivative) # debug
                 results[i_t*n_span + j_s, :] =  result_timestep
-                # debug
-                print("i_t*n_span + j_s = %d, results[i_t*n_span + j_s, :] = " % (i_t*n_span + j_s), results[i_t*n_span + j_s, :])
                 
         return results
     
