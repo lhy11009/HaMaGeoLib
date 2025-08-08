@@ -35,7 +35,7 @@ def test_growth_rate_scalar_inputs_1():
 
     pTKinetics = PTKinetics()
     result = pTKinetics.growth_rate_interface_P2(P, T, P_eq, T_eq, Coh)
-    result_std = 1.5050080109623708e-13
+    result_std = 1.0170410597642686e-13
     assert abs(result - result_std) / result_std < 1e-6, "Check the value of Growth rate"
 
 def test_growth_rate_scalar_inputs_bd():
@@ -53,7 +53,7 @@ def test_growth_rate_scalar_inputs_bd():
 
     pTKinetics = PTKinetics()
     result = pTKinetics.growth_rate_interface_P2(P, T, P_eq, T_eq, Coh)
-    result_std = 5.77783763960406e-13
+    result_std = 3.1191400335966567e-13
     assert abs(result - result_std) / result_std < 1e-6, "Check the value of Growth rate"
 
     # test 2: using the MO_KINETICS class and get the same result
@@ -141,7 +141,7 @@ def test_nulceaion_rate_scalar_inputs_bd():
     
     # here we first compute a P_eq and T_eq
     # make the PT near the boundary
-    P = 12366300000.0 + 0.3e9  # Pressure in Pascals
+    P = 12366300000.0 + 0.7e9  # Pressure in Pascals
     T = 1173.15  # Temperature in Kelvin
     Coh = 150  # Concentration in wt.ppm H2O
 
@@ -150,7 +150,7 @@ def test_nulceaion_rate_scalar_inputs_bd():
 
     pTKinetics = PTKinetics()
     result = pTKinetics.nucleation_rate(P, T, P_eq, T_eq)
-    result_std = 3.6648422297565646e-09
+    result_std = 9.256578901496377e-06
     assert abs(result - result_std) / result_std < 1e-6, "Check the value of Growth rate"
 
     # test 2: using the MO_KINETICS class and get the same result
@@ -167,7 +167,7 @@ def test_nulceaion_rate_scalar_inputs_critical_size():
     
     # here we first compute a P_eq and T_eq
     # make the PT near the boundary
-    P = 12366300000.0 + 0.3e9  # Pressure in Pascals
+    P = 12366300000.0 + 0.7e9  # Pressure in Pascals
     T = 1173.15  # Temperature in Kelvin
     Coh = 150  # Concentration in wt.ppm H2O
 
@@ -178,22 +178,22 @@ def test_nulceaion_rate_scalar_inputs_critical_size():
     result = pTKinetics.nucleation_rate(P, T, P_eq, T_eq)
     critical_radius = pTKinetics.critical_radius(P, T, P_eq, T_eq)
 
-    result_std = 3.6648422297565646e-09
+    result_std = 9.256578901496377e-06
     assert abs(result - result_std) / result_std < 1e-6, "Check the value of Nucleation rate"
     
-    critical_radius_std = 2.3109843081312416e-09
+    critical_radius_std = 2.197106690777577e-09
     assert abs(critical_radius - critical_radius_std) / critical_radius_std < 1e-6, "Check the value of Critical radius"
 
     # test 2: using the MO_KINETICS class and get the same result
     Mo_Kinetics = MO_KINETICS()
     Mo_Kinetics.set_PT_eq(PT410['P'], PT410['T'], PT410['cl'])
     Mo_Kinetics.link_and_set_kinetics_model(PTKinetics)
-    Mo_Kinetics.set_kinetics_fixed(P, T, Coh)
+    Mo_Kinetics.set_kinetics_fixed(P, T, Coh, True)
 
     result_1 = Mo_Kinetics.compute_Iv(0.0)
     assert abs(result_1 - result_std) / result_std < 1e-6, "Check the value of Growth rate"
     
-    critical_radius_1 = Mo_Kinetics.compute_rc(P, T)
+    critical_radius_1 = Mo_Kinetics.compute_rc(0.0)
     assert abs(critical_radius_1 - critical_radius_std) / critical_radius_std < 1e-6, "Check the value of Critical radius"
 
 
@@ -212,7 +212,7 @@ def test_nulceaion_rate_scalar_inputs_bd_big():
 
     pTKinetics = PTKinetics()
     result = pTKinetics.nucleation_rate(P, T, P_eq, T_eq)
-    result_std = 5.14296862468067e+21
+    result_std = 6.2154552608671056e+19
     assert abs(result - result_std) / result_std < 1e-6, "Check the value of Growth rate"
 
     # test 2: using the MO_KINETICS class and get the same result
@@ -333,6 +333,7 @@ def test_solve_modified_equations_eq18():
 
     Y_prime_func = lambda s: 1.0 
     I_prime_func = lambda s: 1.0
+    rc_prime_func = lambda s: 0.0
 
     # set parameters for solution
     X_scale_array = np.array([I0**(3.0/4.0)*Y0**(-3.0/4.0), I0**(1.0/2.0)*Y0**(-1.0/2.0), I0**(1.0/4.0)*Y0**(-1.0/4.0), 1.0])
@@ -342,17 +343,17 @@ def test_solve_modified_equations_eq18():
     kwargs = {"n_span": 10}
 
     # compute the solution
-    solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **kwargs)
+    solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, rc_prime_func, s_span, X, **kwargs)
     X_new = solution_nd.y # * X_scale_array[:, np.newaxis]
     X_scaled_new = X_new * X_scale_array[:, np.newaxis]
 
     # compare with the expected value 
     X1 = X_new[:, -1]
-    expected_X1 = np.array([0.3489592, 0.12177252, 0.04449924, 0.01552842]) 
+    expected_X1 = np.array([0.10182481, 0.01036829, 0.00110558, 0.00011258]) 
     assert np.allclose(X1, expected_X1, rtol=1e-6), f"solution mismatch: {X1} != {expected_X1}"
     
     X_scaled1 = X_scaled_new[:, -1]
-    expected_X_scaled1 = np.array([1.61217213e+26, 7.27735921e+16, 3.44005062e+07, 1.55284189e-02]) 
+    expected_X_scaled1 = np.array([1.66641775e+24, 6.68334760e+14, 2.80693809e+05, 1.12575271e-04]) 
     assert np.allclose(X_scaled1, expected_X_scaled1, rtol=1e-6), f"solution mismatch: {X_scaled1} != {expected_X_scaled1}"
 
 def test_solve_modified_equations_eq18_1():
@@ -384,6 +385,7 @@ def test_solve_modified_equations_eq18_1():
 
     Y_prime_func = lambda s: 1.0 
     I_prime_func = lambda s: 1.0
+    rc_prime_func = lambda s: 0.0
 
     # set parameters for solution
     X_scale_array = np.array([I0**(3.0/4.0)*Y0**(-3.0/4.0), I0**(1.0/2.0)*Y0**(-1.0/2.0), I0**(1.0/4.0)*Y0**(-1.0/4.0), 1.0])
@@ -393,12 +395,12 @@ def test_solve_modified_equations_eq18_1():
     kwargs = {"n_span": 10}
 
     # compute the solution
-    solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **kwargs)
+    solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, rc_prime_func, s_span, X, **kwargs)
     X_new = solution_nd.y # * X_scale_array[:, np.newaxis]
 
     # compare with the expected value 
     X1 = X_new[:, -1]
-    expected_X1 = np.array([9.68121176e+06, 9.37258611e+13, 9.50206018e+20, 9.19914568e+27]) 
+    expected_X1 = np.array([5.88659712e+06, 3.46520257e+13, 2.13609990e+20, 1.25743595e+27]) 
     assert np.allclose(X1, expected_X1, rtol=1e-6), f"solution mismatch: {X1} != {expected_X1}"
 
 def test_solve_modified_equations_eq18_1S():
@@ -446,6 +448,7 @@ def test_solve_modified_equations_eq18_1S():
 
     Y_prime_func = lambda s: 1.0 
     I_prime_func = lambda s: 1.0
+    rc_prime_func = lambda s: 0.0
 
     # set parameters for solution
     X_scale_array = np.array([I0**(3.0/4.0)*Y0**(-3.0/4.0), I0**(1.0/2.0)*Y0**(-1.0/2.0), I0**(1.0/4.0)*Y0**(-1.0/4.0), 1.0])
@@ -455,12 +458,12 @@ def test_solve_modified_equations_eq18_1S():
     kwargs = {"n_span": 10}
 
     # compute the solution
-    solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **kwargs)
+    solution_nd = solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, rc_prime_func, s_span, X, **kwargs)
     X_new = solution_nd.y # * X_scale_array[:, np.newaxis]
 
     # compare with the expected value 
     X1 = X_new[:, -1]
-    expected_X1 = np.array([7.00416718e+04,4.90583579e+09,3.59830629e+14,2.52031388e+19]) 
+    expected_X1 = np.array([4.25883778e+04,1.81376992e+09,8.08913178e+13,3.44503000e+18]) 
     assert np.allclose(X1, expected_X1, rtol=1e-6), f"solution mismatch: {X1} != {expected_X1}"
 
 
@@ -472,12 +475,14 @@ class MOCK_KINETICS():
     def __init__(self):
         self.growth_rate = mock_growth_rate
         self.nucleation_rate = mock_nucleation_rate
+        self.critical_radius = mock_critical_size
         self.nucleation_type = 0
 
 class MOCK_KINETICS_NORMALIZED():
     def __init__(self):
         self.growth_rate = mock_growth_rate_normalized
         self.nucleation_rate = mock_nucleation_rate_normalized
+        self.critical_radius = mock_critical_size_normalized
         self.nucleation_type = 0
     
 
@@ -488,11 +493,17 @@ def mock_growth_rate(P, T, Peq, Teq, Coh):
 def mock_nucleation_rate(P, T, Peq, Teq):
     return (Peq - P) * 0.05
 
+def mock_critical_size(P, T, Peq, Teq):
+    return 0.0
+
 def mock_growth_rate_normalized(P, T, Peq, Teq, Coh):
     return 1.0
 
 def mock_nucleation_rate_normalized(P, T, Peq, Teq):
     return 1.0
+
+def mock_critical_size_normalized(P, T, Peq, Teq):
+    return 0.0
 
 def test_initialization():
     """
@@ -579,7 +590,7 @@ def test_solve_values():
     Coh = 1000.0 # wt.ppm H2O
 
     # Test parameters
-    P = 14.75e9  # Pa
+    P = 15.75e9  # Pa
     T = 600 + 273.15  # K
     t_max = 10e6 * year  # s
     n_t = 100
@@ -600,11 +611,11 @@ def test_solve_values():
     # Expected result for results[10, :]
     expected_row = np.array([
         3.15360000e+12,  # Time
-        1.42038933e+25,  # N
-        9.75531060e+13,  # Dn
+        4.14864390e+24,  # N
+        5.27218305e+13,  # Dn
         7.01622359e+02,  # S
-        4.72894318e+00,  # Dimensionless volume
-        9.91164196e-01,  # Volume fraction
+        2.61841251e+00,  # Dimensionless volume
+        9.27081472e-01,  # Volume fraction
         1.00000000e+00   # Saturation status
     ])
 
@@ -622,7 +633,7 @@ def test_solve_values_un():
     year = 365.0 * 24.0 * 3600.0  # Seconds in one year
 
     # Test parameters
-    P = 10.255e9 + 0.75e9 # Pa
+    P = 10.255e9 + 1.25e9 # Pa
     T = 823.75 # K
     Coh = 150.0
     t_max = 10e6 * year  # s
@@ -663,11 +674,75 @@ def test_solve_values_un():
     # Expected result for results[10, :]
     expected_row = np.array([
         3.15360000e+12,  # Time
-        9.35551960e+12,  # N
-        3.05653339e+07,  # Dn
-        1.04572862e+02,  # S
-        3.41649055e-04,  # Dimensionless volume
-        3.41590700e-04,  # Volume fraction
+        8.38648452e+13,  # N
+        2.21027530e+08,  # Dn
+        6.10016258e+02,  # S
+        1.60771044e-03,  # Dimensionless volume
+        1.60641876e-03,  # Volume fraction
+        0.00000000e+00   # Saturation status
+    ])
+
+    # Check results[10, :]
+    actual_row = results[10, :]
+    assert np.allclose(actual_row, expected_row, rtol=1e-6), f"Row 10 mismatch: {actual_row} != {expected_row}"
+
+def test_solve_values_un_rc():
+    """
+    Test solving the kinetics equations over a time span and check the value
+    Solve under a unsaturated condition, near the equilibrium condition.
+    Also assume new nuclei forms with rc and compare the result to the previous test_solve_values_un test.
+    """
+    year = 3.15576e7  # seconds in a year
+    PT410 = {"P": 14e9, "T": 1760.0, "cl": 4e6} # equilibrium phase transition for 410 km
+    year = 365.0 * 24.0 * 3600.0  # Seconds in one year
+
+    # Test parameters
+    P = 10.255e9 + 1.25e9 # Pa
+    T = 823.75 # K
+    Coh = 150.0
+    t_max = 10e6 * year  # s
+    n_t = 100
+    n_span = 10
+
+    # Initialize the MO_KINETICS class
+    _constants = MO_KINETICS.Constants(
+            R=8.31446,
+            k=1.38e-23,
+            kappa=1e-6,
+            D=100e3,
+            d0=1e-2,
+            A=np.exp(-18.0),
+            n=3.2,
+            dHa=274e3,
+            V_star_growth=3.3e-6,
+            gamma=0.6,
+            fs=1e-3,
+            K0=1e30,
+            Vm=4.05e-5,
+            dS=7.7,
+            dV=3.16e-6,
+            nucleation_type=1
+        )
+
+    Mo_Kinetics = MO_KINETICS(_constants)
+    Mo_Kinetics.set_PT_eq(PT410['P'], PT410['T'], PT410['cl'])
+    Mo_Kinetics.link_and_set_kinetics_model(PTKinetics)
+    Mo_Kinetics.set_kinetics_fixed(P, T, Coh, True)
+
+    # Solve the kinetics
+    results = Mo_Kinetics.solve(P, T, 0.0, t_max, n_t, n_span, debug=False)
+
+    # "t" "N" "Dn" "S" "Vtilde" "V" "is_saturated"
+    assert(results.shape == (1001, 7))
+
+    # Expected result for results[10, :]
+    expected_row = np.array([
+        3.15360000e+12,  # Time
+        8.38648452e+13,  # N
+        2.21233901e+08,  # Dn
+        6.10871006e+02,  # S
+        1.61071475e-03,  # Dimensionless volume
+        1.60941824e-03,  # Volume fraction
         0.00000000e+00   # Saturation status
     ])
 
@@ -681,13 +756,12 @@ def test_solve_values_un_derivative():
     Test solving the kinetics equations over a time span and check the value
     Solve under a unsaturated condition, near the equilibrium condition
     """
-    # todo_metastable
     year = 3.15576e7  # seconds in a year
     PT410 = {"P": 14e9, "T": 1760.0, "cl": 4e6} # equilibrium phase transition for 410 km
     year = 365.0 * 24.0 * 3600.0  # Seconds in one year
 
     # Test parameters
-    P = 10.255e9 + 0.75e9 # Pa
+    P = 10.255e9 + 1.25e9 # Pa
     T = 823.75 # K
     Coh = 150.0
     t_max = 10e6 * year  # s
@@ -728,13 +802,13 @@ def test_solve_values_un_derivative():
     # Expected result for results[10, :]
     expected_row = np.array([
         3.15360000e+12,  # Time
-        9.35551960e+12,  # N
-        3.05653339e+07,  # Dn
-        1.04572862e+02,  # S
-        3.41649055e-04,  # Dimensionless volume
-        3.41590700e-04,  # Volume fraction
+        8.38648452e+13,  # N
+        2.21027530e+08,  # Dn
+        6.10016258e+02,  # S
+        1.60771044e-03,  # Dimensionless volume
+        1.60641876e-03,  # Volume fraction
         0.00000000e+00,   # Saturation status
-        3.72462822e-16  # Derivative
+        1.75087542e-15  # Derivative
     ])
 
     # Check results[10, :]
@@ -744,13 +818,13 @@ def test_solve_values_un_derivative():
     # Expected result for results[11, :]
     expected_row = np.array([
         3.46896000e+12,  # Time
-        1.02910716e+13,  # N
-        3.69840540e+07,  # Dn
-        1.39186479e+02,  # S
-        5.00208381e-04,  # Dimensionless volume
-        5.00083298e-04,  # Volume fraction
+        9.22513298e+13,  # N
+        2.67443312e+08,  # Dn
+        8.11931640e+02,  # S
+        2.35384885e-03,  # Dimensionless volume
+        2.35108072e-03,  # Volume fraction
         0.00000000e+00,   # Saturation status
-        5.02576733e-16  # Derivative
+        2.36130758e-15  # Derivative
     ])
 
     actual_row = results[11, :]
@@ -871,8 +945,8 @@ def test_solve_profile():
             
         foo_contents_wl_mo[i+1] = results[-1, 5]
 
-    result_std = 0.010276906577713185
-    assert(abs((foo_contents_wl_mo[237]-result_std)/result_std) < 1e-6)
+    result_std = 0.6225033807716868
+    assert(abs((foo_contents_wl_mo[257]-result_std)/result_std) < 1e-6)
     
     # second scheme: n_span = 20
     n_t = 1; n_span = 20 # kinetic parameters
@@ -897,5 +971,5 @@ def test_solve_profile():
             
         foo_contents_wl_mo1[i+1] = results[-1, 5]
 
-    result_std = 0.010276906577713185
-    assert(abs((foo_contents_wl_mo1[237]-result_std)/result_std) < 1e-6)
+    result_std = 0.622758932311021
+    assert(abs((foo_contents_wl_mo1[257]-result_std)/result_std) < 1e-6)

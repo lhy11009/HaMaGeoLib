@@ -38,19 +38,27 @@ void test_metastable_hosoya_06_eq2() {
     PTKinetics pTKinetics;
 
     // Expected value from Python
-    double result_std = 5.77783763960406e-13;
+    double result_std = 3.1191400335966567e-13;
 
     // Calculate result
     double result = pTKinetics.growth_rate(P, T, P_eq, T_eq, Coh);
 
     // Verify the result is within tolerance
+    if (std::abs(result - result_std) / result_std >= 1e-6)
+    {
+        std::cerr << "Nucleation rate calculation failed.\n"
+                  << "Expected: " << result_std << ", "
+                  << "Got: " << result << ", "
+                  << "Relative error: " << std::abs(result - result_std) / result_std << std::endl;
+        throw std::runtime_error("Nucleation rate number verification failed.");
+    }
     assert(std::abs(result - result_std) / result_std < 1e-6 && "Metastable calculation failed");
 }
 
 void test_nucleation_rate_scalar_inputs() {
     // This test correlates to the "test_nulceaion_rate_scalar_inputs_bd" in test_metastable.py
     // Tests the nucleation rate
-    double P = 12366300000.0 + 0.3e9;    // Pressure in Pascals
+    double P = 12366300000.0 + 0.7e9;    // Pressure in Pascals
     double T = 1173.15;   // Temperature in Kelvin
     double Coh = 150;  // Concentration in wt.ppm H2O
     
@@ -67,7 +75,7 @@ void test_nucleation_rate_scalar_inputs() {
     PTKinetics pTKinetics;
 
     // Expected value from Python
-    double result_std = 3.6648422297565646e-09;
+    double result_std = 9.256578901496377e-06;
 
     // Calculate result
     double result = pTKinetics.nucleation_rate(P, T, P_eq, T_eq);
@@ -86,8 +94,8 @@ void test_nucleation_rate_scalar_inputs() {
 
 void test_nucleation_rate_scalar_inputs_big() {
     // This test correlates to the "test_nulceaion_rate_scalar_inputs_bd" in test_metastable.py
-    double P = 14.75e9;    // Pressure in Pascals
-    double T = 600 + 273.15 ;   // Temperature in Kelvin
+    double P = 12366300000.0 + 0.7e9 ;    // Pressure in Pascals
+    double T = 1173.15 ;   // Temperature in Kelvin
     double Coh = 150;  // Concentration in wt.ppm H2O
     
     // equilibrium conditions
@@ -103,7 +111,7 @@ void test_nucleation_rate_scalar_inputs_big() {
     PTKinetics pTKinetics;
 
     // Expected value from Python
-    double result_std = 5.14297e+21;
+    double result_std = 9.256578901496377e-06;
 
     // Calculate result
     double result = pTKinetics.nucleation_rate(P, T, P_eq, T_eq);
@@ -229,7 +237,7 @@ void test_solve_modified_equations_eq18() {
     std::vector<double> X1(solution_nd[solution_nd.size()-1]);
 
     // Expected result
-    std::vector<double> expected_X1 = {0.348959, 0.121773, 0.044499, 0.015528};
+    std::vector<double> expected_X1 = {0.10182481, 0.01036829, 0.00110558, 0.00011258};
 
     bool pass = true;
     std::ostringstream oss;
@@ -293,7 +301,7 @@ void test_solve_modified_equations_eq18_1() {
     std::vector<double> X1(solution_nd[solution_nd.size()-1]);
 
     // Expected result
-    std::vector<double> expected_X1 = {9.68121176e+06, 9.37258611e+13, 9.50206018e+20, 9.19914568e+27};
+    std::vector<double> expected_X1 = {5.88659712e+06, 3.46520257e+13, 2.13609990e+20, 1.25743595e+27};
 
     bool pass = true;
     std::ostringstream oss;
@@ -372,7 +380,7 @@ void test_solve_modified_equations_eq18_1S() {
     std::vector<double> X1(solution_nd[solution_nd.size()-1]);
 
     // Expected result
-    std::vector<double> expected_X1 = {7.00416718e+04,4.90583579e+09,3.59830629e+14,2.52031388e+19};
+    std::vector<double> expected_X1 = {4.25883778e+04,1.81376992e+09,8.08913178e+13,3.44503000e+18};
 
     bool pass = true;
     std::ostringstream oss;
@@ -412,7 +420,7 @@ void test_solve_values() {
     const double PT410_cl = 2e6;   // Clapeyron slope
 
     // Test parameters
-    const double P = 14.75e9;       // Pressure (Pa)
+    const double P = 15.75e9;       // Pressure (Pa)
     const double T = 600 + 273.15;  // Temperature (K)
     const double t_max = 10e6 * year; // Maximum time (s)
     const int n_t = 100;            // Number of time intervals
@@ -434,11 +442,11 @@ void test_solve_values() {
     // Expected result for results[10]
     std::vector<double> expected_X1 = {
         3.15360000e+12,  // Time
-        1.42038933e+25,  // N
-        9.75531060e+13,  // Dn
+        4.14864390e+24,  // N
+        5.27218305e+13,  // Dn
         7.01622359e+02,  // S
-        4.72894318e+00,  // Dimensionless volume
-        9.91164196e-01 ,  // Volume fraction
+        2.61841251e+00,  // Dimensionless volume
+        9.27081472e-01,  // Volume fraction
         1.00000000e+00   // Saturation status
     };
 
@@ -477,7 +485,7 @@ void test_solve_values_un_derivative() {
     const double PT410_cl = 4e6;   // Clapeyron slope
 
     // Test parameters
-    const double P = 10.255e9 + 0.75e9;       // Pressure (Pa)
+    const double P = 10.255e9 + 1.25e9;       // Pressure (Pa)
     const double T = 823.75;  // Temperature (K)
     const double Coh = 150.0; // wt.ppm H2O
     const double t_max = 10e6 * year; // Maximum time (s)
@@ -514,13 +522,13 @@ void test_solve_values_un_derivative() {
     // Expected result for results[10]
     std::vector<double> expected_X1 = {
         3.15360000e+12,  // Time
-        9.35551960e+12,  // N
-        3.05653339e+07,  // Dn
-        1.04572862e+02,  // S
-        3.41649055e-04,  // Dimensionless volume
-        3.41590700e-04,  // Volume fraction
+        8.38648452e+13,  // N
+        2.21027530e+08,  // Dn
+        6.10016258e+02,  // S
+        1.60771044e-03,  // Dimensionless volume
+        1.60641876e-03,  // Volume fraction
         0.00000000e+00,   // Saturation status
-        3.72462822e-16  // Derivative
+        1.75087542e-15  // Derivative
     };
 
     // Extract the actual row from results[10]
@@ -704,16 +712,16 @@ void test_solve_profile() {
     }
 
     // Verify the result is within tolerance
-    const double result_std = 0.010276906577713185;
-    if (std::abs(foo_contents_wl_mo[237] - result_std) / result_std >= 1e-6)
+    const double result_std = 0.6225033807716868;
+    if (std::abs(foo_contents_wl_mo[257] - result_std) / result_std >= 1e-6)
     {
         std::cerr << "Transformed volume calculation failed.\n"
                   << "Expected: " << result_std << ", "
-                  << "Got: " << foo_contents_wl_mo[237]  << ", "
-                  << "Relative error: " << std::abs(foo_contents_wl_mo[237] - result_std) / result_std << std::endl;
+                  << "Got: " << foo_contents_wl_mo[257]  << ", "
+                  << "Relative error: " << std::abs(foo_contents_wl_mo[257] - result_std) / result_std << std::endl;
         throw std::runtime_error("Transformed volume verification failed.");
     }
-    assert(std::abs(foo_contents_wl_mo[237] - result_std) / result_std < 1e-6 && "Nucleation rate calculation failed!");
+    assert(std::abs(foo_contents_wl_mo[257] - result_std) / result_std < 1e-6 && "Nucleation rate calculation failed!");
 }
 
 // test solve at a given P and T
@@ -770,8 +778,8 @@ void test_solve_values_test_aspect() {
     // Expected result for results[10]
     std::vector<double> expected_X1 = {
         t_max,  // Time
-        2.46300528e23,  // N
-        1.2846063759809e13,  // Dn
+        2.3844e+23,  // N
+        1.2639e+13,  // Dn
         701.622359,  // S
         8.4691e-06,  // Dimensionless volume
         8.4691e-06,  // Volume fraction

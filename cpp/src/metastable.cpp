@@ -35,14 +35,14 @@ double PTKinetics::growth_rate_P1(double P, double T, double Coh) const {
 // Full growth rate (with ΔGr term)
 double PTKinetics::growth_rate(double P, double T, double Peq, double Teq, double Coh) const {
     assert(P > Peq && "P must be greater than Peq");
-    double dGr = dV * (P - Peq) - dS * (T - Teq);
+    double dGr = dV * (P - Peq);
     return growth_rate_P1(P, T, Coh) * T * (1.0 - std::exp(-dGr / (R * T)));
 }
 
 // Nucleation rate
 double PTKinetics::nucleation_rate(double P, double T, double Peq, double Teq) const {
     assert(P > Peq && "P must be >= Peq");
-    double dGr = dV * (P - Peq) - dS * (T - Teq);
+    double dGr = dV * (P - Peq);
     double delta_G_hom = (16.0 * M_PI * fs * std::pow(Vm, 2) * std::pow(gamma, 3)) / (3.0 * std::pow(dGr, 2));
     double Q_a = dHa + P * Vstar;
     return K0 * T * std::exp(-delta_G_hom / (k * T)) * std::exp(-Q_a / (R * T));
@@ -106,6 +106,7 @@ std::vector<double> solve_extended_volume_post_saturation(const double Y, const 
 std::vector<double> ode_system(double s, const std::vector<double>& X, double Av,
                                 const std::function<double(double)>& Y_prime,
                                 const std::function<double(double)>& I_prime) {
+    // todo_metastable
     // Extract state variables
     double X0 = X[0];
     double X1 = X[1];

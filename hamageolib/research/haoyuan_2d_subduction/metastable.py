@@ -102,7 +102,7 @@ def solve_extended_volume_post_saturation_by_increment(Y, s, s_ini, V_extended_i
     return X3
 
 
-def ode_system(s, X, Av, Y_prime, I_prime):
+def ode_system(s, X, Av, Y_prime, I_prime, rc_prime):
     """
     Define the ODE system based on the modified Equation (18).
     
@@ -121,14 +121,14 @@ def ode_system(s, X, Av, Y_prime, I_prime):
     Av_factor = Av**(1/4)
     
     # Calculate the derivatives based on the Avrami equation
-    dX3 = Av_factor * (4 * Y_prime(s) * X2)
-    dX2 = Av_factor * (np.pi * Y_prime(s) * X1)
-    dX1 = Av_factor * (2 * Y_prime(s) * X0)
+    dX3 = Av_factor * (4 * Y_prime(s) * X2) + Av_factor * 4.0/3.0*np.pi * rc_prime(s)**3.0 * I_prime(s)
+    dX2 = Av_factor * (np.pi * Y_prime(s) * X1) + Av_factor * np.pi * rc_prime(s)**2.0 * I_prime(s)
+    dX1 = Av_factor * (2 * Y_prime(s) * X0) + 2 * Av_factor * rc_prime(s) * I_prime(s)
     dX0 = Av_factor * I_prime(s)
 
     return [dX0, dX1, dX2, dX3]
 
-def solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **kwargs):
+def solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, rc_prime_func, s_span, X, **kwargs):
     """
     Solve the modified Equation (18) using numerical integration.
     
@@ -150,7 +150,7 @@ def solve_modified_equations_eq18(Av, Y_prime_func, I_prime_func, s_span, X, **k
 
     # Define the system of ODEs to solve
     def odes(s, X):
-        return ode_system(s, X, Av, Y_prime_func, I_prime_func)
+        return ode_system(s, X, Av, Y_prime_func, I_prime_func, rc_prime_func)
 
     # Extract optional parameters
     n_span = kwargs.get("n_span", 100)  # Number of time steps
@@ -259,8 +259,7 @@ class PTKinetics:
             assert np.min(P - P_eq) > 0.0
         else:
             raise TypeError("P must be float or ndarray")
-
-        delta_G_d = self.dV * (P - P_eq) - self.dS * (T - T_eq)
+        delta_G_d = self.dV * (P - P_eq)
         base_growth = self.growth_rate_interface_P1(P, T, Coh)
         return base_growth * T * (1 - np.exp(-delta_G_d / (self.R * T)))
 
@@ -275,7 +274,7 @@ class PTKinetics:
         else:
             raise TypeError("P must be float or ndarray")
 
-        delta_G_d = self.dV * (P - P_eq) - self.dS * (T - T_eq)
+        delta_G_d = self.dV * (P - P_eq) # + self.dS * (T_eq - T)
         delta_G_hom = (16 * self.fs * np.pi * self.Vm**2 * self.gamma**3) / (3 * delta_G_d**2)
         Q_a = self.dHa + P * self.V_star_growth
 
@@ -292,7 +291,7 @@ class PTKinetics:
         else:
             raise TypeError("P must be float or ndarray")
 
-        delta_G_d = self.dV * (P - P_eq) - self.dS * (T - T_eq)
+        delta_G_d = self.dV * (P - P_eq)
         rc = 2 * self.fs**(1.0/3) * self.gamma * self.Vm / delta_G_d
         return rc
 
@@ -374,7 +373,6 @@ class MO_KINETICS:
         - Y_func (callable): Function for the growth rate Y(t).
         - I_func (callable): Function for the nucleation rate I(t).
         """
-        # todo_metastable
         self.post_process = kwargs.get("post_process", [])
         self.include_derivative = kwargs.get("include_derivative", False)
         assert(type(self.post_process) == list)
@@ -462,6 +460,7 @@ class MO_KINETICS:
         self.Y_func_ori = mKinetics.growth_rate
         self.I_func_ori = mKinetics.nucleation_rate
         self.I_type_ori = mKinetics.nucleation_type
+        self.rc_func_ori = mKinetics.critical_radius
     
     def link_and_set_kinetics_model(self, MKinetics):
         """
@@ -489,7 +488,7 @@ class MO_KINETICS:
 
         assert(self.I_type_ori == self.constants.nucleation_type)
 
-    def set_kinetics_fixed(self, P, T, Coh):
+    def set_kinetics_fixed(self, P, T, Coh, nucleate_critial_radius=False):
         """
         Fix the kinetics model based on specific pressure, temperature, and cohesion values.
 
@@ -509,7 +508,7 @@ class MO_KINETICS:
         else:
             self.is_P_higher_than_Peq = False
 
-        # fix value to Y_func and I_func
+        # fix value to Y_func, I_func and rc_func
         self.Y_func = lambda t: self.Y_func_ori(P, T, Peq, Teq, Coh)
         
         if self.I_type_ori == 0:
@@ -521,6 +520,11 @@ class MO_KINETICS:
         else:
             return NotImplementedError()
         self.I_func = lambda t: f0*self.I_func_ori(P, T, Peq, Teq)
+
+        if nucleate_critial_radius:
+            self.rc_func = lambda t: self.rc_func_ori(P, T, Peq, Teq)
+        else:
+            self.rc_func = lambda t: 0.0
     
     def set_PT_eq(self, P0, T0, cl):
         """
@@ -589,18 +593,15 @@ class MO_KINETICS:
             tg = float('inf')
         return tg
 
-    def compute_rc(self, P, T):
+    def compute_rc(self, t):
         """
         Compute the critical radius
         """
-        Peq = compute_eq_P(self.PT_eq, T)
-        Teq = compute_eq_T(self.PT_eq, P)
         if self.is_P_higher_than_Peq:
-            rc = self.Kinetics.critical_radius(P, T, Peq, Teq)
+            rc = self.rc_func(t)
         else:
             rc = 0.0
         return rc
-
 
 
     class MO_INITIATION_Error(Exception):
@@ -645,9 +646,11 @@ class MO_KINETICS:
         # print debug message of scaling values
         if debug:
             print("solve_modified_equation: I_max = %.4e, Y_max = %.4e, Av = %.4e" % (I_max, Y_max, self.Av))
-        
+
+        # nondimensionalize the kinetic rates and critical radius 
         self.Y_prime_func = lambda s: self.Y_func(s*self.t_scale) / Y_max
         self.I_prime_func = lambda s: self.I_func(s*self.t_scale) / I_max
+        self.rc_prime_func = lambda s: self.rc_func(s*self.t_scale) / (I_max**(-1.0/4.0)*Y_max**(1.0/4.0))
 
         # update the t scaling with local values of nucleation and growth rates
         self.X_scale_array = np.array([I_max**(3.0/4.0)*Y_max**(-3.0/4.0), I_max**(1.0/2.0)*Y_max**(-1.0/2.0), I_max**(1.0/4.0)*Y_max**(-1.0/4.0), 1.0])
@@ -688,7 +691,7 @@ class MO_KINETICS:
                 # solve for a pre-saturation subset 
                 kwargs["n_span"] = i0
 
-                solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, s_span_us, X_ini_nl, **kwargs)
+                solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, self.rc_prime_func, s_span_us, X_ini_nl, **kwargs)
                 
                 # parse the solution at the last time step
                 X_array_nd = solution_nd.y
@@ -725,7 +728,7 @@ class MO_KINETICS:
 
                 # solve equation between s_span[0] and s_saturation
                 s_span_new = (s_span[0], s_span[0] + s_saturation)
-                solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, s_span_new, X_ini_nl, **kwargs)
+                solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, self.rc_prime_func, s_span_new, X_ini_nl, **kwargs)
                 X_array_foo = solution_nd.y*self.X_scale_array[:, np.newaxis]
                 for i_raw in range(1, X_array.shape[1]):
                     X_array[:, i_raw] = X_array_foo[:, -1] 
@@ -747,7 +750,7 @@ class MO_KINETICS:
 
             else:
                 # saturation is not reached
-                solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, s_span, X_ini_nl, **kwargs)
+                solution_nd = solve_modified_equations_eq18(self.Av, self.Y_prime_func, self.I_prime_func, self.rc_prime_func, s_span, X_ini_nl, **kwargs)
 
                 # record the whole solution
                 self.last_solution = solution_nd
@@ -790,7 +793,6 @@ class MO_KINETICS:
 
     def solve(self, P, T, t_min, t_max, n_t, n_span, **kwargs):
 
-        # todo_metastable
         debug = kwargs.get("debug", False)
         initial = kwargs.get("initial", None)
         last_derivative = kwargs.get("last_derivative", 0.0) # the first value of last_derivative
@@ -856,12 +858,7 @@ class MO_KINETICS:
                         result_timestep.append((V_array[j_s]-V_array[j_s-1])/t_interval)
                     if j_s == n_span:
                         last_derivative = (V_array[j_s]-V_array[j_s-1])/t_interval
-                        print("j_s-1 = %d, V_array[j_s-1] = %.4e" % (j_s-1, V_array[j_s-1]))
-                        print("j_s = %d, V_array[j_s] = %.4e" % (j_s, V_array[j_s]))
-                        print("last_derivative = ", last_derivative) # debug
                 results[i_t*n_span + j_s, :] =  result_timestep
-                # debug
-                print("i_t*n_span + j_s = %d, results[i_t*n_span + j_s, :] = " % (i_t*n_span + j_s), results[i_t*n_span + j_s, :])
                 
         return results
     
