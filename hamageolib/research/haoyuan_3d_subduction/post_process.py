@@ -84,6 +84,8 @@ class PYVISTA_PROCESS_THD():
         self.trench_center = None
         self.slab_depth = None
         self.dip_100_center = None
+        self.additional_trench_points = None
+        self.additional_trench_center = None
 
     def read(self, pvtu_step, pvtu_filepath):
         """
@@ -450,10 +452,14 @@ class PYVISTA_PROCESS_THD():
         """
         start = time.time()
 
-        extract_trench=kwargs.get("extract_trench", False)
+        # additional optoins
+        # todo_3d_visual
+        extract_trench = kwargs.get("extract_trench", False)
+        extract_trench_at_additional_depths = kwargs.get("extract_trench_at_additional_depths", None)
         extract_dip=kwargs.get("extract_dip", False)
         file_type = kwargs.get("file_type", "default")
 
+        # checking
         if field_name == "sp_upper":
             assert self.iso_volume_upper is not None
             source = self.iso_volume_upper
@@ -464,12 +470,25 @@ class PYVISTA_PROCESS_THD():
         else:
             raise NotImplementedError()
 
+        # initiation
         indent = 4
 
         N0 = 2000
         N1 = 1000
 
         dr = 0.001
+
+        if extract_trench_at_additional_depths is not None:
+            assert(isinstance(extract_trench_at_additional_depths, list) and\
+                   len(extract_trench_at_additional_depths) > 0)
+            additional_val2s_tr = np.full((len(extract_trench_at_additional_depths), N1), np.nan)
+            additional_trench_idx = []
+            for depth in extract_trench_at_additional_depths:
+                assert(depth < self.Max0 - self.Min0)
+                idx = int(np.round(N0 * depth / (self.Max0 - self.Min0)))
+                additional_trench_idx.append(idx)
+            self.additional_trench_points = [None for i in range(len(extract_trench_at_additional_depths))]
+            self.additional_trench_center = np.full(len(extract_trench_at_additional_depths), np.nan)
 
         # build the KDTREE
         vals0 = np.linspace(0, self.Max0, N0)
@@ -504,6 +523,11 @@ class PYVISTA_PROCESS_THD():
                     vals2[i, j] = max_v2
                     if i == N0 - 1:
                         vals2_tr[j] = max_v2
+                    # todo_3d_visual
+                    if extract_trench_at_additional_depths is not None:
+                        for i1 in range(len(extract_trench_at_additional_depths)):
+                            if i == additional_trench_idx[i1]:
+                                additional_val2s_tr[i1, j] = max_v2
 
         V0, V1 = np.meshgrid(vals0, vals1, indexing='ij')
         mask = ~np.isnan(vals2)
@@ -572,6 +596,48 @@ class PYVISTA_PROCESS_THD():
                 raise ValueError("file_type needs to be default or txt")
 
             print("Save file %s" % filepath)
+
+        if extract_trench and extract_trench_at_additional_depths is not None:
+            # todo_3d_visual
+            print("Export additional trench position")
+            for i1, tr_depth in enumerate(extract_trench_at_additional_depths):
+                vals2_tr = additional_val2s_tr[i1, :]
+                mask_tr = ~np.isnan(vals2_tr)
+                v1_tr = vals1[mask_tr]
+                v2_tr = vals2_tr[mask_tr]
+
+                if self.geometry == "chunk": 
+                    x_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.cos(v2_tr)
+                    y_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.sin(v2_tr)
+                    z_tr = self.Max0 * np.cos(np.pi/2.0 - v1_tr)
+                else:
+                    x_tr = v2_tr
+                    y_tr = v1_tr
+                    z_tr = self.Max0 * np.ones(v1_tr.shape)
+                
+                self.additional_trench_points[i1] = np.vstack([x_tr, y_tr, z_tr]).T
+
+                if self.geometry == "chunk":
+                    _, _, self.additional_trench_center[i1] = cartesian_to_spherical(self.trench_points[0, 0], self.trench_points[0, 1], self.trench_points[0, 2])
+                else:
+                    self.additional_trench_center[i1] = self.additional_trench_points[i1][0, 0]
+
+                # save trench points
+                # todo_3d_test
+                if file_type == "default":
+                    point_cloud_tr = pv.PolyData(self.additional_trench_points[i1])
+                    filename = "trench_d%.2fkm_%05d.vtp" % (tr_depth/1e3, self.pvtu_step)
+                    filepath = os.path.join(self.pyvista_outdir, filename)
+                    point_cloud_tr.save(filepath)
+                elif file_type == "txt":
+                    filename = "trench_d%.2fkm_%05d.txt" % (tr_depth/1e3, self.pvtu_step)
+                    filepath = os.path.join(self.pyvista_outdir, filename)
+                    np.savetxt(filepath, self.trench_points, fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
+                else:
+                    raise ValueError("file_type needs to be default or txt")
+
+                print("Save file %s" % filepath)
+
 
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
@@ -1197,11 +1263,16 @@ class PYVISTA_PROCESS_THD():
         print("saved file: %s" % filepath)
 
 
-def get_trench_position_from_file(pyvista_outdir, pvtu_step, geometry):
+def get_trench_position_from_file(pyvista_outdir, pvtu_step, geometry, **kwargs):
     '''
     Get the position of trench from a file generated previously
     '''
-    filename = "trench_%05d.vtp" % pvtu_step
+    # todo_3d_visual
+    trench_depth = kwargs.get("trench_depth", None)
+    if trench_depth is not None:
+        filename = "trench_d%.2fkm_%05d.vtp" % (trench_depth, pvtu_step)
+    else:
+        filename = "trench_%05d.vtp" % pvtu_step
     filepath = os.path.join(pyvista_outdir, filename)
     point_cloud_tr = pv.read(filepath)
     points = point_cloud_tr.points
@@ -1300,19 +1371,16 @@ class PLOT_CASE_RUN_THD():
         self.Case_Options.Interpret(**self.kwargs)
         self.Case_Options.SummaryCaseVtuStep(os.path.join(self.case_path, "summary.csv"))
 
-    def ProcessPyvista(self):
+    def ProcessPyvista(self, **kwargs):
         '''
         pyvista processing
         '''
-        # options
-        config = {"threshold_lower": 0.8}
-        
         # use a list to record whether files are found
         file_found_list = []
         for vtu_step in self.Case_Options.options['GRAPHICAL_STEPS']:
             pvtu_step = vtu_step + int(self.Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
             try:
-                ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Case_Options, config)
+                ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Case_Options, **kwargs)
                 file_found_list.append(True)
             except FileNotFoundError:
                 file_found_list.append(False)
@@ -1393,25 +1461,33 @@ def clip_grid_by_spherical_range(grid, r_range=None, theta_range=None, phi_range
 
     return grid.extract_points(mask, adjacent_cells=True)
 
-def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, config):
+
+def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     '''
     Process with pyvsita for a single step
     Inputs:
         case_path - full path of a 3-d case
         pvtu_step - pvtu_step of vtu output files
         Case_Options - options for the case
+        kwargs
+            threshold_lower - threshold for lower slab composition
     '''
+    # case options
     Case_Options = CASE_OPTIONS(case_path)
     Case_Options.Interpret()
     Case_Options.SummaryCaseVtuStep(os.path.join(case_path, "summary.csv"))
 
-    #   threshold_lower - threshold to take an iso-volume of the lower slab composition 
     geometry = Case_Options.options["GEOMETRY"]
 
+    # time step and index
     idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
     _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
 
-    threshold_lower = config.get("threshold_lower", 0.8)
+    # additional options
+    threshold_lower = kwargs.get("threshold_lower", 0.8)
+    do_clip = kwargs.get("do_clip", False)
+    # todo_3d_visual
+    extract_trench_at_additional_depths=  kwargs.get("extract_trench_at_additional_depths", None)
     
     outputs = {}
 
@@ -1465,7 +1541,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, config):
     clip_l1_max = l1_section*2.0
     clip_l2_min = np.ceil(trench_initial / l2_section) * l2_section - 2 * l2_section
     clip_l2_max = np.ceil(trench_initial / l2_section) * l2_section + 2 * l2_section
-    clip = [[clip_l0_min-tolerance, clip_l0_max+tolerance] , [clip_l1_min-tolerance, clip_l1_max+tolerance], [clip_l2_min-tolerance, clip_l2_max+tolerance]]
+    if do_clip:
+        clip = [[clip_l0_min-tolerance, clip_l0_max+tolerance] , [clip_l1_min-tolerance, clip_l1_max+tolerance], [clip_l2_min-tolerance, clip_l2_max+tolerance]]
+    else:
+        clip = None
     boundary_range=[[clip_l0_min, clip_l0_max] , [clip_l1_min, clip_l1_max], [clip_l2_min, clip_l2_max]]
     
     # initiate PYVISTA_PROCESS_THD class
@@ -1496,6 +1575,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, config):
     pvtu_filepath = os.path.join(case_path, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
     PprocessThD.read(pvtu_step, pvtu_filepath)
     # slice at center
+    PprocessThD.slice_center()
     PprocessThD.slice_center(boundary_range=boundary_range)
     # slice at surface
     PprocessThD.slice_surface()
@@ -1508,7 +1588,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, config):
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(iso_volume_threshold)
     # extract slab surface and trench position, using "sp_upper" composition
-    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True)
+    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True,\
+                                     extract_trench_at_additional_depths=extract_trench_at_additional_depths)
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
