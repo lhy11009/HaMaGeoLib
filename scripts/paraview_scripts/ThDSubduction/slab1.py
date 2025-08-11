@@ -890,7 +890,6 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
         else:
             add_glyph1("solution_%05d" % (snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
 
-        # todo_visual_meta
         # add source of metastable region
         if "MODEL_TYPE" == "mow":
             filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d"%snapshot, "metastable_region_%05d.vtu" %snapshot) 
