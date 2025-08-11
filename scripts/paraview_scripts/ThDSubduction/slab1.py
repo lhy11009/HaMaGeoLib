@@ -423,7 +423,10 @@ output.PointData.append(eq_trans, 'eq_trans')
 
 
 
-def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
+def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **kwargs):
+
+    # addtional_options
+    has_metastable_region = kwargs.get("has_metastable_region", False)
 
     # Get the active view 
     renderView1 = GetActiveViewOrCreate('RenderView')
@@ -521,7 +524,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
     sourceTrTrianDisplay = Show(sourceTrTrian, renderView1, 'GeometryRepresentation')
 
     # Show the metastable area
-    if "MODEL_TYPE" == "mow" and FOO02 == 1: 
+    if "MODEL_TYPE" == "mow" and has_metastable_region and FOO02 == 1: 
         # Select the metastable_region source
         if "GEOMETRY" == "chunk":
             metaRegion = FindSource("metastable_region_transform_%05d" % (snapshot))
@@ -889,22 +892,26 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
             add_glyph1("solution_%05d" % (snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
 
         # add source of metastable region
+        has_metastable_region = False
         if "MODEL_TYPE" == "mow":
             filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d"%snapshot, "metastable_region_%05d.vtu" %snapshot) 
             print("filein:", filein) # debug
-            assert(os.path.isfile(filein))
-            XMLUnstructuredGridReader(registrationName='metastable_region_%05d' % snapshot, FileName=[filein])
-            if "GEOMETRY" == "chunk":
-                registration_name_transform = 'metastable_region_transform_%05d' % (snapshot)
-                solution = FindSource('metastable_region_%05d' % snapshot)
-                transform = Transform(registrationName=registration_name_transform, Input=solution)
-                transform.Transform = 'Transform'
-                transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
-                transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
-                Hide3DWidgets()
+            if os.path.isfile(filein):
+                XMLUnstructuredGridReader(registrationName='metastable_region_%05d' % snapshot, FileName=[filein])
+                if "GEOMETRY" == "chunk":
+                    registration_name_transform = 'metastable_region_transform_%05d' % (snapshot)
+                    solution = FindSource('metastable_region_%05d' % snapshot)
+                    transform = Transform(registrationName=registration_name_transform, Input=solution)
+                    transform.Transform = 'Transform'
+                    transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
+                    transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
+                    Hide3DWidgets()
+                else:
+                    pass
+                has_metastable_region = True
 
         # plot slice
-        plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time)
+        plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time, has_metastable_region=has_metastable_region)
 
 
 steps = GRAPHICAL_STEPS

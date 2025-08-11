@@ -4,7 +4,7 @@ HaMaGeoLib_DIR = "/home/lochy/ASPECT_PROJECT/HaMaGeoLib"
 if os.path.abspath(HaMaGeoLib_DIR) not in sys.path:
     sys.path.append(os.path.abspath(HaMaGeoLib_DIR))
 
-from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS_TWOD1
+from hamageolib.research.mow_subduction.case_options import CASE_OPTIONS_TWOD
 from hamageolib.research.haoyuan_3d_subduction.post_process import PlotCaseRunTwoD1, ProcessVtuFileTwoDStep
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_subduction_visualization
 
@@ -14,7 +14,7 @@ local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow_tests/eba2d_width80_h1000_bw4000_
 assert(local_dir_2d is not None)
 
 # case options 
-Case_Options_2d = CASE_OPTIONS_TWOD1(local_dir_2d)
+Case_Options_2d = CASE_OPTIONS_TWOD(local_dir_2d)
 Case_Options_2d.Interpret()
 Case_Options_2d.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary.csv"))
 
