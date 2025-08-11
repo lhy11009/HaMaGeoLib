@@ -184,7 +184,6 @@ def test_pyvista_process_twod_box():
     Case_Options_2d.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary.csv"))
 
     output_dict = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_2d)
-    print(output_dict)
 
     # check the output of slab morphology
     dip_100_std = 0.5222396851976059
@@ -195,3 +194,4 @@ def test_pyvista_process_twod_box():
 
     slab_depth_std = 240000.0
     assert(abs((output_dict["slab_depth"]-slab_depth_std)/slab_depth_std)<1e-6)
+

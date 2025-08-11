@@ -1687,7 +1687,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
         os.mkdir(pyvista_outdir)
 
     # Read data
-    # append a "radius" field 
+    # append a "radius" field and a "sp_total" field
     start = time.time()
     pvtu_step = pvtu_step
     
@@ -1702,13 +1702,19 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     else:
         radius = points[:, 2]
     grid["radius"] = radius
-
-    # append a sp_total field
     grid["sp_total"] = grid["spcrust"] + grid["spharz"]
     
     end = time.time()
     print("%s: Read file takes %.1f s" % (func_name(), end - start))
 
+    # append a cell data grid if the model type requires doing so
+    grid_c = None
+    if Case_Options.options["MODEL_TYPE"] == "mow":
+        start = time.time()
+        grid_c = grid.point_data_to_cell_data(pass_point_data=False, categorical=False)
+        end = time.time()
+        print("%s: Map cell data takes %.1f s" % (func_name(), end - start))
+    
     # take iso-volumes
     start = time.time()
 
@@ -1795,7 +1801,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     output_dict["trench_center"] = trench_center
     output_dict["slab_depth"] = slab_depth
     output_dict["dip_100"] = dip_angle
-        
+
     point_cloud = pv.PolyData(slab_surface_points)
     filename = "spcrust_surface_%05d.vtp" % pvtu_step
     filepath = os.path.join(pyvista_outdir, filename)
@@ -1804,6 +1810,32 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     
     end = time.time()
     print("%s: Extract trench center takes %.1f s" % (func_name(), end - start))
+    
+    # todo_visual_meta
+    # Process the region of slab metastablility, compute the area and output a vtu file
+    if Case_Options.options["MODEL_TYPE"] == "mow":
+        start = time.time()
+        
+        grid_slab_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
+
+        cell_data_P_eq =  (grid_slab_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
+        mask = np.flatnonzero(grid_slab_metastable.cell_data['p'] > cell_data_P_eq)
+        grid_slab_metastable = grid_slab_metastable.extract_cells(mask)
+
+        if grid_slab_metastable.n_cells == 0:
+            metastable_area = 0.0
+        else:
+            sized = grid_slab_metastable.compute_cell_sizes(length=False, area=True, volume=False)
+            metastable_area = float(sized.cell_data["Area"].sum())
+        output_dict["metastable_area"] = metastable_area
+    
+        filename = "metastable_region_%05d.vtu" % pvtu_step
+        filepath = os.path.join(pyvista_outdir, filename)
+        grid_slab_metastable.save(filepath)
+        print("Save file %s" % filepath)
+
+        end = time.time()
+        print("%s: Compute metastable area takes %.1f s" % (func_name(), end - start))
 
     return output_dict
 
