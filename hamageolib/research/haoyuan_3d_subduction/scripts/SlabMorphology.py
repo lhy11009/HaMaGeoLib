@@ -31,6 +31,7 @@ for i, step in enumerate(graphical_steps):
     pvtu_step = step + int(Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT']) 
     pyvista_outdir = os.path.join(local_dir, "pyvista_outputs", "%05d" % pvtu_step)
 
+    # todo_3d_visual
     # processing pyvista
     try:
         if prepare_pyvista:

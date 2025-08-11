@@ -453,7 +453,6 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
 
         # additional optoins
-        # todo_3d_visual_trench
         extract_trench = kwargs.get("extract_trench", False)
         extract_trench_at_additional_depths = kwargs.get("extract_trench_at_additional_depths", None)
         extract_dip=kwargs.get("extract_dip", False)
@@ -478,6 +477,10 @@ class PYVISTA_PROCESS_THD():
 
         dr = 0.001
 
+        # extract trench at additiona depths: initiation
+        # initiate the 2-d np array to save trench positions
+        # compute an index along the first axis, and make sure N0 is within [0, N0-1]
+        # initiate the array for trench points and trench centers
         if extract_trench_at_additional_depths is not None:
             assert(isinstance(extract_trench_at_additional_depths, list) and\
                    len(extract_trench_at_additional_depths) > 0)
@@ -485,10 +488,15 @@ class PYVISTA_PROCESS_THD():
             additional_trench_idx = []
             for depth in extract_trench_at_additional_depths:
                 assert(depth < self.Max0 - self.Min0)
-                idx = int(np.round(N0 * depth / (self.Max0 - self.Min0)))
+                idx = int(np.round(N0 * (self.Max0 - self.Min0 - depth) / (self.Max0 - self.Min0)))
+                if idx == N0:
+                    idx = N0 - 1
                 additional_trench_idx.append(idx)
             self.additional_trench_points = [None for i in range(len(extract_trench_at_additional_depths))]
             self.additional_trench_center = np.full(len(extract_trench_at_additional_depths), np.nan)
+        else:
+            additional_val2s_tr = None
+            additional_trench_idx = None
 
         # build the KDTREE
         vals0 = np.linspace(0, self.Max0, N0)
@@ -523,7 +531,6 @@ class PYVISTA_PROCESS_THD():
                     vals2[i, j] = max_v2
                     if i == N0 - 1:
                         vals2_tr[j] = max_v2
-                    # todo_3d_visual_trench
                     if extract_trench_at_additional_depths is not None:
                         for i1 in range(len(extract_trench_at_additional_depths)):
                             if i == additional_trench_idx[i1]:
@@ -598,7 +605,6 @@ class PYVISTA_PROCESS_THD():
             print("Save file %s" % filepath)
 
         if extract_trench and extract_trench_at_additional_depths is not None:
-            # todo_3d_visual_trench
             print("Export additional trench position")
             for i1, tr_depth in enumerate(extract_trench_at_additional_depths):
                 vals2_tr = additional_val2s_tr[i1, :]
@@ -1267,7 +1273,6 @@ def get_trench_position_from_file(pyvista_outdir, pvtu_step, geometry, **kwargs)
     '''
     Get the position of trench from a file generated previously
     '''
-    # todo_3d_visual_trench
     trench_depth = kwargs.get("trench_depth", None)
     if trench_depth is not None:
         filename = "trench_d%.2fkm_%05d.vtp" % (trench_depth, pvtu_step)
@@ -1486,7 +1491,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     # additional options
     threshold_lower = kwargs.get("threshold_lower", 0.8)
     do_clip = kwargs.get("do_clip", False)
-    # todo_3d_visual_trench
     extract_trench_at_additional_depths=  kwargs.get("extract_trench_at_additional_depths", None)
     
     outputs = {}
@@ -1687,7 +1691,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
         os.mkdir(pyvista_outdir)
 
     # Read data
-    # append a "radius" field 
+    # append a "radius" field and a "sp_total" field
     start = time.time()
     pvtu_step = pvtu_step
     
@@ -1702,13 +1706,19 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     else:
         radius = points[:, 2]
     grid["radius"] = radius
-
-    # append a sp_total field
     grid["sp_total"] = grid["spcrust"] + grid["spharz"]
     
     end = time.time()
     print("%s: Read file takes %.1f s" % (func_name(), end - start))
 
+    # append a cell data grid if the model type requires doing so
+    grid_c = None
+    if Case_Options.options["MODEL_TYPE"] == "mow":
+        start = time.time()
+        grid_c = grid.point_data_to_cell_data(pass_point_data=False, categorical=False)
+        end = time.time()
+        print("%s: Map cell data takes %.1f s" % (func_name(), end - start))
+    
     # take iso-volumes
     start = time.time()
 
@@ -1795,7 +1805,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     output_dict["trench_center"] = trench_center
     output_dict["slab_depth"] = slab_depth
     output_dict["dip_100"] = dip_angle
-        
+
     point_cloud = pv.PolyData(slab_surface_points)
     filename = "spcrust_surface_%05d.vtp" % pvtu_step
     filepath = os.path.join(pyvista_outdir, filename)
@@ -1804,6 +1814,31 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     
     end = time.time()
     print("%s: Extract trench center takes %.1f s" % (func_name(), end - start))
+    
+    # Process the region of slab metastablility, compute the area and output a vtu file
+    if Case_Options.options["MODEL_TYPE"] == "mow":
+        start = time.time()
+        
+        grid_slab_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
+
+        cell_data_P_eq =  (grid_slab_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
+        mask = np.flatnonzero(grid_slab_metastable.cell_data['p'] > cell_data_P_eq)
+        grid_slab_metastable = grid_slab_metastable.extract_cells(mask)
+
+        if grid_slab_metastable.n_cells == 0:
+            metastable_area = 0.0
+        else:
+            sized = grid_slab_metastable.compute_cell_sizes(length=False, area=True, volume=False)
+            metastable_area = float(sized.cell_data["Area"].sum())
+        output_dict["metastable_area"] = metastable_area
+    
+        filename = "metastable_region_%05d.vtu" % pvtu_step
+        filepath = os.path.join(pyvista_outdir, filename)
+        grid_slab_metastable.save(filepath)
+        print("Save file %s" % filepath)
+
+        end = time.time()
+        print("%s: Compute metastable area takes %.1f s" % (func_name(), end - start))
 
     return output_dict
 

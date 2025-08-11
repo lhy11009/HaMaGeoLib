@@ -520,6 +520,19 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
     sourceTrTrian = FindSource("trench_triangle")
     sourceTrTrianDisplay = Show(sourceTrTrian, renderView1, 'GeometryRepresentation')
 
+    # Show the metastable area
+    if "MODEL_TYPE" == "mow" and FOO02 == 1: 
+        # Select the metastable_region source
+        if "GEOMETRY" == "chunk":
+            metaRegion = FindSource("metastable_region_transform_%05d" % (snapshot))
+        else:
+            metaRegion = FindSource("metastable_region_%05d" % (snapshot))
+        metaRegionDisplay = Show(metaRegion, renderView1, 'GeometryRepresentation')
+        ColorBy(metaRegionDisplay, None)
+        metaRegionDisplay.AmbientColor = [0.6666666666666666, 0.0, 1.0]
+        metaRegionDisplay.DiffuseColor = [0.6666666666666666, 0.0, 1.0]
+        
+
     # Configure layout and camera settings based on geometry.
     layout_resolution = (1350, 704)
     layout1 = GetLayout()
@@ -693,7 +706,6 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     sourceTrDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0] # Dark red
     sourceTrDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
 
-    # todo_3d_visual_trench 
     # Show the trench position
     sourceTr1 = FindSource("trench_d50.00km%s_%05d" % (trailer, snapshot))
     sourceTr1Display = Show(sourceTr1, renderView1, 'GeometryRepresentation')
@@ -797,7 +809,6 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
         load_pyvista_source(data_output_dir, "sp_lower_surface", snapshot, file_type="vtp", assign_field=True)
         
         # load trench position
-        # todo_3d_visual_trench
         load_pyvista_source(data_output_dir, "trench", snapshot, file_type="vtp")
         load_pyvista_source(data_output_dir, "trench_d50.00km", snapshot, file_type="vtp")
 
@@ -870,13 +881,27 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
             transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
             transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
             Hide3DWidgets()
-        pass
 
         registration_name_glyph = 'solution_glyph_%05d' % (snapshot)
         if "GEOMETRY" == "chunk":
             add_glyph1("solution_transform_%05d" % (snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
         else:
             add_glyph1("solution_%05d" % (snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
+
+        # add source of metastable region
+        if "MODEL_TYPE" == "mow":
+            filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d"%snapshot, "metastable_region_%05d.vtu" %snapshot) 
+            print("filein:", filein) # debug
+            assert(os.path.isfile(filein))
+            XMLUnstructuredGridReader(registrationName='metastable_region_%05d' % snapshot, FileName=[filein])
+            if "GEOMETRY" == "chunk":
+                registration_name_transform = 'metastable_region_transform_%05d' % (snapshot)
+                solution = FindSource('metastable_region_%05d' % snapshot)
+                transform = Transform(registrationName=registration_name_transform, Input=solution)
+                transform.Transform = 'Transform'
+                transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
+                transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
+                Hide3DWidgets()
 
         # plot slice
         plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time)

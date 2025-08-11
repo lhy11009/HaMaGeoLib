@@ -38,7 +38,7 @@ def test_pyvista_process_thd_chunk():
     PprocessThD.extract_plate_edge(0.8)
     # extract slab surface
     # todo_3d_test
-    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt")
+    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt", extract_trench_at_additional_depths=[50e3])
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
@@ -80,6 +80,11 @@ def test_pyvista_process_thd_chunk():
     
     trench_file_std = os.path.join(local_dir, "trench_00002_std.txt")
     trench_file = os.path.join(pyvista_outdir, "trench_00002.txt")
+    assert(os.path.isfile(trench_file))
+    assert(filecmp.cmp(trench_file, trench_file_std))
+    
+    trench_file_std = os.path.join(local_dir, "trench_d50.00km_00002_std.txt")
+    trench_file = os.path.join(pyvista_outdir, "trench_d50.00km_00002.txt")
     assert(os.path.isfile(trench_file))
     assert(filecmp.cmp(trench_file, trench_file_std))
 
@@ -184,7 +189,6 @@ def test_pyvista_process_twod_box():
     Case_Options_2d.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary.csv"))
 
     output_dict = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_2d)
-    print(output_dict)
 
     # check the output of slab morphology
     dip_100_std = 0.5222396851976059
@@ -195,3 +199,4 @@ def test_pyvista_process_twod_box():
 
     slab_depth_std = 240000.0
     assert(abs((output_dict["slab_depth"]-slab_depth_std)/slab_depth_std)<1e-6)
+
