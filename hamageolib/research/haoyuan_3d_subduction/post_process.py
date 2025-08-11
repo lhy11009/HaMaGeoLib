@@ -478,6 +478,10 @@ class PYVISTA_PROCESS_THD():
 
         dr = 0.001
 
+        # extract trench at additiona depths: initiation
+        # initiate the 2-d np array to save trench positions
+        # compute an index along the first axis, and make sure N0 is within [0, N0-1]
+        # initiate the array for trench points and trench centers
         if extract_trench_at_additional_depths is not None:
             assert(isinstance(extract_trench_at_additional_depths, list) and\
                    len(extract_trench_at_additional_depths) > 0)
@@ -485,10 +489,15 @@ class PYVISTA_PROCESS_THD():
             additional_trench_idx = []
             for depth in extract_trench_at_additional_depths:
                 assert(depth < self.Max0 - self.Min0)
-                idx = int(np.round(N0 * depth / (self.Max0 - self.Min0)))
+                idx = int(np.round(N0 * (self.Max0 - self.Min0 - depth) / (self.Max0 - self.Min0)))
+                if idx == N0:
+                    idx = N0 - 1
                 additional_trench_idx.append(idx)
             self.additional_trench_points = [None for i in range(len(extract_trench_at_additional_depths))]
             self.additional_trench_center = np.full(len(extract_trench_at_additional_depths), np.nan)
+        else:
+            additional_val2s_tr = None
+            additional_trench_idx = None
 
         # build the KDTREE
         vals0 = np.linspace(0, self.Max0, N0)
