@@ -453,7 +453,7 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
 
         # additional optoins
-        # todo_3d_visual
+        # todo_3d_visual_trench
         extract_trench = kwargs.get("extract_trench", False)
         extract_trench_at_additional_depths = kwargs.get("extract_trench_at_additional_depths", None)
         extract_dip=kwargs.get("extract_dip", False)
@@ -523,7 +523,7 @@ class PYVISTA_PROCESS_THD():
                     vals2[i, j] = max_v2
                     if i == N0 - 1:
                         vals2_tr[j] = max_v2
-                    # todo_3d_visual
+                    # todo_3d_visual_trench
                     if extract_trench_at_additional_depths is not None:
                         for i1 in range(len(extract_trench_at_additional_depths)):
                             if i == additional_trench_idx[i1]:
@@ -598,7 +598,7 @@ class PYVISTA_PROCESS_THD():
             print("Save file %s" % filepath)
 
         if extract_trench and extract_trench_at_additional_depths is not None:
-            # todo_3d_visual
+            # todo_3d_visual_trench
             print("Export additional trench position")
             for i1, tr_depth in enumerate(extract_trench_at_additional_depths):
                 vals2_tr = additional_val2s_tr[i1, :]
@@ -1267,7 +1267,7 @@ def get_trench_position_from_file(pyvista_outdir, pvtu_step, geometry, **kwargs)
     '''
     Get the position of trench from a file generated previously
     '''
-    # todo_3d_visual
+    # todo_3d_visual_trench
     trench_depth = kwargs.get("trench_depth", None)
     if trench_depth is not None:
         filename = "trench_d%.2fkm_%05d.vtp" % (trench_depth, pvtu_step)
@@ -1486,7 +1486,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     # additional options
     threshold_lower = kwargs.get("threshold_lower", 0.8)
     do_clip = kwargs.get("do_clip", False)
-    # todo_3d_visual
+    # todo_3d_visual_trench
     extract_trench_at_additional_depths=  kwargs.get("extract_trench_at_additional_depths", None)
     
     outputs = {}
@@ -1543,6 +1543,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     clip_l2_max = np.ceil(trench_initial / l2_section) * l2_section + 2 * l2_section
     if do_clip:
         clip = [[clip_l0_min-tolerance, clip_l0_max+tolerance] , [clip_l1_min-tolerance, clip_l1_max+tolerance], [clip_l2_min-tolerance, clip_l2_max+tolerance]]
+        print("\tclip: ", clip)
     else:
         clip = None
     boundary_range=[[clip_l0_min, clip_l0_max] , [clip_l1_min, clip_l1_max], [clip_l2_min, clip_l2_max]]

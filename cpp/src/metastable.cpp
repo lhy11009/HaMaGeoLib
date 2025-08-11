@@ -106,7 +106,6 @@ std::vector<double> solve_extended_volume_post_saturation(const double Y, const 
 std::vector<double> ode_system(double s, const std::vector<double>& X, double Av,
                                 const std::function<double(double)>& Y_prime,
                                 const std::function<double(double)>& I_prime) {
-    // todo_metastable
     // Extract state variables
     double X0 = X[0];
     double X1 = X[1];

@@ -13,7 +13,7 @@ from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS
 prepare_pyvista = True
 
 # Case path
-local_dir = "/mnt/lochy/ASPECT_DATA/ThDSubduction/EBA_2d_consistent_8_6/eba3d_width80_c22_AR4_yd300"
+local_dir = "/mnt/lochy2/ASPECT_DATA/ThDSubduction/EBA_2d_consistent_8_6/eba3d_width80_c22_AR4_yd100"
 
 # Initiate the case option class
 Case_Options = CASE_OPTIONS(local_dir)
