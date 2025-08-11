@@ -12,7 +12,6 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_TWOD1):
       if "metastable" in names_of_compositional_fields_str:
          self.options["MODEL_TYPE"] = "mow"
 
-      # todo_visual_meta
       if self.options["MODEL_TYPE"] == "mow":
          default_dict = {
             "Phase transition Clapeyron slope": 2e6,
