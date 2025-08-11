@@ -114,7 +114,7 @@ class CASE_OPTIONS:
         self.options = {}
         
         # Initialize summary dictionary
-        self.summary_df = {}
+        self.summary_df = None
 
         # Read statistic results
         self.statistic_df = None
@@ -313,11 +313,13 @@ class CASE_OPTIONS:
         self.options['INITIAL_ADAPTIVE_REFINEMENT'] = self.idict['Mesh refinement'].get('Initial adaptive refinement', '0')
 
         # get the graphical steps
+        # first make sure a summary is generated
+        # Interpret the visualization information
         vtu_step = kwargs.get("step", None)
-        if self.summary_df == {}:
-            # first make sure a summary is generated
+        
+        if self.summary_df is None:
             self.SummaryCaseVtuStep(ifile=os.path.join(self.case_dir, "summary.csv"))
-            pass
+        
         if vtu_step is None:
             self.options['GRAPHICAL_TIMES'] = self.summary_df["Time"].to_list()
             self.options['GRAPHICAL_STEPS'] = self.summary_df["Vtu step"].to_list()

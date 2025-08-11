@@ -520,6 +520,19 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time):
     sourceTrTrian = FindSource("trench_triangle")
     sourceTrTrianDisplay = Show(sourceTrTrian, renderView1, 'GeometryRepresentation')
 
+    # Show the metastable area
+    if "MODEL_TYPE" == "mow" and FOO02 == 1: 
+        # Select the metastable_region source
+        if "GEOMETRY" == "chunk":
+            metaRegion = FindSource("metastable_region_transform_%05d" % (snapshot))
+        else:
+            metaRegion = FindSource("metastable_region_%05d" % (snapshot))
+        metaRegionDisplay = Show(metaRegion, renderView1, 'GeometryRepresentation')
+        ColorBy(metaRegionDisplay, None)
+        metaRegionDisplay.AmbientColor = [0.6666666666666666, 0.0, 1.0]
+        metaRegionDisplay.DiffuseColor = [0.6666666666666666, 0.0, 1.0]
+        
+
     # Configure layout and camera settings based on geometry.
     layout_resolution = (1350, 704)
     layout1 = GetLayout()
@@ -870,13 +883,28 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
             transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
             transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
             Hide3DWidgets()
-        pass
 
         registration_name_glyph = 'solution_glyph_%05d' % (snapshot)
         if "GEOMETRY" == "chunk":
             add_glyph1("solution_transform_%05d" % (snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
         else:
             add_glyph1("solution_%05d" % (snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
+
+        # todo_visual_meta
+        # add source of metastable region
+        if "MODEL_TYPE" == "mow":
+            filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d"%snapshot, "metastable_region_%05d.vtu" %snapshot) 
+            print("filein:", filein) # debug
+            assert(os.path.isfile(filein))
+            XMLUnstructuredGridReader(registrationName='metastable_region_%05d' % snapshot, FileName=[filein])
+            if "GEOMETRY" == "chunk":
+                registration_name_transform = 'metastable_region_transform_%05d' % (snapshot)
+                solution = FindSource('metastable_region_%05d' % snapshot)
+                transform = Transform(registrationName=registration_name_transform, Input=solution)
+                transform.Transform = 'Transform'
+                transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
+                transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
+                Hide3DWidgets()
 
         # plot slice
         plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time)

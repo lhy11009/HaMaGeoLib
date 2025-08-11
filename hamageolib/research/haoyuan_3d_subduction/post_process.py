@@ -1811,7 +1811,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     end = time.time()
     print("%s: Extract trench center takes %.1f s" % (func_name(), end - start))
     
-    # todo_visual_meta
     # Process the region of slab metastablility, compute the area and output a vtu file
     if Case_Options.options["MODEL_TYPE"] == "mow":
         start = time.time()
