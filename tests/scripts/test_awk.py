@@ -62,7 +62,7 @@ def test_parse_block_newton_v2_6_0():
 
 
 def test_parse_block_newton_v3_1_0():
-    # todo_3_1
+    
     awk_script_path = os.path.join(base_dir, "scripts", "awk", "parse_block_newton_v3_1_0.awk")
     input_file = os.path.join(base_dir, "tests/fixtures/scripts/awk/mock_aspect_log_v3_1_0.txt")
     expected_output = os.path.join(base_dir, "tests/fixtures/scripts/awk/expected_newton_output_v3_1_0.txt")

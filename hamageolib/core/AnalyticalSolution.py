@@ -364,7 +364,7 @@ class WK2004:
         '''
         return self.advective_thickness_by_zw(depth)**2.0 / (np.pi**2.0 * self.kappa)
 
-    # todo_top 
+    
     def top_thickness(self, depth):
         '''
         Derive thermal thickness on top of interface, from either
@@ -410,7 +410,7 @@ class WK2004:
 
         return Tbd
 
-    # todo_EW 
+    
     def bd_temperature_formula(self, T1, Ts, alpha, x):
         '''
         Derive the temperature in the advective boundary on top of the slab

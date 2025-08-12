@@ -197,7 +197,7 @@ std::vector<std::vector<double>> solve_modified_equations_eq18(
     return solution;
 }
 
-// todo_metastable
+
 // Constructor
 MO_KINETICS::MO_KINETICS():
       d0(1e-2),
@@ -467,7 +467,7 @@ std::pair<std::vector<std::vector<double>>, std::vector<bool>> MO_KINETICS::solv
     return {X_array, is_saturated_array};
 }
 
-// todo_meta_const
+
 std::vector<std::vector<double>> MO_KINETICS::solve(const double P, const double T, const double t_min, const double t_max,
     const int n_t, const int n_span, const bool debug, const std::vector<double> X_ini, const bool is_saturated_ini) {
     

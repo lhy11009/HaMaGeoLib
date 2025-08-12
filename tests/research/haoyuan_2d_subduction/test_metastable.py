@@ -874,7 +874,7 @@ def test_solve_values_low_T():
     actual_row = results[10, :]
     assert np.allclose(actual_row, expected_row, rtol=1e-6), f"Row 10 mismatch: {actual_row} != {expected_row}"
 
-# todo_surface
+
 def test_solve_profile():
     '''
     Test solution along a slab internal profile

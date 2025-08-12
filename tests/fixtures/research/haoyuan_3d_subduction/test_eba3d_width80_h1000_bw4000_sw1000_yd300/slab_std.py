@@ -406,7 +406,7 @@ def add_plot(_source, field, **kwargs):
     use_log = kwargs.get("use_log", False)
     lim = kwargs.get("lim", None)
     _color = kwargs.get("color", None)
-    # todo_density
+    
     invert = kwargs.get("invert", False)
 
     # get active source.
@@ -1271,7 +1271,7 @@ class SLAB(PARAVIEW_PLOT):
         HideScalarBarIfNotNeeded(fieldVLUT, renderView1)
 
     def plot_iso_volume_visc_center(self):
-        # todo_iv
+        
         # get active view and source
         renderView1 = GetActiveViewOrCreate('RenderView')
 
@@ -1479,7 +1479,7 @@ def main():
                 if "box" == "box":
                     if RUN_FULL_SCRIPT:
                         # Slab.plot_step()
-                        # todo_iv
+                        
                         Slab.plot_iso_volume_visc_center()
                         Slab.plot_slab_slice("slice_trench_center_y")
                         Slab.plot_slab_slice("slice_trench_center_y", where="edge")

@@ -668,7 +668,7 @@ class MO_KINETICS:
         X_ini_nl = X_ini / self.X_scale_array
 
         # compute saturation condition for s 
-        # todo_s_saturation
+        
         s_saturation = calculate_sigma_s(I_array, Y_array, self.d0, kappa=self.kappa, D=self.D)
             
         if debug:

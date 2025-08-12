@@ -128,7 +128,7 @@ void test_nucleation_rate_scalar_inputs_big() {
     assert(std::abs(result - result_std) / result_std < 1e-6 && "Nucleation rate calculation failed!");
 }
 
-// todo_nu
+
 void test_nucleation_rate_surface_scalar_inputs() {
     // This test correlate to the test "test_nucleation_rate_scalar_inputs" in test_metastable.py
     double P = 1.5e10;   // Pressure in Pascals
@@ -473,7 +473,7 @@ void test_solve_values() {
 
 
 // test solve at a given P and T
-// todo_metastable
+
 void test_solve_values_un_derivative() {
     // This is correlated with "test_solve_values_un_derivative" test in the test_metastable.py
     // Define constants
@@ -729,7 +729,7 @@ void test_solve_values_test_aspect() {
     // This test is not related to python test, instead, it's used to benchmark values from aspect run time checks.
     // Define constants
     // outputs at line outputs 2017 in the test case
-    // todo_para
+    
     const double year = 365.0 * 24.0 * 3600.0; // Seconds in one year
     const double Coh = 150.0; // wt.ppm H2O
 

@@ -414,7 +414,7 @@ if generate_animation:
 
     for i in range(len(resampled_df["Time"].values)):
         
-        # todo_cbar
+        
         # # debug run step 0
         # if i > 0:
         #     break

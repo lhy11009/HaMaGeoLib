@@ -426,7 +426,7 @@ def run_2d_subduction_visualization(local_dir, config):
     rotation_plus = config["rotation_plus"]
     additional_fields = config["additional_fields"]
     CaseOptions = config["CaseOptions"]
-    # todo_velo
+    
 
     # Determine ASPECT major version
     if re.match("^2", CaseOptions.aspect_version):

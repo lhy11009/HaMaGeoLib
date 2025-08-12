@@ -69,7 +69,7 @@ class CASE_OPTIONS:
         Args:
             case_dir (str): The directory of the case.
         """
-        # todo_animate
+        
         # Validate and set case directory
         self.case_dir = case_dir
         my_assert(os.path.isdir(self.case_dir), FileNotFoundError,
@@ -163,7 +163,7 @@ class CASE_OPTIONS:
             not_nan_indexes, non_nan_visualization_file_name, matched_series_list = \
                 filter_and_match(statistic_visualization_file_name, statistic_time, statistic_timestep)
 
-            # todo_mow
+            
             data = {
                 "Vtu step": np.arange(0, matched_series_list[1].values.size, dtype=int) if matched_series_list else [],
                 "Index": not_nan_indexes,
@@ -188,7 +188,7 @@ class CASE_OPTIONS:
         ofile (str): if this provided, output the csv summary
         '''
         my_assert(self.options != {}, ValueError, "The Case needs to be interpreted first")
-        # todo_data
+        
         # Get a summary of case status
         initial_adaptive_refinement = int(self.options['INITIAL_ADAPTIVE_REFINEMENT'])
         Time = self.visualization_df["Time"].iloc[initial_adaptive_refinement:]
@@ -331,7 +331,7 @@ class CASE_OPTIONS:
             self.options['GRAPHICAL_TIME_STEPS'] = [self.summary_df.loc[row_idx, "Time step number"]]
 
         # reserve some addition options
-        # todo_mow
+        
         for i in range(100):
             key = "FOO%02d" % i
             self.options[key] = 0
@@ -757,7 +757,7 @@ def parse_log_file_for_visualization_snapshots(log_file_path, output_path, **kwa
         print(f"Error:\n", completed_process.stderr)  # Debug: show the captured output
 
 
-# todo_animate
+
 def parse_case_log(case_dir, **kwargs):
     """
     Parses a case directory's log file to extract and process visualization snapshot data.
@@ -844,7 +844,7 @@ def filter_and_match(series1, *args):
 
     return not_nan_indexes, non_nan_first, matched_series_list
 
-# todo_animate
+
 def resample_time_series_df(target_df, time_interval, time_column="Time"):
     """
     Resamples the DataFrame based on a given time interval from the "Time" column.
@@ -925,7 +925,7 @@ class ModelConfigManager:
         with open(output_path, "w") as fout:
             save_parameters_from_dict(fout, self.config)
 
-# todo_data
+
 class SimulationStatus:
     def __init__(self, initial_data=None):
         """

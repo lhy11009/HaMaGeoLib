@@ -589,7 +589,7 @@ class PYVISTA_PROCESS_THD():
                 self.trench_center = self.trench_points[0, 0]
 
             # save trench points
-            # todo_3d_test
+            
             if file_type == "default":
                 point_cloud_tr = pv.PolyData(self.trench_points)
                 filename = "trench_%05d.vtp" % self.pvtu_step
@@ -629,7 +629,7 @@ class PYVISTA_PROCESS_THD():
                     self.additional_trench_center[i1] = self.additional_trench_points[i1][0, 0]
 
                 # save trench points
-                # todo_3d_test
+                
                 if file_type == "default":
                     point_cloud_tr = pv.PolyData(self.additional_trench_points[i1])
                     filename = "trench_d%.2fkm_%05d.vtp" % (tr_depth/1e3, self.pvtu_step)
@@ -1627,7 +1627,7 @@ def PlotCaseRunTwoD1(case_path, **kwargs):
     last_step = kwargs.get('last_step', 3)
     rotation_plus = kwargs.get("rotation_plus", 0.0)
     additional_options = kwargs.get("additional_options", {})
-    # todo_velo
+    
     print("%s: start" % func_name())
     # get case parameters
     prm_path = os.path.join(case_path, 'output', 'original.prm')

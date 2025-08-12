@@ -91,7 +91,7 @@ class RheologyModel:
         '''
         Return a set of rheology parameters with trivial values.
         '''
-        # todo_vary
+        
         # Initialize an object with NaN/default values
         trivial_rheology_params = self.RheologyParams(
             name=None,              # String fields set to None
@@ -149,7 +149,7 @@ class RheologyModel:
             rheology_params_variations (NamedTuple): Rheology parameters variations
             options (class CreepOptions): Options for creep rheology.
         '''
-        # todo_vary
+        
 
         rheology_params_new = rheology_params
         

@@ -115,7 +115,7 @@ def test_haoyuan_metastable_subduction_deactivated():
 #         "rotation_plus": rotation_plus,
 #         "additional_fields": [],
 #         "CaseOptions": CaseOptions
-#         # todo_velo
+#         
 #     }
 
 #     Visit_Options = run_2d_subduction_visualization(source_dir, config)

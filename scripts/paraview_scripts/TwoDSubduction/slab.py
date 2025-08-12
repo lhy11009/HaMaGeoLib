@@ -22,7 +22,7 @@
 # outer radius
 #   OUTER_RADIUS
 
-# todo_cv
+
 class SLAB(PARAVIEW_PLOT):
     '''
     Inherit frome PARAVIEW_PLOT
@@ -49,11 +49,11 @@ class SLAB(PARAVIEW_PLOT):
         self.eta_max = ETA_MAX
         self.T_min = 273.0
         self.T_max = 2273.0
-        # todo_density
+        
         self.density_min = 3000.0
         self.density_max = 4000.0
         self.camera_dict['twod_upper_mantle'] = [[0.0, 6e6, 2.5e7],[0.0, 6e6, 0.0], 5.4e5, None]
-        # todo_Vres
+        
         add_velocity_residual("solution.pvd", registrationName="pFilter_Vres")
         
         # add rotation 
@@ -322,7 +322,7 @@ class SLAB(PARAVIEW_PLOT):
         SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
         ExportView(fig_path, view=renderView1)
 
-        # todo_density
+        
         # Plot the third scalar field (viscosity) and configure settings.
         field3 = "density"
         ColorBy(source1Display, ('POINTS', field3, 'Magnitude'))
@@ -1907,7 +1907,7 @@ class SLAB(PARAVIEW_PLOT):
         SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
         ExportView(fig_path, view=renderView1)
 
-        # todo_field2 
+        
         # Plot field2
         # Get color transfer function for field2
         field2LUT = GetColorTransferFunction(field2)
@@ -2104,7 +2104,7 @@ def add_glyph1(_source, field, scale_factor, **kwargs):
     # update the view to ensure updated data information
     renderView1.Update()
 
-# todo_dd
+
 def add_deformation_mechanism(_source, **kwargs):
     '''
     add programable filter to deal with the deformation mechanism
@@ -2139,7 +2139,7 @@ output.PointData.append(d_mech, "deformation_mechanism")
     programmableFilter1.RequestUpdateExtentScript = ''
     programmableFilter1.PythonPath = ''
 
-# todo_Vres
+
 def add_velocity_residual(_source, **kwargs):
     '''
     add programable filter to deal with the deformation mechanism
