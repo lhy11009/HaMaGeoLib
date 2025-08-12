@@ -1820,7 +1820,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
         start = time.time()
         
         grid_slab_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
-
         cell_data_P_eq =  (grid_slab_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
         mask = np.flatnonzero(grid_slab_metastable.cell_data['p'] > cell_data_P_eq)
         grid_slab_metastable = grid_slab_metastable.extract_cells(mask)
@@ -1830,13 +1829,13 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
         else:
             sized = grid_slab_metastable.compute_cell_sizes(length=False, area=True, volume=False)
             metastable_area = float(sized.cell_data["Area"].sum())
+            filename = "metastable_region_%05d.vtu" % pvtu_step
+            filepath = os.path.join(pyvista_outdir, filename)
+            grid_slab_metastable.save(filepath)
+            print("Save file %s" % filepath)
+
         output_dict["metastable_area"] = metastable_area
     
-        filename = "metastable_region_%05d.vtu" % pvtu_step
-        filepath = os.path.join(pyvista_outdir, filename)
-        grid_slab_metastable.save(filepath)
-        print("Save file %s" % filepath)
-
         end = time.time()
         print("%s: Compute metastable area takes %.1f s" % (func_name(), end - start))
 
