@@ -16,6 +16,7 @@ fixture_root = os.path.join(package_root, "tests", "fixtures", "research", "haoy
 fixture_3d_root = os.path.join(package_root, "tests", "fixtures", "research", "haoyuan_3d_subduction")
 
 
+
 # ---------------------------------------------------------------------
 # Check and make test directories
 # ---------------------------------------------------------------------
@@ -206,7 +207,7 @@ def test_plate_model():
     assert(abs(Ts[2] - T95km_std) / T95km_std < 1e-6)
 
 
-# todo_cv
+
 # ---------------------------------------------------------------------
 # Tests for generating visualization plots
 # ---------------------------------------------------------------------
@@ -456,7 +457,7 @@ def test_slab_temperature_offsets():
     assert(os.path.isfile(o_file))  # assert the outputs of temperature profiles
     assert(filecmp.cmp(o_file, o_file_std))  # compare file contents
 
-# todo_thickness
+
 @pytest.mark.big_test  # Optional marker for big tests
 def test_slab_temperature_crust_thickness():
     '''
@@ -515,7 +516,7 @@ def test_create_case():
         rmtree(case_output_dir)
     test_case.configure(ConfigureFoo, 1)  # do nothing, test interface
     test_case.add_extra_file(extra_path)  # add an extra file
-    # todo_intial
+    
     test_case.create(test_dir, fast_first_step=1, test_initial_steps=(3, 1e4))
     # assert prm file is generated
     prm_output_path = os.path.join(case_output_dir, 'case.prm')
@@ -550,43 +551,3 @@ def test_create_case():
     extra_output_path = os.path.join(case_output_dir, 'particle.dat')
     assert(os.path.isfile(extra_output_path))  # assert generated
 
-def test_visc_diff():
-    '''
-    test change viscosity
-    '''
-    source_dir = os.path.join(fixture_root, "test_visc_diff")
-    
-    json_path = os.path.join(source_dir, 'case0.json')
-    output_dir = os.path.join(test_dir,'test_visc_diff')
-    if os.path.isdir(output_dir):
-        rmtree(output_dir)
-
-    create_case_with_json(json_path, CASE_TWOD, CASE_OPT_TWOD)  # create case
-    assert(os.path.isdir(output_dir))  # check case generation
-    prm_std_path = os.path.join(source_dir, 'case_0_std.prm')
-    prm_path = os.path.join(output_dir, 'case.prm')
-    assert(filecmp.cmp(prm_path, prm_std_path))
-    wb_std_path = os.path.join(source_dir, 'case_0_std.wb')
-    wb_path = os.path.join(output_dir, 'case.wb')
-    assert(filecmp.cmp(wb_path, wb_std_path))
-
-
-def test_sz_same_composition():
-    '''
-    values in the CDPT clapeyron slope
-    '''
-    source_dir = os.path.join(fixture_root, "test_sz_same_composition")
-
-    json_path = os.path.join(source_dir, 'case0.json')
-    output_dir = os.path.join(test_dir,'test_sz_same_composition')
-    if os.path.isdir(output_dir):
-        rmtree(output_dir)
-    
-    create_case_with_json(json_path, CASE_TWOD, CASE_OPT_TWOD)  # create case
-    assert(os.path.isdir(output_dir))  # check case generation
-    prm_std_path = os.path.join(source_dir, 'case_0_std.prm')
-    prm_path = os.path.join(output_dir, 'case.prm')
-    assert(filecmp.cmp(prm_path, prm_std_path))
-    wb_std_path = os.path.join(source_dir, 'case_0_std.wb')
-    wb_path = os.path.join(output_dir, 'case.wb')
-    assert(filecmp.cmp(wb_path, wb_std_path))

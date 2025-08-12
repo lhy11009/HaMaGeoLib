@@ -1,4 +1,4 @@
-# todo_data
+
 import os
 import numpy as np
 import pandas as pd
@@ -73,7 +73,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
                 ov_age = ov_plate_feature["temperature models"][0]["plate age"]
             self.options['ROTATION_ANGLE'] = 0.0
         elif self.options["GEOMETRY"] == "chunk":
-            # todo_3d_chunk
+            
             # in chunk geometry, the coordinate is read in as the latitude, and it's in
             # degree
             Ro = float(self.idict["Geometry model"]["Chunk"]["Chunk outer radius"])
@@ -223,7 +223,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             if col not in self.summary_df.columns:
                 self.summary_df[col] = np.nan
 
-# todo_visual
+
 class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
 
     def __init__(self, case_dir):
@@ -320,7 +320,7 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             sp_age = -1.0
             ov_age = -1.0
             try:
-                # todo_ptable
+                
                 index = FindWBFeatures(self.wb_dict, 'Subducting plate')
                 index1 = FindWBFeatures(self.wb_dict, "Overiding plate")
                 feature_sp = self.wb_dict['features'][index]

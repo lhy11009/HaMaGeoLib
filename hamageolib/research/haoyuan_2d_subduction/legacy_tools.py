@@ -739,7 +739,7 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         # self.options['IF_DEFORM_MECHANISM'] = value.get('deform_mechanism', 0)
         self.options['IF_DEFORM_MECHANISM'] = 1
         # crustal layers
-        # todo_2l
+        
         is_crust_2l = False
         composition_fields = []
         temp_list = self.idict['Compositional fields']['Names of fields'].split(",")
@@ -777,7 +777,7 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             sp_age = -1.0
             ov_age = -1.0
             try:
-                # todo_ptable
+                
                 index = find_wb_feature(self.wb_dict, 'Subducting plate')
                 index1 = find_wb_feature(self.wb_dict, "Overiding plate")
                 feature_sp = self.wb_dict['features'][index]
@@ -847,7 +847,7 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             self.options["SHEAR_ZONE_CUTOFF_DEPTH"] = -1.0
         #  the shear zone constant viscosity is calculated from the prefactor of spcrust
         A_diff_inputs = COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Prefactors for diffusion creep'])
-        # todo_2l
+        
         if is_crust_2l:
             self.options["N_CRUST"] = 2
             self.options["SHEAR_ZONE_CONSTANT_VISCOSITY"] = 1.0 / 2.0 / A_diff_inputs.data['spcrust_up'][0] # use phases
@@ -1174,7 +1174,7 @@ class LINEARPLOT():
             raise FileExistsError("%s cannot be read." % _filename)
         with warnings.catch_warnings(record=True) as w:
             if dtype == float:
-                # todo_fdata
+                
                 self.data = np.genfromtxt(_filename, comments='#', filling_values=0.0)
             elif dtype == str:
                 self.data = np.loadtxt(_filename, comments='#', dtype=str)
@@ -2903,7 +2903,7 @@ def InterpolateVtu(Visit_Options, filein, spacing, fields, target_points_np, **k
     o_poly_data, points_found, interpolated_data = VtkP.InterpolateSplitSpacing(target_points_np, **kwargs)
     return o_poly_data, points_found, interpolated_data
 
-# todo_export
+
 def ExportPointGridFromPolyData(i_poly_data, ids, output_xy=False):
     '''
     export point grid from a given vtk poly data by the indexed
@@ -3019,7 +3019,7 @@ def ExportPolyDataAscii(poly_data, field_names, file_out):
         fout.write(output)
     print("\tWrite ascii data file: %s" % file_out)
 
-# todo_vtp
+
 def ExportPolyDataFromRaw(Xs, Ys, Zs, Fs, fileout, **kwargs):
     '''
     Export poly data from raw data
@@ -3663,7 +3663,7 @@ class VTKP(VTKP_BASE):
         slab_field = OperateDataArrays(cell_point_data, slab_field_names,\
         [0 for i in range(len(slab_field_names) - 1)])
         crust_field = None  # store the field of crust composition
-        # todo_field
+        
         if prepare_moho is not None:
             # convert to list
             if isinstance(prepare_moho, str):
@@ -4816,7 +4816,7 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     mdd = -1.0 # an initial value
     print("%s%s: Start" % (indent*" ", func_name()))
     output_slab = kwargs.get('output_slab', None)
-    # todo_crust
+    
     n_crust = kwargs.get("n_crust", 1)
     if n_crust == 1:
         crust_fields = ['spcrust']
@@ -4911,7 +4911,7 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
             print("%s%s: write file %s" % (indent*" ", func_name(), o_slab_env1))
             np.savetxt(o_slab_in, slab_internal)
             print("%s%s: write file %s" % (indent*" ", func_name(), o_slab_in))
-        # todo_o_env
+        
         if output_slab == "txt":
             o_slab_env =  os.path.join(case_dir, \
                 "vtk_outputs", "slab_env_%05d.txt" % (vtu_step)) # envelop 1
@@ -5219,7 +5219,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     VtkP = VTKP(time=_time, slab_envelop_interval=slab_envelop_interval, slab_shallow_cutoff=slab_shallow_cutoff)
     VtkP.ReadFile(filein)
     # fields to load
-    # todo_field
+    
     if n_crust == 1:
         crust_fields = ['spcrust']
     elif n_crust == 2:
@@ -5663,7 +5663,7 @@ def PlotSlabTemperatureCase(case_dir, **kwargs):
     # plot
     fig, ax = plt.subplots()
     MorphPlotter = SLABPLOT("plot_slab")
-    # todo_eclogite
+    
     if plot_eclogite:
         MorphPlotter.PlotEclogite(axis=ax)
     MorphPlotter.PlotSlabTCase(case_dir, axis=ax, label='slab temperature', xlims=[273.0, 1673.0], ylims=[25e3, 250e3], time_range=time_range)
@@ -5721,7 +5721,7 @@ def SlabTemperatureCase(case_dir, **kwargs):
     if not os.path.isdir(vtk_output_dir):
         os.mkdir(vtk_output_dir)
 
-    # todo_T
+    
     # process the slab temperature
     options = {}
     options["if_rewrite"] = True
@@ -5761,12 +5761,12 @@ def SlabMorphologyCaseTwoD(case_dir, **kwargs):
             project_velocity - whether the velocity is projected to the tangential direction
             file_tag - apply a tag to file name, default is false
     '''
-    # todo_o_env
+    
     findmdd = kwargs.get('findmdd', False)
     findmdd_tolerance = kwargs.get('findmdd_tolerance', 0.05)
     project_velocity = kwargs.get('project_velocity', False)
     find_shallow_trench = kwargs.get("find_shallow_trench", False)
-    # todo_parallel
+    
     use_parallel = kwargs.get('use_parallel', False)
     file_tag = kwargs.get('file_tag', False)
     output_ov_ath_profile = kwargs.get('output_ov_ath_profile', False)
@@ -6554,7 +6554,7 @@ class SLABPLOT(LINEARPLOT):
             ax.set_xlim((time_range[0]/1e6, time_range[1]/1e6))  # set x limit
         # plot the velocity
         ax = fig.add_subplot(gs[3, 0])
-        # todo_2dmorph
+        
         vlim_for_ath = kwargs.get("vlim_for_ath", None)
         v_min = np.floor(velocity_h_mesh.min()*100.0 / 5.0) * 5.0
         v_max = np.ceil(velocity_h_mesh.max()*100.0 / 5.0) * 5.0
@@ -6725,7 +6725,7 @@ class SLABPLOT(LINEARPLOT):
         ax.tick_params(axis='x', which='both', direction='in', labelbottom=False)
         # plot the velocity
         ax = fig.add_subplot(gs[2, 0])
-        # todo_2dmorph
+        
         vlim_for_ath = kwargs.get("vlim_for_ath", None)
         v_min = np.floor(velocity_h_mesh.min()*100.0 / 5.0) * 5.0
         v_max = np.ceil(velocity_h_mesh.max()*100.0 / 5.0) * 5.0
@@ -7219,7 +7219,7 @@ class SLABPLOT(LINEARPLOT):
         else:
             ax.set_xlabel("Temperature (K)")
 
-    # todo_eclogite
+    
     def PlotEclogite(self, **kwargs):
         '''
         Plot the temperature profile for a case by assembling results
@@ -8586,7 +8586,7 @@ def get_slab_dimensions_2(x, y, Ro, is_chunk):
     return r, w, l
 
 
-# todo_o_env
+
 def SlabEnvelopRetrivePoints(local_dir: str, _time: float, Visit_Options: object, depths: float, **kwargs: dict) -> tuple:
     '''
     Retrieves the point of the slab envelop at give depth
@@ -9129,7 +9129,7 @@ class RHEOLOGY_OPT(JSON_OPT):
         self.add_key("Differences in ratio of the prefactor for dislocation creep", float, ["dislocation prefactor difference ratio"], 1.0, nick='dA_disl_ratio')
         self.add_key("Differences of the activation energy for dislocation creep", float, ["dislocation activation energy difference"], 0.0, nick='dE_disl')
         self.add_key("Differences of the activation volume for dislocation creep", float, ["dislocation activation volume difference"], 0.0, nick='dV_disl')
-        # todo_r_json
+        
         self.add_key("Grain size in mu m", float, ["grain size"], 10000.0, nick='d')
         self.add_key("Coh in /10^6 Si", float, ["coh"], 1000.0, nick='coh')
         self.add_key("fh2o in MPa", float, ["fh2o"], -1.0, nick='fh2o')
@@ -9537,7 +9537,7 @@ class RHEOLOGY_PRM():
                 "V" : 10.6e-6                     # m^3/mol+/-1
             }
 
-        # todo_mineral
+        
         # Basalt rheology from Shelton and Tullis 1981 
         # and Hacker and Christie 1990
         # the diffusion creep of this rheology is missing
@@ -9728,7 +9728,7 @@ class RHEOLOGY_PRM():
                 "V" : 0.0  # not present in the table
         }
 
-        # todo_peierls 
+        
         self.MK10_peierls = \
         {
             'q': 1.0,
@@ -10204,7 +10204,7 @@ class RHEOLOGY_OPR():
         self.depths, self.pressures, self.temperatures = ReadAspectProfile(file_path, interp=3000)
 
 
-    # todo_HK03
+    
     def VaryWithStress(self, P, T, d, Coh, stress_range, **kwargs):
         '''
         With a set of variables, compare to the data points reported
@@ -12095,7 +12095,7 @@ class STRENGTH_PROFILE(RHEOLOGY_OPR):
         self.Zs = None
         self.Etas = None
         self.Computed = False
-        # todo_peierls
+        
         self.peierls_type = None
         self.max_depth = kwargs.get('max_depth', 80e3)
         self.T_type = kwargs.get("T_type", "hpc")
@@ -12969,19 +12969,8 @@ opcrust: 1e+31, opharz: 1e+31", \
             raise NotImplementedError()
 
         if version >= 3.0 and comp_method == "particle":
-            # fix the particle properties
-            particle_options = o_dict["Postprocess"]["Particles"]
-            particle_visualization_options = {}
-            particle_visualization_options["Data output format"] = particle_options.pop("Data output format")
-            particle_visualization_options["Time between data output"] = particle_options.pop("Time between data output")
-            o_dict["Postprocess"]["Particles"] = particle_visualization_options
-            n_particles = particle_options.pop("Number of particles")
-            particle_options["Generator"] = {"Random uniform": {"Number of particles": n_particles}}
-            o_dict["Particles"] = particle_options
-
-            o_dict["Particles"]["List of particle properties"] = "initial composition"
-            o_dict["Particles"]["Maximum particles per cell"] = "140"
-            o_dict["Particles"]["Integration scheme"] = "rk4"
+            # fix the particle properties for newer version
+            o_dict = fix_particles_new_version(o_dict)
 
         if include_meta:
             # expand composition fields
@@ -13229,6 +13218,27 @@ opcrust: 1e+31, opharz: 1e+31", \
                 # if not using the feature surface from the WorldBuilder, generate particles manually
                 self.particle_data = particle_positions_ef(geometry, Ro, trench, Dsz, ef_Dbury, p0, slab_lengths, slab_dips, interval=ef_particle_interval)
 
+def fix_particles_new_version(i_dict):
+    '''
+    fix the particle properties for newer version.
+    The idea is to move the Particles section outside from
+    the Postprocess section
+    '''
+    o_dict = deepcopy(i_dict)
+    particle_options = o_dict["Postprocess"]["Particles"]
+    particle_visualization_options = {}
+    particle_visualization_options["Data output format"] = particle_options.pop("Data output format")
+    particle_visualization_options["Time between data output"] = particle_options.pop("Time between data output")
+    o_dict["Postprocess"]["Particles"] = particle_visualization_options
+    n_particles = particle_options.pop("Number of particles")
+    particle_options["Generator"] = {"Random uniform": {"Number of particles": n_particles}}
+    o_dict["Particles"] = particle_options
+
+    o_dict["Particles"]["List of particle properties"] = "initial composition"
+    o_dict["Particles"]["Maximum particles per cell"] = "140"
+    o_dict["Particles"]["Integration scheme"] = "rk4"
+
+    return o_dict
 
 def change_field_to_particle(i_dict, **kwargs):
     '''
@@ -13291,10 +13301,12 @@ def change_field_to_particle(i_dict, **kwargs):
               + int(o_dict["Mesh refinement"]["Initial adaptive refinement"])
         if refinement_level == 7:
             pp_dict['Particles']["Number of particles"] = "1e6"
-        if refinement_level == 8:
+        elif refinement_level == 8:
             pp_dict['Particles']["Number of particles"] = "5e6"
-        if refinement_level == 9:
+        elif refinement_level == 9:
             pp_dict['Particles']["Number of particles"] = "2e7"
+        elif refinement_level == 10:
+            pp_dict['Particles']["Number of particles"] = "1e8"
         else:
             raise NotImplementedError()
 
@@ -15013,7 +15025,7 @@ def PlotCaseRunTwoD(case_path, **kwargs):
     max_velocity = kwargs.get('max_velocity', -1.0)
     plot_types = kwargs.get("plot_types", ["upper_mantle"])
     rotation_plus = kwargs.get("rotation_plus", 0.0)
-    # todo_velo
+    
     assert(visualization in ["paraview", "visit", "pygmt"])
     print("PlotCaseRunTwoD in TwoDSubduction0: operating")
     # get case parameters
@@ -15035,7 +15047,7 @@ def PlotCaseRunTwoD(case_path, **kwargs):
     Visit_Options = VISIT_OPTIONS_TWOD(case_path)
     Visit_Options.Interpret(**kwargs)
 
-    # todo_pexport
+    
     # generate scripts base on the method of plotting
     if visualization == 'visit':
         odir = os.path.join(case_path, 'visit_scripts')
@@ -15058,7 +15070,7 @@ def PlotCaseRunTwoD(case_path, **kwargs):
         paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'TwoDSubduction', py_script)
         paraview_script_base = os.path.join(SCRIPT_DIR, 'paraview_scripts', 'base.py')
         Visit_Options.read_contents(paraview_script_base, paraview_script)  # combine these two scripts
-        # todo_split
+        
         Visit_Options.substitute()
     elif visualization == 'pygmt':
         odir = os.path.join(case_path, 'pygmt_scripts')
@@ -15082,7 +15094,7 @@ def PlotCaseRunTwoD(case_path, **kwargs):
 
 
 
-# todo_Meta
+
 twod_default_wb_file = os.path.join(LEGACY_FILE_DIR, 'reference_TwoD', "case_twod_default.wb")
 class CASE_OPT_THD(CASE_OPT):
     '''
@@ -15211,6 +15223,15 @@ different age will be adjusted.",\
             assert(_type == "2d_consistent" and setup_method == '2d_consistent')
         if coarsen_side > 0:
             assert(_type == "2d_consistent")
+
+        # composition method 
+        comp_method = self.values[25] 
+        assert(comp_method in ["field", "particle"])
+
+        # metastable setting 
+        include_meta = self.values[self.start + 62]
+        if include_meta:
+            assert(comp_method == "particle")
 
     def reset_refinement(self, refinement_level):
         '''
@@ -15354,7 +15375,7 @@ different age will be adjusted.",\
         sp_age_trench = self.values[self.start+24]
         sp_rate = self.values[self.start+27] # method of seting up slabs
         trailing_length = self.values[self.start+6]
-        # todo_adjust
+        
         adjust_box_trailing_length = self.values[self.start+44]
         if adjust_box_trailing_length:
             adjust_trailing_length = trailing_length
@@ -15925,10 +15946,32 @@ class CASE_THD(CASE):
         else:
             raise ValueError("stokes_solver_type must be in [block AMG, block GMG].")
 
-        # version related features
+        # version related features: part 1
         if version >= 3.0:
             o_dict['Postprocess']["Visualization"]["List of output variables"] = 'material properties, error indicator, named additional outputs, strain rate, stress, principal stress'
             o_dict["Material model"]["Visco Plastic TwoD"]["Peierls strain rate residual tolerance"] = "1e-6"
+            if comp_method == "particle":
+                #fix the particle properties for newer version.
+                o_dict = fix_particles_new_version(o_dict)
+                            # fix the particle properties
+                particle_options = {"Minimum particles per cell": "33",
+                                    "Maximum particles per cell": "140",
+                                    "Load balancing strategy": "remove and add particles",
+                                    "Interpolation scheme": "cell average",
+                                    "Update ghost particles": "true",
+                                    "Particle generator name": "random uniform",
+                                    "List of particle properties": "initial composition",
+                                    "Allow cells without particles": "true",
+                                    "Generator": {
+                                        "Random uniform":{
+                                            "Number of particles": "5e7"
+                                        }
+                                    },
+                                    "Integration scheme": "rk4"
+                                    }
+                particle_visualization_options = {"Data output format": "vtu", "Time between data output": "0.1e6"}
+                o_dict["Particles"] = particle_options
+                o_dict["Postprocess"]["Particles"] = particle_visualization_options
 
         # metastable related features
         if include_meta:
@@ -15937,9 +15980,8 @@ class CASE_THD(CASE):
             o_dict = expand_multi_composition_composition_field(o_dict, 'ov_upper', ["ov_upper", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
             o_dict["Compositional fields"]["Mapped particle properties"] = \
                   "sp_upper:initial sp_upper, sp_lower:initial sp_lower, plate_edge:initial plate_edge, ov_upper:initial ov_upper, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
-            # todo_meta
-            # change Compositional field methods to particles
             
+            # change Compositional field methods to particles
             # initial composition fields
             o_dict["Initial composition model"]["List of model names"] += ", metastable"
             o_dict["Initial composition model"]["List of model operators"] = "add"
@@ -15956,25 +15998,8 @@ class CASE_THD(CASE):
             material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, sp_upper: 0.0, sp_lower: 0.0, plate_edge: 0.0, ov_upper: 0.0"
             o_dict["Material model"] = material_model
 
-            # fix the particle properties
-            particle_options = {"Minimum particles per cell": "33",
-                                "Maximum particles per cell": "140",
-                                "Load balancing strategy": "remove and add particles",
-                                "Interpolation scheme": "cell average",
-                                "Update ghost particles": "true",
-                                "Particle generator name": "random uniform",
-                                "List of particle properties": "initial composition, metastable",
-                                "Allow cells without particles": "true",
-                                "Generator": {
-                                    "Random uniform":{
-                                        "Number of particles": "5e7"
-                                    }
-                                },
-                                "Integration scheme": "rk4"
-                                }
-            particle_visualization_options = {"Data output format": "vtu", "Time between data output": "0.1e6"}
-            o_dict["Particles"] = particle_options
-            o_dict["Postprocess"]["Particles"] = particle_visualization_options
+            # change the particles
+            o_dict["Particles"]["List of particle properties"] = "initial composition, metastable"
 
         self.idict = o_dict
         pass
@@ -16576,7 +16601,7 @@ def wb_configure_plate_2d_consistent_2_chunk(wb_dict, sp_width, sp_rate, Dsz, sl
     
     return o_dict
 
-# todo_ov
+
 def wb_configure_plate_2d_consistent_3(wb_dict, sp_width, sp_rate, Dsz, slab_length,\
     dip_angle, sp_age_trench, ov_age, wb_new_ridge, assign_side_plate, if_ov_trans, ov_trans_age,\
     ov_trans_length, sp_ridge_x, ov_side_dist, box_length, **kwargs):
@@ -17040,7 +17065,7 @@ def consistent_2d_assign_mantle_rheology(o_dict, rheology, **kwargs):
 #     return o_feature, ov
 
 
-# todo_ov
+
 def wb_configure_transit_ov_plates_1(i_feature, trench, ov_age,\
     ov_trans_age, ov_trans_length, wb_new_ridge, sp_width, **kwargs):
     '''
@@ -17203,7 +17228,7 @@ def PeierlsCreepStress(creep, strain_rate, P, T, **kwargs):
             % (tolerance, difference))
     return stress
 
-# todo_peierls
+
 def PeierlsCreepRheology(creep, strain_rate, P, T, **kwargs):
     """
     Calculate stress by inverting the flow law in form of 
@@ -17527,7 +17552,7 @@ class CASE_SUMMARY():
             self.includes += [1 for i in range(self.n_case - len(self.includes))]
         # update step, time and wallclock time
         for i in range(self.n_case):
-            # todo_time
+            
             step, _time, wallclock = -1, -1.0, -1.0
             # log_file = os.path.join(self.ab_paths[i], 'output', 'log.txt')
             # if os.path.isfile(log_file):
@@ -17936,7 +17961,7 @@ class CASE_SUMMARY():
         else:
             print("%s: File already exists %s" % (func_name(), o_path))
 
-    # todo_export 
+    
     def export_to_latex_table(self, fout, attrs_to_output, headers):
         '''
         export summary results to a table in latex format
@@ -18034,7 +18059,7 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
 
         self.t660s = []
         self.attrs.append("t660s")
-        # todo_ssum
+        
         self.t800s = []
         self.attrs.append("t800s")
         self.t1000s = []
@@ -18067,7 +18092,7 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
         self.attrs.append("dip660s")
         self.include_Ps = []
         self.attrs.append("include_Ps")
-        # todo_check
+        
         self.data_avails = []
         self.attrs.append("data_avails")
 
@@ -18095,7 +18120,7 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
             for i in range(self.n_case):
                 self.update_t660(i)
         
-        # todo_ssum
+        
         if "t800" in actions:
             # initiate these field
             self.t800s = [-1 for i in range(self.n_case)]
@@ -18168,14 +18193,14 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
             else:
                 pass
         
-        # todo_check
+        
         # check existance of data
         if "data_avail" in actions:
             self.data_avails = [False for i in range(self.n_case)]
             for i in range(self.n_case):
                 self.check_data(i)
 
-    # todo_diagram
+    
     def generate_py_scripts(self):
         '''
         generate py script to generate missing slab_morph.txt files
@@ -18218,7 +18243,7 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
         my_assert(os.path.isdir(case_dir), FileExistsError, "Directory doesn't exist %s" % case_dir)
         # use the SLABPLOT class to read the slab_morph.txt file
         # and get the t660
-        # todo_fdata
+        
         SlabPlot = SLABPLOT('foo')
         try:
             t660 = SlabPlot.GetTimeDepthTip(case_dir, 660e3, filename="slab_morph_t1.00e+05.txt")
@@ -18226,7 +18251,7 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
             t660 = -1.0
         self.t660s[i] = t660
     
-    # todo_ssum
+    
     def update_t800(self, i):
         '''
         update t800
@@ -18379,7 +18404,7 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
         '''
         self.dip660s[i] = dip660
 
-    # todo_check
+    
     def check_data(self, i):
         '''
         update data existance

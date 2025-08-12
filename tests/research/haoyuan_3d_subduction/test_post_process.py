@@ -37,7 +37,7 @@ def test_pyvista_process_thd_chunk():
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(0.8)
     # extract slab surface
-    # todo_3d_test
+    
     PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt", extract_trench_at_additional_depths=[50e3])
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
@@ -154,7 +154,7 @@ def test_pyvista_process_thd_box():
     assert(os.path.isfile(trench_file))
     assert(filecmp.cmp(trench_file, trench_file_std))
 
-# todo_2d_visual
+
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_twod_chunk():
     # test processing the 2d case

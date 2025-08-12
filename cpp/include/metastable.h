@@ -99,7 +99,7 @@ public:
     solveModifiedEquation(const std::pair<double, double>& t_span, const std::vector<double>& X_ini, 
                          bool is_saturated, int n_span = 10, bool debug = false);
 
-    // todo_meta_const
+    
     std::vector<std::vector<double>> 
     solve(const double P, const double T, const double t_min, const double t_max, const int n_t,
         const int n_span, const bool debug = false, const std::vector<double> X_ini = {0.0, 0.0, 0.0, 0.0},

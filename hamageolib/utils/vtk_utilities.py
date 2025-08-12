@@ -126,7 +126,7 @@ def estimate_memory_usage(u_grid):
     return total_memory_mb
 
 
-# todo_slab
+
 def vtk_extract_comp(u_grid, *field_names, **kwargs):
     """
     Extracts the composition shape based on sum of multiple composition markers in a vtkUnstructuredGrid.

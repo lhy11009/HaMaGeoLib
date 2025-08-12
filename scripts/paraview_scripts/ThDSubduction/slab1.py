@@ -448,7 +448,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         ColorBy(contourEqDisplay, None)
         contourEqDisplay.LineWidth = 2.0
         contourEqDisplay.Ambient = 1.0
-        # todo_mow
+        
         if FOO00 == 0:
             # default: turn off plot
             Hide(contourEq, renderView1)

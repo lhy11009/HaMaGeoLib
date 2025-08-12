@@ -406,7 +406,7 @@ def add_plot(_source, field, **kwargs):
     use_log = kwargs.get("use_log", False)
     lim = kwargs.get("lim", None)
     _color = kwargs.get("color", None)
-    # todo_density
+    
     invert = kwargs.get("invert", False)
 
     # get active source.

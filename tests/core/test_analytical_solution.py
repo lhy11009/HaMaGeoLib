@@ -18,7 +18,7 @@ from hamageolib.core.AnalyticalSolution import *
     
 year = 365 * 24 * 3600.0 # s in year
 
-# todo_smooth
+
 def test_wk2004_default():
     '''
     Test the default variable values in England & Wilkins 2004
@@ -55,7 +55,7 @@ def test_wk2004_default():
     pass
 
 
-# todo_EW
+
 def test_wk2004_bd_temperature():
     '''
     Test calculation of temperature within slab surface boundary layer

@@ -812,7 +812,7 @@ class SLAB(PARAVIEW_PLOT):
         HideScalarBarIfNotNeeded(fieldVLUT, renderView1)
 
     def plot_iso_volume_visc_center(self):
-        # todo_iv
+        
         # get active view and source
         renderView1 = GetActiveViewOrCreate('RenderView')
 
@@ -1020,7 +1020,7 @@ def main():
                 if "GEOMETRY" == "box":
                     if RUN_FULL_SCRIPT:
                         # Slab.plot_step()
-                        # todo_iv
+                        
                         Slab.plot_iso_volume_visc_center()
                         Slab.plot_slab_slice("slice_trench_center_y")
                         Slab.plot_slab_slice("slice_trench_center_y", where="edge")

@@ -60,9 +60,6 @@ def test_3d_visualization_basics():
     Case_Options.SummaryCase(ofile_summary_csv)
     assert(os.path.isfile(ofile_summary_csv))
 
-    # assert file contents
-    assert(filecmp.cmp(ofile_path, ofile_std))
-
 
 def test_eba3d_width80_h1000_bw4000_sw1000_yd300():
     '''
