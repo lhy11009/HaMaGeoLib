@@ -25,7 +25,6 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_TWOD1):
          self.options["P_PT_EQ"] = 1.34829e+10
          self.options["T_PT_EQ"] = metastable_dict.get("Phase transition temperature", 1740.0)
 
-   # todo_mow_summary
    def SummaryCaseVtuStep(self, ifile=None):
         '''
         Summary case result
@@ -34,7 +33,9 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_TWOD1):
         CASE_OPTIONS_TWOD1.SummaryCaseVtuStep(self, ifile)
 
         # Add new columns you want to add
-        new_columns = ["Mow area"]
+        # Mow area - metastable area
+        # Mow area code - metastable area in cold slab
+        new_columns = ["Mow area", "Mow area cold"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:

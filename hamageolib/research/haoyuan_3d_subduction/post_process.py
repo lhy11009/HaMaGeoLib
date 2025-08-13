@@ -55,7 +55,10 @@ class PYVISTA_PROCESS_THD():
         pe_edge_points (np.ndarray): Extracted (x, y, z) coordinates of plate edge surface.
     """
 
-    def __init__(self, config, **kwargs):
+    def __init__(self, data_dir, config, **kwargs):
+        # data_directory
+        self.data_dir = data_dir
+
         # Required settings and geometry assumption
         self.geometry = config["geometry"]
         self.Max0 = config["Max0"]
@@ -65,29 +68,39 @@ class PYVISTA_PROCESS_THD():
         self.Max2 = config["Max2"]
         self.Min2 = 0.0
         self.time = config["time"]
-        self.pyvista_outdir = kwargs.get("pyvista_outdir", ".")
+        
+        # additional settings
+        self.pyvista_outdir = kwargs.get("pyvista_outdir", os.path.join(self.data_dir, "..", "pyvista_outputs"))
+        if not os.path.isdir(self.pyvista_outdir):
+            os.mkdir(self.pyvista_outdir)
         self.clip = kwargs.get("clip", None)
+        self.n_pieces = kwargs.get("n_pieces", None)
+        if self.n_pieces is not None:
+            my_assert(isinstance(self.n_pieces, int) and self.n_pieces > 0, TypeError, "n_pieces must be positive integar")
+        
+        # Initialize global variables 
+        self.pvtu_step = None
+        self.grid = None
 
         # Initialize runtime variables
-        self.pvtu_step = None
-        self.pvtu_filepath = None
-        self.grid = None
-        self.iso_volume_upper = None
-        self.iso_volume_lower = None
-        self.iso_volume_lower_filtered_pe = None
-        self.iso_plate_edge = None
-        self.slab_surface_points = None
-        self.pe_edge_points = None
+        # We use the "combined" dict to append piecewise outputs into lists
+        # and then merged to class attributes one by one
+        self.keys = ["sliced", "sliced_u", "sliced_shell", "sliced_depth", "iso_volume_upper", "iso_volume_lower", "iso_volume_lower_filtered_pe",
+                     "iso_plate_edge", "slab_surface_points", "pe_edge_points", "trench_points", "additional_trench_points"]
+        self.combined = {}
+        for key in self.keys:
+            self.combined[key] = []
+        for key in self.keys:
+            setattr(self, key, None)
 
         # Initialize slab morphology variables
-        self.trench_points = None
+        # self.trench_points = None
         self.trench_center = None
         self.slab_depth = None
         self.dip_100_center = None
-        self.additional_trench_points = None
         self.additional_trench_center = None
 
-    def read(self, pvtu_step, pvtu_filepath):
+    def read(self, pvtu_step, **kwargs):
         """
         Read a .pvtu file and initialize the PyVista grid object.
 
@@ -102,11 +115,18 @@ class PYVISTA_PROCESS_THD():
         """
         start = time.time()
         self.pvtu_step = pvtu_step
-        self.pvtu_filepath = pvtu_filepath
-        my_assert(os.path.isfile(self.pvtu_filepath), FileNotFoundError, "File %s is not found" % self.pvtu_filepath)
+        piece = kwargs.get("piece", None)
+        if piece is None:
+            filepath = os.path.join(self.data_dir, "solution-%05d.pvtu" % self.pvtu_step)
+            my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
+        else:
+            filepath = os.path.join(self.data_dir, "solution-%05d.%04d.vtu" % (self.pvtu_step, piece))
+            my_assert(isinstance(piece, int) and piece >= 0, TypeError, "piece must be non-negative integar.")
+            my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
+        print("PYVISTA_PROCESS_THD:\n\tRead file %s" % (filepath))
 
         # read data
-        self.grid = pv.read(self.pvtu_filepath)
+        self.grid = pv.read(filepath)
 
         # append a "radius" field 
         points = self.grid.points
@@ -128,7 +148,75 @@ class PYVISTA_PROCESS_THD():
                 self.grid = clip_grid_by_xyz_range(self.grid, x_range=self.clip[2], y_range=self.clip[1], z_range=self.clip[0])
 
         end = time.time()
-        print("PYVISTA_PROCESS_THD: Read file takes %.1f s" % (end - start))
+        print("\ttakes %.1f s" % (end - start))
+
+    def process_piecewise(self, func_name, keys, **kwargs):
+        '''
+        Process the data piecewise. Put them into the dict of 
+        self.combined to be merged later
+        Inputs:
+            func_name - name of the member function
+            keys - key of the data structure
+        '''
+        # todo_piece
+        method = getattr(self, func_name)
+        kwargs["save_file"] = False
+        kwargs["update_attributes"] = False
+
+        outputs = method(**kwargs)
+        print("type(outputs): ", type(outputs)) # debug
+        if isinstance(outputs, tuple):
+            # multiple outputs
+            assert(len(outputs) == len(keys))
+            for i, key in enumerate(keys):
+                assert(isinstance(outputs[i], pv.DataSet))
+                self.combined[key].append(outputs[i])
+        elif isinstance(outputs, pv.DataSet):
+            # only one output
+            assert(len(keys)==1)
+            self.combined[keys[0]].append(outputs)
+        else:
+            raise TypeError("Return value from function " + str(method) + " should be either tuple or pyvista.DataSet")
+
+    def combine_pieces(self):
+        '''
+        Merge the pv objects in self.combined
+        '''
+        for key, value in self.combined.items():
+            if len(value) == 0:
+                merged = None
+            else:
+                merged = pv.merge(value, merge_points=True)
+            setattr(self, key, merged)
+    
+    def write_key_to_file(self, key, filename_base, filetype):
+        '''
+        Write a single class attribute to file
+        Inputs:
+            key - name of the class attribute
+            filename_base - basename of output file
+            filetype - type of the file
+        '''
+        target = getattr(self, key)
+        assert(target is not None)
+        self.write_object_to_file(target, filename_base, filetype)
+
+    
+    def write_object_to_file(self, target, filename_base, filetype):
+        '''
+        Write a single class object to file
+        Inputs:
+            target - the target to write
+            filename_base - basename of output file
+            filetype - type of the file
+        '''
+        assert(filetype in ["vtp", "vtu"])
+        filename = "%s_%05d.%s" % (filename_base, self.pvtu_step, filetype)
+        filepath = os.path.join(self.pyvista_outdir, filename)
+        target.save(filepath)
+        assert(os.path.isfile(filepath))
+        print("saved file %s" % filepath)
+
 
     def slice_center(self, **kwargs):
         """
@@ -139,7 +227,10 @@ class PYVISTA_PROCESS_THD():
             - Projects the 'velocity' field onto the plane.
             - Saves the resulting slice and velocity projection as a .vtp file.
         """
+        # Additional options
         boundary_range = kwargs.get("boundary_range", None)
+        save_file = kwargs.get("save_file", True)
+        update_attributes = kwargs.get("update_attributes", True)
 
         start = time.time()
         assert self.grid is not None
@@ -158,13 +249,6 @@ class PYVISTA_PROCESS_THD():
         V_proj = V - np.outer(dot_products, normal)
 
         sliced["velocity_slice"] = V_proj
-
-        # save the unbounded version
-        filename = "slice_center_unbounded_%05d.vtp" % self.pvtu_step
-        filepath = os.path.join(self.pyvista_outdir, filename)
-        sliced.save(filepath)
-
-        print("saved file %s" % filepath)
 
         # filter data with the given boundary
         if boundary_range is not None:
@@ -206,20 +290,24 @@ class PYVISTA_PROCESS_THD():
                 if np.any(~is_in_bounds[pt_ids]):
                     cell_mask[cid] = False
 
-
             sliced_u = sliced.extract_cells(cell_mask)
         else:
             sliced_u = sliced.cast_to_unstructured_grid()
 
-        filename = "slice_center_%05d.vtu" % self.pvtu_step
-        filepath = os.path.join(self.pyvista_outdir, filename)
-        sliced_u.save(filepath)
+        # update class attributes and save files
+        if update_attributes:
+            self.sliced = sliced
+            self.sliced_u = sliced_u
+        if save_file:
+            self.write_object_to_file(sliced, "slice_center_unbounded", "vtp")
+            self.write_object_to_file(sliced_u, "slice_center", "vtu")
 
-        print("saved file %s" % filepath)
         end = time.time()
-        print("PYVISTA_PROCESS_THD: slice_center takes %.1f s" % (end - start))
+        print("\tslice_center takes %.1f s" % (end - start))
 
-    def slice_surface(self):
+        return sliced, sliced_u
+    
+    def slice_surface(self, **kwargs):
         """
         Extract a thin shell at the planetary surface by thresholding radius.
 
@@ -229,29 +317,40 @@ class PYVISTA_PROCESS_THD():
             - Saves the result as a .vtk file.
         """
         start = time.time()
+
+        # Additional options 
+        save_file = kwargs.get("save_file", True)
+        update_attributes = kwargs.get("update_attributes", True)
+       
         indent = 4
 
         r_slice = self.Max0
         r_diff = 5e3
 
-        slice_shell = self.grid.threshold([r_slice - r_diff, r_slice + r_diff], scalars="radius")
+        sliced_shell = self.grid.threshold([r_slice - r_diff, r_slice + r_diff], scalars="radius")
 
         filename = "slice_outer_%05d.vtu" % self.pvtu_step
         filepath = os.path.join(self.pyvista_outdir, filename)
-        slice_shell.save(filepath)
+        sliced_shell.save(filepath)
 
-        print("%ssaved file: %s" % (indent * " ", filepath))
+        if update_attributes:
+            self.sliced_shell = sliced_shell
+        if save_file:
+            self.write_object_to_file(sliced_shell, "slice_outer", "vtu")
+
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: slice_surface takes %.1f s" % (indent * " ", end - start))
 
-    def slice_at_depth(self, depth, **kwargs):
+        return sliced_shell
+
+    def slice_at_depth(self, **kwargs):
         """
         Extract a horizontal shell at a specified depth below the surface.
 
         Parameters:
-            depth (float): Depth in meters from the planetary surface.
             kwargs:
                 r_diff: range of radius / z values to clip
+                depth (float): Depth in meters from the planetary surface.
 
         This method:
             - Applies a radius threshold around Ro - depth with ±10 km tolerance.
@@ -259,10 +358,15 @@ class PYVISTA_PROCESS_THD():
             - Saves the result as a .vtk file.
         """
         start = time.time()
+
+        # additional options 
+        save_file = kwargs.get("save_file", True)
+        update_attributes = kwargs.get("update_attributes", True)
         indent = 4
 
-        r_slice = self.Max0 - depth
         r_diff = kwargs.get("r_diff", 50e3)
+        depth = kwargs.get("depth", 200e3)
+        r_slice = self.Max0 - depth
 
         if self.geometry == 'chunk':
             slice_clip = self.grid.threshold([r_slice - r_diff, r_slice + r_diff], scalars="radius")
@@ -312,46 +416,47 @@ class PYVISTA_PROCESS_THD():
             tree = cKDTree(slice_clip.points)
             _, idx = tree.query(surface_points)
 
-            slice_at_depth = pv.UnstructuredGrid(cells, cell_types, surface_points)
-            slice_at_depth["velocity"] = slice_clip.point_data["velocity"][idx, :]
-            slice_at_depth["radius"] = slice_clip.point_data["radius"][idx]
+            sliced_depth = pv.UnstructuredGrid(cells, cell_types, surface_points)
+            sliced_depth["velocity"] = slice_clip.point_data["velocity"][idx, :]
+            sliced_depth["radius"] = slice_clip.point_data["radius"][idx]
 
             # take the clip as the slice
             # slice_at_depth = slice_clip
 
             # project the velocity
-            points = slice_at_depth.points
-            velocities = slice_at_depth.point_data["velocity"]
+            points = sliced_depth.points
+            velocities = sliced_depth.point_data["velocity"]
             radial_dirs = points / np.linalg.norm(points, axis=1)[:, np.newaxis]  # (N, 3)
 
             v_dot_r = np.sum(velocities * radial_dirs, axis=1)  # (N,)
             v_radial = (v_dot_r[:, np.newaxis]) * radial_dirs   # (N, 3)
             v_tangent = velocities - v_radial                   # (N, 3)
 
-            slice_at_depth.point_data["velocity_slice"] = v_tangent
-            filename = "slice_depth_%.1fkm_%05d.vtu" % (depth / 1e3, self.pvtu_step)
+            sliced_depth.point_data["velocity_slice"] = v_tangent
         else:
             origin = (0, 0, r_slice)
             normal = (0, 0, 1.0)
 
-            slice_at_depth = self.grid.slice(normal=normal, origin=origin, generate_triangles=True)
+            sliced_depth = self.grid.slice(normal=normal, origin=origin, generate_triangles=True)
 
-            V = slice_at_depth["velocity"]
+            V = sliced_depth["velocity"]
             dot_products = np.dot(V, normal)
             V_proj = V - np.outer(dot_products, normal)
 
-            slice_at_depth["velocity_slice"] = V_proj
-            filename = "slice_depth_%.1fkm_%05d.vtp" % (depth / 1e3, self.pvtu_step)
+            sliced_depth["velocity_slice"] = V_proj
 
-        # Export results
-        filepath = os.path.join(self.pyvista_outdir, filename)
-        slice_at_depth.save(filepath)
-        print("%ssaved file: %s" % (indent * " ", filepath))
+            sliced_depth = sliced_depth.cast_to_unstructured_grid()
+        
+        if update_attributes:
+            self.sliced_depth = sliced_depth
+        if save_file:
+            self.write_object_to_file(sliced_depth, "slice_depth_%.1fkm" % (depth/1e3), "vtu")
 
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: slice_at_depth takes %.1f s" % (indent * " ", end - start))
+        return sliced_depth
 
-    def extract_iso_volume_upper(self, threshold):
+    def extract_iso_volume_upper(self, **kwargs):
         """
         Extract the iso-volume of the 'sp_upper' composition field above a threshold.
 
@@ -366,18 +471,24 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
         indent = 4
 
-        self.iso_volume_upper = self.grid.threshold(value=threshold, scalars="sp_upper", invert=False)
+        # additional options 
+        save_file = kwargs.get("save_file", True)
+        update_attributes = kwargs.get("update_attributes", True)
+        threshold = kwargs.get("threshold", 0.8)
 
-        filename = "sp_upper_above_%.2f_%05d.vtu" % (threshold, self.pvtu_step)
-        filepath = os.path.join(self.pyvista_outdir, filename)
-        self.iso_volume_upper.save(filepath)
-        print("Save file %s" % filepath)
-
+        iso_volume_upper = self.grid.threshold(value=threshold, scalars="sp_upper", invert=False)
+        
+        if update_attributes:
+            self.iso_volume_upper = iso_volume_upper
+        if save_file:
+            self.write_object_to_file(iso_volume_upper, "sp_upper_above_%.2f" % (threshold), "vtu")
 
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
-    def extract_iso_volume_lower(self, threshold):
+        return iso_volume_upper
+
+    def extract_iso_volume_lower(self, **kwargs):
         """
         Extract the iso-volume of the 'sp_lower' composition field above a threshold.
 
@@ -391,28 +502,39 @@ class PYVISTA_PROCESS_THD():
         """
         start = time.time()
         indent = 4
+        
+        # additional options 
+        save_file = kwargs.get("save_file", True)
+        update_attributes = kwargs.get("update_attributes", True)
+        threshold = kwargs.get("threshold", 0.8)
 
         # Iso volume of slab lower composition
-        self.iso_volume_lower = self.grid.threshold(value=threshold, scalars="sp_lower", invert=False)
-        points = self.iso_volume_lower.points
-
-        filename = "sp_lower_above_%.2f_%05d.vtu" % (threshold, self.pvtu_step)
-        filepath = os.path.join(self.pyvista_outdir, filename)
-        self.iso_volume_lower.save(filepath)
-        print("Save file %s" % filepath)
-
-        # Get slab depth
-        if self.geometry == "chunk":
-            l0, _, _ = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
-        else:
-            l0 = points[:, 2]
-        print(points.shape) # debug
-        self.slab_depth = self.Max0 - np.min(l0)
+        iso_volume_lower = self.grid.threshold(value=threshold, scalars="sp_lower", invert=False)
+        
+        if update_attributes:
+            self.iso_volume_lower = iso_volume_lower
+        if save_file:
+            self.write_object_to_file(iso_volume_lower, "sp_lower_above_%.2f" % (threshold), "vtu")
         
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
-    def extract_plate_edge(self, threshold):
+        return iso_volume_lower
+
+    def get_slab_depth(self):
+        # Get slab depth
+        assert(self.iso_volume_lower is not None)
+        points = self.iso_volume_lower.points
+        if self.geometry == "chunk":
+            l0, _, _ = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
+        else:
+            l0 = points[:, 2]
+        slab_depth = self.Max0 - np.min(l0)
+        self.slab_depth  = slab_depth
+
+        return slab_depth
+
+    def extract_plate_edge(self, **kwargs):
         """
         Extract the iso-volume of the 'plate_edge' field above a threshold.
 
@@ -427,15 +549,22 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
         indent = 4
 
-        self.iso_plate_edge = self.grid.threshold(value=threshold, scalars="plate_edge", invert=False)
+        # additional options 
+        save_file = kwargs.get("save_file", True)
+        update_attributes = kwargs.get("update_attributes", True)
+        threshold = kwargs.get("threshold", 0.8)
 
-        filename = "plate_edge_above_%.2f_%05d.vtu" % (threshold, self.pvtu_step)
-        filepath = os.path.join(self.pyvista_outdir, filename)
-        self.iso_plate_edge.save(filepath)
-        print("Save file %s" % filepath)
+        iso_plate_edge = self.grid.threshold(value=threshold, scalars="plate_edge", invert=False)
+
+        if update_attributes:
+            self.iso_plate_edge = iso_plate_edge
+        if save_file:
+            self.write_object_to_file(iso_plate_edge, "plate_edge_above_%.2f" % (threshold), "vtu")
 
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
+
+        return iso_plate_edge
 
     def extract_slab_surface(self, field_name, **kwargs):
         """
@@ -1519,17 +1648,12 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     # output directory
     if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
         os.mkdir(os.path.join(case_path, "pyvista_outputs"))
-    pyvista_outdir = os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)
-    if not os.path.isdir(pyvista_outdir):
-        os.mkdir(pyvista_outdir)
 
     slice_depth = 200e3
     iso_volume_threshold = 0.8
 
     # initialize the class
     # fix the meaning of Max1 - latitude
-    config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2, "time": _time}
-
     if geometry == "chunk":
         l0_section = 1000e3
         l1_section = 10.0 * np.pi / 180.0
@@ -1553,7 +1677,9 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     boundary_range=[[clip_l0_min, clip_l0_max] , [clip_l1_min, clip_l1_max], [clip_l2_min, clip_l2_max]]
     
     # initiate PYVISTA_PROCESS_THD class
-    PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir, clip=clip)
+    config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2, "time": _time}
+    kwargs = {"clip": clip}
+    PprocessThD = PYVISTA_PROCESS_THD(os.path.join(case_path, "output", "solution"), config, **kwargs)
 
     # make domain boundary
     if geometry == "chunk":
@@ -1577,8 +1703,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         PprocessThD.create_cartesian_plane(660e3, boundary_range=boundary_range)
 
     # read vtu file
-    pvtu_filepath = os.path.join(case_path, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
-    PprocessThD.read(pvtu_step, pvtu_filepath)
+    PprocessThD.read(pvtu_step)
     # slice at center
     PprocessThD.slice_center()
     PprocessThD.slice_center(boundary_range=boundary_range)
@@ -1601,6 +1726,9 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     PprocessThD.filter_slab_lower_points()
     # extract slab surface using "sp_lower" composition
     PprocessThD.extract_slab_surface("sp_lower")
+
+    # todo_piece
+
     # extract outputs
     assert(PprocessThD.trench_center is not None)
     outputs["trench_center"] = PprocessThD.trench_center
@@ -1682,6 +1810,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
     _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
 
+    # constant values
+    # T_slab - value used to extract metastable region in cold slab
+    T_slab = 900 + 273.15 # K
     
     # output directory
     if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
@@ -1816,25 +1947,45 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     print("%s: Extract trench center takes %.1f s" % (func_name(), end - start))
     
     # Process the region of slab metastablility, compute the area and output a vtu file
+    # In addition, separately derive the area below a certain slab temperature (e.g 900 C)
     if Case_Options.options["MODEL_TYPE"] == "mow":
         start = time.time()
-        
-        grid_slab_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
-        cell_data_P_eq =  (grid_slab_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
-        mask = np.flatnonzero(grid_slab_metastable.cell_data['p'] > cell_data_P_eq)
-        grid_slab_metastable = grid_slab_metastable.extract_cells(mask)
 
-        if grid_slab_metastable.n_cells == 0:
+        # filter the grid base on cell data of "metastable"
+        grid_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
+        cell_data_P_eq =  (grid_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
+        mask = np.flatnonzero(grid_metastable.cell_data['p'] > cell_data_P_eq)
+        grid_metastable = grid_metastable.extract_cells(mask)
+
+        # if no cell presents, assign trivial values
+        # else compute the total cell area
+        if grid_metastable.n_cells == 0:
             metastable_area = 0.0
+            metastable_area_cold = 0.0
         else:
-            sized = grid_slab_metastable.compute_cell_sizes(length=False, area=True, volume=False)
+            sized = grid_metastable.compute_cell_sizes(length=False, area=True, volume=False)
             metastable_area = float(sized.cell_data["Area"].sum())
             filename = "metastable_region_%05d.vtu" % pvtu_step
             filepath = os.path.join(pyvista_outdir, filename)
-            grid_slab_metastable.save(filepath)
+            grid_metastable.save(filepath)
             print("Save file %s" % filepath)
 
+            # now derive the cold area
+            mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
+            grid_metastable_slab = grid_metastable.extract_cells(mask)
+            if grid_metastable_slab.n_cells == 0:
+                metastable_area_cold = 0.0
+            else:
+                sized_cold = grid_metastable_slab.compute_cell_sizes(length=False, area=True, volume=False)
+                metastable_area_cold = float(sized_cold.cell_data["Area"].sum())
+                filename = "metastable_region_slab_%05d.vtu" % pvtu_step
+                filepath = os.path.join(pyvista_outdir, filename)
+                grid_metastable_slab.save(filepath)
+                print("Save file %s" % filepath)
+
+
         output_dict["metastable_area"] = metastable_area
+        output_dict["metastable_area_cold"] = metastable_area_cold
     
         end = time.time()
         print("%s: Compute metastable area takes %.1f s" % (func_name(), end - start))

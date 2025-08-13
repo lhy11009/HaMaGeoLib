@@ -427,6 +427,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
 
     # addtional_options
     has_metastable_region = kwargs.get("has_metastable_region", False)
+    has_metastable_region_slab = kwargs.get("has_metastable_region_slab", False)
 
     # Get the active view 
     renderView1 = GetActiveViewOrCreate('RenderView')
@@ -524,6 +525,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     sourceTrTrianDisplay = Show(sourceTrTrian, renderView1, 'GeometryRepresentation')
 
     # Show the metastable area
+    # Sub-options for showing total area and cold area in the slab
     if "MODEL_TYPE" == "mow" and has_metastable_region and FOO02 == 1: 
         # Select the metastable_region source
         if "GEOMETRY" == "chunk":
@@ -532,8 +534,19 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
             metaRegion = FindSource("metastable_region_%05d" % (snapshot))
         metaRegionDisplay = Show(metaRegion, renderView1, 'GeometryRepresentation')
         ColorBy(metaRegionDisplay, None)
-        metaRegionDisplay.AmbientColor = [0.6666666666666666, 0.0, 1.0]
-        metaRegionDisplay.DiffuseColor = [0.6666666666666666, 0.0, 1.0]
+        metaRegionDisplay.AmbientColor = [0.5, 0.5, 0.5] # gray
+        metaRegionDisplay.DiffuseColor = [0.5, 0.5, 0.5] # gray
+    
+    if "MODEL_TYPE" == "mow" and has_metastable_region_slab and FOO03 == 1: 
+        # Select the metastable_region source
+        if "GEOMETRY" == "chunk":
+            metaRegion1 = FindSource("metastable_region_slab_transform_%05d" % (snapshot))
+        else:
+            metaRegion1 = FindSource("metastable_region_slab_%05d" % (snapshot))
+        metaRegion1Display = Show(metaRegion1, renderView1, 'GeometryRepresentation')
+        ColorBy(metaRegion1Display, None)
+        metaRegion1Display.AmbientColor = [1.0, 0.0, 1.0] # magenta
+        metaRegion1Display.DiffuseColor = [1.0, 0.0, 1.0]
         
 
     # Configure layout and camera settings based on geometry.
@@ -797,12 +810,7 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
         load_pyvista_source(data_output_dir, "slice_center", snapshot, file_type="vtu", assign_field=True, add_glyph=True)
 
         # load slice at 200 km depth
-        if "GEOMETRY" == "chunk":
-            slice_depth_file_type = "vtu"
-        else:
-            slice_depth_file_type = "vtp"
-
-        load_pyvista_source(data_output_dir, "slice_depth_200.0km", snapshot, file_type=slice_depth_file_type, assign_field=True, add_glyph=True)
+        load_pyvista_source(data_output_dir, "slice_depth_200.0km", snapshot, file_type="vtu", assign_field=True, add_glyph=True)
 
         # load subducting plate 
         load_pyvista_source(data_output_dir, "sp_lower_above_0.8_filtered_pe", snapshot, file_type="vtu", assign_field=True)
@@ -892,10 +900,13 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
             add_glyph1("solution_%05d" % (snapshot), "velocity", 1e6, registrationName=registration_name_glyph)
 
         # add source of metastable region
+        # 1. total metastable area
+        # 2. cold metastable area in the slab
+        # Note these options will generate separate flags for the plotting function
         has_metastable_region = False
+        has_metastable_region_slab = False
         if "MODEL_TYPE" == "mow":
             filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d"%snapshot, "metastable_region_%05d.vtu" %snapshot) 
-            print("filein:", filein) # debug
             if os.path.isfile(filein):
                 XMLUnstructuredGridReader(registrationName='metastable_region_%05d' % snapshot, FileName=[filein])
                 if "GEOMETRY" == "chunk":
@@ -909,9 +920,25 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
                 else:
                     pass
                 has_metastable_region = True
+            
+            filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d"%snapshot, "metastable_region_slab_%05d.vtu" %snapshot) 
+            if os.path.isfile(filein):
+                XMLUnstructuredGridReader(registrationName='metastable_region_slab_%05d' % snapshot, FileName=[filein])
+                if "GEOMETRY" == "chunk":
+                    registration_name_transform = 'metastable_region_slab_transform_%05d' % (snapshot)
+                    solution = FindSource('metastable_region_slab_%05d' % snapshot)
+                    transform = Transform(registrationName=registration_name_transform, Input=solution)
+                    transform.Transform = 'Transform'
+                    transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
+                    transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
+                    Hide3DWidgets()
+                else:
+                    pass
+                has_metastable_region_slab = True
 
         # plot slice
-        plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time, has_metastable_region=has_metastable_region)
+        plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time, has_metastable_region=has_metastable_region,\
+                                    has_metastable_region_slab=has_metastable_region_slab)
 
 
 steps = GRAPHICAL_STEPS
