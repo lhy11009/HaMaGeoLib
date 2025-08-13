@@ -14,18 +14,19 @@ def test_pyvista_process_thd_chunk():
 
     local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_width80_bw8000_sw2000_yd500.0_AR4")
     pvtu_step=2
-    pyvista_outdir=os.path.join(test_dir, "test_pyvista_process_thd_chunk")
+    
+    # remove old directory 
+    pyvista_outdir = os.path.join(test_dir, "test_pyvista_process_thd_box")
     if os.path.isdir(pyvista_outdir):
         rmtree(pyvista_outdir)
-    os.mkdir(pyvista_outdir)
 
     # initiate the object
     config = {"geometry": "chunk", "Max0": 6371e3, "Min0": 3.4810e+06,\
          "Max1": 71.94572847349845*np.pi/180.0, "Max2": 80.00365006253027*np.pi/180.0, "time":0.0}
-    PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
+    kwargs = {"pyvista_outdir": os.path.join(test_dir, "test_pyvista_process_thd_chunk")}
+    PprocessThD = PYVISTA_PROCESS_THD(os.path.join(local_dir, "output", "solution"), config, **kwargs)
     # read vtu file
-    pvtu_filepath = os.path.join(local_dir, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
-    PprocessThD.read(pvtu_step, pvtu_filepath)
+    PprocessThD.read(pvtu_step)
     # slice at center
     PprocessThD.slice_center()
     # slice at surface
@@ -55,6 +56,7 @@ def test_pyvista_process_thd_chunk():
     assert(abs((PprocessThD.dip_100_center-dip_100_center0)/dip_100_center0) < 1e-6)
 
     # compare file outputs
+    pyvista_outdir = os.path.join(test_dir, "test_pyvista_process_thd_chunk")
     depth_slice_file_std = os.path.join(local_dir, "slice_depth_200.0km_00002_std.vtu")
     depth_slice_file = os.path.join(pyvista_outdir, "slice_depth_200.0km_00002.vtu")
     assert(os.path.isfile(depth_slice_file_std))
@@ -96,17 +98,20 @@ def test_pyvista_process_thd_box():
 
     local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_width80_c22_AR4")
     pvtu_step=2
-    pyvista_outdir=os.path.join(test_dir, "test_pyvista_process_thd_box")
+
+    # remove old directory 
+    pyvista_outdir = os.path.join(test_dir, "test_pyvista_process_thd_box")
     if os.path.isdir(pyvista_outdir):
         rmtree(pyvista_outdir)
-    os.mkdir(pyvista_outdir)
 
     # initiate the object
     config = {"geometry": "box", "Max0": 2890000.0, "Min0": 0.0, "Max1": 4000000.0, "Max2": 8896000.0, "time": 0.0}
-    PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
+    # todo_piece
+    kwargs = {"pyvista_outdir": os.path.join(test_dir, "test_pyvista_process_thd_box")}
+    PprocessThD = PYVISTA_PROCESS_THD(os.path.join(local_dir, "output", "solution"), config, **kwargs)
     # read vtu file
     pvtu_filepath = os.path.join(local_dir, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
-    PprocessThD.read(pvtu_step, pvtu_filepath)
+    PprocessThD.read(pvtu_step)
     # slice at center
     PprocessThD.slice_center()
     # slice at surface
@@ -164,17 +169,38 @@ def test_pyvista_process_thd_box_big():
 
     local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_width80_bw8000_sw2000_c22_AR4")
     pvtu_step=58
-    pyvista_outdir=os.path.join(test_dir, "test_pyvista_process_thd_box_big")
+
+    pyvista_outdir = os.path.join(test_dir, "test_pyvista_process_thd_box_big")
     if os.path.isdir(pyvista_outdir):
         rmtree(pyvista_outdir)
-    os.mkdir(pyvista_outdir)
 
     # initiate the object
     config = {"geometry": "box", "Max0": 2890000.0, "Min0": 0.0, "Max1": 4000000.0, "Max2": 8896000.0, "time": 0.0}
-    PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
+    # todo_piece
+    n_pieces = 16
+    kwargs = {"pyvista_outdir": os.path.join(test_dir, "test_pyvista_process_thd_box_big"), "n_pieces": n_pieces}
+    PprocessThD = PYVISTA_PROCESS_THD(os.path.join(local_dir, "output", "solution"), config, **kwargs)
     # read vtu file
-    pvtu_filepath = os.path.join(local_dir, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
-    PprocessThD.read(pvtu_step, pvtu_filepath)
+    # todo_piece1
+    for piece in range(n_pieces):
+        PprocessThD.read(pvtu_step, piece=piece)
+        PprocessThD.process_piecewise("slice_center", ["sliced", "sliced_u"])
+        PprocessThD.process_piecewise("slice_surface", ["sliced_shell"])
+    PprocessThD.combine_pieces()
+    PprocessThD.write_key_to_file("sliced", "slice_center_unbounded", "vtp")
+    PprocessThD.write_key_to_file("sliced_u", "slice_center", "vtu")
+    PprocessThD.write_key_to_file("sliced_shell", "slice_outer", "vtu")
+
+    # save the unbounded version
+    filename = "slice_center_unbounded_%05d.vtp" % pvtu_step
+    filepath = os.path.join(pyvista_outdir, filename)
+    assert(os.path.isfile(filepath))
+    
+    filename = "slice_outer_%05d.vtu" % pvtu_step
+    filepath = os.path.join(pyvista_outdir, filename)
+    assert(os.path.isfile(filepath))
+
+    
 
 
 @pytest.mark.big_test  # Optional marker for big tests
