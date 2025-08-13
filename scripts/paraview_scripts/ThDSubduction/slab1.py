@@ -810,12 +810,7 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
         load_pyvista_source(data_output_dir, "slice_center", snapshot, file_type="vtu", assign_field=True, add_glyph=True)
 
         # load slice at 200 km depth
-        if "GEOMETRY" == "chunk":
-            slice_depth_file_type = "vtu"
-        else:
-            slice_depth_file_type = "vtp"
-
-        load_pyvista_source(data_output_dir, "slice_depth_200.0km", snapshot, file_type=slice_depth_file_type, assign_field=True, add_glyph=True)
+        load_pyvista_source(data_output_dir, "slice_depth_200.0km", snapshot, file_type="vtu", assign_field=True, add_glyph=True)
 
         # load subducting plate 
         load_pyvista_source(data_output_dir, "sp_lower_above_0.8_filtered_pe", snapshot, file_type="vtu", assign_field=True)
