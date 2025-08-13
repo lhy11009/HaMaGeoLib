@@ -12970,7 +12970,6 @@ opcrust: 1e+31, opharz: 1e+31", \
 
         if version >= 3.0 and comp_method == "particle":
             # fix the particle properties for newer version
-            # todo_meta
             o_dict = fix_particles_new_version(o_dict)
 
         if include_meta:
@@ -13219,7 +13218,6 @@ opcrust: 1e+31, opharz: 1e+31", \
                 # if not using the feature surface from the WorldBuilder, generate particles manually
                 self.particle_data = particle_positions_ef(geometry, Ro, trench, Dsz, ef_Dbury, p0, slab_lengths, slab_dips, interval=ef_particle_interval)
 
-# todo_meta
 def fix_particles_new_version(i_dict):
     '''
     fix the particle properties for newer version.
@@ -15226,6 +15224,15 @@ different age will be adjusted.",\
         if coarsen_side > 0:
             assert(_type == "2d_consistent")
 
+        # composition method 
+        comp_method = self.values[25] 
+        assert(comp_method in ["field", "particle"])
+
+        # metastable setting 
+        include_meta = self.values[self.start + 62]
+        if include_meta:
+            assert(comp_method == "particle")
+
     def reset_refinement(self, refinement_level):
         '''
         Note:
@@ -15943,6 +15950,28 @@ class CASE_THD(CASE):
         if version >= 3.0:
             o_dict['Postprocess']["Visualization"]["List of output variables"] = 'material properties, error indicator, named additional outputs, strain rate, stress, principal stress'
             o_dict["Material model"]["Visco Plastic TwoD"]["Peierls strain rate residual tolerance"] = "1e-6"
+            if comp_method == "particle":
+                #fix the particle properties for newer version.
+                o_dict = fix_particles_new_version(o_dict)
+                            # fix the particle properties
+                particle_options = {"Minimum particles per cell": "33",
+                                    "Maximum particles per cell": "140",
+                                    "Load balancing strategy": "remove and add particles",
+                                    "Interpolation scheme": "cell average",
+                                    "Update ghost particles": "true",
+                                    "Particle generator name": "random uniform",
+                                    "List of particle properties": "initial composition",
+                                    "Allow cells without particles": "true",
+                                    "Generator": {
+                                        "Random uniform":{
+                                            "Number of particles": "5e7"
+                                        }
+                                    },
+                                    "Integration scheme": "rk4"
+                                    }
+                particle_visualization_options = {"Data output format": "vtu", "Time between data output": "0.1e6"}
+                o_dict["Particles"] = particle_options
+                o_dict["Postprocess"]["Particles"] = particle_visualization_options
 
         # metastable related features
         if include_meta:
@@ -15953,7 +15982,6 @@ class CASE_THD(CASE):
                   "sp_upper:initial sp_upper, sp_lower:initial sp_lower, plate_edge:initial plate_edge, ov_upper:initial ov_upper, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
             
             # change Compositional field methods to particles
-            
             # initial composition fields
             o_dict["Initial composition model"]["List of model names"] += ", metastable"
             o_dict["Initial composition model"]["List of model operators"] = "add"
@@ -15970,32 +15998,8 @@ class CASE_THD(CASE):
             material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, sp_upper: 0.0, sp_lower: 0.0, plate_edge: 0.0, ov_upper: 0.0"
             o_dict["Material model"] = material_model
 
-            # fix the particle properties
-            particle_options = {"Minimum particles per cell": "33",
-                                "Maximum particles per cell": "140",
-                                "Load balancing strategy": "remove and add particles",
-                                "Interpolation scheme": "cell average",
-                                "Update ghost particles": "true",
-                                "Particle generator name": "random uniform",
-                                "List of particle properties": "initial composition, metastable",
-                                "Allow cells without particles": "true",
-                                "Generator": {
-                                    "Random uniform":{
-                                        "Number of particles": "5e7"
-                                    }
-                                },
-                                "Integration scheme": "rk4"
-                                }
-            particle_visualization_options = {"Data output format": "vtu", "Time between data output": "0.1e6"}
-            o_dict["Particles"] = particle_options
-            o_dict["Postprocess"]["Particles"] = particle_visualization_options
-        
-        # todo_meta
-        # version related features: part 2 - particles
-        if version >= 3.0:
-            #fix the particle properties for newer version.
-            o_dict = fix_particles_new_version(o_dict)
-            pass
+            # change the particles
+            o_dict["Particles"]["List of particle properties"] = "initial composition, metastable"
 
         self.idict = o_dict
         pass
