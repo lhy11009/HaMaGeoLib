@@ -219,6 +219,10 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("PYVISTA_PROCESS_THD: slice_center takes %.1f s" % (end - start))
 
+        # todo_piece
+
+        return sliced, sliced_u
+
     def slice_surface(self):
         """
         Extract a thin shell at the planetary surface by thresholding radius.
@@ -1601,6 +1605,9 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     PprocessThD.filter_slab_lower_points()
     # extract slab surface using "sp_lower" composition
     PprocessThD.extract_slab_surface("sp_lower")
+
+    # todo_piece
+
     # extract outputs
     assert(PprocessThD.trench_center is not None)
     outputs["trench_center"] = PprocessThD.trench_center
@@ -1682,6 +1689,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
     _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
 
+    # constant values
+    # T_slab - value used to extract metastable region in cold slab
+    T_slab = 900 + 273.15 # K
     
     # output directory
     if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
@@ -1816,25 +1826,45 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     print("%s: Extract trench center takes %.1f s" % (func_name(), end - start))
     
     # Process the region of slab metastablility, compute the area and output a vtu file
+    # In addition, separately derive the area below a certain slab temperature (e.g 900 C)
     if Case_Options.options["MODEL_TYPE"] == "mow":
         start = time.time()
-        
-        grid_slab_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
-        cell_data_P_eq =  (grid_slab_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
-        mask = np.flatnonzero(grid_slab_metastable.cell_data['p'] > cell_data_P_eq)
-        grid_slab_metastable = grid_slab_metastable.extract_cells(mask)
 
-        if grid_slab_metastable.n_cells == 0:
+        # filter the grid base on cell data of "metastable"
+        grid_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
+        cell_data_P_eq =  (grid_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
+        mask = np.flatnonzero(grid_metastable.cell_data['p'] > cell_data_P_eq)
+        grid_metastable = grid_metastable.extract_cells(mask)
+
+        # if no cell presents, assign trivial values
+        # else compute the total cell area
+        if grid_metastable.n_cells == 0:
             metastable_area = 0.0
+            metastable_area_cold = 0.0
         else:
-            sized = grid_slab_metastable.compute_cell_sizes(length=False, area=True, volume=False)
+            sized = grid_metastable.compute_cell_sizes(length=False, area=True, volume=False)
             metastable_area = float(sized.cell_data["Area"].sum())
             filename = "metastable_region_%05d.vtu" % pvtu_step
             filepath = os.path.join(pyvista_outdir, filename)
-            grid_slab_metastable.save(filepath)
+            grid_metastable.save(filepath)
             print("Save file %s" % filepath)
 
+            # now derive the cold area
+            mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
+            grid_metastable_slab = grid_metastable.extract_cells(mask)
+            if grid_metastable_slab.n_cells == 0:
+                metastable_area_cold = 0.0
+            else:
+                sized_cold = grid_metastable_slab.compute_cell_sizes(length=False, area=True, volume=False)
+                metastable_area_cold = float(sized_cold.cell_data["Area"].sum())
+                filename = "metastable_region_slab_%05d.vtu" % pvtu_step
+                filepath = os.path.join(pyvista_outdir, filename)
+                grid_metastable_slab.save(filepath)
+                print("Save file %s" % filepath)
+
+
         output_dict["metastable_area"] = metastable_area
+        output_dict["metastable_area_cold"] = metastable_area_cold
     
         end = time.time()
         print("%s: Compute metastable area takes %.1f s" % (func_name(), end - start))

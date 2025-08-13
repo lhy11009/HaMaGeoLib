@@ -15,6 +15,8 @@ def test_pyvista_process_thd_chunk():
     local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_width80_bw8000_sw2000_yd500.0_AR4")
     pvtu_step=2
     pyvista_outdir=os.path.join(test_dir, "test_pyvista_process_thd_chunk")
+    if os.path.isdir(pyvista_outdir):
+        rmtree(pyvista_outdir)
     os.mkdir(pyvista_outdir)
 
     # initiate the object
@@ -95,6 +97,8 @@ def test_pyvista_process_thd_box():
     local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_width80_c22_AR4")
     pvtu_step=2
     pyvista_outdir=os.path.join(test_dir, "test_pyvista_process_thd_box")
+    if os.path.isdir(pyvista_outdir):
+        rmtree(pyvista_outdir)
     os.mkdir(pyvista_outdir)
 
     # initiate the object
@@ -154,6 +158,24 @@ def test_pyvista_process_thd_box():
     assert(os.path.isfile(trench_file))
     assert(filecmp.cmp(trench_file, trench_file_std))
 
+# todo_piece
+@pytest.mark.big_test  # Optional marker for big tests
+def test_pyvista_process_thd_box_big():
+
+    local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_width80_bw8000_sw2000_c22_AR4")
+    pvtu_step=58
+    pyvista_outdir=os.path.join(test_dir, "test_pyvista_process_thd_box_big")
+    if os.path.isdir(pyvista_outdir):
+        rmtree(pyvista_outdir)
+    os.mkdir(pyvista_outdir)
+
+    # initiate the object
+    config = {"geometry": "box", "Max0": 2890000.0, "Min0": 0.0, "Max1": 4000000.0, "Max2": 8896000.0, "time": 0.0}
+    PprocessThD = PYVISTA_PROCESS_THD(config, pyvista_outdir=pyvista_outdir)
+    # read vtu file
+    pvtu_filepath = os.path.join(local_dir, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
+    PprocessThD.read(pvtu_step, pvtu_filepath)
+
 
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_twod_chunk():
@@ -199,4 +221,3 @@ def test_pyvista_process_twod_box():
 
     slab_depth_std = 240000.0
     assert(abs((output_dict["slab_depth"]-slab_depth_std)/slab_depth_std)<1e-6)
-

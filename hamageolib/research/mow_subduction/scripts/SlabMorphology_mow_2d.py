@@ -22,6 +22,9 @@ graphical_steps_np = Case_Options_2d.summary_df["Vtu step"].to_numpy()
 graphical_steps = [int(step) for step in graphical_steps_np]
 
 # Processing pyvista
+# summarize additional metastable properties:
+#   area of the MOW area
+#   area of the MOW area in the cold slab
 for step in graphical_steps:
     pvtu_step = step + int(Case_Options_2d.options['INITIAL_ADAPTIVE_REFINEMENT'])
     output_dict = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_2d)
@@ -29,8 +32,8 @@ for step in graphical_steps:
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab depth", step, output_dict["slab_depth"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Trench", step, output_dict["trench_center"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Dip 100", step, output_dict["dip_100"])
-    # todo_mow_summary
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area", step, output_dict["metastable_area"])
+    Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area cold", step, output_dict["metastable_area_cold"])
     # break # debug
 
 Case_Options_2d.SummaryCaseVtuStepExport(os.path.join(local_dir_2d, "summary.csv"))
