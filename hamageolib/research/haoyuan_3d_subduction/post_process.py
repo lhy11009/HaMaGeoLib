@@ -116,6 +116,8 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
         self.pvtu_step = pvtu_step
         piece = kwargs.get("piece", None)
+
+        # check path of data
         if piece is None:
             filepath = os.path.join(self.data_dir, "solution-%05d.pvtu" % self.pvtu_step)
             my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
@@ -164,7 +166,6 @@ class PYVISTA_PROCESS_THD():
         kwargs["update_attributes"] = False
 
         outputs = method(**kwargs)
-        print("type(outputs): ", type(outputs)) # debug
         if isinstance(outputs, tuple):
             # multiple outputs
             assert(len(outputs) == len(keys))
@@ -202,7 +203,7 @@ class PYVISTA_PROCESS_THD():
         self.write_object_to_file(target, filename_base, filetype)
 
     
-    def write_object_to_file(self, target, filename_base, filetype):
+    def write_object_to_file(self, target, filename_base, filetype, **kwargs):
         '''
         Write a single class object to file
         Inputs:
@@ -210,6 +211,7 @@ class PYVISTA_PROCESS_THD():
             filename_base - basename of output file
             filetype - type of the file
         '''
+        # check inputs
         assert(filetype in ["vtp", "vtu"])
         filename = "%s_%05d.%s" % (filename_base, self.pvtu_step, filetype)
         filepath = os.path.join(self.pyvista_outdir, filename)
@@ -586,6 +588,10 @@ class PYVISTA_PROCESS_THD():
         extract_trench_at_additional_depths = kwargs.get("extract_trench_at_additional_depths", None)
         extract_dip=kwargs.get("extract_dip", False)
         file_type = kwargs.get("file_type", "default")
+        # todo_fix
+        N0 = kwargs.get("N0", 2000)
+        N1 = kwargs.get("N1", 1000)
+        dr = kwargs.get("dr", 0.001)
 
         # checking
         if field_name == "sp_upper":
@@ -600,11 +606,6 @@ class PYVISTA_PROCESS_THD():
 
         # initiation
         indent = 4
-
-        N0 = 2000
-        N1 = 1000
-
-        dr = 0.001
 
         # extract trench at additiona depths: initiation
         # initiate the 2-d np array to save trench positions
@@ -752,11 +753,14 @@ class PYVISTA_PROCESS_THD():
                 
                 self.additional_trench_points[i1] = np.vstack([x_tr, y_tr, z_tr]).T
 
-                if self.geometry == "chunk":
-                    _, _, self.additional_trench_center[i1] = cartesian_to_spherical(self.trench_points[0, 0], self.trench_points[0, 1], self.trench_points[0, 2])
+                if self.additional_trench_points[i1].size > 0:
+                    if self.geometry == "chunk":
+                        _, _, self.additional_trench_center[i1] = cartesian_to_spherical(self.additional_trench_points[i1][0, 0], self.additional_trench_points[i1][0, 1], self.additional_trench_points[i1][0, 2])
+                    else:
+                        self.additional_trench_center[i1] = self.additional_trench_points[i1][0, 0]
                 else:
-                    self.additional_trench_center[i1] = self.additional_trench_points[i1][0, 0]
-
+                    pass
+                
                 # save trench points
                 
                 if file_type == "default":
@@ -767,7 +771,7 @@ class PYVISTA_PROCESS_THD():
                 elif file_type == "txt":
                     filename = "trench_d%.2fkm_%05d.txt" % (tr_depth/1e3, self.pvtu_step)
                     filepath = os.path.join(self.pyvista_outdir, filename)
-                    np.savetxt(filepath, self.trench_points, fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
+                    np.savetxt(filepath, self.additional_trench_points[i1], fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
                 else:
                     raise ValueError("file_type needs to be default or txt")
 
@@ -1621,6 +1625,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     threshold_lower = kwargs.get("threshold_lower", 0.8)
     do_clip = kwargs.get("do_clip", False)
     extract_trench_at_additional_depths=  kwargs.get("extract_trench_at_additional_depths", None)
+    n_pieces = kwargs.get("n_pieces", None)
     
     outputs = {}
 
@@ -1678,7 +1683,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     
     # initiate PYVISTA_PROCESS_THD class
     config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2, "time": _time}
-    kwargs = {"clip": clip}
+    kwargs = {"clip": clip, "pyvista_outdir": os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)}
     PprocessThD = PYVISTA_PROCESS_THD(os.path.join(case_path, "output", "solution"), config, **kwargs)
 
     # make domain boundary
@@ -1702,21 +1707,45 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
             boundary_range=boundary_range)
         PprocessThD.create_cartesian_plane(660e3, boundary_range=boundary_range)
 
-    # read vtu file
-    PprocessThD.read(pvtu_step)
-    # slice at center
-    PprocessThD.slice_center()
-    PprocessThD.slice_center(boundary_range=boundary_range)
-    # slice at surface
-    PprocessThD.slice_surface()
-    # slice at depth
-    PprocessThD.slice_at_depth(slice_depth, rdiff=40e3)
-    # extract sp_upper composition beyond a threshold
-    PprocessThD.extract_iso_volume_upper(iso_volume_threshold)
-    # extract sp_lower composition beyond a threshold
-    PprocessThD.extract_iso_volume_lower(threshold_lower)
-    # extract plate_edge composition beyond a threshold
-    PprocessThD.extract_plate_edge(iso_volume_threshold)
+    if n_pieces is None:
+        # read vtu file
+        PprocessThD.read(pvtu_step)
+        # slice at center
+        PprocessThD.slice_center()
+        PprocessThD.slice_center(boundary_range=boundary_range)
+        # slice at surface
+        PprocessThD.slice_surface()
+        # slice at depth
+        PprocessThD.slice_at_depth(depth=slice_depth, rdiff=40e3)
+        # extract sp_upper composition beyond a threshold
+        PprocessThD.extract_iso_volume_upper(threshold=iso_volume_threshold)
+        # extract sp_lower composition beyond a threshold
+        PprocessThD.extract_iso_volume_lower(threshold=threshold_lower)
+        # extract plate_edge composition beyond a threshold
+        PprocessThD.extract_plate_edge(threshold=iso_volume_threshold)
+    else:
+        # todo_piece
+        # process piecewise
+        for piece in range(n_pieces):
+            PprocessThD.read(pvtu_step, piece=piece)
+            PprocessThD.process_piecewise("slice_center", ["sliced", "sliced_u"])
+            PprocessThD.process_piecewise("slice_surface", ["sliced_shell"])
+            PprocessThD.process_piecewise("slice_at_depth", ["sliced_depth"], depth=slice_depth, r_diff=40e3)
+            PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=iso_volume_threshold)
+            PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=threshold_lower)
+            PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
+
+        PprocessThD.combine_pieces()
+        PprocessThD.write_key_to_file("sliced", "slice_center_unbounded", "vtp")
+        PprocessThD.write_key_to_file("sliced_u", "slice_center", "vtu")
+        PprocessThD.write_key_to_file("sliced_shell", "slice_outer", "vtu")
+        PprocessThD.write_key_to_file("sliced_depth", "slice_depth_%.1fkm" % (slice_depth/1e3), "vtu")
+        PprocessThD.write_key_to_file("iso_volume_upper", "sp_upper_above_%.2f" % (iso_volume_threshold), "vtu")
+        PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (threshold_lower), "vtu")
+        PprocessThD.write_key_to_file("iso_plate_edge", "plate_edge_above_%.2f" % (iso_volume_threshold), "vtu")
+
+
+
     # extract slab surface and trench position, using "sp_upper" composition
     PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True,\
                                      extract_trench_at_additional_depths=extract_trench_at_additional_depths)
@@ -1726,6 +1755,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     PprocessThD.filter_slab_lower_points()
     # extract slab surface using "sp_lower" composition
     PprocessThD.extract_slab_surface("sp_lower")
+    # get slab depth
+    PprocessThD.get_slab_depth()
 
     # todo_piece
 

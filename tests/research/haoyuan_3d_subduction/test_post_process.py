@@ -42,15 +42,20 @@ def test_pyvista_process_thd_chunk():
     PprocessThD.extract_plate_edge(threshold=0.8)
     # extract slab surface
     
-    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt", extract_trench_at_additional_depths=[50e3])
+    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt", extract_trench_at_additional_depths=[50e3], dr=0.001)
+    # debug
+    # PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="default", extract_trench_at_additional_depths=[50e3], dr=0.005)
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
 
     # assert slab dip and trench location
+    # with this resolution, we can get the surface trench point, but the 50 depth point
+    # is not found
     trench_center0 = 0.6545283794403076
     assert(abs((PprocessThD.trench_center-trench_center0)/trench_center0) < 1e-6)
+    assert(np.isnan(PprocessThD.additional_trench_center[0]))
     slab_depth0 = 240834.0
     assert(abs((PprocessThD.slab_depth-slab_depth0)/slab_depth0) < 1e-6)
     dip_100_center0 = 0.5782019954172547

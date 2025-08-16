@@ -255,3 +255,4 @@ def extract_phi_max(points_xyz, r_bounds, theta_bounds, n_r=100, n_theta=100):
         result_xyz.append([px, py, pz])
 
     return np.array(result_xyz)
+

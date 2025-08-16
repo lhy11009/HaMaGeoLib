@@ -1,0 +1,55 @@
+{
+  "_comments": "This case is modified from the Schellart 2007 paper, but include newtonian T-dependent rheology",
+  "base directory": "/home/lochy/ASPECT_PROJECT/aspectLib/files/ThDSubduction/04062023",
+  "output directory": "/mnt/lochy0/ASPECT_DATA/ThDSubduction/EBA_test1",
+  "name": "eba3d_SA80.0_OA40.0_width61_GR5",
+  "type": "s07_newton",
+  "branch": "master_TwoD",
+  "post process": {
+    "visualization software" : "paraview"
+  },
+  "use world builder": 1,
+  "world builder": {
+    "use new ridge implementation": 1
+  },
+  "include fast first step": 1,
+  "geometry setup": {
+    "box width": 4000000.0,
+    "box length": 4000000.0,
+    "box height": 1000000.0,
+    "box length before adjusting": 6783000.0
+  },
+  "plate setup": {
+    "sp width": 1000000.0,
+    "sp length": 3000000.0,
+    "trailing length": 275000.0,
+    "reset trailing morb": 1,
+    "sp depth refining": 300000.0,
+    "ov age": 40000000.0,
+    "sp age": 80000000.0
+  },
+  "additional files": [
+  ],
+  "mantle rheology": {
+    "scheme": "HK03_wet_mod_twod",
+    "flow law": "composite"
+  },
+  "apply reference density": 1,
+  "shear zone": {
+    "thickness": 15000.0
+  },
+  "slab setup": {
+    "length": 530000.0,
+    "dip": 70.0
+  },
+  "refinement": {
+    "global refinement": 5
+  },
+  "rheology": {
+    "reset trailing ov viscosity": 1
+  },
+  "setup method": "2d_consistent",
+  "stokes solver": {
+    "type": "block AMG"
+  }
+}
