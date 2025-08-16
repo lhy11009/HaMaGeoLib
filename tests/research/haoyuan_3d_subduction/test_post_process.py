@@ -3,6 +3,7 @@ import filecmp  # for compare file contents
 from shutil import rmtree
 from hamageolib.research.haoyuan_3d_subduction.post_process import *
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS_TWOD1
+import psutil, os
 
 test_dir = os.path.join(".test", "haoyuan_3d_subduction_post_process")
 if os.path.isdir(test_dir):
@@ -42,15 +43,20 @@ def test_pyvista_process_thd_chunk():
     PprocessThD.extract_plate_edge(threshold=0.8)
     # extract slab surface
     
-    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt", extract_trench_at_additional_depths=[50e3])
+    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt", extract_trench_at_additional_depths=[50e3], dr=0.001)
+    # debug
+    # PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="default", extract_trench_at_additional_depths=[50e3], dr=0.005)
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
 
     # assert slab dip and trench location
+    # with this resolution, we can get the surface trench point, but the 50 depth point
+    # is not found
     trench_center0 = 0.6545283794403076
     assert(abs((PprocessThD.trench_center-trench_center0)/trench_center0) < 1e-6)
+    assert(np.isnan(PprocessThD.additional_trench_center[0]))
     slab_depth0 = 240834.0
     assert(abs((PprocessThD.slab_depth-slab_depth0)/slab_depth0) < 1e-6)
     dip_100_center0 = 0.5782019954172547
@@ -107,7 +113,6 @@ def test_pyvista_process_thd_box():
 
     # initiate the object
     config = {"geometry": "box", "Max0": 2890000.0, "Min0": 0.0, "Max1": 4000000.0, "Max2": 8896000.0, "time": 0.0}
-    # todo_piece
     kwargs = {"pyvista_outdir": os.path.join(test_dir, "test_pyvista_process_thd_box")}
     PprocessThD = PYVISTA_PROCESS_THD(os.path.join(local_dir, "output", "solution"), config, **kwargs)
     # read vtu file
@@ -165,7 +170,7 @@ def test_pyvista_process_thd_box():
     assert(os.path.isfile(trench_file))
     assert(filecmp.cmp(trench_file, trench_file_std))
 
-# todo_piece
+
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_thd_box_big():
 
@@ -185,23 +190,35 @@ def test_pyvista_process_thd_box_big():
     # Apply the piecewise options
     slice_depth = 200e3; r_diff=20e3
     iso_volume_threshold = 0.8
+
+    # first process the slice outputs
+    # process sp_upper  and sp_edge
+    # extract slab edge surface at the side of the plate
+    # process sp_lower    
+    # filter the slab lower points based on sp_edge surface
     for piece in range(n_pieces):
         PprocessThD.read(pvtu_step, piece=piece)
         PprocessThD.process_piecewise("slice_center", ["sliced", "sliced_u"])
         PprocessThD.process_piecewise("slice_surface", ["sliced_shell"])
         PprocessThD.process_piecewise("slice_at_depth", ["sliced_depth"], depth=slice_depth, r_diff=r_diff)
         PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=iso_volume_threshold)
-        PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=iso_volume_threshold)
         PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
-
+        PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=iso_volume_threshold)
+  
     PprocessThD.combine_pieces()
+ 
     PprocessThD.write_key_to_file("sliced", "slice_center_unbounded", "vtp")
     PprocessThD.write_key_to_file("sliced_u", "slice_center", "vtu")
     PprocessThD.write_key_to_file("sliced_shell", "slice_outer", "vtu")
     PprocessThD.write_key_to_file("sliced_depth", "slice_depth_%.1fkm" % (slice_depth/1e3), "vtu")
     PprocessThD.write_key_to_file("iso_volume_upper", "sp_upper_above_%.2f" % (iso_volume_threshold), "vtu")
-    PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (iso_volume_threshold), "vtu")
     PprocessThD.write_key_to_file("iso_plate_edge", "plate_edge_above_%.2f" % (iso_volume_threshold), "vtu")
+    PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (iso_volume_threshold), "vtu")
+    
+    PprocessThD.extract_plate_edge_surface()
+    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt")
+    PprocessThD.filter_slab_lower_points()
+    PprocessThD.get_slab_depth()
 
     # check file outputs
     filename = "slice_center_unbounded_%05d.vtp" % pvtu_step
@@ -227,15 +244,6 @@ def test_pyvista_process_thd_box_big():
     filename = "plate_edge_above_%.2f_%05d.vtu" % (iso_volume_threshold, pvtu_step)
     filepath = os.path.join(pyvista_outdir, filename)
     assert(os.path.isfile(filepath))
-
-    # extract slab surface
-    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt")
-    # extract slab edge
-    PprocessThD.extract_plate_edge_surface()
-    # filter the slab lower points
-    PprocessThD.filter_slab_lower_points()
-    # get slab depth
-    PprocessThD.get_slab_depth()
 
     # assert slab dip and trench location
     sp_upper_file = os.path.join(pyvista_outdir, "sp_upper_surface_%05d.vtp" % pvtu_step)

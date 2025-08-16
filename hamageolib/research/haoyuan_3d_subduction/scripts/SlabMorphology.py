@@ -9,11 +9,13 @@ from hamageolib.research.haoyuan_3d_subduction.post_process import get_trench_po
     get_slab_dip_angle_from_file, ProcessVtuFileThDStep
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS
 
-# Whether to generate pyvista outputs
-prepare_pyvista = True
 
 # Case path
-local_dir = "/mnt/lochy/ASPECT_DATA/ThDSubduction/EBA_2d_consistent_8_7/eba3d_width80_bw8000_sw2000_c22_AR4"
+local_dir = "/mnt/lochy/ASPECT_DATA/ThDSubduction/chunk_geometry2/eba3d_1_SA50.0_OA20.0_width80_bw4000_sw1000_yd500.0_AR4"
+
+# Whether to generate pyvista outputs
+prepare_pyvista = True
+n_pieces = None # 16 - run in pieces, None - run the whold dataset
 
 # Initiate the case option class
 Case_Options = CASE_OPTIONS(local_dir)
@@ -27,9 +29,10 @@ config = {"threshold_lower": 0.8} # options for processing vtu file
 # Generate paraview script
 for i, step in enumerate(graphical_steps):
 
-    # debug
-    if step <= 48:
-        continue
+    # for case EBA_2d_consistent_8_7/eba3d_width80_bw8000_sw2000_c22_AR4
+    # continue what failed before
+    # if step <= 58:
+    #     continue
 
     # get trench center
     pvtu_step = step + int(Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT']) 
@@ -39,7 +42,7 @@ for i, step in enumerate(graphical_steps):
     # processing pyvista
     try:
         if prepare_pyvista:
-            _, outputs = ProcessVtuFileThDStep(local_dir, pvtu_step, Case_Options)
+            _, outputs = ProcessVtuFileThDStep(local_dir, pvtu_step, Case_Options, n_pieces=n_pieces)
 
         trench_center = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'])
         slab_depth = get_slab_depth_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_lower")
@@ -54,6 +57,6 @@ for i, step in enumerate(graphical_steps):
         Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, trench_center)
         Case_Options.SummaryCaseVtuStepUpdateValue("Dip 100 (center)", step, dip_100_center)
     
-    # break # debug
+    break # debug
 
 Case_Options.SummaryCaseVtuStepExport(os.path.join(local_dir, "summary.csv"))

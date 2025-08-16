@@ -10,6 +10,7 @@ from functools import reduce
 from importlib import resources
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageFont, ImageDraw
+from copy import deepcopy
 
 current_dir = os.path.dirname(__file__)
 JSON_FILE_DIR = os.path.join(current_dir, "..", "files")
@@ -1669,3 +1670,344 @@ def FindCasesInDir(dir_path):
             if os.path.isfile(prm_path) and os.path.isfile(json_path):
                 cases.append(sub_dir_path)
     return cases
+
+
+class FEATURE_OPT(JSON_OPT):
+    '''
+    Define a class to work a feature with GROUP
+    List of keys:
+    '''
+    def __init__(self):
+        '''
+        Initiation, first perform parental class's initiation,
+        then perform daughter class's initiation.
+        '''
+        JSON_OPT.__init__(self)
+        self.add_key("Name of the feature", str, ["name"], "foo", nick='name')
+        self.add_key("Key in the json file", list, ["key"], [], nick='key')
+        self.add_key("Values to apply", list, ["values"], [], nick='values')
+        self.add_key("Abbrevation in case name", list, ["abbreviating value options"], [None, None], nick='abbrev_value_options')
+        self.add_key("If abbrevate case name by value defined in this featue", int, ["abbreviation by value"], 0, nick='is_abbrev_value')
+        self.add_key("Abbrevation by a given string", list, ["abbreviating strings"], [], nick='abbrev_strings')
+        self.add_key("if appending abbreviation (same length with values)", list, ["if abbreviating"], [], nick='if_append_abbrev')
+
+    def check(self):
+        '''
+        check if everything is right
+        '''
+        _name = self.values[0]
+        _values = self.values[2]
+        abbrev_strings = self.values[5]
+        assert(len(self.values[3]) == 2)  # abbreviation has 2 entries (name, scale)
+        if self.if_abbrev_value() == 1:
+            # contains a prefix and a scaling
+            assert(len(self.values[3]) == 2)
+        else:
+            # number of strings equal number of values
+            my_assert(len(abbrev_strings) == len(_values), ValueError, "the options for abbrev_strings for \"%s\" is not correct." % _name)
+        pass
+        # check the values assigned for "if abbreviation"
+        is_abbrev_value = self.values[4]
+        assert(is_abbrev_value in [0, 1])
+        if is_abbrev_value == 1:
+            abbrev_value_options = self.values[3]  # abbrev_value_options contains a string and a float
+            assert(len(abbrev_value_options)==2 and\
+            type(abbrev_value_options[0]) == str and\
+            type(abbrev_value_options[1]) == float)
+        if self.values[6] == []:
+            # no assigned, abbrevtion for all
+            self.values[6] = [1 for i in range(len(self.values[2]))]
+        else:
+            my_assert(len(self.values[6]) == len(self.values[2]), ValueError,\
+            "length of the option (%s) is different from the other option (%s)" % (self.values[6], self.values[2]))
+            for i in self.values[6]:
+               my_assert(i == 0 or i == 1, ValueError,\
+               "Value of \"if abbreviation\" is either 0 or 1") 
+            
+
+    def get_keys(self):
+        return self.values[1]
+
+    def get_values(self):
+        return self.values[2]
+
+    def if_abbrev_value(self):
+        return self.values[4]
+    
+    def get_abbrev_value_options(self):
+        return self.values[3]
+
+    def get_abbrev_strings(self):
+        return self.values[5]
+    
+    def if_append_abbrev(self, index):
+        '''
+        whether appending abbrevation to case name for entry i
+        in the list of values
+        Inputs:
+            index (int): index of the entry
+        '''
+        return self.values[6][index]
+
+
+def ParseFromSlurmBatchFile(fin):
+    '''
+    read options from a slurm batch file.
+    Note I allow multiple " " in front of each line, this may or may not be a good option.
+    '''
+    inputs = {}
+    inputs["header"] = []
+    inputs["config"] = {}
+    inputs["load"] = []
+    inputs["unload"] = []
+    inputs["command"] = []
+    inputs["others"] = []
+    line = fin.readline()
+    while line != "":
+        if re.match('^(\t| )*#!', line):
+            line1 = re.sub('(\t| )*\n$', '', line)  # eliminate the \n at the end
+            inputs["header"].append(line1)
+        elif re.match('^(\t| )*#(\t| )*SBATCH', line):
+            line1 = re.sub('^(\t| )*#(\t| )*SBATCH ', '', line, count=1)
+            key, value = ReadDashOptions(line1)
+            inputs["config"][key] = value
+        elif re.match('(\t| )*module(\t| )*load', line):
+            line1 = re.sub('(\t| )*module(\t| )*load(\t| )*', '', line, count=1)
+            value = re.sub('(\t| )*\n$', '', line1) 
+            inputs["load"].append(value)
+        elif re.match('(\t| )*module(\t| )*unload', line):
+            line1 = re.sub('(\t| )*module(\t| )*unload(\t| )*', '', line, count=1)
+            value = re.sub('(\t| )*\n$', '', line1) 
+            inputs["unload"].append(value)
+        elif re.match('(\t| )*srun', line):
+            temp = re.sub('(\t| )*srun(\t| )*', '', line, count=1)
+            inputs["command"].append("srun")
+            line1 = re.sub('(\t| )*\n$', '',temp)  # eliminate the \n at the end
+            for temp in line1.split(' '):
+                if not re.match("^(\t| )*$", temp):
+                    # not ' '
+                    temp1 = re.sub('^(\t| )*', '', temp) # eliminate ' '
+                    value = re.sub('^(\t| )$', '', temp1)
+                    inputs["command"].append(value)
+        elif re.match('(\t| )*ibrun', line):
+            temp = re.sub('(\t| )*ibrun(\t| )*', '', line, count=1)
+            inputs["command"].append("ibrun")
+            line1 = re.sub('(\t| )*\n$', '',temp)  # eliminate the \n at the end
+            for temp in line1.split(' '):
+                if not re.match("^(\t| )*$", temp):
+                    # not ' '
+                    temp1 = re.sub('^(\t| )*', '', temp) # eliminate ' '
+                    value = re.sub('^(\t| )$', '', temp1)
+                    inputs["command"].append(value)
+        else:
+            inputs["others"].append(re.sub('(\t| )*\n$', '', line))
+            pass
+        line = fin.readline()
+    return inputs
+
+
+def ParseToSlurmBatchFile(fout, outputs, **kwargs):
+    '''
+    export options to a slurm batch file.
+    '''
+    contents = ""
+    # write header
+    for header in outputs["header"]:
+        contents += (header + "\n")
+    # write config
+    for key, value in outputs["config"].items():
+        if re.match('^--', key):
+            contents += ("#SBATCH" + " " + key + "=" + value + "\n")
+        elif re.match('^-', key):
+            contents += ("#SBATCH" + " " + key + " " + value + "\n")
+        else:
+            raise ValueError("The format of key (%s) is incorrect" % key)
+    # load and unload 
+    for module in outputs["unload"]:
+        contents += ("module unload %s\n" % module)
+    for module in outputs["load"]:
+        contents += ("module load %s\n" % module)
+    # others
+    for line in outputs['others']:
+        contents += (line + '\n')
+    # command
+    is_first = True
+    for component in outputs["command"]:
+        if is_first:
+            is_first = False
+        else:
+            contents += " "
+        contents += component
+        if component == "mpirun":
+            # append the cpu options after mpirun
+            contents += " "
+            contents += ("-n " + outputs['config']['-n'])
+    # extra contents
+    if 'extra' in outputs:
+        if outputs['extra'] is not None:
+            contents += outputs['extra']
+            contents += '\n'
+    fout.write(contents)
+    pass
+
+
+class SLURM_OPERATOR():
+    '''
+    Class for modifying slurm operation files
+    Attributes:
+        i_dict (dict): input options
+        o_dict (dict): output options
+    '''
+    def __init__(self, slurm_base_file_path):
+        my_assert(FileExistsError, os.path.isfile(slurm_base_file_path), "%s doesn't exist" % slurm_base_file_path)
+        with open(slurm_base_file_path, 'r') as fin:
+            self.i_dict = ParseFromSlurmBatchFile(fin)
+        self.check() # call the check function to check the contents of the file
+        self.o_dict = {}
+    
+    def check(self):
+        '''
+        check the options in inputs
+        '''
+        assert('-N' in self.i_dict['config'])
+        assert('-n' in self.i_dict['config'])
+        assert('--threads-per-core' in self.i_dict['config'])
+        assert('--tasks-per-node' in self.i_dict['config'])
+        assert('--partition' in self.i_dict['config'])
+
+    def SetAffinity(self, nnode, nthread, nthreads_per_cpu, **kwargs):
+        '''
+        set options for affinities
+        '''
+        partition = kwargs.get('partition', None)
+        use_mpirun = kwargs.get('use_mpirun', False)
+        bind_to = kwargs.get('bind_to', None)
+        self.o_dict = deepcopy(self.i_dict)
+        self.o_dict['config']['-N'] = str(int(nnode))
+        self.o_dict['config']['-n'] = str(nthread)
+        self.o_dict['config']['--threads-per-core'] = str(nthreads_per_cpu)
+        self.o_dict['config']['--tasks-per-node'] = str(int(nthread//nnode))
+        if partition is not None:
+             self.o_dict['config']['--partition'] = partition 
+        if use_mpirun:
+            self.o_dict['command'][0] = 'mpirun'
+        if bind_to != None:
+            assert(bind_to in ["socket", 'core'])
+            if self.o_dict['command'][0] == "mpirun":
+                self.o_dict['command'].insert(1, "--bind-to " + bind_to)
+            if self.o_dict['command'][0] == "srun":
+                self.o_dict['command'].insert(1, "--cpu-bind=" + bind_to + "s")
+
+    def SetName(self, _name):
+        '''
+        set the name of the job
+        '''
+        self.o_dict['config']['--job-name'] = _name
+
+    def SetModule(self, module_list, module_u_list=[]):
+        '''
+        set the list of module to load
+        '''
+        assert(type(module_list) == list)
+        self.o_dict['load'] = module_list
+        self.o_dict['unload'] = module_u_list
+
+    def SetCommand(self, build_directory, prm_file):
+        '''
+        Set the command to use
+        '''
+        if build_directory != "":
+            self.o_dict['command'][-2] = "${ASPECT_SOURCE_DIR}/build_%s/aspect" % build_directory
+        else:
+            self.o_dict['command'][-2] = "${ASPECT_SOURCE_DIR}/build/aspect"
+        self.o_dict['command'][-1] = prm_file
+
+    def ResetCommand(self, **kwargs):
+        '''
+        reset the command
+        '''
+        command_only = kwargs.get("command_only", False)
+        self.o_dict['command'] = []
+        if not command_only:
+            self.o_dict['others'] = []
+
+    def SetTimeByHour(self, hr):
+        '''
+        set the time limit
+        '''
+        self.o_dict['config']['-t'] = "%d:00:00" % hr
+    
+    def SetExtra(self, contents):
+        '''
+        set extra commands
+        '''
+        self.o_dict['extra'] = contents
+    
+    def GetOthers(self):
+        '''
+        get other commands
+        '''
+        contents = self.o_dict['others']
+        return contents
+
+    def __call__(self, slurm_file_path):
+        with open(slurm_file_path, 'w') as fout:
+            ParseToSlurmBatchFile(fout, self.o_dict)
+        print("Slurm file created: ", slurm_file_path)
+
+    pass
+
+
+def GenerateSlurmCombine(slurm_option, _dir, case_names, **kwargs):
+    '''
+    Inputs:
+        slurm_options - options for slurm file
+        _dir - output directory (the group directory)
+        cases_names - names of cases in a group
+        wargs:
+            slurm_case_name: name of the slurm case
+    ''' 
+    size = len(case_names)
+    slurm_file_base = slurm_option["slurm file"]
+    nproc = slurm_option["cpus"]
+    build_dir = slurm_option["build directory"]
+    aspect_exec = "${ASPECT_SOURCE_DIR}/build_%s/aspect" % build_dir
+    slurm_case_name = kwargs.get("slurm_case_name", os.path.basename(_dir))  # take the group name
+    slurm_file_base_base = os.path.basename(slurm_file_base)
+
+    # generate the slurm file
+    slurm_file_path = os.path.join(_dir, slurm_file_base_base)
+    SlurmOperator = SLURM_OPERATOR(slurm_file_base)
+    SlurmOperator.SetAffinity(1, nproc * size, 1)
+    SlurmOperator.ResetCommand(command_only=1)
+    SlurmOperator.SetName(slurm_case_name)
+    SlurmOperator.SetTimeByHour(300)
+
+    # generate the command to run
+    extra_contents = ""
+    # directories to run
+    temp = "subdirs=("
+    i = 0
+    for case_name in case_names:
+        if i > 0:
+            temp += " "
+        temp += "\"%s\"" % case_name
+        i += 1
+    temp += ")\n"
+    extra_contents += temp
+    # command
+    exec =  "srun --exclusive --ntasks %d %s case.prm &" % (nproc, aspect_exec)
+    # generate the loop
+    temp = """
+for subdir in ${subdirs[@]}; do
+    cd ${subdir}
+    %s
+    cd ..
+done
+wait
+""" % (exec)
+    extra_contents += temp
+    SlurmOperator.SetExtra(extra_contents)
+
+    # generate file
+    SlurmOperator(slurm_file_path)

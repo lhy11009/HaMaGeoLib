@@ -1,0 +1,94 @@
+{
+    "base name": "eba3d_1",
+    "type": "2d_consistent", 
+    "base json": "./hamageolib/research/haoyuan_2d_subduction/legacy_files/reference_ThD/08112025/case_2d_consistent.json",
+    "base directory": "./hamageolib/research/haoyuan_2d_subduction/legacy_files/reference_ThD/08112025",
+    "output directory": ".test/research-haoyuan_2d_subduction-test_legacy_tools/group0",
+	"base features":[
+	{
+            "name": "Geometry",
+            "key": ["geometry"],
+            "unit": "",
+            "values": ["chunk"],
+            "abbreviating strings": [""]
+	},
+	{
+            "name": "Viscosity in the slab core",
+            "key": ["shear zone", "slab core viscosity"],
+            "unit": "Pa s",
+            "values": [1e22],
+            "abbreviating strings": [""]
+	}
+	],
+    "features":[
+	{
+            "name": "Age of the subducting plate at trench",
+            "key": ["plate setup", "sp age"],
+            "unit": "yr",
+            "values": [50e6, 80e6],
+            "abbreviation by value": 1,
+            "abbreviating value options": ["SA", 1e-6],
+            "if abbreviating": [1, 1]
+	},
+	{
+            "name": "Age of the overiding plate",
+            "key": ["plate setup", "ov age"],
+            "unit": "yr",
+            "values": [20e6, 40e6],
+            "abbreviation by value": 1,
+            "abbreviating value options": ["OA", 1e-6],
+            "if abbreviating": [1, 1]
+	},
+	{
+            "name": "Length of the Box before adjusting for the age of the trench.",
+            "key": ["geometry setup", "box length before adjusting"],
+            "unit": "m",
+            "values": [6.783e6, 8.896e6, 1.557e7, 5.671e6],
+            "abbreviating strings": ["width61", "width80", "width140", "width51"],
+            "if abbreviating": [1, 1, 1, 1]
+	},
+    {
+            "name": "Width of the box",
+            "key": ["geometry setup", "box width"],
+            "unit": "m",
+            "values": [2000e3, 4000e3, 8000e3],
+            "abbreviating strings": ["bw2000", "bw4000", "bw8000"],
+            "if abbreviating": [1, 1, 1]
+        
+    },
+    {
+            "name": "Width of the subducting plate",
+            "key": ["plate setup", "sp width"],
+            "unit": "m",
+            "values": [500e3, 1000e3, 2000e3],
+            "abbreviating strings": ["sw500", "sw1000", "sw2000"],
+            "if abbreviating": [1, 1, 1]
+        
+    },
+	{
+        "name": "Slab strengh",
+        "key": ["plate setup", "strength"],
+        "unit": "1",
+        "values": [100e6, 300e6, 500e6, 1e12],
+        "abbreviation by value": 1,
+        "abbreviating value options": ["yd", 1e-6]
+	},
+    {
+        "name": "Adaptive refinement",
+        "key": ["refinement", "adaptive refinement"],
+        "unit": "1",
+        "values": [4, 5, 3],
+        "abbreviation by value": 1,
+        "abbreviating value options": ["AR", 1.0]
+    }
+    ],
+    "bindings": [[0, 0, 1, 1, 1, 2, 0], [0, 0, 3, 1, 1, 3, 0]],
+    "slurm":[
+    {
+      "slurm file": "./scripts/slurm/250816/job_frontera-normal.sh",
+      "build directory": "master_TwoD",
+      "tasks per node": 56,
+      "cpus": 1120
+    }
+    ]
+}

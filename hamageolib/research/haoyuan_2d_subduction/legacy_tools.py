@@ -59,11 +59,12 @@ from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 from scipy.interpolate import interp1d, UnivariateSpline
 from scipy.optimize import minimize
 from joblib import Parallel, delayed
-from shutil import rmtree, copy2, copytree
+from shutil import rmtree, copy2, copytree, copy, SameFileError
 from difflib import unified_diff
 from copy import deepcopy
 from .legacy_utilities import JsonOptions, ReadHeader, CODESUB, cart2sph, SphBound, clamp, ggr2cart, point2dist, UNITCONVERT, ReadHeader2,\
-ggr2cart, var_subs, JSON_OPT, string2list, re_neat_word, ReadDashOptions, insert_dict_after, WarningTypes, FindCasesInDir, TEX_TABLE
+ggr2cart, var_subs, JSON_OPT, string2list, re_neat_word, ReadDashOptions, insert_dict_after, WarningTypes, FindCasesInDir,\
+    TEX_TABLE, FEATURE_OPT, write_dict_recursive, GenerateSlurmCombine, SLURM_OPERATOR
 from ...utils.exception_handler import my_assert
 from ...utils.handy_shortcuts_haoyuan import func_name
 from ...utils.dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
@@ -7487,7 +7488,6 @@ class SLABPLOT(LINEARPLOT):
 
     def GetTimeDepthTip(self, case_dir, query_depth, **kwargs):
         '''
-        todo_t660
         Get the time the slab tip is at a certain depth
         Inputs:
             case_dir (str): case directory
@@ -10835,210 +10835,6 @@ def TestInitalSteps(Inputs, n_outputs, output_interval):
         "Steps between checkpoint": "1"
     }
 
-def ParseFromSlurmBatchFile(fin):
-    '''
-    read options from a slurm batch file.
-    Note I allow multiple " " in front of each line, this may or may not be a good option.
-    '''
-    inputs = {}
-    inputs["header"] = []
-    inputs["config"] = {}
-    inputs["load"] = []
-    inputs["unload"] = []
-    inputs["command"] = []
-    inputs["others"] = []
-    line = fin.readline()
-    while line != "":
-        if re.match('^(\t| )*#!', line):
-            line1 = re.sub('(\t| )*\n$', '', line)  # eliminate the \n at the end
-            inputs["header"].append(line1)
-        elif re.match('^(\t| )*#(\t| )*SBATCH', line):
-            line1 = re.sub('^(\t| )*#(\t| )*SBATCH ', '', line, count=1)
-            key, value = ReadDashOptions(line1)
-            inputs["config"][key] = value
-        elif re.match('(\t| )*module(\t| )*load', line):
-            line1 = re.sub('(\t| )*module(\t| )*load(\t| )*', '', line, count=1)
-            value = re.sub('(\t| )*\n$', '', line1) 
-            inputs["load"].append(value)
-        elif re.match('(\t| )*module(\t| )*unload', line):
-            line1 = re.sub('(\t| )*module(\t| )*unload(\t| )*', '', line, count=1)
-            value = re.sub('(\t| )*\n$', '', line1) 
-            inputs["unload"].append(value)
-        elif re.match('(\t| )*srun', line):
-            temp = re.sub('(\t| )*srun(\t| )*', '', line, count=1)
-            inputs["command"].append("srun")
-            line1 = re.sub('(\t| )*\n$', '',temp)  # eliminate the \n at the end
-            for temp in line1.split(' '):
-                if not re.match("^(\t| )*$", temp):
-                    # not ' '
-                    temp1 = re.sub('^(\t| )*', '', temp) # eliminate ' '
-                    value = re.sub('^(\t| )$', '', temp1)
-                    inputs["command"].append(value)
-        elif re.match('(\t| )*ibrun', line):
-            temp = re.sub('(\t| )*ibrun(\t| )*', '', line, count=1)
-            inputs["command"].append("ibrun")
-            line1 = re.sub('(\t| )*\n$', '',temp)  # eliminate the \n at the end
-            for temp in line1.split(' '):
-                if not re.match("^(\t| )*$", temp):
-                    # not ' '
-                    temp1 = re.sub('^(\t| )*', '', temp) # eliminate ' '
-                    value = re.sub('^(\t| )$', '', temp1)
-                    inputs["command"].append(value)
-        else:
-            inputs["others"].append(re.sub('(\t| )*\n$', '', line))
-            pass
-        line = fin.readline()
-    return inputs
-
-def ParseToSlurmBatchFile(fout, outputs, **kwargs):
-    '''
-    export options to a slurm batch file.
-    '''
-    contents = ""
-    # write header
-    for header in outputs["header"]:
-        contents += (header + "\n")
-    # write config
-    for key, value in outputs["config"].items():
-        if re.match('^--', key):
-            contents += ("#SBATCH" + " " + key + "=" + value + "\n")
-        elif re.match('^-', key):
-            contents += ("#SBATCH" + " " + key + " " + value + "\n")
-        else:
-            raise ValueError("The format of key (%s) is incorrect" % key)
-    # load and unload 
-    for module in outputs["unload"]:
-        contents += ("module unload %s\n" % module)
-    for module in outputs["load"]:
-        contents += ("module load %s\n" % module)
-    # others
-    for line in outputs['others']:
-        contents += (line + '\n')
-    # command
-    is_first = True
-    for component in outputs["command"]:
-        if is_first:
-            is_first = False
-        else:
-            contents += " "
-        contents += component
-        if component == "mpirun":
-            # append the cpu options after mpirun
-            contents += " "
-            contents += ("-n " + outputs['config']['-n'])
-    # extra contents
-    if 'extra' in outputs:
-        if outputs['extra'] is not None:
-            contents += outputs['extra']
-            contents += '\n'
-    fout.write(contents)
-    pass
-
-class SLURM_OPERATOR():
-    '''
-    Class for modifying slurm operation files
-    Attributes:
-        i_dict (dict): input options
-        o_dict (dict): output options
-    '''
-    def __init__(self, slurm_base_file_path):
-        my_assert(FileExistsError, os.path.isfile(slurm_base_file_path), "%s doesn't exist" % slurm_base_file_path)
-        with open(slurm_base_file_path, 'r') as fin:
-            self.i_dict = ParseFromSlurmBatchFile(fin)
-        self.check() # call the check function to check the contents of the file
-        self.o_dict = {}
-    
-    def check(self):
-        '''
-        check the options in inputs
-        '''
-        assert('-N' in self.i_dict['config'])
-        assert('-n' in self.i_dict['config'])
-        assert('--threads-per-core' in self.i_dict['config'])
-        assert('--tasks-per-node' in self.i_dict['config'])
-        assert('--partition' in self.i_dict['config'])
-
-    def SetAffinity(self, nnode, nthread, nthreads_per_cpu, **kwargs):
-        '''
-        set options for affinities
-        '''
-        partition = kwargs.get('partition', None)
-        use_mpirun = kwargs.get('use_mpirun', False)
-        bind_to = kwargs.get('bind_to', None)
-        self.o_dict = deepcopy(self.i_dict)
-        self.o_dict['config']['-N'] = str(int(nnode))
-        self.o_dict['config']['-n'] = str(nthread)
-        self.o_dict['config']['--threads-per-core'] = str(nthreads_per_cpu)
-        self.o_dict['config']['--tasks-per-node'] = str(int(nthread//nnode))
-        if partition is not None:
-             self.o_dict['config']['--partition'] = partition 
-        if use_mpirun:
-            self.o_dict['command'][0] = 'mpirun'
-        if bind_to != None:
-            assert(bind_to in ["socket", 'core'])
-            if self.o_dict['command'][0] == "mpirun":
-                self.o_dict['command'].insert(1, "--bind-to " + bind_to)
-            if self.o_dict['command'][0] == "srun":
-                self.o_dict['command'].insert(1, "--cpu-bind=" + bind_to + "s")
-
-    def SetName(self, _name):
-        '''
-        set the name of the job
-        '''
-        self.o_dict['config']['--job-name'] = _name
-
-    def SetModule(self, module_list, module_u_list=[]):
-        '''
-        set the list of module to load
-        '''
-        assert(type(module_list) == list)
-        self.o_dict['load'] = module_list
-        self.o_dict['unload'] = module_u_list
-
-    def SetCommand(self, build_directory, prm_file):
-        '''
-        Set the command to use
-        '''
-        if build_directory != "":
-            self.o_dict['command'][-2] = "${ASPECT_SOURCE_DIR}/build_%s/aspect" % build_directory
-        else:
-            self.o_dict['command'][-2] = "${ASPECT_SOURCE_DIR}/build/aspect"
-        self.o_dict['command'][-1] = prm_file
-
-    def ResetCommand(self, **kwargs):
-        '''
-        reset the command
-        '''
-        command_only = kwargs.get("command_only", False)
-        self.o_dict['command'] = []
-        if not command_only:
-            self.o_dict['others'] = []
-
-    def SetTimeByHour(self, hr):
-        '''
-        set the time limit
-        '''
-        self.o_dict['config']['-t'] = "%d:00:00" % hr
-    
-    def SetExtra(self, contents):
-        '''
-        set extra commands
-        '''
-        self.o_dict['extra'] = contents
-    
-    def GetOthers(self):
-        '''
-        get other commands
-        '''
-        contents = self.o_dict['others']
-        return contents
-
-    def __call__(self, slurm_file_path):
-        with open(slurm_file_path, 'w') as fout:
-            ParseToSlurmBatchFile(fout, self.o_dict)
-        print("Slurm file created: ", slurm_file_path)
-
-    pass
 
 class CASE():
     '''
@@ -11228,9 +11024,10 @@ class CASE():
             path_out = os.path.join(output_files_dir, base_name)
             copy2(path, path_out)
         for path in self.output_imgs:
-            base_name = os.path.basename(path)
-            path_out = os.path.join(output_img_dir, base_name)
-            copy2(path, path_out)
+            if path is not None:
+                base_name = os.path.basename(path)
+                path_out = os.path.join(output_img_dir, base_name)
+                copy2(path, path_out)
         return case_dir
 
     def configure(self, func, config, **kwargs):
@@ -13005,7 +12802,7 @@ opcrust: 1e+31, opharz: 1e+31", \
             # change the material model
             material_model = o_dict["Material model"]
             material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
-            material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:0.0"
+            material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:1.0|0.0|0.0|0.0|0.0|0.0|0.0"
             o_dict["Material model"] = material_model
 
             # change the particle properties
@@ -15603,10 +15400,10 @@ class CASE_THD(CASE):
             Operator.ReadProfile(da_file)
             if mantle_rheology_scheme == "HK03":
                 rheology, _ = Operator.MantleRheology(rheology="HK03",\
-                            save_profile=1, save_json=1, use_effective_strain_rate=False)
+                            save_profile=0, save_json=1, use_effective_strain_rate=False)
             elif mantle_rheology_scheme == "HK03_wet_mod_twod":
                 rheology, _ = Operator.MantleRheology(rheology="HK03_wet_mod",\
-                            save_profile=1, save_json=1, use_effective_strain_rate=True,\
+                            save_profile=0, save_json=1, use_effective_strain_rate=True,\
                             dEdiff=-40e3, dEdisl=30e3, dVdiff=-5.5e-6, dVdisl=2.12e-6,\
                             dAdiff_ratio=0.33333333333, dAdisl_ratio=1.040297619,\
                             jump_lower_mantle=15.0)
@@ -15637,12 +15434,12 @@ class CASE_THD(CASE):
                 rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
                 # derive mantle rheology
                 rheology, _ = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
-                                                            dislocation_creep=rheology_dict_refit['dislocation'], save_profile=1,\
+                                                            dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
                                                             use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
                                                             jump_lower_mantle=jump_lower_mantle)
             else:
                 rheology, _ = Operator.MantleRheology(rheology=mantle_rheology_scheme,\
-                            save_profile=1, save_json=1, use_effective_strain_rate=True)
+                            save_profile=0, save_json=1, use_effective_strain_rate=True)
             s07T_assign_mantle_rheology(o_dict, rheology)    
             self.output_files.append(Operator.output_json)
             self.output_files.append(Operator.output_json_aspect)
@@ -15687,7 +15484,7 @@ class CASE_THD(CASE):
                 rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
                 # derive mantle rheology
                 rheology, _ = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
-                                                            dislocation_creep=rheology_dict_refit['dislocation'], save_profile=1,\
+                                                            dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
                                                             use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
                                                             jump_lower_mantle=jump_lower_mantle)
             if mantle_rheology_scheme in ["HK03_WarrenHansen23"]: 
@@ -15700,6 +15497,9 @@ class CASE_THD(CASE):
             # actual default value is infinite (1e12). This is later adapted to using a large value.
             if abs(slab_strength - 500e6) / 500e6 > 1e-6 and slab_strength < 1e10:
                 o_dict['Material model']['Visco Plastic TwoD']["Maximum yield stress"] = "%.4e" % slab_strength
+            elif slab_strength > 1e10:
+                if "Maximum yield stress" in o_dict['Material model']['Visco Plastic TwoD']:
+                    o_dict['Material model']['Visco Plastic TwoD'].pop("Maximum yield stress")            
             
 
         # 2. Yielding criteria
@@ -17352,7 +17152,6 @@ class PLATE_MODEL():
     def T(self, y, t):
         '''
         Get the temperature from the plate model
-        todo
         '''
         if self.lateral_variation is True:
             raise NotImplementedError
@@ -18838,7 +18637,6 @@ def RunTimeInfo(log_path, **kwargs):
     wallclocks = Plotter.data[:, col_wallclock]
     
     # last step info
-    # todo
     last_step = steps[-1]
     last_time = times[-1] 
     last_wallclock = wallclocks[-1]
@@ -19039,3 +18837,244 @@ def HeatFlowRetriveProfile(local_dir: str, _time: float, _time_step: float, Visi
     Phis_masked = Phis[mask]
 
     return hfs_masked, Phis_masked, [mdd1_depth, mdd2_depth], trench, shallow_trench
+
+
+class GROUP_OPT(JSON_OPT):
+    '''
+    Define a class to work with GROUP
+    List of keys:
+    '''
+    def __init__(self):
+        '''
+        Initiation, first perform parental class's initiation,
+        then perform daughter class's initiation.
+        '''
+        JSON_OPT.__init__(self)
+        self.add_key("Base name", str, ["base name"], "foo", nick='bname')
+        self.add_features('Features to look for', ['features'], FEATURE_OPT)
+        self.add_key("Base json file", str, ["base json"], "foo.json", nick='base_json')
+        self.add_key("Directory to output to", str, ["output directory"], ".", nick='output_dir')
+        self.add_key("Bindings in feature", list, ["bindings"], [], nick='bindings')
+        self.add_key("Base directory to import", str, ["base directory"], ".", nick='base_dir')
+        self.add_features('Base Feature to set up for the group', ['base features'], FEATURE_OPT)
+        self.add_key('Combine case run', int, ['combine case run'], 0, nick='combine_case_run')
+        self.add_key('Slurm options', list, ['slurm'], [], nick='slurm options')
+    
+    def check(self):
+        if self.values[4] != []:
+            for binding in self.values[4]:
+                assert(len(binding) == len(self.values[1]))  # binding has length of features
+                for i in range(len(binding)):
+                    assert(type(binding[i]) == int)
+        # check base features only have 1 value
+        base_features = self.values[6]
+        for base_feature in base_features:
+            assert(len(base_feature.get_values())==1)
+
+        # check the slurm file paths
+        slurm_options = self.values[8]
+        for slurm_option in slurm_options:
+            slurm_file_base =  var_subs(slurm_option["slurm file"])
+            assert(os.path.isfile(slurm_file_base))
+
+    def get_base_json_path(self):
+        return var_subs(self.values[2])
+    
+    def get_features(self):
+        '''
+        return all the contained features
+        '''
+        return self.values[1]
+    
+    def get_output_dir(self):
+        '''
+        return output directory
+        '''
+        return var_subs(self.values[3])
+    
+    def to_create_group(self):
+        base_features = self.values[6]
+        features = self.values[1]
+        combine_case_run = self.values[7]
+        slurm_options = self.values[8]
+        return base_features, features, var_subs(self.values[5]),\
+        var_subs(self.values[3]), self.values[0], self.values[4],\
+        combine_case_run, slurm_options
+
+
+class GROUP():
+    '''
+    Define a class for groups
+    '''
+    def __init__(self, C_CLASS, C_OPT):
+        '''
+        Initiation
+        Inputs:
+            C_OPT(CASE_OPT class)
+        '''
+        print(C_OPT)
+        self.CASE = C_CLASS
+        self.CASE_OPT = C_OPT
+    
+    def read_json_base(self, json_file):
+        '''
+        Read the base json file
+        '''
+        my_assert(os.access(json_file, os.R_OK), FileExistsError, "%s doesn't exist." % json_file)
+        with open(json_file, 'r') as fin:
+            self.base_options = json.load(fin)
+
+    def create_group(self, base_features, features, base_dir, output_dir, base_name, bindings,\
+                     combine_case_run, slurm_options, **kwargs):
+        '''
+        create new group
+        Inputs:
+            kwargs (dict):
+                update (bool): update existing cases?
+        '''
+        total = 1
+        sub_totals = []
+        sizes = []
+        is_update = kwargs.get('update', False)
+        if not os.path.isdir(output_dir):
+            os.mkdir(output_dir)  # make dir if not existing
+        # handle base features, set up group-wise value of varibles
+        options = self.base_options.copy()
+        for base_feature in base_features:
+            options = write_dict_recursive(options,\
+                    base_feature.get_keys(), base_feature.get_values()[0])
+        self.base_options = options
+        # slurm configurations
+        self.base_options['slurm'] = slurm_options
+        
+        # handle features, varying the value of variables in cases
+        case_names = []
+        for feature in features:
+            sub_totals.append(total)
+            sizes.append(len(feature.get_values()))
+            total *= len(feature.get_values())
+        if bindings == []:
+            # no bindings assigned, just follow the order in values
+            for i in range(total):
+                options = self.base_options.copy()
+                options['name'] =  base_name
+                # assemble the features for case option
+                for j in range(len(features)):
+                    feature = features[j]
+                    x_j = i//sub_totals[j] % len(feature.get_values())
+                    values = feature.get_values()
+                    options = write_dict_recursive(options,\
+                        feature.get_keys(), values[x_j])
+                    if feature.if_append_abbrev(x_j):
+                        if feature.if_abbrev_value():
+                            name_appendix = get_name_appendix(feature.get_abbrev_value_options(), values[x_j]) # appendix by value
+                        else:
+                            name_appendix = feature.get_abbrev_strings()[x_j]  # appendix by string
+                        options['name'] += ('_' + name_appendix)
+                options["output directory"] = output_dir
+                # call function to create the case
+                case_dir = create_case_with_json(options, self.CASE, self.CASE_OPT, update=is_update, fix_base_dir=base_dir)
+                case_names.append(os.path.basename(case_dir))
+                json_path = os.path.join(case_dir, "case.json")
+                with open(json_path, 'w') as fout:
+                    json.dump(options, fout, indent=2)
+        else:
+            # follow the assigned binding
+            for binding in bindings:
+                options = self.base_options.copy()
+                options['name'] =  base_name
+                options["output directory"] = output_dir
+                options['base directory'] = base_dir
+                # assemble the features for case option
+                for j in range(len(features)):
+                    feature = features[j]
+                    x_j = binding[j]
+                    values = feature.get_values()
+                    try:
+                        options = write_dict_recursive(options,\
+                            feature.get_keys(), values[x_j])
+                    except IndexError:
+                        raise IndexError("values have length %d, while index is %d\
+It's likely a wrong value is assigned in the \"binding\" part of the json file." % (len(values), x_j))
+                    if feature.if_append_abbrev(x_j):
+                        if feature.if_abbrev_value():
+                            name_appendix = get_name_appendix(feature.get_abbrev_value_options(), values[x_j]) # appendix by value
+                        else:
+                            name_appendix = feature.get_abbrev_strings()[x_j]  # appendix by string
+                        options['name'] += ('_' + name_appendix)
+                # call function to create the case
+                case_dir = create_case_with_json(options, self.CASE, self.CASE_OPT, update=is_update)
+                case_names.append(os.path.basename(case_dir))
+                json_path = os.path.join(case_dir, "case.json")
+                with open(json_path, 'w') as fout:
+                    json.dump(options, fout, indent=2)
+
+        # Combine case run in slurm
+        if combine_case_run:
+            for slurm_option in slurm_options:
+                GenerateSlurmCombine(slurm_option, output_dir, case_names)
+
+
+def CreateGroup(json_inputs, CASE, CASE_OPT):
+    '''
+    create a new group
+    Inputs:
+        json_path -
+    Returns:
+        -
+    '''
+    assert(type(json_inputs) in [dict, str])
+
+    group_opt = GROUP_OPT()
+    group_opt.read_json(json_inputs)
+    feature_opt = group_opt.values[1][0]
+    group = GROUP(CASE, CASE_OPT)
+    group.read_json_base(group_opt.get_base_json_path())
+    is_update_existing = False
+    if os.path.isdir(group_opt.get_output_dir()):
+        is_pursue = input("Directory (%s) already exists, delete ? (y/n): " % group_opt.get_output_dir())
+        if is_pursue == 'y':
+            is_pursue1 = input("Delete, are you sure ? (y/n): ")
+            if is_pursue1 == 'y':
+                rmtree(group_opt.get_output_dir())
+                os.mkdir(group_opt.get_output_dir())
+        else:
+            is_pursue = input("update ? (y/n)")
+            if is_pursue != 'y':
+                print("Aborting")
+                return 0
+            temp = input("update existing cases ? (y/n)")
+            if temp == 'y':
+                is_update_existing = True
+            else:
+                is_update_existing = False
+    else:
+        os.mkdir(group_opt.get_output_dir())
+    # save a copy of the json file
+    if isinstance(json_inputs, str):
+        try:
+            copy(json_inputs, os.path.join(group_opt.get_output_dir(), "group.json"))
+        except SameFileError:
+            print("Copy: these are the same file (%s, %s), pass."\
+            % (json_inputs, os.path.join(group_opt.get_output_dir(), "group.json")))
+    elif isinstance(json_inputs, dict):
+        with open(os.path.join(group_opt.get_output_dir(), "group.json"), "w") as fout:
+            json.dump(json_inputs, fout)
+    
+    group.create_group(*group_opt.to_create_group(), update=is_update_existing)
+
+def get_name_appendix(options, value):
+    '''
+    name appendix to a case
+    options (list): key and scale
+    value(int or float)
+    '''
+    key = options[0]
+    scale = options[1]
+    if type(value) == int:
+        num_str = "%d" % (int(value * scale))
+    elif value > 1.0:
+        num_str = "%.1f" % (value * scale)
+    elif value < 1.0:
+        num_str = "%.2e" % (value * scale)
+    return key + num_str

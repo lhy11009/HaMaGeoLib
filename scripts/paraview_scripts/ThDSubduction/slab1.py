@@ -83,6 +83,18 @@ def set_density_plot(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("batlow", True)
 
+def set_temperature_plot(sourceDisplay):
+    '''
+    set the temperature plot
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "T"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 273.15, 2273.15)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("lapaz", True)
+
 def set_slab_volume_plot(sourceDisplay, max_depth, **kwargs):
     '''
     set the viscosity plot
@@ -590,6 +602,24 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     # save figure
     fig_path = os.path.join(pv_output_dir, "slice_center_density_t%.4e.pdf" % _time)
     fig_png_path = os.path.join(pv_output_dir, "slice_center_density_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+
+    # Plot the temperature
+    # get opacity transfer function/opacity map for 'field'
+    Hide(sourceV, renderView1)
+    Hide(sourceTrOrigTrian, renderView1)
+    Hide(sourceTrTrian, renderView1)
+    fieldLUT = GetColorTransferFunction("density")
+    fieldPWF = GetOpacityTransferFunction("density")
+    HideScalarBarIfNotNeeded(fieldLUT, renderView1)
+    HideScalarBarIfNotNeeded(fieldPWF, renderView1)
+    set_temperature_plot(transform1Display)
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "slice_center_temperature_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "slice_center_temperature_t%.4e.png" % _time)
     SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)

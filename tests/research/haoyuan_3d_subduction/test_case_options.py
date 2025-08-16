@@ -1,12 +1,13 @@
 import os
 import pytest
 import filecmp  # for compare file contents
+import json
 import numpy as np
 from unittest import mock
 from shutil import rmtree  # for remove directories
 
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS
-from hamageolib.research.haoyuan_2d_subduction.legacy_tools import CASE_THD, CASE_OPT_THD, create_case_with_json
+from hamageolib.research.haoyuan_2d_subduction.legacy_tools import CASE_THD, CASE_OPT_THD, create_case_with_json, CreateGroup
 
 
 package_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
@@ -97,4 +98,46 @@ def test_chunk0():
     wb_std_path = os.path.join(source_dir, 'case_std.wb')
     wb_path = os.path.join(output_dir, 'case.wb')
     assert(filecmp.cmp(wb_path, wb_std_path))
+
+
+def test_group0():
+    '''
+    test for generating a group of cases.
+    '''
+    source_dir = os.path.join(fixture_root, "test_group0")
+    group_json_path = os.path.join(source_dir, "group.json")
+    assert(os.path.isfile(group_json_path)) 
     
+    output_dir = os.path.join(test_dir,'group0')
+    if os.path.isdir(output_dir):
+        rmtree(output_dir)
+
+    # create the group
+    CreateGroup(group_json_path, CASE_THD, CASE_OPT_THD)
+
+    # check group directory
+    assert(os.path.isdir(output_dir))
+    assert(os.path.isfile(os.path.join(output_dir, "group.json")))
+
+    # check case directory 1
+    case1_dir = os.path.join(output_dir, "eba3d_1_SA50.0_OA20.0_width51_bw4000_sw1000_yd1000000.0_AR4")
+    assert(os.path.isdir(case1_dir))
+    case1_prm = os.path.join(case1_dir, "case.prm")
+    case1_wb = os.path.join(case1_dir, "case.wb")
+    case1_prm_std = os.path.join(source_dir, "case1_std.prm")
+    case1_wb_std = os.path.join(source_dir, "case1_std.wb")
+    assert(os.path.isfile(case1_prm))
+    assert(os.path.isfile(case1_wb))
+    assert(filecmp.cmp(case1_prm, case1_prm_std))
+    
+    # check case directory 2
+    case2_dir = os.path.join(output_dir, "eba3d_1_SA50.0_OA20.0_width80_bw4000_sw1000_yd500.0_AR4")
+    assert(os.path.isdir(case2_dir))
+    case2_prm = os.path.join(case2_dir, "case.prm")
+    case2_prm_std = os.path.join(source_dir, "case2_std.prm")
+    assert(os.path.isfile(case2_prm))
+    case2_wb = os.path.join(case2_dir, "case.wb")
+    case2_wb_std = os.path.join(source_dir, "case2_std.wb")
+    assert(filecmp.cmp(case2_prm, case2_prm_std))
+    assert(filecmp.cmp(case2_wb, case2_wb_std))
+
