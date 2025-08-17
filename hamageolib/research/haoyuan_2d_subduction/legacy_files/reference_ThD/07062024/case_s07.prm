@@ -48,7 +48,6 @@ subsection Formulation
     set Temperature equation = reference density profile
 end
 
-# todo
 subsection Geometry model
     set Model name = box
     subsection Box

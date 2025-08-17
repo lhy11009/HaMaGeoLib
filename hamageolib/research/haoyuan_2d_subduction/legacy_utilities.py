@@ -1672,7 +1672,6 @@ def FindCasesInDir(dir_path):
     return cases
 
 
-# todo_group
 class FEATURE_OPT(JSON_OPT):
     '''
     Define a class to work a feature with GROUP
