@@ -7488,7 +7488,6 @@ class SLABPLOT(LINEARPLOT):
 
     def GetTimeDepthTip(self, case_dir, query_depth, **kwargs):
         '''
-        todo_t660
         Get the time the slab tip is at a certain depth
         Inputs:
             case_dir (str): case directory
@@ -17153,7 +17152,6 @@ class PLATE_MODEL():
     def T(self, y, t):
         '''
         Get the temperature from the plate model
-        todo
         '''
         if self.lateral_variation is True:
             raise NotImplementedError
@@ -18639,7 +18637,6 @@ def RunTimeInfo(log_path, **kwargs):
     wallclocks = Plotter.data[:, col_wallclock]
     
     # last step info
-    # todo
     last_step = steps[-1]
     last_time = times[-1] 
     last_wallclock = wallclocks[-1]
@@ -18860,7 +18857,6 @@ class GROUP_OPT(JSON_OPT):
         self.add_key("Bindings in feature", list, ["bindings"], [], nick='bindings')
         self.add_key("Base directory to import", str, ["base directory"], ".", nick='base_dir')
         self.add_features('Base Feature to set up for the group', ['base features'], FEATURE_OPT)
-        # todo_comb
         self.add_key('Combine case run', int, ['combine case run'], 0, nick='combine_case_run')
         self.add_key('Slurm options', list, ['slurm'], [], nick='slurm options')
     
@@ -18948,7 +18944,6 @@ class GROUP():
             options = write_dict_recursive(options,\
                     base_feature.get_keys(), base_feature.get_values()[0])
         self.base_options = options
-        # todo_comb
         # slurm configurations
         self.base_options['slurm'] = slurm_options
         
@@ -19014,7 +19009,6 @@ It's likely a wrong value is assigned in the \"binding\" part of the json file."
                 with open(json_path, 'w') as fout:
                     json.dump(options, fout, indent=2)
 
-        # todo_comb 
         # Combine case run in slurm
         if combine_case_run:
             for slurm_option in slurm_options:
