@@ -11,7 +11,7 @@ from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS
 
 
 # Case path
-local_dir = "/mnt/lochy/ASPECT_DATA/ThDSubduction/chunk_geometry2/eba3d_SA50.0_OA20.0_width80_bw4000_sw1000_yd500.0_AR4"
+local_dir = "/mnt/lochy/ASPECT_DATA/ThDSubduction/chunk_geometry2/eba3d_1_SA50.0_OA20.0_width80_bw4000_sw1000_yd500.0_AR4"
 
 # Whether to generate pyvista outputs
 prepare_pyvista = True

@@ -19021,7 +19021,7 @@ It's likely a wrong value is assigned in the \"binding\" part of the json file."
                 GenerateSlurmCombine(slurm_option, output_dir, case_names)
 
 
-def CreateGroup(json_path, CASE, CASE_OPT):
+def CreateGroup(json_inputs, CASE, CASE_OPT):
     '''
     create a new group
     Inputs:
@@ -19029,8 +19029,10 @@ def CreateGroup(json_path, CASE, CASE_OPT):
     Returns:
         -
     '''
+    assert(type(json_inputs) in [dict, str])
+
     group_opt = GROUP_OPT()
-    group_opt.read_json(json_path)
+    group_opt.read_json(json_inputs)
     feature_opt = group_opt.values[1][0]
     group = GROUP(CASE, CASE_OPT)
     group.read_json_base(group_opt.get_base_json_path())
@@ -19054,11 +19056,16 @@ def CreateGroup(json_path, CASE, CASE_OPT):
                 is_update_existing = False
     else:
         os.mkdir(group_opt.get_output_dir())
-    try:
-        copy(json_path, os.path.join(group_opt.get_output_dir(), "group.json"))
-    except SameFileError:
-        print("Copy: these are the same file (%s, %s), pass."\
-        % (json_path, os.path.join(group_opt.get_output_dir(), "group.json")))
+    # save a copy of the json file
+    if isinstance(json_inputs, str):
+        try:
+            copy(json_inputs, os.path.join(group_opt.get_output_dir(), "group.json"))
+        except SameFileError:
+            print("Copy: these are the same file (%s, %s), pass."\
+            % (json_inputs, os.path.join(group_opt.get_output_dir(), "group.json")))
+    elif isinstance(json_inputs, dict):
+        with open(os.path.join(group_opt.get_output_dir(), "group.json"), "w") as fout:
+            json.dump(json_inputs, fout)
     
     group.create_group(*group_opt.to_create_group(), update=is_update_existing)
 
