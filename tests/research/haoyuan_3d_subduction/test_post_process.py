@@ -264,6 +264,54 @@ def test_pyvista_process_thd_box_big():
     assert(abs((PprocessThD.slab_depth-slab_depth0)/slab_depth0) < 1e-6)
 
 
+def test_pyvista_process_thd_chunk_script_piece_wise():
+    '''
+    Test for using linux subprocess and run the post-processing piesewise
+    '''
+    import subprocess
+
+    local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_width80_bw8000_sw2000_yd500.0_AR4")
+    pvtu_step=10
+    n_pieces=16
+    
+    # remove old directory 
+    pyvista_outdir = os.path.join(test_dir, "test_pyvista_process_thd_box_chunk_script_piece_wise")
+    if os.path.isdir(pyvista_outdir):
+        rmtree(pyvista_outdir)
+    os.mkdir(pyvista_outdir)
+
+    for i_piece in range(n_pieces):
+        print(["python", "hamageolib/research/haoyuan_3d_subduction/scripts/SlabMorphology.py",
+                        '-m', "piece-bash", "-d", local_dir, "-d1", pyvista_outdir, "-s", str(pvtu_step), "-n", str(n_pieces), "-i", str(i_piece)])
+        completed_process = subprocess.run(["python", "hamageolib/research/haoyuan_3d_subduction/scripts/SlabMorphology.py",
+                        '-m', "piece-bash", "-d", local_dir, "-d1", pyvista_outdir, "-s", str(pvtu_step), "-n", str(n_pieces), "-i", str(i_piece)],\
+                            capture_output=True, text=True, check=True)
+
+    print(["python", "hamageolib/research/haoyuan_3d_subduction/scripts/SlabMorphology.py",
+                    '-m', "piece-bash", "-d", local_dir, "-d1", pyvista_outdir, "-s", str(pvtu_step), "-n", str(n_pieces), "-i", "-1"]) 
+    subprocess.run(["python", "hamageolib/research/haoyuan_3d_subduction/scripts/SlabMorphology.py",
+                    '-m', "piece-bash", "-d", local_dir, "-d1", pyvista_outdir, "-s", str(pvtu_step), "-n", str(n_pieces), "-i", "-1"], capture_output=True, text=True, check=True)
+
+    # assert output exist 
+    odir = os.path.join(pyvista_outdir, "00014")
+    assert(os.path.isdir(odir))
+
+    # check slab surface file
+    sp_upper_surface_file = os.path.join(odir, "sp_upper_surface_00014.vtp")
+    assert(os.path.isfile(sp_upper_surface_file))
+    sp_upper_surface_std_file = os.path.join(local_dir, "sp_upper_surface_00014_std.vtp")
+    assert(filecmp.cmp(sp_upper_surface_file, sp_upper_surface_std_file))
+
+    # check slab lower file
+    sp_lower_above_filtered_pe_file = os.path.join(odir, "sp_lower_above_0.8_filtered_pe_00014.vtu")
+    assert(os.path.isfile(sp_lower_above_filtered_pe_file))
+    sp_lower_above_filtered_pe_std_file = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00014_std.vtu")
+    assert(filecmp.cmp(sp_lower_above_filtered_pe_file, sp_lower_above_filtered_pe_std_file))
+
+
+
+
+
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_twod_chunk():
     # test processing the 2d case

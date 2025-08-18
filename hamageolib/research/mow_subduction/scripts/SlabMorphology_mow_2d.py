@@ -9,7 +9,7 @@ from hamageolib.research.haoyuan_3d_subduction.post_process import PlotCaseRunTw
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_subduction_visualization
 
 
-local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow_tests/eba2d_width80_h1000_bw4000_sw1000_yd300_M_fix_1"
+local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow00/C_mow_h2890.0_gr3_ar4"
 
 assert(local_dir_2d is not None)
 
@@ -32,8 +32,9 @@ for step in graphical_steps:
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab depth", step, output_dict["slab_depth"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Trench", step, output_dict["trench_center"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Dip 100", step, output_dict["dip_100"])
-    Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area", step, output_dict["metastable_area"])
-    Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area cold", step, output_dict["metastable_area_cold"])
+    if Case_Options_2d.options["MODEL_TYPE"] == "mow":
+        Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area", step, output_dict["metastable_area"])
+        Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area cold", step, output_dict["metastable_area_cold"])
     # break # debug
 
 Case_Options_2d.SummaryCaseVtuStepExport(os.path.join(local_dir_2d, "summary.csv"))

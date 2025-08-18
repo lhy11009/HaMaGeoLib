@@ -2,11 +2,13 @@ import os
 import math
 import time
 import psutil
+from pathlib import Path
 import pyvista as pv
 import numpy as np
 from scipy.spatial import cKDTree
 from vtk import VTK_QUAD
 from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian, cartesian_to_spherical_2d
+from hamageolib.utils.vtk_utilities import get_pyvista_extension
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS, CASE_OPTIONS_TWOD1
@@ -162,7 +164,10 @@ class PYVISTA_PROCESS_THD():
             func_name - name of the member function
             keys - key of the data structure
         '''
+        # Set method to use 
         method = getattr(self, func_name)
+
+        # Set options to method
         kwargs["save_file"] = False
         kwargs["update_attributes"] = False
 
@@ -184,6 +189,49 @@ class PYVISTA_PROCESS_THD():
         else:
             raise TypeError("Return value from function " + str(method) + " should be either tuple or pyvista.DataSet")
 
+    def export_piecewise(self, i_piece, **kwargs):
+        '''
+        Export the results from a single piece
+        Inputs:
+            i_piece - number of piece
+        '''
+        # Addtional options
+        indent = kwargs.get("indent", 0)
+
+        # Save file
+        for key, value in self.combined.items():
+            assert(isinstance(value, list) and len(value)==1)
+            extension = get_pyvista_extension(value[0])
+            odir = os.path.join(self.pyvista_outdir, "p%02d" % i_piece)
+            if not os.path.isdir(odir):
+                os.mkdir(odir)
+            ofile = os.path.join(odir, "%s_%05d.%s" % (key, self.pvtu_step, extension))
+            value[0].save(ofile)
+            print("%ssaved file for piece %d: %s" % (indent*" ", i_piece, ofile))
+
+    def import_piecewise(self, i_piece, **kwargs):
+        '''
+        Import the results from a single piece
+        Inputs:
+            i_piece - number of piece
+        '''
+        indent = kwargs.get("indent", 0)
+        for key, value in self.__dict__.items():
+            if value is None or isinstance(value, pv.DataSet):
+                odir = os.path.join(self.pyvista_outdir, "p%02d" % i_piece)
+                assert(os.path.isdir(odir))
+
+                ofile_base = "%s_%05d" % (key, self.pvtu_step)
+                ofile = find_file_by_stem(odir, ofile_base)
+                if ofile is not None:
+                    pv_obj = pv.read(ofile)
+
+                    if key not in self.combined:
+                        self.combined[key] = []
+                    self.combined[key].append(pv_obj)
+                    print("%sload attr " % (indent*" ") + key + " from piece " + str(i_piece))
+
+    
     def combine_pieces(self):
         '''
         Merge the pv objects in self.combined
@@ -1644,6 +1692,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     do_clip = kwargs.get("do_clip", False)
     extract_trench_at_additional_depths=  kwargs.get("extract_trench_at_additional_depths", None)
     n_pieces = kwargs.get("n_pieces", None)
+    i_piece = kwargs.get("i_piece", None)
+    odir = kwargs.get("odir", os.path.join(case_path, "pyvista_outputs"))
     
     outputs = {}
 
@@ -1701,29 +1751,31 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     
     # initiate PYVISTA_PROCESS_THD class
     config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2, "time": _time}
-    kwargs = {"clip": clip, "pyvista_outdir": os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)}
+    kwargs = {"clip": clip, "pyvista_outdir": os.path.join(odir, "%05d" % pvtu_step)}
     PprocessThD = PYVISTA_PROCESS_THD(os.path.join(case_path, "output", "solution"), config, **kwargs)
 
     # make domain boundary
-    if geometry == "chunk":
-        # p_marker_coordinates = {"r": 6371e3 - np.arange(0, 6000e3, 1000e3), "lon": np.arange(0, 90, 10)*np.pi/180.0, "lat": np.arange(0, 90.0, 10.0)*np.pi/180.0}
-        # d1 = np.floor((Max0 - Min0) / marker_intervals[0]) * marker_intervals[0]
-        # lat1 = np.floor(Max1 / marker_intervals[1]) * marker_intervals[1]
-        # lon1 = np.floor(Max2 / marker_intervals[2]) * marker_intervals[2]
+    do_output = (n_pieces is None or i_piece is None or i_piece < 0)
+    if do_output:
+        if geometry == "chunk":
+            # p_marker_coordinates = {"r": 6371e3 - np.arange(0, 6000e3, 1000e3), "lon": np.arange(0, 90, 10)*np.pi/180.0, "lat": np.arange(0, 90.0, 10.0)*np.pi/180.0}
+            # d1 = np.floor((Max0 - Min0) / marker_intervals[0]) * marker_intervals[0]
+            # lat1 = np.floor(Max1 / marker_intervals[1]) * marker_intervals[1]
+            # lon1 = np.floor(Max2 / marker_intervals[2]) * marker_intervals[2]
 
-        p_marker_coordinates = {"r": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0]),\
-                "lat": np.arange(0, Max1, marker_intervals[1]),\
-            "lon": np.arange(0, Max2, marker_intervals[2])}
-        PprocessThD.make_boundary_spherical(marker_coordinates=p_marker_coordinates,\
-             boundary_range=boundary_range)
-        PprocessThD.create_spherical_plane(660e3, boundary_range=boundary_range)
-    else:
-        p_marker_coordinates = {"x": np.arange(0, Max2, marker_intervals[2]),\
-                "y": np.arange(0, Max1, marker_intervals[1]),\
-            "z": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0])}
-        PprocessThD.make_boundary_cartesian(marker_coordinates=p_marker_coordinates,\
-            boundary_range=boundary_range)
-        PprocessThD.create_cartesian_plane(660e3, boundary_range=boundary_range)
+            p_marker_coordinates = {"r": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0]),\
+                    "lat": np.arange(0, Max1, marker_intervals[1]),\
+                "lon": np.arange(0, Max2, marker_intervals[2])}
+            PprocessThD.make_boundary_spherical(marker_coordinates=p_marker_coordinates,\
+                boundary_range=boundary_range)
+            PprocessThD.create_spherical_plane(660e3, boundary_range=boundary_range)
+        else:
+            p_marker_coordinates = {"x": np.arange(0, Max2, marker_intervals[2]),\
+                    "y": np.arange(0, Max1, marker_intervals[1]),\
+                "z": Max0 - np.arange(0, Max0 - Min0, marker_intervals[0])}
+            PprocessThD.make_boundary_cartesian(marker_coordinates=p_marker_coordinates,\
+                boundary_range=boundary_range)
+            PprocessThD.create_cartesian_plane(660e3, boundary_range=boundary_range)
 
     if n_pieces is None:
         # read vtu file
@@ -1744,28 +1796,54 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         process = psutil.Process(os.getpid())
         print("Memory Usage: ", process.memory_info().rss / 1024**2, "MB")
     else:
+        if i_piece is None:
         # process piecewise
-        for piece in range(n_pieces):
-            PprocessThD.read(pvtu_step, piece=piece)
-            PprocessThD.process_piecewise("slice_center", ["sliced", "sliced_u"])
-            PprocessThD.process_piecewise("slice_surface", ["sliced_shell"])
-            PprocessThD.process_piecewise("slice_at_depth", ["sliced_depth"], depth=slice_depth, r_diff=40e3)
-            PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=iso_volume_threshold)
-            PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=threshold_lower)
-            PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
-            process = psutil.Process(os.getpid())
-            print("Memory Usage piecewise %d: " % piece, process.memory_info().rss / 1024**2, "MB")
+            for piece in range(n_pieces):
+                PprocessThD.read(pvtu_step, piece=piece)
+                PprocessThD.process_piecewise("slice_center", ["sliced", "sliced_u"])
+                PprocessThD.process_piecewise("slice_surface", ["sliced_shell"])
+                PprocessThD.process_piecewise("slice_at_depth", ["sliced_depth"], depth=slice_depth, r_diff=40e3)
+                PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=iso_volume_threshold)
+                PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=threshold_lower)
+                PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
+                process = psutil.Process(os.getpid())
+                print("Memory Usage piecewise %d: " % piece, process.memory_info().rss / 1024**2, "MB")
+        else:
+            if i_piece >= 0:
+                # process a single piece at a time.
+                # at the end, a single-piece output will be exported
+                PprocessThD.read(pvtu_step, piece=i_piece)
+                PprocessThD.process_piecewise("slice_center", ["sliced", "sliced_u"])
+                PprocessThD.process_piecewise("slice_surface", ["sliced_shell"])
+                PprocessThD.process_piecewise("slice_at_depth", ["sliced_depth"], depth=slice_depth, r_diff=40e3)
+                PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=iso_volume_threshold)
+                PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=threshold_lower)
+                PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
+                process = psutil.Process(os.getpid())
+                print("Memory Usage piecewise %d: " % i_piece, process.memory_info().rss / 1024**2, "MB")
+                PprocessThD.export_piecewise(i_piece, indent=4)
+            
+                # only continue if we pass a negative i_piece
+                return PprocessThD, {}
 
-        PprocessThD.combine_pieces()
-        PprocessThD.write_key_to_file("sliced", "slice_center_unbounded", "vtp")
-        PprocessThD.write_key_to_file("sliced_u", "slice_center", "vtu")
-        PprocessThD.write_key_to_file("sliced_shell", "slice_outer", "vtu")
-        PprocessThD.write_key_to_file("sliced_depth", "slice_depth_%.1fkm" % (slice_depth/1e3), "vtu")
-        PprocessThD.write_key_to_file("iso_volume_upper", "sp_upper_above_%.2f" % (iso_volume_threshold), "vtu")
-        PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (threshold_lower), "vtu")
-        PprocessThD.write_key_to_file("iso_plate_edge", "plate_edge_above_%.2f" % (iso_volume_threshold), "vtu")
+        if i_piece < 0: 
+            PprocessThD.pvtu_step = pvtu_step
+            for piece in range(n_pieces):
+                PprocessThD.import_piecewise(piece, indent=4)
+
         process = psutil.Process(os.getpid())
-        print("Memory Usage: ", process.memory_info().rss / 1024**2, "MB")
+        print("Memory Usage (after processing files): ", process.memory_info().rss / 1024**2, "MB")
+        if do_output:
+            PprocessThD.combine_pieces()
+            PprocessThD.write_key_to_file("sliced", "slice_center_unbounded", "vtp")
+            PprocessThD.write_key_to_file("sliced_u", "slice_center", "vtu")
+            PprocessThD.write_key_to_file("sliced_shell", "slice_outer", "vtu")
+            PprocessThD.write_key_to_file("sliced_depth", "slice_depth_%.1fkm" % (slice_depth/1e3), "vtu")
+            PprocessThD.write_key_to_file("iso_volume_upper", "sp_upper_above_%.2f" % (iso_volume_threshold), "vtu")
+            PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (threshold_lower), "vtu")
+            PprocessThD.write_key_to_file("iso_plate_edge", "plate_edge_above_%.2f" % (iso_volume_threshold), "vtu")
+            process = psutil.Process(os.getpid())
+            print("Memory Usage (after writing files): ", process.memory_info().rss / 1024**2, "MB")
 
 
 
@@ -2342,3 +2420,11 @@ def fix_shallow_trench_2d(upper_points, lower_points, thickness, is_spherical, R
 
 class FixShallowTrenchError(Exception):
     pass
+
+# Utilities
+def find_file_by_stem(directory, name_without_ext):
+    directory = Path(directory)
+    for file in directory.iterdir():
+        if file.is_file() and file.stem == name_without_ext:
+            return str(file.resolve())  # full absolute path
+    return None
