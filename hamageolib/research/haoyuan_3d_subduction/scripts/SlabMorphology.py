@@ -57,6 +57,6 @@ for i, step in enumerate(graphical_steps):
         Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, trench_center)
         Case_Options.SummaryCaseVtuStepUpdateValue("Dip 100 (center)", step, dip_100_center)
     
-    # break # debug
+    break # debug
 
 Case_Options.SummaryCaseVtuStepExport(os.path.join(local_dir, "summary.csv"))

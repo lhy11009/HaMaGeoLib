@@ -1,6 +1,7 @@
 import os
 import math
 import time
+import psutil
 import pyvista as pv
 import numpy as np
 from scipy.spatial import cKDTree
@@ -55,6 +56,9 @@ class PYVISTA_PROCESS_THD():
         pe_edge_points (np.ndarray): Extracted (x, y, z) coordinates of plate edge surface.
     """
 
+    class PyVistaObjectIsNoneError(Exception):
+        pass
+
     def __init__(self, data_dir, config, **kwargs):
         # data_directory
         self.data_dir = data_dir
@@ -88,8 +92,6 @@ class PYVISTA_PROCESS_THD():
         self.keys = ["sliced", "sliced_u", "sliced_shell", "sliced_depth", "iso_volume_upper", "iso_volume_lower", "iso_volume_lower_filtered_pe",
                      "iso_plate_edge", "slab_surface_points", "pe_edge_points", "trench_points", "additional_trench_points"]
         self.combined = {}
-        for key in self.keys:
-            self.combined[key] = []
         for key in self.keys:
             setattr(self, key, None)
 
@@ -160,7 +162,6 @@ class PYVISTA_PROCESS_THD():
             func_name - name of the member function
             keys - key of the data structure
         '''
-        # todo_piece
         method = getattr(self, func_name)
         kwargs["save_file"] = False
         kwargs["update_attributes"] = False
@@ -171,10 +172,14 @@ class PYVISTA_PROCESS_THD():
             assert(len(outputs) == len(keys))
             for i, key in enumerate(keys):
                 assert(isinstance(outputs[i], pv.DataSet))
+                if key not in self.combined:
+                    self.combined[key] = []
                 self.combined[key].append(outputs[i])
         elif isinstance(outputs, pv.DataSet):
             # only one output
             assert(len(keys)==1)
+            if keys[0] not in self.combined:
+                self.combined[keys[0]] = []
             self.combined[keys[0]].append(outputs)
         else:
             raise TypeError("Return value from function " + str(method) + " should be either tuple or pyvista.DataSet")
@@ -183,12 +188,24 @@ class PYVISTA_PROCESS_THD():
         '''
         Merge the pv objects in self.combined
         '''
+        # merge objects in combined (dict)
         for key, value in self.combined.items():
             if len(value) == 0:
                 merged = None
             else:
                 merged = pv.merge(value, merge_points=True)
             setattr(self, key, merged)
+
+        # reset self.combined
+        self.combined = {}
+
+    def reset_attrs(self, keys):
+        '''
+        reset attrs to None
+        '''
+        import gc
+        for key in keys:
+            setattr(self, key, None) 
     
     def write_key_to_file(self, key, filename_base, filetype):
         '''
@@ -880,7 +897,8 @@ class PYVISTA_PROCESS_THD():
         """
 
         # initiation
-        assert(self.slab_surface_points is not None and self.pe_edge_points is not None)
+        my_assert(self.slab_surface_points is not None, self.PyVistaObjectIsNoneError, "slab_surface_points cannot be None")
+        my_assert(self.pe_edge_points is not None, self.PyVistaObjectIsNoneError, "pe_edge_points cannot be None")
         start = time.time()
         indent = 4
 
@@ -1723,8 +1741,9 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         PprocessThD.extract_iso_volume_lower(threshold=threshold_lower)
         # extract plate_edge composition beyond a threshold
         PprocessThD.extract_plate_edge(threshold=iso_volume_threshold)
+        process = psutil.Process(os.getpid())
+        print("Memory Usage: ", process.memory_info().rss / 1024**2, "MB")
     else:
-        # todo_piece
         # process piecewise
         for piece in range(n_pieces):
             PprocessThD.read(pvtu_step, piece=piece)
@@ -1734,6 +1753,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
             PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=iso_volume_threshold)
             PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=threshold_lower)
             PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
+            process = psutil.Process(os.getpid())
+            print("Memory Usage piecewise %d: " % piece, process.memory_info().rss / 1024**2, "MB")
 
         PprocessThD.combine_pieces()
         PprocessThD.write_key_to_file("sliced", "slice_center_unbounded", "vtp")
@@ -1743,6 +1764,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         PprocessThD.write_key_to_file("iso_volume_upper", "sp_upper_above_%.2f" % (iso_volume_threshold), "vtu")
         PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (threshold_lower), "vtu")
         PprocessThD.write_key_to_file("iso_plate_edge", "plate_edge_above_%.2f" % (iso_volume_threshold), "vtu")
+        process = psutil.Process(os.getpid())
+        print("Memory Usage: ", process.memory_info().rss / 1024**2, "MB")
 
 
 
@@ -1758,7 +1781,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     # get slab depth
     PprocessThD.get_slab_depth()
 
-    # todo_piece
 
     # extract outputs
     assert(PprocessThD.trench_center is not None)
