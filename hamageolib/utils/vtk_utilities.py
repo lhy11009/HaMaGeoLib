@@ -1,6 +1,7 @@
 import numpy as np
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
+import pyvista as pv
 
 
 def create_vtk_grid(points, cells):
@@ -256,3 +257,22 @@ def extract_phi_max(points_xyz, r_bounds, theta_bounds, n_r=100, n_theta=100):
 
     return np.array(result_xyz)
 
+
+def get_pyvista_extension(value):
+    """
+    Determine the correct file extension for a PyVista object.
+    """
+    if isinstance(value, pv.UnstructuredGrid):
+        return "vtu"
+    elif isinstance(value, pv.PolyData):
+        return "vtp"
+    elif isinstance(value, pv.StructuredGrid):
+        return "vts"
+    elif isinstance(value, pv.RectilinearGrid):
+        return "vtr"
+    elif isinstance(value, pv.ImageData):
+        return "vti"
+    elif isinstance(value, pv.MultiBlock):
+        return "vtm"
+    else:
+        raise TypeError(f"Unsupported PyVista object type: {type(value)}")
