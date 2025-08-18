@@ -189,10 +189,11 @@ class PYVISTA_PROCESS_THD():
         else:
             raise TypeError("Return value from function " + str(method) + " should be either tuple or pyvista.DataSet")
 
-    # todo_piece
     def export_piecewise(self, i_piece, **kwargs):
         '''
-        i_piece - number of piece
+        Export the results from a single piece
+        Inputs:
+            i_piece - number of piece
         '''
         # Addtional options
         indent = kwargs.get("indent", 0)
@@ -208,8 +209,12 @@ class PYVISTA_PROCESS_THD():
             value[0].save(ofile)
             print("%ssaved file for piece %d: %s" % (indent*" ", i_piece, ofile))
 
-    # todo_piece
     def import_piecewise(self, i_piece, **kwargs):
+        '''
+        Import the results from a single piece
+        Inputs:
+            i_piece - number of piece
+        '''
         indent = kwargs.get("indent", 0)
         for key, value in self.__dict__.items():
             if value is None or isinstance(value, pv.DataSet):
@@ -1688,6 +1693,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     extract_trench_at_additional_depths=  kwargs.get("extract_trench_at_additional_depths", None)
     n_pieces = kwargs.get("n_pieces", None)
     i_piece = kwargs.get("i_piece", None)
+    odir = kwargs.get("odir", os.path.join(case_path, "pyvista_outputs"))
     
     outputs = {}
 
@@ -1745,7 +1751,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     
     # initiate PYVISTA_PROCESS_THD class
     config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2, "time": _time}
-    kwargs = {"clip": clip, "pyvista_outdir": os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)}
+    kwargs = {"clip": clip, "pyvista_outdir": os.path.join(odir, "%05d" % pvtu_step)}
     PprocessThD = PYVISTA_PROCESS_THD(os.path.join(case_path, "output", "solution"), config, **kwargs)
 
     # make domain boundary
@@ -1804,6 +1810,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
                 print("Memory Usage piecewise %d: " % piece, process.memory_info().rss / 1024**2, "MB")
         else:
             if i_piece >= 0:
+                # process a single piece at a time.
+                # at the end, a single-piece output will be exported
                 PprocessThD.read(pvtu_step, piece=i_piece)
                 PprocessThD.process_piecewise("slice_center", ["sliced", "sliced_u"])
                 PprocessThD.process_piecewise("slice_surface", ["sliced_shell"])
@@ -1813,7 +1821,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
                 PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
                 process = psutil.Process(os.getpid())
                 print("Memory Usage piecewise %d: " % i_piece, process.memory_info().rss / 1024**2, "MB")
-                # todo_piece
                 PprocessThD.export_piecewise(i_piece, indent=4)
             
                 # only continue if we pass a negative i_piece

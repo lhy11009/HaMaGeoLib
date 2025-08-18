@@ -46,6 +46,14 @@ def main():
         help="Path to the input directory (must exist)."
     )
 
+    # Input directory (default is None, and we will take args.indir/pyvista_output as the value)
+    parser.add_argument(
+        "-d1", "--outdir",
+        type=str,
+        default=None,
+        help="Path to the output directory."
+    )
+
      # Step option (default -1: loop all steps)
     parser.add_argument(
         "-s", "--step",
@@ -96,6 +104,12 @@ def main():
         assert(args.step in graphical_steps)
         graphical_steps = [args.step]
 
+    # Output directory
+    if args.outdir is None:
+        odir = os.path.join(args.indir, "pyvista_outputs")
+    else:
+        odir = args.outdir
+
     config = {"threshold_lower": 0.8} # options for processing vtu file
     # Generate paraview script
     for i, step in enumerate(graphical_steps):
@@ -107,14 +121,14 @@ def main():
 
         # get trench center
         pvtu_step = step + int(Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT']) 
-        pyvista_outdir = os.path.join(args.indir, "pyvista_outputs", "%05d" % pvtu_step)
+        pyvista_outdir = os.path.join(odir, "%05d" % pvtu_step)
 
-        
         # processing pyvista
         try:
             if prepare_pyvista:
-                # todo_piece
-                _, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, n_pieces=args.n_pieces, i_piece=args.i_piece)
+                # n_pieces tell the function to proceed piece-wise.
+                # i_pice tell the function to only process one piece at a time (otherwise loop over all pieces)
+                _, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir, n_pieces=args.n_pieces, i_piece=args.i_piece)
         except FileNotFoundError:
             Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, False)
         else:
