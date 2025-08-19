@@ -256,7 +256,7 @@ subsection Material model
             set Latent heat = false
         end
         set Reaction metastable = true
-        set Metastable transition = background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:0.0
+        set Metastable transition = background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:1.0|0.0|0.0|0.0|0.0|0.0|0.0
     end
 end
 

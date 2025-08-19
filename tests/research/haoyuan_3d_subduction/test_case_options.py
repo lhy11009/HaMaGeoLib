@@ -34,7 +34,7 @@ def test_3d_visualization_basics():
     '''
     source_dir = os.path.join(fixture_root, "test_eba3d_width80_h1000_bw4000_sw1000_yd300")
     options = {"time_range": None, "run_visual": False, "time_interval":None, "visualization": "paraview",
-               "step": [10], "plot_axis": False, "max_velocity": -1.0, "rotation_plus": 5.0}
+               "step": 10, "plot_axis": False, "max_velocity": -1.0, "rotation_plus": 5.0}
     ofile_std = os.path.join(source_dir, "slab_std.py")
 
     # output directory
@@ -58,7 +58,7 @@ def test_3d_visualization_basics():
 
     # generate summary file
     ofile_summary_csv = os.path.join(output_dir, "summary.csv")
-    Case_Options.SummaryCase(ofile_summary_csv)
+    Case_Options.SummaryCaseVtuStepExport(ofile_summary_csv)
     assert(os.path.isfile(ofile_summary_csv))
 
 

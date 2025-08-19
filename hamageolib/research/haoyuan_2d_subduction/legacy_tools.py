@@ -12532,7 +12532,7 @@ $ASPECT_SOURCE_DIR/build%s/isosurfaces_TwoD1/libisosurfaces_TwoD1.so" % (branch_
             rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
             # derive mantle rheology
             rheology, viscosity_profile = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
-                                                        dislocation_creep=rheology_dict_refit['dislocation'], save_profile=1,\
+                                                        dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
                                                         use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
                                                         jump_lower_mantle=jump_lower_mantle)
             # assign to the prm file
@@ -15746,11 +15746,19 @@ class CASE_THD(CASE):
         else:
             raise ValueError("stokes_solver_type must be in [block AMG, block GMG].")
 
+        
         # version related features: part 1
         if version >= 3.0:
             o_dict['Postprocess']["Visualization"]["List of output variables"] = 'material properties, error indicator, named additional outputs, strain rate, stress, principal stress'
             o_dict["Material model"]["Visco Plastic TwoD"]["Peierls strain rate residual tolerance"] = "1e-6"
+            # number of particles from mesh refinement
             if comp_method == "particle":
+                if global_refinement + adaptive_refinement == 7:
+                    n_particles = 1e8
+                elif global_refinement + adaptive_refinement == 8:
+                    n_particles = 1e9
+                else:
+                    n_particles = 1e8
                 #fix the particle properties for newer version.
                 o_dict = fix_particles_new_version(o_dict)
                             # fix the particle properties
@@ -15764,7 +15772,7 @@ class CASE_THD(CASE):
                                     "Allow cells without particles": "true",
                                     "Generator": {
                                         "Random uniform":{
-                                            "Number of particles": "5e7"
+                                            "Number of particles": "%.1e" % n_particles
                                         }
                                     },
                                     "Integration scheme": "rk4"
@@ -15795,7 +15803,7 @@ class CASE_THD(CASE):
             # change the material model
             material_model = o_dict["Material model"]
             material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
-            material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, sp_upper: 0.0, sp_lower: 0.0, plate_edge: 0.0, ov_upper: 0.0"
+            material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, sp_upper: 0.0, sp_lower: 1.0|0.0|0.0|0.0|0.0|0.0|0.0, plate_edge: 0.0, ov_upper: 0.0"
             o_dict["Material model"] = material_model
 
             # change the particles
