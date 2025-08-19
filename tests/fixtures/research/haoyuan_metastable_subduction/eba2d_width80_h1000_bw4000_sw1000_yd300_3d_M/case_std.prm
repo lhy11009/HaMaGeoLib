@@ -257,7 +257,7 @@ subsection Material model
         end
         set Maximum yield stress = 3.0000e+08
         set Reaction metastable = true
-        set Metastable transition = background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, sp_upper: 0.0, sp_lower: 0.0, plate_edge: 0.0, ov_upper: 0.0
+        set Metastable transition = background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, sp_upper: 0.0, sp_lower: 1.0|0.0|0.0|0.0|0.0|0.0|0.0, plate_edge: 0.0, ov_upper: 0.0
     end
 end
 
@@ -321,7 +321,7 @@ subsection Particles
     set Allow cells without particles = true
     subsection Generator
         subsection Random uniform
-            set Number of particles = 5e7
+            set Number of particles = 1.0e+08
         end
     end
     set Integration scheme = rk4
