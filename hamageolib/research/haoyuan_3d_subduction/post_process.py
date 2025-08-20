@@ -12,6 +12,7 @@ from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherica
 from hamageolib.utils.vtk_utilities import get_pyvista_extension
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
+from hamageolib.utils.interp_utilities import KNNInterpolatorND
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS, CASE_OPTIONS_TWOD1
 from hamageolib.utils.plot_helper import convert_eps_to_pdf, extract_image_by_size, overlay_images_on_blank_canvas,\
     add_text_to_image, scale_matplotlib_params
@@ -707,10 +708,9 @@ class PYVISTA_PROCESS_THD():
         vals2 = np.full((N0, N1), np.nan)
         vals2_tr = np.full(N1, np.nan)
 
-        upper_points = source.points
-
         # todo_3d 
-        v0_u, v2_u, v1_u = PUnified.points2unified3(upper_points.T, self.is_spherical, False)
+        upper_points = source.points
+        v0_u, v2_u, v1_u = PUnified.points2unified3(upper_points, self.is_spherical, False)
         rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
         rt_tree = cKDTree(rt_upper)
 
@@ -739,22 +739,9 @@ class PYVISTA_PROCESS_THD():
         mask = ~np.isnan(vals2)
 
         # todo_3d
-        # interpolate function for slab surace points
-
-        v0_surf = V0[mask]
-        v1_surf = V1[mask]
-        v2_surf = vals2[mask]
-
-        if self.geometry == "chunk":
-            x = v0_surf * np.sin(np.pi/2.0 - v1_surf) * np.cos(v2_surf)
-            y = v0_surf * np.sin(np.pi/2.0 - v1_surf) * np.sin(v2_surf)
-            z = v0_surf * np.cos(np.pi/2.0 - v1_surf)
-        else:
-            x = v2_surf
-            y = v1_surf
-            z = v0_surf
-
+        x, y, z = PUnified.unified2points3(np.vstack((V0[mask], vals2[mask], V1[mask])).T, self.is_spherical, False)
         self.slab_surface_points = np.vstack([x, y, z]).T
+        self.slab_surface_interp_func = KNNInterpolatorND(np.vstack((V0.ravel(), V1.ravel())).T, vals2, k=1)
 
         # save slab surface points
         point_cloud = pv.PolyData(self.slab_surface_points)
@@ -763,6 +750,9 @@ class PYVISTA_PROCESS_THD():
         point_cloud.save(filepath)
 
         print("Save file %s" % filepath)
+
+        # todo_3d
+        self.extract_trench_profile(0.0)
         
         # extract dip angle
         if extract_dip:
@@ -853,6 +843,38 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
+    # todo_3d
+    def extract_trench_profile(self, depth, **kwargs):
+        '''
+        kwargs:
+            N1 - number of points along dimension 1
+            file_type - type of file outputs (default: output vtp file, txt: output txt file)
+        '''
+        N1 = kwargs.get("N1", 1000)
+        file_type = kwargs.get("file_type", "default")
+
+        val1s = np.linspace(self.Min1, self.Max1, N1)
+        val0s = np.full(val1s.shape, (self.Max0 - depth) / self.Max0)
+        val2s = self.slab_surface_interp_func(np.vstack((val0s, val1s)).T)
+
+        mask = ~np.isnan(val2s)
+        x, y, z = PUnified.unified2points3(np.vstack((val0s[mask], val2s[mask], val1s[mask])).T, self.is_spherical, False)
+        trench_points = np.vstack([x, y, z]).T
+
+        if file_type == "default":
+            point_cloud_tr = pv.PolyData()
+            filename = "trench_d%.2fkm_%05d.vtp" % (depth/1e3, self.pvtu_step)
+            filepath = os.path.join(self.pyvista_outdir, filename)
+            point_cloud_tr.save(filepath)
+            print("saved file %s" % filepath)
+        elif file_type == "txt":
+            filename = "trench_d%.2fkm_%05d.txt" % (depth/1e3, self.pvtu_step)
+            filepath = os.path.join(self.pyvista_outdir, filename)
+            np.savetxt(filepath, trench_points, fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
+            print("saved file %s" % filepath)
+        else:
+            raise ValueError("file_type needs to be default or txt")
+        pass
 
     def extract_plate_edge_surface(self):
         """

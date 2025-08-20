@@ -36,6 +36,29 @@ def test_compute_depth(point, reference_value, is_spherical, is_2d, expected):
     assert pytest.approx(computed_depth, rel=1e-5) == expected, f"Failed for {point}"
 
 
+# ---- Precompute grid test cases ----
+# Cartesian grid: shape (2, 2, 3) with (x, y, z) on the last axis
+grid_cart = np.array([
+    [[10., 20., 30.],  [-5., 15., 50.]],
+    [[ 0.,  0.,  0.],  [ 1.,  2.,  3.]],
+])
+exp_cart_L0 = grid_cart[..., 2]  # z
+exp_cart_L1 = grid_cart[..., 0]  # x
+exp_cart_L2 = grid_cart[..., 1]  # y
+
+# Spherical grid: shape (2, 2, 3) with (x, y, z)
+grid_sph = np.array([
+    [[1., 0., 0.],  [0., 1., 0.]],
+    [[0., 0., 1.],  [1., 1., 1.]],
+])
+x, y, z = grid_sph[..., 0], grid_sph[..., 1], grid_sph[..., 2]
+r = np.sqrt(x**2 + y**2 + z**2)
+lon = np.arctan2(y, x)
+lat = np.arcsin(np.divide(z, r, out=np.zeros_like(r), where=r != 0.0))
+
+# For scaled=True (default): L0=r, L1=r*lon, L2=r*lat
+exp_sph_L0, exp_sph_L1, exp_sph_L2 = r, r * lon, r * lat
+
 @pytest.mark.parametrize(
     "point, is_spherical, expected",
     [
@@ -43,13 +66,18 @@ def test_compute_depth(point, reference_value, is_spherical, is_2d, expected):
         ((10, 20, 30), False, (30, 10, 20)),
         ((-5, 15, 50), False, (50, -5, 15)),
 
-        # Spherical 3D cases (should return arc length longitude, latitude, and r)
+        # Spherical 3D cases (should return arc-length lon, lat, and r)
         ((10, 20, 30), True, (
-            np.sqrt(10**2 + 20**2 + 30**2),  # ✅ Use r instead of reference_value
+            np.sqrt(10**2 + 20**2 + 30**2),
             np.sqrt(10**2 + 20**2 + 30**2) * np.arctan2(20, 10),
-            np.sqrt(10**2 + 20**2 + 30**2) * np.arcsin(30 / np.sqrt(10**2 + 20**2 + 30**2))
-            
+            np.sqrt(10**2 + 20**2 + 30**2) * np.arcsin(30 / np.sqrt(10**2 + 20**2 + 30**2)),
         )),
+
+        # NEW: Cartesian grid (2x2)
+        (grid_cart, False, (exp_cart_L0, exp_cart_L1, exp_cart_L2)),
+
+        # NEW: Spherical grid (2x2), scaled=True (default)
+        (grid_sph, True, (exp_sph_L0, exp_sph_L1, exp_sph_L2)),
     ]
 )
 def test_points2unified3(point, is_spherical, expected):

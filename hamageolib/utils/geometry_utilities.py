@@ -32,6 +32,7 @@ THE SOFTWARE.
 
 import numpy as np
 from types import SimpleNamespace
+import hamageolib.utils.nump_utilities as np_util
 
 def compute_depth(point, reference_value, is_spherical, is_2d):
     """
@@ -105,29 +106,37 @@ def points2unified3(point, is_spherical, scaled=True, **kwargs):
     """
     r0 = kwargs.get("r0", None)
 
-    x, y, z = point  # Unpack coordinates
+    x, y, z = np_util.unpack_array(point, 3)
 
     if is_spherical:
-        # Convert to spherical coordinates
-        r = np.sqrt(x**2 + y**2 + z**2)
-        if r == 0:
-            return (0.0, 0.0, 0.0)  
-        lon = np.arctan2(y, x)  # Longitude
-        lat = np.arcsin(z / r)  # Latitude
+        # Ensure array-like for safe vectorized math
+        x = np.asarray(x)
+        y = np.asarray(y)
+        z = np.asarray(z)
 
-        # Convert spherical coordinates to unified coordinates
+        r = np.sqrt(x**2 + y**2 + z**2)
+        zero = (r == 0)
+
+        # Angles
+        lon = np.arctan2(y, x)
+        # Avoid divide-by-zero and guard arcsin domain with clip
+        with np.errstate(divide='ignore', invalid='ignore'):
+            lat = np.where(zero, 0.0, np.arcsin(z /r))
+
         if scaled:
-            # Convert to arc lengths
-            if r0 is None:
-                arc_length_lon = r * lon
-                arc_length_lat = r * lat
-            else:
-                arc_length_lon = r0 * lon
-                arc_length_lat = r0 * lat
+            scale = r if (r0 is None) else np.asarray(r0)
+            arc_length_lon = scale * lon
+            arc_length_lat = scale * lat
+
+            # If inputs were pure scalars, return pure scalars for backward compatibility
+            if r.ndim == 0:
+                return (float(r), float(arc_length_lon), float(arc_length_lat))
             return (r, arc_length_lon, arc_length_lat)
         else:
-            return (r, lon, lat)
-
+            if r.ndim == 0:
+                return (float(r), float(lon), float(lat))
+            else:
+                return (r, lon, lat)
     else:
         # Cartesian 3D remains unchanged
         return (z, x, y)
@@ -156,37 +165,34 @@ def unified2points3(L, is_spherical, scaled=True, **kwargs):
         tuple of float: (x, y, z) in Cartesian coordinates.
     """
     r0 = kwargs.get("r0", None)
-    L0, L1, L2 = map(float, L)
+    L0, L1, L2 = np_util.unpack_array(L, 3)
 
     if is_spherical:
-        r = L0
-        if r == 0.0:
-            # Degenerate radius: position is the origin; L1/L2 are ignored
-            return (0.0, 0.0, 0.0)
 
+        L0 = np.asarray(L0, dtype=float)
+        L1 = np.asarray(L1, dtype=float)
+        L2 = np.asarray(L2, dtype=float)
+
+        r = L0
         if scaled:
-            base = r if r0 is None else float(r0)
-            if base == 0.0:
-                lon = 0.0
-                lat = 0.0
-            else:
-                lon = L1 / base
-                lat = L2 / base
+            # If r0 is given, use it as the scale (can be scalar or array); otherwise use r
+            base = r if (r0 is None) else np.asarray(r0, dtype=float)
+            lon = np.where(base == 0.0, 0.0, L1 / base)
+            lat = np.where(base == 0.0, 0.0, L2 / base)
         else:
             lon = L1
             lat = L2
-
-        # Numerical safety (optional)
-        lat = float(np.clip(lat, -np.pi/2, np.pi/2))
-        # Optional wrapping if desired:
-        # lon = ((lon + np.pi) % (2*np.pi)) - np.pi
 
         coslat = np.cos(lat)
         x = r * coslat * np.cos(lon)
         y = r * coslat * np.sin(lon)
         z = r * np.sin(lat)
-        return (x, y, z)
 
+        # Preserve scalar returns when inputs are scalars
+        if np.ndim(x) == 0:
+            return (float(x), float(y), float(z))
+        else:
+            return (x, y, z)
     else:
         # Cartesian unified: (L0=z, L1=x, L2=y) → (x,y,z)
         return (L1, L2, L0)
@@ -219,14 +225,12 @@ def points2unified2(point, is_spherical, scaled=True, **kwargs):
     """
     r0 = kwargs.get("r0", None)
 
-    x, y, _ = point  # Unpack coordinates
+    x, y, _ = np_util.unpack_array(point, 3)
 
     if is_spherical:
         # Convert to spherical coordinates
+        # Ensure array-like for safe vectorized math
         r = np.sqrt(x**2 + y**2)
-        if r == 0.0:
-            # Degenerate radius: position is the origin; L1/L2 are ignored
-            return (0.0, 0.0)  
         lon = np.arctan2(y, x)  # Longitude
 
         if scaled:
@@ -242,11 +246,6 @@ def points2unified2(point, is_spherical, scaled=True, **kwargs):
     else:
         # Cartesian 2D → Ignore z
         return (y, x)  # Keep only (x, y) for 2D Cartesian
-
-# put functions in a simple name space 
-PUnified = SimpleNamespace()
-PUnified.points2unified3 = points2unified3
-PUnified.points2unified2 = points2unified2
 
 
 def unified2points2(L, is_spherical, scaled=True, **kwargs):
@@ -272,25 +271,41 @@ def unified2points2(L, is_spherical, scaled=True, **kwargs):
         tuple of float: (x, y, z) in Cartesian coordinates with z=0.0.
     """
     r0 = kwargs.get("r0", None)
-    L0, L1 = map(float, L)
+    L0, L1 = np_util.unpack_array(L, 2)
 
     if is_spherical:
+        # make as array
+        L0 = np.asarray(L0, dtype=float)
+        L1 = np.asarray(L1, dtype=float)
+        
         r = L0
-        if r == 0.0:
-            return (0.0, 0.0, 0.0)
 
         if scaled:
-            base = r if r0 is None else float(r0)
-            lon = 0.0 if base == 0.0 else (L1 / base)
+            # If r0 is given, use it as the scale (can be scalar or array); otherwise use r
+            base = r if (r0 is None) else np.asarray(r0, dtype=float)
+            lon = np.where(base == 0.0, 0.0, L1 / base)
         else:
             lon = L1
 
         x = r * np.cos(lon)
         y = r * np.sin(lon)
-        return (x, y, 0.0)
+        
+        # Preserve scalar returns when inputs are scalars
+        if np.ndim(x) == 0:
+            return (float(x), float(y), 0.0)
+        else:
+            return (x, y, 0.0)
     else:
         # Cartesian unified (y, x) -> (x, y, 0)
         return (L1, L0, 0.0)
+
+
+# put functions in a simple name space 
+PUnified = SimpleNamespace()
+PUnified.points2unified3 = points2unified3
+PUnified.points2unified2 = points2unified2
+PUnified.unified2points2 = unified2points2
+PUnified.unified2points3 = unified2points3
 
 
 def offset_profile(Xs, Ys, offset_distance):
