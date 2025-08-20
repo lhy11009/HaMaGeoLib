@@ -33,7 +33,7 @@ if path_ not in sys.path:
     sys.path.append(path_)
 
 from hamageolib.utils import case_options as C_Options
-from hamageolib.utils.geometry_utilities import convert_to_unified_coordinates_2d
+from hamageolib.utils.geometry_utilities import points2unified2
 
 
 class CASE_SUMMARY(C_Options.CASE_SUMMARY):
@@ -71,7 +71,7 @@ def extract_slab_outline_binned_unified(slab_polydata, is_spherical, **kwargs):
 
     # Convert VTK points to unified coordinates
     coords = vtk_to_numpy(points.GetData()).reshape(-1, 3)  # Reshape into Nx3 array
-    unified_coords = np.array([convert_to_unified_coordinates_2d(points.GetPoint(i), is_spherical)
+    unified_coords = np.array([points2unified2(points.GetPoint(i), is_spherical)
                                for i in range(num_points)])
 
     # Extract lateral (X') and vertical (Y') coordinates
