@@ -264,6 +264,7 @@ def test_pyvista_process_thd_box_big():
     assert(abs((PprocessThD.slab_depth-slab_depth0)/slab_depth0) < 1e-6)
 
 
+@pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_thd_chunk_script_piece_wise():
     '''
     Test for using linux subprocess and run the post-processing piesewise

@@ -6,8 +6,9 @@ from pathlib import Path
 import pyvista as pv
 import numpy as np
 from scipy.spatial import cKDTree
+from scipy.interpolate import NearestNDInterpolator
 from vtk import VTK_QUAD
-from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian, cartesian_to_spherical_2d
+from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian, cartesian_to_spherical_2d, PUnified
 from hamageolib.utils.vtk_utilities import get_pyvista_extension
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
@@ -67,6 +68,13 @@ class PYVISTA_PROCESS_THD():
 
         # Required settings and geometry assumption
         self.geometry = config["geometry"]
+        if self.geometry == "chunk":
+            self.is_spherical = True
+        elif self.geometry == "box":
+            self.is_spherical = False
+        else:
+            raise ValueError("geometry needs to be \"chunk\" or \"box\".")
+
         self.Max0 = config["Max0"]
         self.Min0 = config["Min0"]
         self.Max1 = config["Max1"]
@@ -700,15 +708,12 @@ class PYVISTA_PROCESS_THD():
         vals2_tr = np.full(N1, np.nan)
 
         upper_points = source.points
-        
-        if self.geometry == "chunk":
-            v0_u, theta_u, v2_u = cartesian_to_spherical(*upper_points.T)
-            v1_u = np.pi/2.0 - theta_u
-            rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
-        else:
-            rt_upper = np.vstack([upper_points[:, 2]/self.Max0, upper_points[:, 1]/self.Max1]).T
-            v2_u = upper_points[:, 0]
+
+        # todo_3d 
+        v0_u, v2_u, v1_u = PUnified.points2unified3(upper_points.T, self.is_spherical, False)
+        rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
         rt_tree = cKDTree(rt_upper)
+
 
         # extract slab surface points
         for i, v0 in enumerate(vals0):
@@ -722,17 +727,19 @@ class PYVISTA_PROCESS_THD():
                 v2s = v2_u[idxs]
                 max_v2 = np.max(v2s)
 
-                if np.all(v2s <= max_v2):
-                    vals2[i, j] = max_v2
-                    if i == N0 - 1:
-                        vals2_tr[j] = max_v2
-                    if extract_trench_at_additional_depths is not None:
-                        for i1 in range(len(extract_trench_at_additional_depths)):
-                            if i == additional_trench_idx[i1]:
-                                additional_val2s_tr[i1, j] = max_v2
+                vals2[i, j] = max_v2
+                if i == N0 - 1:
+                    vals2_tr[j] = max_v2
+                if extract_trench_at_additional_depths is not None:
+                    for i1 in range(len(extract_trench_at_additional_depths)):
+                        if i == additional_trench_idx[i1]:
+                            additional_val2s_tr[i1, j] = max_v2
 
         V0, V1 = np.meshgrid(vals0, vals1, indexing='ij')
         mask = ~np.isnan(vals2)
+
+        # todo_3d
+        # interpolate function for slab surace points
 
         v0_surf = V0[mask]
         v1_surf = V1[mask]

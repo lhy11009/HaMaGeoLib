@@ -40,44 +40,23 @@ def test_compute_depth(point, reference_value, is_spherical, is_2d, expected):
     "point, is_spherical, expected",
     [
         # Cartesian 3D cases (should return unchanged values)
-        ((10, 20, 30), False, (10, 20, 30)),
-        ((-5, 15, 50), False, (-5, 15, 50)),
+        ((10, 20, 30), False, (30, 10, 20)),
+        ((-5, 15, 50), False, (50, -5, 15)),
 
         # Spherical 3D cases (should return arc length longitude, latitude, and r)
         ((10, 20, 30), True, (
+            np.sqrt(10**2 + 20**2 + 30**2),  # ✅ Use r instead of reference_value
             np.sqrt(10**2 + 20**2 + 30**2) * np.arctan2(20, 10),
-            np.sqrt(10**2 + 20**2 + 30**2) * np.arcsin(30 / np.sqrt(10**2 + 20**2 + 30**2)),
-            np.sqrt(10**2 + 20**2 + 30**2)  # ✅ Use r instead of reference_value
+            np.sqrt(10**2 + 20**2 + 30**2) * np.arcsin(30 / np.sqrt(10**2 + 20**2 + 30**2))
+            
         )),
     ]
 )
-def test_convert_to_unified_coordinates_3d(point, is_spherical, expected):
+def test_points2unified3(point, is_spherical, expected):
     """
-    Test convert_to_unified_coordinates_3d for both Cartesian and Spherical cases.
+    Test points2unified3 for both Cartesian and Spherical cases.
     """
-    computed = convert_to_unified_coordinates_3d(point, is_spherical)
-    assert all(pytest.approx(c, rel=1e-5) == e for c, e in zip(computed, expected)), f"Failed for {point}"
-
-
-@pytest.mark.parametrize(
-    "point, is_spherical, expected",
-    [
-        # Cartesian 2D cases (should ignore z and return x, y)
-        ((10, 20, 30), False, (10, 20)),
-        ((-5, 15, 100), False, (-5, 15)),
-
-        # Spherical 2D cases (should return arc length longitude and r)
-        ((10, 20, 30), True, (
-            np.sqrt(10**2 + 20**2 + 30**2) * np.arctan2(20, 10),
-            np.sqrt(10**2 + 20**2 + 30**2)  # ✅ Use r instead of reference_value
-        )),
-    ]
-)
-def test_convert_to_unified_coordinates_2d(point, is_spherical, expected):
-    """
-    Test convert_to_unified_coordinates_2d for both Cartesian and Spherical cases.
-    """
-    computed = convert_to_unified_coordinates_2d(point, is_spherical)
+    computed = points2unified3(point, is_spherical)
     assert all(pytest.approx(c, rel=1e-5) == e for c, e in zip(computed, expected)), f"Failed for {point}"
 
 
@@ -85,22 +64,69 @@ def test_convert_to_unified_coordinates_2d(point, is_spherical, expected):
     "point, is_spherical, reference_value, expected",
     [
         # Cartesian 3D cases (should return unchanged values)
-        ((10, 20, 30), False, 1000, (10, 20, 30)),
-        ((-5, 15, 50), False, 2000, (-5, 15, 50)),
+        ((10, 20, 30), False, 1000, (30, 10, 20)),
+        ((-5, 15, 50), False, 2000, (50, -5, 15)),
 
         # Spherical 3D cases (should return scaled arc length longitude and latitude, but actual r)
         ((10, 20, 30), True, 1000, (
+            np.sqrt(10**2 + 20**2 + 30**2),  # ✅ Use actual r
             1000 * np.arctan2(20, 10),
-            1000 * np.arcsin(30 / np.sqrt(10**2 + 20**2 + 30**2)),
-            np.sqrt(10**2 + 20**2 + 30**2)  # ✅ Use actual r
+            1000 * np.arcsin(30 / np.sqrt(10**2 + 20**2 + 30**2))
         )),
     ]
 )
-def test_convert_to_unified_coordinates_reference_3d(point, is_spherical, reference_value, expected):
+def points2unified3_reference_r(point, is_spherical, reference_value, expected):
     """
     Test convert_to_unified_coordinates_reference_3d for both Cartesian and Spherical cases.
     """
-    computed = convert_to_unified_coordinates_reference_3d(point, is_spherical, reference_value)
+    computed = points2unified3(point, is_spherical, r0=reference_value)
+    assert all(pytest.approx(c, rel=1e-5) == e for c, e in zip(computed, expected)), f"Failed for {point}"
+
+
+@pytest.mark.parametrize(
+    "point, is_spherical, L",
+    [
+        # Cartesian 3D cases (unified: (z, x, y))
+        ((10, 20, 30), False, (30, 10, 20)),
+        ((-5, 15, 50), False, (50, -5, 15)),
+
+        # Spherical 3D cases (unified: (r, r*lon, r*lat) with scaled=True)
+        ((10, 20, 30), True, (
+            np.sqrt(10**2 + 20**2 + 30**2),  # r
+            np.sqrt(10**2 + 20**2 + 30**2) * np.arctan2(20, 10),  # r*lon
+            np.sqrt(10**2 + 20**2 + 30**2) * np.arcsin(30 / np.sqrt(10**2 + 20**2 + 30**2))  # r*lat
+        )),
+    ]
+)
+def test_unified2points3(point, is_spherical, L):
+    """
+    Test unified2points3 for both Cartesian and Spherical cases.
+    Uses the same dataset as the forward test (scaled=True).
+    """
+    computed = unified2points3(L, is_spherical, scaled=True)
+    assert all(pytest.approx(c, rel=1e-5) == p for c, p in zip(computed, point)), f"Failed for L={L}, geom={'spherical' if is_spherical else 'cartesian'}"
+
+
+@pytest.mark.parametrize(
+    "point, is_spherical, expected",
+    [
+        # Cartesian 2D cases (should ignore z and return x, y)
+        ((10, 20, 30), False, (20, 10)),
+        ((-5, 15, 100), False, (15, -5)),
+
+        # Spherical 2D cases (should return arc length longitude and r)
+        ((10, 20, 30), True, (
+            np.sqrt(10**2 + 20**2),  # ✅ Use r instead of reference_value
+            np.sqrt(10**2 + 20**2) * np.arctan2(20, 10)
+        )),
+    ]
+)
+def test_points2unified2(point, is_spherical, expected):
+    """
+    Test points2unified2 for both Cartesian and Spherical cases.
+    """
+    computed = points2unified2(point, is_spherical)
+    print(computed) # debug
     assert all(pytest.approx(c, rel=1e-5) == e for c, e in zip(computed, expected)), f"Failed for {point}"
 
 
@@ -108,23 +134,49 @@ def test_convert_to_unified_coordinates_reference_3d(point, is_spherical, refere
     "point, is_spherical, reference_value, expected",
     [
         # Cartesian 2D cases (should ignore z and return x, y)
-        ((10, 20, 30), False, 500, (10, 20)),
-        ((-5, 15, 100), False, 800, (-5, 15)),
+        ((10, 20, 30), False, 500, (20, 10)),
+        ((-5, 15, 100), False, 800, (15, -5)),
 
         # Spherical 2D cases (should return scaled arc length longitude and actual r)
         ((10, 20, 30), True, 6371, (
-            6371 * np.arctan2(20, 10),
-            np.sqrt(10**2 + 20**2 + 30**2)  # ✅ Use actual r
+            np.sqrt(10**2 + 20**2),  # ✅ Use actual r
+            6371 * np.arctan2(20, 10)
         )),
     ]
 )
-
-def test_convert_to_unified_coordinates_reference_2d(point, is_spherical, reference_value, expected):
+def test_points2unified2_reference_r(point, is_spherical, reference_value, expected):
     """
     Test convert_to_unified_coordinates_reference_2d for both Cartesian and Spherical cases.
     """
-    computed = convert_to_unified_coordinates_reference_2d(point, is_spherical, reference_value)
+    computed = points2unified2(point, is_spherical, r0=reference_value)
     assert all(pytest.approx(c, rel=1e-5) == e for c, e in zip(computed, expected)), f"Failed for {point}"
+
+
+@pytest.mark.parametrize(
+    "point, is_spherical, L",
+    [
+        # Cartesian 2D cases (unified: (y, x); z ignored)
+        ((10, 20, 30),   False, (20, 10)),
+        ((-5, 15, 100),  False, (15, -5)),
+
+        # Spherical 2D cases (unified: (r, r*lon) with scaled=True)
+        ((10, 20, 30),   True, (
+            np.sqrt(10**2 + 20**2),                        # r (from x,y)
+            np.sqrt(10**2 + 20**2) * np.arctan2(20, 10)    # r*lon
+        )),
+    ]
+)
+def test_unified2points2(point, is_spherical, L):
+    """
+    Test unified2points2 for both Cartesian and Spherical 2D cases.
+    Uses the same dataset as the forward test (scaled=True).
+    """
+    computed = unified2points2(L, is_spherical, scaled=True)
+    # Expect to recover x,y; z should be 0.0 in 2D inverse
+    assert pytest.approx(computed[0], rel=1e-5) == point[0]
+    assert pytest.approx(computed[1], rel=1e-5) == point[1]
+    assert computed[2] == 0.0
+
 
 def test_profiles_with_different_lengths():
     # Profile 0 has 3 points
