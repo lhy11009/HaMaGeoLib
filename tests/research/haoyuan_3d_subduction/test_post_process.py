@@ -10,6 +10,37 @@ if os.path.isdir(test_dir):
     rmtree(test_dir)
 os.mkdir(test_dir)
 
+# todo_3d
+@pytest.mark.big_test  # Optional marker for big tests
+@pytest.mark.parametrize(
+    "vq0, vq1, expected",
+    [
+        (6371e3, 1.0*np.pi/180.0, 6.545300e-01),
+        (6321e3, 1.0*np.pi/180.0, 6.642250e-01),
+        (6371e3, 15.0*np.pi/180.0, 6.545300e-01),
+        (6321e3, 15.0*np.pi/180.0, 6.739218e-01),
+        (6371e3, 30.0*np.pi/180.0, np.nan)
+    ]
+)
+def test_interpolate_slab_surface(vq0, vq1, expected):
+    local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_width80_bw8000_sw2000_yd500.0_AR4")
+    slab_surface_file = os.path.join(local_dir, "sp_upper_surface_test_00002.vtp")
+
+    scale0 = 1000e3; scale1 = 1000e3/6371e3
+
+    slab_surface = pv.read(slab_surface_file)
+    points = slab_surface.points
+
+    v0, v2, v1 = PUnified.points2unified3(points, True, False)
+    slab_surface_interp_func = KNNInterpolatorND(np.vstack((v0/scale0, v1/scale1)).T, v2, k=1, max_distance=0.05)
+
+    vq2 = slab_surface_interp_func(vq0/scale0, vq1/scale1)
+    if ~np.isnan(expected):
+        assert pytest.approx(vq2, rel=1e-5) == expected, f"Failed for ({vq0},{vq1}), expected {expected}, computed {vq2}"
+    else:
+        assert np.isnan(vq2), f"Failed for ({vq0},{vq1}), expected {expected}, computed {vq2}"
+
+
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_thd_chunk():
 

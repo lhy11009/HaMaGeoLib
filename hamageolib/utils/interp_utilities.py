@@ -23,7 +23,9 @@ class KNNInterpolatorND:
     leafsize : int, default 16
         KD-tree leaf size.
     """
-    def __init__(self, X, Z, k=3, weights="distance", p=2, scale=None, leafsize=16):
+    def __init__(self, X, Z, k=3, weights="distance", p=2, scale=None, leafsize=16,\
+                 max_distance=np.inf):
+        self.max_distance = float(max_distance)
         X, Z = self._coerce_XZ(X, Z)
         mask = ~np.isnan(Z)
         if not np.any(mask):
@@ -60,38 +62,65 @@ class KNNInterpolatorND:
 
         Qs = Q / self.scale
         k_eff = min(self.k, self.n)
-        d, idx = self.tree.query(Qs, k=k_eff, workers=-1)
-        d = np.atleast_2d(d)
-        idx = np.atleast_2d(idx)
+        d, idx = self.tree.query(Qs, k=k_eff, workers=-1, distance_upper_bound=self.max_distance)
+        # d = np.atleast_2d(d)
+        # idx = np.atleast_2d(idx)
+
+        # Make sure first dim is m (num queries) and second dim is k (neighbors)
+        d = np.asarray(d)
+        idx = np.asarray(idx)
+        if d.ndim == 1:               # happens when k_eff == 1
+            d = d.reshape(-1, 1)
+            idx = idx.reshape(-1, 1)
+        else:
+            # For safety, ensure (m, k_eff) not (k_eff, m)
+            d = d.reshape(-1, k_eff)
+            idx = idx.reshape(-1, k_eff)
 
         out = np.full(d.shape[0], np.nan, dtype=float)
 
-        # exact matches
-        exact = (d[:, 0] == 0.0)
-        if np.any(exact):
-            out[exact] = self.Z[idx[exact, 0]]
+        # Mark valid neighbors: finite distance AND index in-bounds
+        valid_nbr = np.isfinite(d) & (idx < self.n)
 
-        need = ~exact
+        # If no valid neighbor for a query -> remain fill_value
+        any_valid = valid_nbr.any(axis=1)
+        if not np.any(any_valid):
+            return out.reshape(out_shape)
+
+        # Exact matches only if the first neighbor is valid and at zero distance
+        exact = any_valid & valid_nbr[:, 0] & (d[:, 0] == 0.0)
+        out[exact] = self.Z[idx[exact, 0]]
+
+        need = ~exact & any_valid
         if np.any(need):
-            di = d[need]
-            ii = idx[need]
-            zi = self.Z[ii]
+            di = d[need]                  # (r, k)
+            ii = idx[need]                # (r, k)
+            vm = valid_nbr[need]          # (r, k)
 
+            # Safe indices: replace invalid with 0, and zero their weights later
+            ii_safe = ii.copy()
+            ii_safe[~vm] = 0
+            zi = self.Z[ii_safe]          # safe: no OOB
+
+            # Weights: zero out invalid neighbors
             if self._mode == "uniform":
-                w = np.ones_like(di)
+                w = vm.astype(float)
             elif self._mode == "distance":
-                w = 1.0 / np.maximum(di, 1e-15) ** self.p
+                w = np.zeros_like(di, dtype=float)
+                w[vm] = 1.0 / np.maximum(di[vm], 1e-15) ** self.p
             else:  # callable
-                w = self.weight_fn(di)
+                w = np.asarray(self.weight_fn(di), dtype=float)
                 if w.shape != di.shape:
                     raise ValueError("Custom weight function must return same shape as distances")
+                w[~vm] = 0.0
 
             wsum = w.sum(axis=1)
-            bad = (wsum == 0)
+            bad = (wsum == 0.0)  # no valid neighbors within cutoff
+            # Normalize where we have at least one valid neighbor
             w[~bad] = w[~bad] / wsum[~bad, None]
-            vals = np.where(bad, np.nan, np.sum(w * zi, axis=1))
+
+            vals = np.where(bad, fill_value, np.sum(w * zi, axis=1))
             out[need] = vals
-            out[np.isnan(out)] = fill_value
 
         return out.reshape(out_shape)
 

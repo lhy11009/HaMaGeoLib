@@ -71,11 +71,14 @@ class PYVISTA_PROCESS_THD():
         self.geometry = config["geometry"]
         if self.geometry == "chunk":
             self.is_spherical = True
+            self.Ro = 6371e3 # radius of the Earth
         elif self.geometry == "box":
             self.is_spherical = False
+            self.Ro = None
         else:
             raise ValueError("geometry needs to be \"chunk\" or \"box\".")
 
+        # Min and Max limit along each dimension
         self.Max0 = config["Max0"]
         self.Min0 = config["Min0"]
         self.Max1 = config["Max1"]
@@ -83,6 +86,15 @@ class PYVISTA_PROCESS_THD():
         self.Max2 = config["Max2"]
         self.Min2 = 0.0
         self.time = config["time"]
+
+        # Scaling along each dimension
+        self.scale0 = 1000e3
+        if self.is_spherical:
+            self.scale1 = self.scale0/self.Ro
+            self.scale2 = self.scale0/self.Ro
+        else:
+            self.scale1 = self.scale0
+            self.scale2 = self.scale0
         
         # additional settings
         self.pyvista_outdir = kwargs.get("pyvista_outdir", os.path.join(self.data_dir, "..", "pyvista_outputs"))
@@ -659,7 +671,6 @@ class PYVISTA_PROCESS_THD():
 
         # additional optoins
         extract_trench = kwargs.get("extract_trench", False)
-        extract_trench_at_additional_depths = kwargs.get("extract_trench_at_additional_depths", None)
         extract_dip=kwargs.get("extract_dip", False)
         file_type = kwargs.get("file_type", "default")
         # todo_fix
@@ -681,34 +692,13 @@ class PYVISTA_PROCESS_THD():
         # initiation
         indent = 4
 
-        # extract trench at additiona depths: initiation
-        # initiate the 2-d np array to save trench positions
-        # compute an index along the first axis, and make sure N0 is within [0, N0-1]
-        # initiate the array for trench points and trench centers
-        if extract_trench_at_additional_depths is not None:
-            assert(isinstance(extract_trench_at_additional_depths, list) and\
-                   len(extract_trench_at_additional_depths) > 0)
-            additional_val2s_tr = np.full((len(extract_trench_at_additional_depths), N1), np.nan)
-            additional_trench_idx = []
-            for depth in extract_trench_at_additional_depths:
-                assert(depth < self.Max0 - self.Min0)
-                idx = int(np.round(N0 * (self.Max0 - self.Min0 - depth) / (self.Max0 - self.Min0)))
-                if idx == N0:
-                    idx = N0 - 1
-                additional_trench_idx.append(idx)
-            self.additional_trench_points = [None for i in range(len(extract_trench_at_additional_depths))]
-            self.additional_trench_center = np.full(len(extract_trench_at_additional_depths), np.nan)
-        else:
-            additional_val2s_tr = None
-            additional_trench_idx = None
-
-        # build the KDTREE
+        # build the KDTREE for surface points
+        # with converted unified coordinates
         vals0 = np.linspace(0, self.Max0, N0)
         vals1 = np.linspace(self.Min1, self.Max1, N1)
-        vals2 = np.full((N0, N1), np.nan)
+        V2 = np.full((N0, N1), np.nan)
         vals2_tr = np.full(N1, np.nan)
 
-        # todo_3d 
         upper_points = source.points
         v0_u, v2_u, v1_u = PUnified.points2unified3(upper_points, self.is_spherical, False)
         rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
@@ -716,6 +706,8 @@ class PYVISTA_PROCESS_THD():
 
 
         # extract slab surface points
+        # V0, V1 are meshed grid on vals0, vals1
+        # V2 are the near-neighbor value of the second dimension on the surface
         for i, v0 in enumerate(vals0):
             for j, v1 in enumerate(vals1):
                 query_pt = np.array([v0/self.Max0, v1/self.Max1])
@@ -727,21 +719,21 @@ class PYVISTA_PROCESS_THD():
                 v2s = v2_u[idxs]
                 max_v2 = np.max(v2s)
 
-                vals2[i, j] = max_v2
-                if i == N0 - 1:
-                    vals2_tr[j] = max_v2
-                if extract_trench_at_additional_depths is not None:
-                    for i1 in range(len(extract_trench_at_additional_depths)):
-                        if i == additional_trench_idx[i1]:
-                            additional_val2s_tr[i1, j] = max_v2
+                V2[i, j] = max_v2
 
         V0, V1 = np.meshgrid(vals0, vals1, indexing='ij')
-        mask = ~np.isnan(vals2)
+        mask = ~np.isnan(V2)
 
-        # todo_3d
-        x, y, z = PUnified.unified2points3(np.vstack((V0[mask], vals2[mask], V1[mask])).T, self.is_spherical, False)
+        # Summarize results:
+        # 1. slab surface points
+        # 2. a k-nearneigbor interpolator (takes unified coordinate v0 and v1, returns v2 on the surface)
+        #   k = 1 : using 1 near neighbor (>1 value uses mutliple near neighbors and weights the results)
+        #   max_distance : max distance of near neighbor give by scale0*max_distance (e.g. 1000km * 0.05 = 50 km)
+        #       Any points without neighbors in this range will be assigned a nan value as v2
+        x, y, z = PUnified.unified2points3(np.vstack((V0[mask], V2[mask], V1[mask])).T, self.is_spherical, False)
         self.slab_surface_points = np.vstack([x, y, z]).T
-        self.slab_surface_interp_func = KNNInterpolatorND(np.vstack((V0.ravel(), V1.ravel())).T, vals2, k=1)
+        self.slab_surface_interp_func = KNNInterpolatorND(np.vstack((V0.ravel()/self.scale0, V1.ravel()/self.scale1)).T,\
+                                                          V2.ravel(), k=1, max_distance=0.05)
 
         # save slab surface points
         point_cloud = pv.PolyData(self.slab_surface_points)
@@ -751,94 +743,14 @@ class PYVISTA_PROCESS_THD():
 
         print("Save file %s" % filepath)
 
-        # todo_3d
-        self.extract_trench_profile(0.0)
-        
         # extract dip angle
         if extract_dip:
             self.dip_100_center = get_slab_dip_angle(self.slab_surface_points, self.geometry, self.Max0, 0.0, 100e3)
 
+        # todo_3d
         # extract trench points
         if extract_trench:
-            mask_tr = ~np.isnan(vals2_tr)
-            v1_tr = vals1[mask_tr]
-            v2_tr = vals2_tr[mask_tr]
-
-            if self.geometry == "chunk": 
-                x_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.cos(v2_tr)
-                y_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.sin(v2_tr)
-                z_tr = self.Max0 * np.cos(np.pi/2.0 - v1_tr)
-            else:
-                x_tr = v2_tr
-                y_tr = v1_tr
-                z_tr = self.Max0 * np.ones(v1_tr.shape)
-            
-            self.trench_points = np.vstack([x_tr, y_tr, z_tr]).T
-
-            if self.geometry == "chunk":
-                _, _, self.trench_center = cartesian_to_spherical(self.trench_points[0, 0], self.trench_points[0, 1], self.trench_points[0, 2])
-            else:
-                self.trench_center = self.trench_points[0, 0]
-
-            # save trench points
-            
-            if file_type == "default":
-                point_cloud_tr = pv.PolyData(self.trench_points)
-                filename = "trench_%05d.vtp" % self.pvtu_step
-                filepath = os.path.join(self.pyvista_outdir, filename)
-                point_cloud_tr.save(filepath)
-            elif file_type == "txt":
-                filename = "trench_%05d.txt" % self.pvtu_step
-                filepath = os.path.join(self.pyvista_outdir, filename)
-                np.savetxt(filepath, self.trench_points, fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
-            else:
-                raise ValueError("file_type needs to be default or txt")
-
-            print("Save file %s" % filepath)
-
-        if extract_trench and extract_trench_at_additional_depths is not None:
-            print("Export additional trench position")
-            for i1, tr_depth in enumerate(extract_trench_at_additional_depths):
-                vals2_tr = additional_val2s_tr[i1, :]
-                mask_tr = ~np.isnan(vals2_tr)
-                v1_tr = vals1[mask_tr]
-                v2_tr = vals2_tr[mask_tr]
-
-                if self.geometry == "chunk": 
-                    x_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.cos(v2_tr)
-                    y_tr = self.Max0 * np.sin(np.pi/2.0 - v1_tr) * np.sin(v2_tr)
-                    z_tr = self.Max0 * np.cos(np.pi/2.0 - v1_tr)
-                else:
-                    x_tr = v2_tr
-                    y_tr = v1_tr
-                    z_tr = self.Max0 * np.ones(v1_tr.shape)
-                
-                self.additional_trench_points[i1] = np.vstack([x_tr, y_tr, z_tr]).T
-
-                if self.additional_trench_points[i1].size > 0:
-                    if self.geometry == "chunk":
-                        _, _, self.additional_trench_center[i1] = cartesian_to_spherical(self.additional_trench_points[i1][0, 0], self.additional_trench_points[i1][0, 1], self.additional_trench_points[i1][0, 2])
-                    else:
-                        self.additional_trench_center[i1] = self.additional_trench_points[i1][0, 0]
-                else:
-                    pass
-                
-                # save trench points
-                
-                if file_type == "default":
-                    point_cloud_tr = pv.PolyData(self.additional_trench_points[i1])
-                    filename = "trench_d%.2fkm_%05d.vtp" % (tr_depth/1e3, self.pvtu_step)
-                    filepath = os.path.join(self.pyvista_outdir, filename)
-                    point_cloud_tr.save(filepath)
-                elif file_type == "txt":
-                    filename = "trench_d%.2fkm_%05d.txt" % (tr_depth/1e3, self.pvtu_step)
-                    filepath = os.path.join(self.pyvista_outdir, filename)
-                    np.savetxt(filepath, self.additional_trench_points[i1], fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
-                else:
-                    raise ValueError("file_type needs to be default or txt")
-
-                print("Save file %s" % filepath)
-
+            self.extract_trench_profile(0.0)
 
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
@@ -846,23 +758,28 @@ class PYVISTA_PROCESS_THD():
     # todo_3d
     def extract_trench_profile(self, depth, **kwargs):
         '''
-        kwargs:
-            N1 - number of points along dimension 1
-            file_type - type of file outputs (default: output vtp file, txt: output txt file)
+        Parameters:
+            depth - the depth of the trench profile (e.g. 0.0 - surface trench position)
+            kwargs:
+                N1 - number of points along dimension 1
+                file_type - type of file outputs (default: output vtp file, txt: output txt file)
         '''
         N1 = kwargs.get("N1", 1000)
         file_type = kwargs.get("file_type", "default")
 
+        # K-nearneighbor interpolation
         val1s = np.linspace(self.Min1, self.Max1, N1)
-        val0s = np.full(val1s.shape, (self.Max0 - depth) / self.Max0)
-        val2s = self.slab_surface_interp_func(np.vstack((val0s, val1s)).T)
+        val0s = np.full(val1s.shape, self.Max0 - depth)
+        val2s = self.slab_surface_interp_func(val0s/self.scale0, val1s/self.scale1)
 
+        # Convert to ordinary coordinates
         mask = ~np.isnan(val2s)
         x, y, z = PUnified.unified2points3(np.vstack((val0s[mask], val2s[mask], val1s[mask])).T, self.is_spherical, False)
         trench_points = np.vstack([x, y, z]).T
 
+        # Export to files
         if file_type == "default":
-            point_cloud_tr = pv.PolyData()
+            point_cloud_tr = pv.PolyData(trench_points)
             filename = "trench_d%.2fkm_%05d.vtp" % (depth/1e3, self.pvtu_step)
             filepath = os.path.join(self.pyvista_outdir, filename)
             point_cloud_tr.save(filepath)
