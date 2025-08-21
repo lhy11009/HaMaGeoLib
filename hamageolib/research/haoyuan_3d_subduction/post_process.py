@@ -755,7 +755,7 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
-    # todo_3d
+
     def extract_trench_profile(self, depth, **kwargs):
         '''
         Parameters:
@@ -886,7 +886,6 @@ class PYVISTA_PROCESS_THD():
         d_upper_bound = 0.01
 
         # mesh the slab surface points by kd tree
-        # todo_3d
         v0_s, v2_s, v1_s = PUnified.points2unified3(self.slab_surface_points, self.is_spherical, False)
         normalized_rt = np.vstack([v0_s/self.scale0, v1_s/self.scale1]).T  # shape (N, 2)
         rt_tree_slab_surface = cKDTree(normalized_rt)
