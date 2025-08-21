@@ -118,12 +118,20 @@ class PYVISTA_PROCESS_THD():
         for key in self.keys:
             setattr(self, key, None)
 
+        # todo_3d
         # Initialize slab morphology variables
         # self.trench_points = None
+        self.slab_surface_points = None
+        self.slab_moho_points = None
         self.trench_center = None
         self.slab_depth = None
         self.dip_100_center = None
         self.additional_trench_center = None
+
+        # Initialize interpolators
+        self.slab_surface_interp_func = None
+        self.slab_moho_interp_func = None
+
 
     def read(self, pvtu_step, **kwargs):
         """
@@ -702,6 +710,7 @@ class PYVISTA_PROCESS_THD():
         dr = kwargs.get("dr", 0.001)
 
         # checking
+        # todo_3d
         if field_name == "sp_upper":
             assert self.iso_volume_upper is not None
             source = self.iso_volume_upper
@@ -754,8 +763,13 @@ class PYVISTA_PROCESS_THD():
         #   max_distance : max distance of near neighbor give by scale0*max_distance (e.g. 1000km * 0.05 = 50 km)
         #       Any points without neighbors in this range will be assigned a nan value as v2
         x, y, z = PUnified.unified2points3(np.vstack((V0[mask], V2[mask], V1[mask])).T, self.is_spherical, False)
-        self.slab_surface_points = np.vstack([x, y, z]).T
-        self.slab_surface_interp_func = KNNInterpolatorND(np.vstack((V0.ravel()/self.scale0, V1.ravel()/self.scale1)).T,\
+        if field_name == "sp_upper":
+            self.slab_surface_points = np.vstack([x, y, z]).T
+            self.slab_surface_interp_func = KNNInterpolatorND(np.vstack((V0.ravel()/self.scale0, V1.ravel()/self.scale1)).T,\
+                                                          V2.ravel(), k=1, max_distance=0.05)
+        elif field_name == "sp_lower":
+            self.slab_moho_points = np.vstack([x, y, z]).T
+            self.slab_moho_interp_func = KNNInterpolatorND(np.vstack((V0.ravel()/self.scale0, V1.ravel()/self.scale1)).T,\
                                                           V2.ravel(), k=1, max_distance=0.05)
 
         # save slab surface points
@@ -787,10 +801,18 @@ class PYVISTA_PROCESS_THD():
         '''
         indent = 4
         
-        # trench points at 100 km
+        # trench points at surface
         start = time.time()
         trench_points = self.extract_trench_profile(0.0)
         _, self.trench_center, _ = PUnified.points2unified3(trench_points[0, :], self.is_spherical, False)
+
+        # tests
+        trench_points = self.extract_trench_profile(1e3)
+        trench_points = self.extract_trench_profile(5e3)
+        trench_points = self.extract_trench_profile(10e3)
+
+        # trench position at 50 km 
+        trench_points = self.extract_trench_profile(50e3)
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
@@ -852,7 +874,7 @@ class PYVISTA_PROCESS_THD():
         # self.Max0 * dr
         min0 =  self.Max0 - 200e3; N0 = 40
         N2 = 3000
-        dr = 0.001
+        dr = 0.01
         
         # Build KDTree with (r, theta)
         # convert to unified coordinates
@@ -987,7 +1009,7 @@ class PYVISTA_PROCESS_THD():
 
         # mesh a slab edge point by kd tree
         v0_pe, v2_pe, v1_pe = PUnified.points2unified3(self.pe_edge_points, self.is_spherical, False)
-        normalized_pe_rt = np.vstack([v0_pe/self.Max0, v2_pe/self.Max2]).T  # shape (N, 2)
+        normalized_pe_rt = np.vstack([v0_pe/self.scale0, v2_pe/self.scale2]).T  # shape (N, 2)
         
         rt_tree_pe_surface = cKDTree(normalized_pe_rt)
 
@@ -996,7 +1018,7 @@ class PYVISTA_PROCESS_THD():
         lower_points = self.iso_volume_lower.points
 
         v0_l, v2_l, v1_l = PUnified.points2unified3(lower_points, self.is_spherical, False)
-        query_points = np.vstack([v0_l/self.Max0, v2_l/self.Max2]).T
+        query_points = np.vstack([v0_l/self.scale0, v2_l/self.scale2]).T
 
         # distances, indices = rt_tree_pe_surface.query(query_points_1, k=1, distance_upper_bound=d_upper_bound)
         distances, indices = rt_tree_pe_surface.query(query_points, k=1, distance_upper_bound=d_upper_bound)
@@ -1410,37 +1432,78 @@ class PYVISTA_PROCESS_THD():
 
 def get_trench_position_from_file(pyvista_outdir, pvtu_step, geometry, **kwargs):
     '''
-    Get the position of trench from a file generated previously
+    Retrieve the trench center position from a previously generated VTK PolyData (.vtp) file.
+
+    Parameters:
+        pyvista_outdir (str): 
+            Path to the directory containing PyVista-generated output files.
+        pvtu_step (int): 
+            The simulation step index used to construct the filename.
+        geometry (str): 
+            Simulation geometry type. If "chunk", coordinates are treated as spherical; 
+            otherwise, they are treated as Cartesian.
+        **kwargs: 
+            trench_depth (float, optional): Depth of the trench in km. Default is 0.0.
+
+    Returns:
+        float:
+            The unified coordinate value representing the trench center position. 
+            Computed from the first trench point in the VTK file.
     '''
-    trench_depth = kwargs.get("trench_depth", None)
-    if trench_depth is not None:
-        filename = "trench_d%.2fkm_%05d.vtp" % (trench_depth, pvtu_step)
-    else:
-        filename = "trench_%05d.vtp" % pvtu_step
-    filepath = os.path.join(pyvista_outdir, filename)
-    point_cloud_tr = pv.read(filepath)
-    points = point_cloud_tr.points
+    # set variables for geometry
     if geometry == "chunk":
-        _, _, trench_center = cartesian_to_spherical(points[0, 0], points[0, 1], points[0, 2])
+        is_spherical = True
     else:
-        trench_center = points[0, 0]
+        is_spherical = False
+
+    trench_depth = kwargs.get("trench_depth", 0.0)
+    filename = "trench_d%.2fkm_%05d.vtp" % (trench_depth, pvtu_step)
+    filepath = os.path.join(pyvista_outdir, filename)
+
+    point_cloud_tr = pv.read(filepath)
+    trench_points = point_cloud_tr.points
+    _, trench_center, _ = PUnified.points2unified3(trench_points[0, :], is_spherical, False)
     return trench_center
 
 
 def get_slab_depth_from_file(pyvista_outdir, pvtu_step, geometry, Max0, field_name):
     '''
-    Get the position of trench from a file generated previously
+    Retrieve the slab depth from a previously generated VTK PolyData (.vtp) file.
+
+    Parameters:
+        pyvista_outdir (str): 
+            Path to the directory containing PyVista-generated output files.
+        pvtu_step (int): 
+            The simulation step index used to construct the filename.
+        geometry (str): 
+            Simulation geometry type. If "chunk", coordinates are treated as spherical; 
+            otherwise, they are treated as Cartesian.
+        Max0 (float): 
+            The outer radius or box thickness of the model domain (in meters).
+        field_name (str): 
+            The prefix for the slab surface file, e.g., "sp_crust" or "sp_mantle". 
+            The filename is constructed as "{field_name}_surface_{step:05d}.vtp".
+
+    Returns:
+        float:
+            The depth of the slab (in meters), computed as `Max0 - min(r_slab)`, 
+            where `r_slab` is the radial coordinate of the slab surface.
     '''
+    # set variables for geometry
+    if geometry == "chunk":
+        is_spherical = True
+    else:
+        is_spherical = False
+    
     filename = "%s_surface_%05d.vtp" % (field_name, pvtu_step)
     filepath = os.path.join(pyvista_outdir, filename)
     point_cloud_tr = pv.read(filepath)
     points = point_cloud_tr.points
-    if geometry == "chunk":
-        l0, _, _ = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
-    else:
-        l0 = points[:, 2]
-    slab_depth = Max0 - np.min(l0)
+    
+    r_slab, _, _ = PUnified.points2unified3(points[0, :], is_spherical, False)
+    slab_depth = Max0 - np.min(r_slab)
     return slab_depth
+
 
 def get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, geometry, Max0, field_name, depth0, depth1):
     '''
@@ -1788,16 +1851,19 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
 
     # extract slab surface and trench position, using "sp_upper" composition
-    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True,\
-                                     extract_trench_at_additional_depths=extract_trench_at_additional_depths)
+    PprocessThD.extract_slab_surface("sp_upper")
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
     # extract slab surface using "sp_lower" composition
     PprocessThD.extract_slab_surface("sp_lower")
-    # get slab depth
+
+    # analysis
+    # get slab depth, trenc position and slab dip angle
     PprocessThD.get_slab_depth()
+    PprocessThD.extract_slab_dip_angle()
+    PprocessThD.extract_slab_trench()
 
 
     # extract outputs

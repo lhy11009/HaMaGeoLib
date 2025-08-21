@@ -39,6 +39,55 @@ def test_interpolate_slab_surface(vq0, vq1, expected):
     else:
         assert np.isnan(vq2), f"Failed for ({vq0},{vq1}), expected {expected}, computed {vq2}"
 
+@pytest.mark.parametrize(
+    "slab_surface_file_base, depth, std_file",
+    [
+        ("sp_upper_surface_test_00002.vtp", 0.0, "trench_d0.00km_00002_std.vtp"),
+        ("sp_upper_surface_test_00002.vtp", 50e3, "trench_d50.00km_00002_std.vtp"),
+        ("sp_upper_surface_test_00014.vtp", 0.0, "trench_d0.00km_00014_std.vtp"),
+        ("sp_upper_surface_test_00014.vtp", 50e3, "trench_d50.00km_00014_std.vtp")
+    ]
+)
+@pytest.mark.big_test  # Optional marker for big tests
+def test_interpolate_trench_profile(slab_surface_file_base, depth, std_file):
+    local_dir=os.path.join("big_tests", "ThDSubduction", "test_interpolate_trench_profile")
+    slab_surface_file = os.path.join(local_dir, slab_surface_file_base)
+    slab_surface_file_basename = slab_surface_file_base.split(".")[0]
+    
+    # remove old directory 
+    pyvista_outdir = os.path.join(test_dir, "test_interpolate_trench_profile")
+    if os.path.isdir(pyvista_outdir):
+        rmtree(pyvista_outdir)
+    os.mkdir(pyvista_outdir)
+
+    scale0 = 1000e3; scale1 = 1000e3/6371e3
+
+    slab_surface = pv.read(slab_surface_file)
+    points = slab_surface.points
+
+    v0, v2, v1 = PUnified.points2unified3(points, True, False)
+    slab_surface_interp_func = KNNInterpolatorND(np.vstack((v0/scale0, v1/scale1)).T, v2, k=1, max_distance=0.05)
+
+    # K-nearneighbor interpolation
+    # test 1 - test interpolation at the surface
+    N1 = 1000
+    Min1 = 0.0; Max1 = 71.94572847349845*np.pi/180.0
+    val1s = np.linspace(Min1, Max1, N1)
+    val0s = np.full(val1s.shape, 6371e3 - depth)
+    val2s = slab_surface_interp_func(val0s/scale0, val1s/scale1)
+
+    mask = ~np.isnan(val2s)
+    x, y, z = PUnified.unified2points3(np.vstack((val0s[mask], val2s[mask], val1s[mask])).T, True, False)
+    trench_points = np.vstack([x, y, z]).T
+
+    point_cloud_tr = pv.PolyData(trench_points)
+    filename = "%s_trench_d%.2fkm.vtp" % (slab_surface_file_basename, depth/1e3)
+    filepath = os.path.join(pyvista_outdir, filename)
+    point_cloud_tr.save(filepath)
+
+    assert(os.path.isfile(filepath))
+    assert(filecmp.cmp(filepath, os.path.join(local_dir, std_file)))
+
 
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_thd_chunk():
@@ -148,11 +197,15 @@ def test_pyvista_process_thd_box():
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(threshold=0.8)
     # extract slab surface
-    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt")
+    PprocessThD.extract_slab_surface("sp_upper")
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
+
+    # Slab analysis
+    PprocessThD.extract_slab_dip_angle()
+    PprocessThD.extract_slab_trench()
 
     # assert slab dip and trench location
     trench_center0 = 4170000.0
@@ -170,19 +223,14 @@ def test_pyvista_process_thd_box():
     sp_upper_file = os.path.join(pyvista_outdir, "sp_upper_surface_00002.vtp")
     assert(os.path.isfile(sp_upper_file))
     assert(filecmp.cmp(sp_upper_file, sp_upper_file_std))
-
-    pe_surface_file_std = os.path.join(local_dir, "plate_edge_surface_00002_std.vtp")
-    pe_surface_file = os.path.join(pyvista_outdir, "plate_edge_surface_00002.vtp")
-    assert(os.path.isfile(pe_surface_file))
-    assert(filecmp.cmp(pe_surface_file, pe_surface_file_std))
     
     sp_plate_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
     sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
     assert(os.path.isfile(sp_plate_file))
     assert(filecmp.cmp(sp_plate_file, sp_plate_file_std))
 
-    trench_file_std = os.path.join(local_dir, "trench_00002_std.txt")
-    trench_file = os.path.join(pyvista_outdir, "trench_00002.txt")
+    trench_file_std = os.path.join(local_dir, "trench_d0.00km_00002_std.vtp")
+    trench_file = os.path.join(pyvista_outdir, "trench_d0.00km_00002.vtp")
     assert(os.path.isfile(trench_file))
     assert(filecmp.cmp(trench_file, trench_file_std))
 
@@ -232,8 +280,12 @@ def test_pyvista_process_thd_box_big():
     PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (iso_volume_threshold), "vtu")
     
     PprocessThD.extract_plate_edge_surface()
-    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt")
+    PprocessThD.extract_slab_surface("sp_upper")
     PprocessThD.filter_slab_lower_points()
+
+    # analysis 
+    PprocessThD.extract_slab_dip_angle()
+    PprocessThD.extract_slab_trench()
     PprocessThD.get_slab_depth()
 
     # check file outputs
@@ -271,7 +323,7 @@ def test_pyvista_process_thd_box_big():
     sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_%05d.vtu" % pvtu_step)
     assert(os.path.isfile(sp_plate_file))
 
-    trench_file = os.path.join(pyvista_outdir, "trench_%05d.txt" % pvtu_step)
+    trench_file = os.path.join(pyvista_outdir, "trench_d0.00km_%05d.vtp" % pvtu_step)
     assert(os.path.isfile(trench_file))
     
     trench_center0 = 4054166.75
@@ -324,9 +376,6 @@ def test_pyvista_process_thd_chunk_script_piece_wise():
     assert(os.path.isfile(sp_lower_above_filtered_pe_file))
     sp_lower_above_filtered_pe_std_file = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00014_std.vtu")
     assert(filecmp.cmp(sp_lower_above_filtered_pe_file, sp_lower_above_filtered_pe_std_file))
-
-
-
 
 
 @pytest.mark.big_test  # Optional marker for big tests
