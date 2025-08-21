@@ -769,7 +769,6 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
-    # todo_3d
     def extract_slab_dip_angle(self):
         '''
         extract slab dip angle
