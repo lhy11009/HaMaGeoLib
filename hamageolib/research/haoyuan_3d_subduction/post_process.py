@@ -217,9 +217,11 @@ class PYVISTA_PROCESS_THD():
             i_piece - number of piece
         '''
         # Addtional options
-        indent = kwargs.get("indent", 0)
+        indent = 4
 
         # Save file
+        start = time.time()
+
         for key, value in self.combined.items():
             assert(isinstance(value, list) and len(value)==1)
             extension = get_pyvista_extension(value[0])
@@ -229,6 +231,9 @@ class PYVISTA_PROCESS_THD():
             ofile = os.path.join(odir, "%s_%05d.%s" % (key, self.pvtu_step, extension))
             value[0].save(ofile)
             print("%ssaved file for piece %d: %s" % (indent*" ", i_piece, ofile))
+        
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
     def import_piecewise(self, i_piece, **kwargs):
         '''
@@ -236,7 +241,10 @@ class PYVISTA_PROCESS_THD():
         Inputs:
             i_piece - number of piece
         '''
-        indent = kwargs.get("indent", 0)
+        indent = 4
+
+        # import
+        start = time.time()
         for key, value in self.__dict__.items():
             if value is None or isinstance(value, pv.DataSet):
                 odir = os.path.join(self.pyvista_outdir, "p%02d" % i_piece)
@@ -252,12 +260,17 @@ class PYVISTA_PROCESS_THD():
                     self.combined[key].append(pv_obj)
                     print("%sload attr " % (indent*" ") + key + " from piece " + str(i_piece))
 
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
     
     def combine_pieces(self):
         '''
         Merge the pv objects in self.combined
         '''
+        indent = 4
+
         # merge objects in combined (dict)
+        start = time.time()
         for key, value in self.combined.items():
             if len(value) == 0:
                 merged = None
@@ -267,6 +280,9 @@ class PYVISTA_PROCESS_THD():
 
         # reset self.combined
         self.combined = {}
+
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
     def reset_attrs(self, keys):
         '''
@@ -297,13 +313,20 @@ class PYVISTA_PROCESS_THD():
             filename_base - basename of output file
             filetype - type of the file
         '''
+        indent = 4
         # check inputs
         assert(filetype in ["vtp", "vtu"])
+
+        # export
+        start = time.time()
         filename = "%s_%05d.%s" % (filename_base, self.pvtu_step, filetype)
         filepath = os.path.join(self.pyvista_outdir, filename)
         target.save(filepath)
         assert(os.path.isfile(filepath))
-        print("saved file %s" % filepath)
+        print("%ssaved file %s" % (indent*" ", filepath))
+        
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
 
     def slice_center(self, **kwargs):
@@ -743,18 +766,34 @@ class PYVISTA_PROCESS_THD():
 
         print("Save file %s" % filepath)
 
-        # extract dip angle
-        if extract_dip:
-            self.dip_100_center = get_slab_dip_angle(self.slab_surface_points, self.geometry, self.Max0, 0.0, 100e3)
-
-        # todo_3d
-        # extract trench points
-        if extract_trench:
-            self.extract_trench_profile(0.0)
-
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
+    # todo_3d
+    def extract_slab_dip_angle(self):
+        '''
+        extract slab dip angle
+        '''
+        assert(self.slab_surface_points is not None)
+        indent = 4
+        
+        start = time.time()
+        self.dip_100_center = get_slab_dip_angle(self.slab_surface_points, self.geometry, self.Max0, 0.0, 100e3)
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
+
+    def extract_slab_trench(self):
+        '''
+        extract slab trench
+        '''
+        indent = 4
+        
+        # trench points at 100 km
+        start = time.time()
+        trench_points = self.extract_trench_profile(0.0)
+        _, self.trench_center, _ = PUnified.points2unified3(trench_points[0, :], self.is_spherical, False)
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
     def extract_trench_profile(self, depth, **kwargs):
         '''
@@ -791,7 +830,8 @@ class PYVISTA_PROCESS_THD():
             print("saved file %s" % filepath)
         else:
             raise ValueError("file_type needs to be default or txt")
-        pass
+        
+        return trench_points
 
     def extract_plate_edge_surface(self):
         """
@@ -1722,7 +1762,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
                 PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
                 process = psutil.Process(os.getpid())
                 print("Memory Usage piecewise %d: " % i_piece, process.memory_info().rss / 1024**2, "MB")
-                PprocessThD.export_piecewise(i_piece, indent=4)
+                PprocessThD.export_piecewise(i_piece)
             
                 # only continue if we pass a negative i_piece
                 return PprocessThD, {}
@@ -1730,7 +1770,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         if i_piece < 0: 
             PprocessThD.pvtu_step = pvtu_step
             for piece in range(n_pieces):
-                PprocessThD.import_piecewise(piece, indent=4)
+                PprocessThD.import_piecewise(piece)
 
         process = psutil.Process(os.getpid())
         print("Memory Usage (after processing files): ", process.memory_info().rss / 1024**2, "MB")

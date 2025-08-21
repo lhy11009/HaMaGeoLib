@@ -60,32 +60,34 @@ lat = np.arcsin(np.divide(z, r, out=np.zeros_like(r), where=r != 0.0))
 exp_sph_L0, exp_sph_L1, exp_sph_L2 = r, r * lon, r * lat
 
 @pytest.mark.parametrize(
-    "point, is_spherical, expected",
+    "point, is_spherical, expected, scaled",
     [
         # Cartesian 3D cases (should return unchanged values)
-        ((10, 20, 30), False, (30, 10, 20)),
-        ((-5, 15, 50), False, (50, -5, 15)),
+        ((10, 20, 30), False, (30, 10, 20), True),
+        ((-5, 15, 50), False, (50, -5, 15), True),
+        ((5054338.38061481, 3878569.90838686, 0.), True, (6371e3, 0.654528, 0.0), False), # with earth's parameters
 
         # Spherical 3D cases (should return arc-length lon, lat, and r)
         ((10, 20, 30), True, (
             np.sqrt(10**2 + 20**2 + 30**2),
             np.sqrt(10**2 + 20**2 + 30**2) * np.arctan2(20, 10),
             np.sqrt(10**2 + 20**2 + 30**2) * np.arcsin(30 / np.sqrt(10**2 + 20**2 + 30**2)),
-        )),
+        ), True),
 
         # NEW: Cartesian grid (2x2)
-        (grid_cart, False, (exp_cart_L0, exp_cart_L1, exp_cart_L2)),
+        (grid_cart, False, (exp_cart_L0, exp_cart_L1, exp_cart_L2), True),
 
         # NEW: Spherical grid (2x2), scaled=True (default)
-        (grid_sph, True, (exp_sph_L0, exp_sph_L1, exp_sph_L2)),
+        (grid_sph, True, (exp_sph_L0, exp_sph_L1, exp_sph_L2), True),
     ]
 )
-def test_points2unified3(point, is_spherical, expected):
+def test_points2unified3(point, is_spherical, expected, scaled):
     """
     Test points2unified3 for both Cartesian and Spherical cases.
     """
-    computed = points2unified3(point, is_spherical)
-    assert all(pytest.approx(c, rel=1e-5) == e for c, e in zip(computed, expected)), f"Failed for {point}"
+    computed = points2unified3(point, is_spherical, scaled)
+    assert all(pytest.approx(c, rel=1e-5) == e for c, e in zip(computed, expected)),\
+        f"Failed for {point}, is_spherical {is_spherical}, scaled {scaled}, expected {expected}, computed {computed}"
 
 
 @pytest.mark.parametrize(

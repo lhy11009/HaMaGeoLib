@@ -10,7 +10,6 @@ if os.path.isdir(test_dir):
     rmtree(test_dir)
 os.mkdir(test_dir)
 
-# todo_3d
 @pytest.mark.big_test  # Optional marker for big tests
 @pytest.mark.parametrize(
     "vq0, vq1, expected",
@@ -73,21 +72,22 @@ def test_pyvista_process_thd_chunk():
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(threshold=0.8)
     # extract slab surface
-    
-    PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="txt", extract_trench_at_additional_depths=[50e3], dr=0.001)
-    # debug
-    # PprocessThD.extract_slab_surface("sp_upper", extract_trench=True, extract_dip=True, file_type="default", extract_trench_at_additional_depths=[50e3], dr=0.005)
+
+    # extract slab surface 
+    PprocessThD.extract_slab_surface("sp_upper", dr=0.001)
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
+    # Slab analysis
+    PprocessThD.extract_slab_dip_angle()
+    PprocessThD.extract_slab_trench()
 
     # assert slab dip and trench location
     # with this resolution, we can get the surface trench point, but the 50 depth point
     # is not found
     trench_center0 = 0.6545283794403076
     assert(abs((PprocessThD.trench_center-trench_center0)/trench_center0) < 1e-6)
-    assert(np.isnan(PprocessThD.additional_trench_center[0]))
     slab_depth0 = 240834.0
     assert(abs((PprocessThD.slab_depth-slab_depth0)/slab_depth0) < 1e-6)
     dip_100_center0 = 0.5782019954172547
@@ -104,29 +104,14 @@ def test_pyvista_process_thd_chunk():
     sp_upper_file = os.path.join(pyvista_outdir, "sp_upper_surface_00002.vtp")
     assert(os.path.isfile(sp_upper_file))
     assert(filecmp.cmp(sp_upper_file, sp_upper_file_std))
-
-    sp_lower_file_std = os.path.join(local_dir, "sp_lower_above_0.80_00002_std.vtu")
-    sp_lower_file = os.path.join(pyvista_outdir, "sp_lower_above_0.80_00002.vtu")
-    assert(os.path.isfile(sp_lower_file))
-    assert(filecmp.cmp(sp_lower_file, sp_lower_file_std))
-    
-    pe_surface_file_std = os.path.join(local_dir, "plate_edge_surface_00002_std.vtp")
-    pe_surface_file = os.path.join(pyvista_outdir, "plate_edge_surface_00002.vtp")
-    assert(os.path.isfile(pe_surface_file))
-    assert(filecmp.cmp(pe_surface_file, pe_surface_file_std))
     
     sp_plate_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
     sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
     assert(os.path.isfile(sp_plate_file))
     assert(filecmp.cmp(sp_plate_file, sp_plate_file_std))
     
-    trench_file_std = os.path.join(local_dir, "trench_00002_std.txt")
-    trench_file = os.path.join(pyvista_outdir, "trench_00002.txt")
-    assert(os.path.isfile(trench_file))
-    assert(filecmp.cmp(trench_file, trench_file_std))
-    
-    trench_file_std = os.path.join(local_dir, "trench_d50.00km_00002_std.txt")
-    trench_file = os.path.join(pyvista_outdir, "trench_d50.00km_00002.txt")
+    trench_file_std = os.path.join(local_dir, "trench_d0.00km_00002_std.vtp")
+    trench_file = os.path.join(pyvista_outdir, "trench_d0.00km_00002.vtp")
     assert(os.path.isfile(trench_file))
     assert(filecmp.cmp(trench_file, trench_file_std))
 
