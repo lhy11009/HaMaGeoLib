@@ -816,60 +816,46 @@ class PYVISTA_PROCESS_THD():
         dr = 0.001
         
         # Build KDTree with (r, theta)
+        # convert to unified coordinates
         plate_edge_points = self.iso_plate_edge.points
-        if self.geometry == "chunk":
-            l0_pe, theta_pe, l2_pe = cartesian_to_spherical(*plate_edge_points.T)
-            l1_pe = np.pi/2.0 - theta_pe
-        else:
-            l0_pe, l1_pe, l2_pe = plate_edge_points[:, 2], plate_edge_points[:, 1], plate_edge_points[:, 0]
-        rt_pe = np.vstack([l0_pe/self.Max0, l2_pe/self.Max2]).T
+        
+        v0_pe, v2_pe, v1_pe = PUnified.points2unified3(plate_edge_points, self.is_spherical, False)
+        rt_pe = np.vstack([v0_pe/self.scale0, v2_pe/self.scale2]).T
         rt_tree_pe = cKDTree(rt_pe)
 
-        # Create a mesh on r, phi
-        l0_vals = np.linspace(min0, self.Max0, N0)
-        l2_vals = np.linspace(0.0, self.Max2, N2)
-        l1_field_pe = np.full((N0, N2), np.nan)
+        v0_vals = np.linspace(min0, self.Max0, N0)
+        v2_vals = np.linspace(0.0, self.Max2, N2)
+        V1_pe = np.full((N0, N2), np.nan)
 
         # Loop over each (r, phi), get theta
         # 1. get indexes of adjacent points in the plate_edge composition
         # 2. get minimum theta values within the adjacent points
-        for i, r in enumerate(l0_vals):
-            for j, phi in enumerate(l2_vals):
-                query_pt = np.array([r/self.Max0, phi/self.Max2])
+        for i, v0 in enumerate(v0_vals):
+            for j, v2 in enumerate(v2_vals):
+                # query_pt = np.array([r/self.Max0, phi/self.Max2])
+                query_pt = np.array([v0/self.scale0, v2/self.scale2])
                 idxs = rt_tree_pe.query_ball_point(query_pt, r=dr)  # tolerance
 
                 if not idxs:
                     continue
 
                 # get all φ values at this (r, θ)
-                l1_s = l1_pe[idxs]
-                max1 = np.max(l1_s)
+                v1_s = v1_pe[idxs]
+                max1 = np.max(v1_s)
 
-                # Check: is max_theta unique (i.e., no greater theta exists)?
-                if np.all(l1_s <= max1):
-                    l1_field_pe[i, j] = max1
+                # assign to value of v1
+                V1_pe[i, j] = max1
 
-        # Recover the 3D coordinates from (r, theta, phi_field)
-        L0_pe, L2_pe = np.meshgrid(l0_vals, l2_vals, indexing='ij')
+        # Recover the 3D coordinates from unified coordinates
+        V0_pe, V2_pe = np.meshgrid(v0_vals, v2_vals, indexing='ij')
 
-        mask = ~np.isnan(l1_field_pe)
+        mask = ~np.isnan(V1_pe)
 
-        l0_pe_surf = L0_pe[mask]
-        l2_pe_surf = L2_pe[mask]
-        l1_pe_surf = l1_field_pe[mask]
-
-        if self.geometry == "chunk":
-            x_pe_surf = l0_pe_surf * np.sin(np.pi/2.0 - l1_pe_surf) * np.cos(l2_pe_surf)
-            y_pe_surf = l0_pe_surf * np.sin(np.pi/2.0 - l1_pe_surf) * np.sin(l2_pe_surf)
-            z_pe_surf = l0_pe_surf * np.cos(np.pi/2.0 - l1_pe_surf)
-        else:
-            x_pe_surf = l2_pe_surf
-            y_pe_surf = l1_pe_surf
-            z_pe_surf = l0_pe_surf
-
-        self.pe_edge_points = np.vstack([x_pe_surf, y_pe_surf, z_pe_surf]).T
+        x_pe_surf, y_pe_surf, z_pe_surf = PUnified.unified2points3(np.vstack((V0_pe[mask], V2_pe[mask], V1_pe[mask])).T,\
+                                                                   self.is_spherical, False)
 
         # export by pyvista
+        self.pe_edge_points = np.vstack([x_pe_surf, y_pe_surf, z_pe_surf]).T
         point_cloud_pe = pv.PolyData(self.pe_edge_points)
 
         filename = "plate_edge_surface_%05d.vtp" % (self.pvtu_step)
@@ -900,68 +886,54 @@ class PYVISTA_PROCESS_THD():
         d_upper_bound = 0.01
 
         # mesh the slab surface points by kd tree
-        if self.geometry == "chunk":
-            r_surf, theta_surf, _ = cartesian_to_spherical(*self.slab_surface_points.T)
-            normalized_rt = np.vstack([r_surf/self.Max0, (np.pi/2.0 - theta_surf)/self.Max1]).T  # shape (N, 2)
-        else:
-            normalized_rt = np.vstack([self.slab_surface_points[:, 2]/self.Max0, self.slab_surface_points[:, 1]/self.Max1]).T  # shape (N, 2)
-        
+        # todo_3d
+        v0_s, v2_s, v1_s = PUnified.points2unified3(self.slab_surface_points, self.is_spherical, False)
+        normalized_rt = np.vstack([v0_s/self.scale0, v1_s/self.scale1]).T  # shape (N, 2)
         rt_tree_slab_surface = cKDTree(normalized_rt)
         
         # query points in the sp_lower iso-volume and get points that has 
         # matching pair in (r, theta) within slab surface points
         lower_points = self.iso_volume_lower.points
-
-        if self.geometry == "chunk":
-            l0_l, theta_l, l2_l = cartesian_to_spherical(*lower_points.T)
-            l1_l = np.pi/2.0 - theta_l
-            query_points = np.vstack([l0_l/self.Max0, l1_l/self.Max1]).T
-        else:
-            query_points = np.vstack([lower_points[:, 2]/self.Max0, lower_points[:, 1]/self.Max1]).T
-            l2_l = lower_points[:, 0]
+        v0_l, v2_l, v1_l = PUnified.points2unified3(lower_points, self.is_spherical, False)
+        query_points = np.vstack([v0_l/self.scale0, v1_l/self.scale1]).T
 
         distances, indices = rt_tree_slab_surface.query(query_points, k=1, distance_upper_bound=d_upper_bound)
         valid_mask = (indices != rt_tree_slab_surface.n)
 
         indices_valid = indices[valid_mask]
         lower_points_valid = lower_points[valid_mask]
-        l2_valid = l2_l[valid_mask]
+        v2_valid = v2_l[valid_mask]
 
         # get mask for points that has higher phi value
         # than their matching points in the slab surface points
-        if self.geometry == "chunk":
-            _, _, l2_surf = cartesian_to_spherical(*self.slab_surface_points.T)
-        else:
-            l2_surf = self.slab_surface_points[:, 0]
-        large_l2_mask = l2_valid > l2_surf[indices_valid]
+        large_v2_mask = v2_valid > v2_s[indices_valid]
 
         # also get points that has absolutely large phi value,
         # larger than the maximum in slab surface points
-        large_l2_abs_mask = l2_l > np.max(l2_surf)
+        large_v2_abs_mask = v2_l > np.max(v2_s)
 
         combined_mask = np.zeros(valid_mask.shape, dtype=bool)
-        combined_mask[valid_mask] = large_l2_mask
-        large_l2_points = lower_points[combined_mask | large_l2_abs_mask]
+        combined_mask[valid_mask] = large_v2_mask
+        large_v2_points = lower_points[combined_mask | large_v2_abs_mask]
 
         # export by pyvista
-        point_cloud_large_l2 = pv.PolyData(large_l2_points)
+        point_cloud_large_v2 = pv.PolyData(large_v2_points)
 
         filename = "sp_lower_large_l2_points_%05d.vtp" % (self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
-        point_cloud_large_l2.save(filepath)
+        point_cloud_large_v2.save(filepath)
         print("Save file %s" % filepath)
         
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent*" ", func_name(), end-start))
 
-
         # Derive the indices of large phi points within the original iso_volume_lower
-        is_large_l2_point = np.zeros(self.iso_volume_lower.n_points, dtype=bool)
+        is_large_v2_point = np.zeros(self.iso_volume_lower.n_points, dtype=bool)
 
         idx1 = np.flatnonzero(valid_mask)
-        large_l2_point_indices = idx1[large_l2_mask]
-        is_large_l2_point[large_l2_point_indices] = True
-        is_large_l2_point[large_l2_abs_mask] = True
+        large_v2_point_indices = idx1[large_v2_mask]
+        is_large_v2_point[large_v2_point_indices] = True
+        is_large_v2_point[large_v2_abs_mask] = True
 
         # Initiate cell_mask with all True value (every cell is included)
         cell_mask = np.ones(self.iso_volume_lower.n_cells, dtype=bool)
@@ -970,52 +942,37 @@ class PYVISTA_PROCESS_THD():
         for cid in range(self.iso_volume_lower.n_cells):
             pt_ids = self.iso_volume_lower.get_cell(cid).point_ids
             # pt_ids = self.iso_volume_lower.Get_Cell(cid).GetPointIds()
-            if np.any(is_large_l2_point[pt_ids]):
+            if np.any(is_large_v2_point[pt_ids]):
                 cell_mask[cid] = False
 
-        filtered = self.iso_volume_lower.extract_cells(cell_mask)
-
-        # Save to file for ParaView or future use
-        # filename = "sp_lower_above_0.8_filtered_%05d.vtu" % (pvtu_step)
-        # filepath = os.path.join(pyvista_outdir, filename)
-        # filtered.save(filepath)
-
-        # print("Save file %s" % filepath)
+        _ = self.iso_volume_lower.extract_cells(cell_mask)
 
         # mesh a slab edge point by kd tree
-        if self.geometry == "chunk":
-            r_pe_surf, theta_pe_surf, phi_pe_surf = cartesian_to_spherical(*self.pe_edge_points.T)
-            l1_pe_surf = np.pi/2.0 - theta_pe_surf
-            normalized_pe_rt = np.vstack([r_pe_surf/self.Max0, phi_pe_surf/self.Max2]).T  # shape (N, 2)
-        else:
-            l1_pe_surf = self.pe_edge_points[:, 1]
-            normalized_pe_rt = np.vstack([self.pe_edge_points[:, 2]/self.Max0, self.pe_edge_points[:, 0]/self.Max2]).T  # shape (N, 2)
+        v0_pe, v2_pe, v1_pe = PUnified.points2unified3(self.pe_edge_points, self.is_spherical, False)
+        normalized_pe_rt = np.vstack([v0_pe/self.Max0, v2_pe/self.Max2]).T  # shape (N, 2)
         
         rt_tree_pe_surface = cKDTree(normalized_pe_rt)
 
         # query points in the sp_lower iso-volume and get points that has 
         # matching pair in (r, phi) within slab edge points
         lower_points = self.iso_volume_lower.points
-        if self.geometry == "chunk":
-            r_l, theta_l, phi_l = cartesian_to_spherical(*lower_points.T)
-            l1_l = np.pi / 2.0 - theta_l
-            query_points_1 = np.vstack([r_l/self.Max0, phi_l/self.Max2]).T
-        else:
-            query_points_1 = np.vstack([lower_points[:, 2]/self.Max0, lower_points[:, 0]/self.Max2]).T
-            l1_l = lower_points[:, 1]
 
-        distances, indices = rt_tree_pe_surface.query(query_points_1, k=1, distance_upper_bound=d_upper_bound)
+        v0_l, v2_l, v1_l = PUnified.points2unified3(lower_points, self.is_spherical, False)
+        query_points = np.vstack([v0_l/self.Max0, v2_l/self.Max2]).T
+
+        # distances, indices = rt_tree_pe_surface.query(query_points_1, k=1, distance_upper_bound=d_upper_bound)
+        distances, indices = rt_tree_pe_surface.query(query_points, k=1, distance_upper_bound=d_upper_bound)
         valid_pe_mask = (indices != rt_tree_pe_surface.n)
 
         indices_pe_valid = indices[valid_pe_mask]
         lower_points_pe_valid = lower_points[valid_pe_mask]
-        l1_l_pe_valid = l1_l[valid_pe_mask]
+        v1_l_pe_valid = v1_l[valid_pe_mask]
 
         # get mask for points that has smaller theta value
         # than their matching points in the plate edge surface points
-        big_l1_mask = l1_l_pe_valid > l1_pe_surf[indices_pe_valid]
+        big_v1_mask = v1_l_pe_valid > v1_pe[indices_pe_valid]
 
-        big_l1_points = lower_points_pe_valid[big_l1_mask]
+        big_l1_points = lower_points_pe_valid[big_v1_mask]
 
         # export by pyvista
         point_cloud_big_l1 = pv.PolyData(big_l1_points)
@@ -1025,13 +982,12 @@ class PYVISTA_PROCESS_THD():
         point_cloud_big_l1.save(filepath)
         print("Save file %s" % filepath)
 
-
         # filter out cells that has small theta values
         # Derive the indices of large theta points within the original iso_volume_lower
         is_big_l1_point = np.zeros(self.iso_volume_lower.n_points, dtype=bool)
 
         idx1 = np.flatnonzero(valid_pe_mask)
-        big_l1_point_indices = idx1[big_l1_mask]
+        big_l1_point_indices = idx1[big_v1_mask]
         is_big_l1_point[big_l1_point_indices] = True
 
         # Use PyVista's connectivity and cell arrays if available
