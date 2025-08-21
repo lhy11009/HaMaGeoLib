@@ -118,7 +118,6 @@ class PYVISTA_PROCESS_THD():
         for key in self.keys:
             setattr(self, key, None)
 
-        # todo_3d
         # Initialize slab morphology variables
         # self.trench_points = None
         self.slab_surface_points = None
@@ -701,16 +700,11 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
 
         # additional optoins
-        extract_trench = kwargs.get("extract_trench", False)
-        extract_dip=kwargs.get("extract_dip", False)
-        file_type = kwargs.get("file_type", "default")
-        # todo_fix
         N0 = kwargs.get("N0", 2000)
         N1 = kwargs.get("N1", 1000)
         dr = kwargs.get("dr", 0.001)
 
         # checking
-        # todo_3d
         if field_name == "sp_upper":
             assert self.iso_volume_upper is not None
             source = self.iso_volume_upper
