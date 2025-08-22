@@ -10,6 +10,20 @@ from hamageolib.research.haoyuan_3d_subduction.post_process import get_trench_po
     get_slab_dip_angle_from_file, ProcessVtuFileThDStep
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS
 
+
+# utility function
+def str2bool(v):
+    # for converting a parsed variable to bool type
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ("yes", "true", "t", "1"):
+        return True
+    elif v.lower() in ("no", "false", "f", "0"):
+        return False
+    else:
+        raise argparse.ArgumentTypeError("Boolean value expected.")
+
+# main function
 def main():
     parser = argparse.ArgumentParser(
         description="Run geodynamic processing script with different modes."
@@ -62,6 +76,13 @@ def main():
         help="Step number to process (default: -1, meaning process all steps)."
     )
 
+    # pyvista option: Whether to generate pyvista outputs
+    parser.add_argument(
+        "-p", "--prepare_pyvista",
+        type=str2bool, nargs="?", 
+        const=True, default=True,
+        help="Prepare pyvist results before analysis (True/False). If flag present without value, defaults to True.")
+
     args = parser.parse_args()
 
     # ----------------------------
@@ -78,9 +99,6 @@ def main():
     if not os.path.isdir(args.indir):
         parser.error(f"Input directory '{args.indir}' does not exist.")
 
-
-    # Whether to generate pyvista outputs
-    prepare_pyvista = True
     
     # Whether to analyze results
     if args.method in ["whole", "piece"]:
@@ -125,25 +143,48 @@ def main():
 
         # processing pyvista
         try:
-            if prepare_pyvista:
+            if args.prepare_pyvista:
                 # n_pieces tell the function to proceed piece-wise.
                 # i_pice tell the function to only process one piece at a time (otherwise loop over all pieces)
-                _, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir, n_pieces=args.n_pieces, i_piece=args.i_piece)
+                PprocessThD, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir, n_pieces=args.n_pieces, i_piece=args.i_piece)
+            else:
+                PprocessThD, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir, only_initialization=True)
+
         except FileNotFoundError:
             Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, False)
         else:
             if analyze_results:
-                trench_center = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'])
-                slab_depth = get_slab_depth_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_lower")
-                dip_100_center = get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_upper", 0.0, 100e3)
+                print("Analyze step %d" % step)
+                try:
+                    trench_center = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'])
+                except FileNotFoundError:
+                    trench_center = None
+                try:
+                    trench_center_50km = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], trench_depth=50e3)
+                except FileNotFoundError:
+                    trench_center_50km = None
+                try:
+                    slab_depth = get_slab_depth_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_lower")
+                except FileNotFoundError:
+                    slab_depth = None
+                try:
+                    dip_100_center = get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_upper", 0.0, 100e3)
+                except FileNotFoundError:
+                    dip_100_center = None
+
+                print("\t trench_center = ", trench_center)
+                print("\t trench_center_50km = ", trench_center_50km)
+                print("\t slab_depth = ", slab_depth)
+                print("\t dip_100_center = ", dip_100_center)
                 
                 Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, True)
                 # update value in sumamry
                 Case_Options.SummaryCaseVtuStepUpdateValue("Slab depth", step, slab_depth)
                 Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, trench_center)
+                Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, trench_center_50km)
                 Case_Options.SummaryCaseVtuStepUpdateValue("Dip 100 (center)", step, dip_100_center)
         
-        break # debug
+        # break # debug
 
     if analyze_results:
         Case_Options.SummaryCaseVtuStepExport(os.path.join(args.indir, "summary.csv"))
