@@ -1451,7 +1451,7 @@ def get_trench_position_from_file(pyvista_outdir, pvtu_step, geometry, **kwargs)
         is_spherical = False
 
     trench_depth = kwargs.get("trench_depth", 0.0)
-    filename = "trench_d%.2fkm_%05d.vtp" % (trench_depth, pvtu_step)
+    filename = "trench_d%.2fkm_%05d.vtp" % (trench_depth/1e3, pvtu_step)
     filepath = os.path.join(pyvista_outdir, filename)
 
     point_cloud_tr = pv.read(filepath)
@@ -1691,6 +1691,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     n_pieces = kwargs.get("n_pieces", None)
     i_piece = kwargs.get("i_piece", None)
     odir = kwargs.get("odir", os.path.join(case_path, "pyvista_outputs"))
+    only_initialization = kwargs.get("only_initialization", False)
     
     outputs = {}
 
@@ -1745,11 +1746,16 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     else:
         clip = None
     boundary_range=[[clip_l0_min, clip_l0_max] , [clip_l1_min, clip_l1_max], [clip_l2_min, clip_l2_max]]
+
     
     # initiate PYVISTA_PROCESS_THD class
     config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2, "time": _time}
     kwargs = {"clip": clip, "pyvista_outdir": os.path.join(odir, "%05d" % pvtu_step)}
     PprocessThD = PYVISTA_PROCESS_THD(os.path.join(case_path, "output", "solution"), config, **kwargs)
+
+    # only do intialization of the class 
+    if only_initialization:
+        return PprocessThD, outputs
 
     # make domain boundary
     do_output = (n_pieces is None or i_piece is None or i_piece < 0)

@@ -117,7 +117,6 @@ def test_chunk0():
     wb_path = os.path.join(output_dir, 'case.wb')
     assert(filecmp.cmp(wb_path, wb_std_path))
 
-# todo_3d
 def test_chunk_sp_migrate_left_bd():
     '''
     test for setting the 3d case in the chunk geometry, making the trench closer to left side boundary

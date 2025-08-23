@@ -217,7 +217,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         CASE_OPTIONS_BASE.SummaryCaseVtuStep(self, ifile)
 
         # Add new columns you want to add
-        new_columns = ["Slab depth", "Trench (center)", "Dip 100 (center)"]
+        new_columns = ["Slab depth", "Trench (center)", "Trench (center 50km)", "Dip 100 (center)"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:
