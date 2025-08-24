@@ -747,7 +747,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     sourceTrTrianDisplay = Show(sourceTrTrian, renderView1, 'GeometryRepresentation')
 
     # Show the trench position
-    sourceTr = FindSource("trench%s_%05d" % (trailer, snapshot))
+    sourceTr = FindSource("trench_d0.00km%s_%05d" % (trailer, snapshot))
     sourceTrDisplay = Show(sourceTr, renderView1, 'GeometryRepresentation')
     sourceTrDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0] # Dark red
     sourceTrDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
@@ -850,7 +850,7 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
         load_pyvista_source(data_output_dir, "sp_lower_surface", snapshot, file_type="vtp", assign_field=True)
         
         # load trench position
-        load_pyvista_source(data_output_dir, "trench", snapshot, file_type="vtp")
+        load_pyvista_source(data_output_dir, "trench_d0.00km", snapshot, file_type="vtp")
         load_pyvista_source(data_output_dir, "trench_d50.00km", snapshot, file_type="vtp")
 
         # plot slice center viscosity

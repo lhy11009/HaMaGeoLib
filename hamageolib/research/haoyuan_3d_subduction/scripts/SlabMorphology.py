@@ -181,7 +181,7 @@ def main():
                 # update value in sumamry
                 Case_Options.SummaryCaseVtuStepUpdateValue("Slab depth", step, slab_depth)
                 Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, trench_center)
-                Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, trench_center_50km)
+                Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center 50km)", step, trench_center_50km)
                 Case_Options.SummaryCaseVtuStepUpdateValue("Dip 100 (center)", step, dip_100_center)
         
         # break # debug

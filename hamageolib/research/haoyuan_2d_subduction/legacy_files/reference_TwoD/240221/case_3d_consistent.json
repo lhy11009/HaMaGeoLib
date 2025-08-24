@@ -1,0 +1,91 @@
+{
+  "base directory": "/home/lochy/ASPECT_PROJECT/aspectLib/files/TwoDSubduction/231103",
+  "branch": "master_TwoD",
+  "output directory": "/mnt/lochy0/ASPECT_DATA/TwoDSubduction/EBA_CDPT_3dconsistent_8",
+  "name": "eba_cdpt_coh300_SA80.0_OA40.0_width61_sc22_nopc",
+  "depth average file": "${ASPECT_LAB_DIR}/files/TwoDSubduction/depth_average.txt",
+  "include fast first step": 1,
+  "version": 1.0,
+  "test initial steps": {
+    "number of outputs": 3,
+    "interval of outputs": 10000.0
+  },
+  "geometry": "box",
+  "potential temperature": 1573.0,
+  "boundary condition": {
+    "model": "all free slip"
+  },
+  "use world builder": 1,
+  "world builder": {
+    "use new ridge implementation": 1,
+    "plate age method": "adjust box width only assigning age",
+    "box width before adjusting": 6783000.0,
+    "adjust mesh with box width": 1,
+    "subducting plate": {
+      "age trench": 80000000.0,
+      "sp rate": 0.05,
+      "trailing length": 600000.0
+    },
+    "overiding plate": {
+      "age": 40000000.0,
+      "transit": {
+        "age": 20000000.0,
+        "length": 700000.0
+      },
+      "trailing length": 600000.0
+    },
+    "maximum repetition slice": 1000000.0,
+    "fix boudnary temperature auto": 1
+  },
+  "coupling the eclogite phase to shear zone viscosity": 0,
+  "slurm": [
+    {
+      "slurm file": "./files/slurm_files/230924/job_p-billen.sh",
+      "build directory": "master_TwoD",
+      "tasks per node": 8,
+      "cpus": 8
+    },
+    {
+      "slurm file": "./files/slurm_files/230924/job_high2.sh",
+      "build directory": "master_TwoD",
+      "tasks per node": 32,
+      "cpus": 64
+    },
+    {
+      "slurm file": "./files/slurm_files/230924/job_skx-normal.sh",
+      "build directory": "master_TwoD",
+      "tasks per node": 48,
+      "cpus": 48
+    }
+  ],
+  "use new rheology module": 1,
+  "mantle rheology": {
+    "scheme": "HK03_WarrenHansen23",
+    "flow law": "composite",
+    "adjust detail": 1,
+    "jump lower mantle": 60.0,
+    "Coh": 300.0,
+    "use 3d da file": 1
+  },
+  "include peierls creep": 0,
+  "peierls creep": {
+    "scheme": "MK10",
+    "maximum peierls iterations": 100
+  },
+  "refinement level": 10,
+  "minimum viscosity": 1e+19,
+  "refinement scheme": "3d consistent",
+  "reset density": 1,
+  "refinement": {
+    "global refinement": 3,
+    "adaptive refinement": 4
+  },
+  "phase transition model CDPT type": "HeFESTo_consistent",
+  "shear zone": {
+    "thickness": 15000.0,
+    "slab core viscosity": 1e+22
+  },
+  "prescribe temperature method": "plate model 1",
+  "prescribe temperature width": 900e3,
+  "prescribe temperature with trailing edge": 1
+}
