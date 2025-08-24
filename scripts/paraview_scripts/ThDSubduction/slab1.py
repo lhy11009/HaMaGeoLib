@@ -769,8 +769,8 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
         renderView1.CameraViewUp = [0.4314695504273366, 0.8294679274563145, -0.35470689924973053]
         renderView1.CameraParallelScale = 600000.0
     elif "GEOMETRY" == "box":
-        renderView1.CameraPosition = [7901107.27312585, 5768057.049286575, 5496301.138370097 + OUTER_RADIUS-2890e3]
-        renderView1.CameraFocalPoint = [2242318.5206255154, -1901461.3695231928, 369527.98904717574 + OUTER_RADIUS-2890e3]
+        renderView1.CameraPosition = [7901107.27312585, 5768057.049286575 + SLAB_EXTENTS_FULL - 1000e3, 5496301.138370097 + OUTER_RADIUS-2890e3]
+        renderView1.CameraFocalPoint = [2242318.5206255154, -1901461.3695231928 + SLAB_EXTENTS_FULL - 1000e3, 369527.98904717574 + OUTER_RADIUS-2890e3]
         renderView1.CameraViewUp = [-0.3457156989670518, -0.3316734584620678, 0.8777661262771159]
         renderView1.CameraParallelScale = 600000.0
 

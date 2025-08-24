@@ -146,7 +146,8 @@ def main():
             if args.prepare_pyvista:
                 # n_pieces tell the function to proceed piece-wise.
                 # i_pice tell the function to only process one piece at a time (otherwise loop over all pieces)
-                PprocessThD, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir, n_pieces=args.n_pieces, i_piece=args.i_piece)
+                PprocessThD, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir,\
+                                                             n_pieces=args.n_pieces, i_piece=args.i_piece, do_clip=True)
             else:
                 PprocessThD, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir, only_initialization=True)
 

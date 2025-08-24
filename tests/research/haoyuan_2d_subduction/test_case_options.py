@@ -82,7 +82,6 @@ def test_chunk_sp_migrate_left_bd_2d():
     assert(filecmp.cmp(wb_path, wb_std_path))
 
 
-# todo_3d
 def test_box_sp_migrate_left_bd_2d():
     '''
     test migrate the side boundary, modified from the case test_sz_same_composition

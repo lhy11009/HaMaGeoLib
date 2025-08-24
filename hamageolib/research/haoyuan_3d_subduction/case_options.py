@@ -47,7 +47,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             self.options['BOX_LENGTH'] = self.idict["Geometry model"]["Box"]["X extent"]
             box_width = self.idict["Geometry model"]["Box"]["Y extent"]
             self.options['TRENCH_EDGE_Y'] = sub_plate_extends[1] * 0.75
-            self.options['TRENCH_EDGE_Y_FULL'] = sub_plate_extends[1]
+            self.options['SLAB_EXTENTS_FULL'] = sub_plate_extends[1]
             self.options['BOX_WIDTH'] = box_width
             self.options['BOX_THICKNESS'] = self.idict["Geometry model"]["Box"]["Z extent"]
             try:
@@ -78,7 +78,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             # degree
             Ro = float(self.idict["Geometry model"]["Chunk"]["Chunk outer radius"])
             self.options['TRENCH_EDGE_Y'] = sub_plate_extends[1] * np.pi / 180.0 * Ro * 0.75
-            self.options['TRENCH_EDGE_Y_FULL'] = sub_plate_extends[1] * np.pi / 180.0 * Ro
+            self.options['SLAB_EXTENTS_FULL'] = sub_plate_extends[1] * np.pi / 180.0 * Ro
             self.options['TRENCH_EDGE_LAT_FULL'] = sub_plate_extends[1]
             self.options["CHUNK_RIDGE_CENTER_X"] = Ro
             self.options["CHUNK_RIDGE_CENTER_Z"] = 0.0

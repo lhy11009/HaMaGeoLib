@@ -12211,7 +12211,7 @@ class CASE_TWOD(CASE):
         o_dict = self.idict.copy()
 
         if plate_age_method == 'adjust box width only assigning age': 
-            trench = get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro)
+            trench = get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro, trench_migration)
         else:
             trench = get_trench_position(sp_age_trench, sp_rate, geometry, Ro, sp_trailing_length, trench_migration)
 
@@ -12328,7 +12328,7 @@ $ASPECT_SOURCE_DIR/build%s/isosurfaces_TwoD1/libisosurfaces_TwoD1.so" % (branch_
                 o_dict["Mesh refinement"]["Minimum refinement level"] = o_dict["Mesh refinement"]["Initial global refinement"]
                 if geometry == 'chunk':
                     if plate_age_method == 'adjust box width only assigning age': 
-                        trench = get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro)
+                        trench = get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro, trench_migration)
                     else:
                         trench = get_trench_position(sp_age_trench, sp_rate, geometry, Ro, sp_trailing_length, trench_migration)
                     o_dict["Mesh refinement"]['Minimum refinement function'] = prm_minimum_refinement_sph(refinement_level=refinement_level, refine_wedge=refine_wedge, trench=trench)
@@ -13606,7 +13606,7 @@ def wb_configure_plates(wb_dict, sp_age_trench, sp_rate, ov_age, wb_new_ridge, v
         _side = side_dist
         _max = max_cart
     if plate_age_method == 'adjust box width only assigning age': 
-        trench = get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro)
+        trench = get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro, trench_migration)
     else:
         trench = get_trench_position(sp_age_trench, sp_rate, geometry, Ro, sp_trailing_length, trench_migration)
     
@@ -14622,7 +14622,7 @@ def get_trench_position(sp_age_trench, sp_rate, geometry, Ro, sp_trailing_length
     return trench
 
 
-def get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro):
+def get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro, trench_migration):
     '''
     Inputs:
         sp_trainling_length: distance of the trailing end of the subduction plate to the
@@ -14630,8 +14630,8 @@ def get_trench_position_with_age(sp_age_trench, sp_rate, geometry, Ro):
     Returns:
         trench: coordinate of the trench
     '''
-    trench_sph = sp_age_trench * sp_rate / Ro * 180.0 / np.pi
-    trench_cart = sp_age_trench * sp_rate
+    trench_sph = (sp_age_trench * sp_rate + trench_migration) / Ro * 180.0 / np.pi
+    trench_cart = sp_age_trench * sp_rate + trench_migration
     if geometry == "chunk":
         trench = trench_sph
     elif geometry == "box":
