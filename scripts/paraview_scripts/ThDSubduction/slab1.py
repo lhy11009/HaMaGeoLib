@@ -95,6 +95,30 @@ def set_temperature_plot(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("lapaz", True)
 
+def set_non_adiabatic_pressure_plot_slab(sourceDisplay):
+    '''
+    set the temperature plot
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "nonadiabatic_pressure"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, -1e9, 1e9)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("turku", True)
+
+def set_non_adiabatic_pressure_plot_mantle(sourceDisplay):
+    '''
+    set the temperature plot
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "nonadiabatic_pressure"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, -1e8, 1e8)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("turku", True)
+
 def set_slab_volume_plot(sourceDisplay, max_depth, **kwargs):
     '''
     set the viscosity plot
@@ -288,8 +312,11 @@ def load_pyvista_source(data_output_dir, source_name, snapshot, **kwargs):
     source = READER(registrationName=registration_name, FileName=[filepath])
 
     if assign_field:
-        source.PointArrayStatus = ['velocity', 'p', 'T', 'sp_upper', 'sp_lower', 'density', 'viscosity',\
+        field_list = ['velocity', 'p', 'T', 'sp_upper', 'sp_lower', 'density', 'viscosity',\
             'dislocation_viscosity', 'diffusion_viscosity', 'peierls_viscosity', 'strain_rate', 'velocity_slice', "radius"]
+        if HAS_DYNAMIC_PRESSURE:
+            field_list.append('nonadiabatic_pressure')
+        source.PointArrayStatus = field_list
 
     # add rotation
     if "GEOMETRY" == "chunk":
@@ -432,7 +459,6 @@ output.PointData.append(eq_trans, 'eq_trans')
     programmableFilter1.RequestInformationScript = ''
     programmableFilter1.RequestUpdateExtentScript = ''
     programmableFilter1.PythonPath = ''
-
 
 
 def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **kwargs):
@@ -625,6 +651,38 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     print("Figure saved: %s" % fig_png_path)
     print("Figure saved: %s" % fig_path)
 
+    # Plot the dynamic pressure
+    Hide(sourceV, renderView1)
+    Hide(sourceTrOrigTrian, renderView1)
+    Hide(sourceTrTrian, renderView1)
+    fieldLUT = GetColorTransferFunction("temperature")
+    fieldPWF = GetOpacityTransferFunction("temperature")
+    HideScalarBarIfNotNeeded(fieldLUT, renderView1)
+    HideScalarBarIfNotNeeded(fieldPWF, renderView1)
+    # save figure for slab
+    # todo_dp
+    if HAS_DYNAMIC_PRESSURE:
+        set_non_adiabatic_pressure_plot_slab(transform1Display)
+        fig_path = os.path.join(pv_output_dir, "slice_center_nP_slab_t%.4e.pdf" % _time)
+        fig_png_path = os.path.join(pv_output_dir, "slice_center_nP_slab_t%.4e.png" % _time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+        # save figure for mantle
+        set_non_adiabatic_pressure_plot_mantle(transform1Display)
+        fig_path = os.path.join(pv_output_dir, "slice_center_nP_mantle_t%.4e.pdf" % _time)
+        fig_png_path = os.path.join(pv_output_dir, "slice_center_nP_mantle_t%.4e.png" % _time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+        # reset colorbar
+        fieldLUT = GetColorTransferFunction("nonadiabatic_pressure")
+        fieldPWF = GetOpacityTransferFunction("nonadiabatic_pressure")
+        HideScalarBarIfNotNeeded(fieldLUT, renderView1)
+        HideScalarBarIfNotNeeded(fieldPWF, renderView1)
+
     # Plot the mow contents. This options is only affective when there is
     # "metastable" presented in the name of compositions.
     if "MODEL_TYPE" == "mow":
@@ -769,8 +827,9 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
         renderView1.CameraViewUp = [0.4314695504273366, 0.8294679274563145, -0.35470689924973053]
         renderView1.CameraParallelScale = 600000.0
     elif "GEOMETRY" == "box":
-        renderView1.CameraPosition = [7901107.27312585, 5768057.049286575 + SLAB_EXTENTS_FULL - 1000e3, 5496301.138370097 + OUTER_RADIUS-2890e3]
-        renderView1.CameraFocalPoint = [2242318.5206255154, -1901461.3695231928 + SLAB_EXTENTS_FULL - 1000e3, 369527.98904717574 + OUTER_RADIUS-2890e3]
+        y_diff = np.max([SLAB_EXTENTS_FULL - 1000e3, 0.0])
+        renderView1.CameraPosition = [7901107.27312585, 5768057.049286575 + y_diff, 5496301.138370097 + OUTER_RADIUS-2890e3]
+        renderView1.CameraFocalPoint = [2242318.5206255154, -1901461.3695231928 + y_diff, 369527.98904717574 + OUTER_RADIUS-2890e3]
         renderView1.CameraViewUp = [-0.3457156989670518, -0.3316734584620678, 0.8777661262771159]
         renderView1.CameraParallelScale = 600000.0
 
@@ -852,6 +911,7 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
         # load trench position
         load_pyvista_source(data_output_dir, "trench_d0.00km", snapshot, file_type="vtp")
         load_pyvista_source(data_output_dir, "trench_d50.00km", snapshot, file_type="vtp")
+
 
         # plot slice center viscosity
         # plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir, _time)

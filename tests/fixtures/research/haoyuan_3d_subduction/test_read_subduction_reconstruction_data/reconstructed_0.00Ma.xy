@@ -1,0 +1,1475 @@
+>anchorPlateId 0
+>reconstructionTime 0
+>Muller_etal_2019_Global_Coastlines.gpmlz Muller_etal_2019_PlateBoundaries_no_topologies.gpmlz
+>Muller_etal_2019_CombinedRotations.rot
+>UnclassifiedFeature <identity>GPlates-668168c2-0dbb-465f-938e-b41ad4a27132</identity> <revision>GPlates-dd584e66-5eaf-4f7d-afd5-e744b024f454</revision>
+> geometryImportTime TimeInstant <timePosition>84</timePosition>
+> reconstructionPlateId 526
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  45.123462      39.892619
+  42.487018      40.362476
+  40.771080      40.675013
+  38.783581      41.610962
+  37.641937      42.121447
+  36.299531      42.333860
+  34.789021      42.552579
+  33.336075      42.742929
+  31.952443      42.906144
+  28.550074      46.930187
+>UnclassifiedFeature <identity>GPlates-1023932a-efd1-4935-a3a4-14e6f0018280</identity> <revision>GPlates-25833ff8-f226-45c5-aa10-84af4bc849d7</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307
+> name Adriatic Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  19.661507      41.109256
+>UnclassifiedFeature <identity>GPlates-ecc36d1f-392d-48be-938e-34c731396147</identity> <revision>GPlates-0c2f3d3e-d293-4d9b-802d-bf3fbc59db78</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307069
+> name Adriatic Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  19.655517      39.980223
+>UnclassifiedFeature <identity>GPlates-c39ba74d-3d6b-4847-859d-ed13e5b65b69</identity> <revision>GPlates-cefd22e9-b97a-4e2e-ae73-4536cbf99d0c</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307067
+> name Hellenides Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  20.493165      39.102398
+>UnclassifiedFeature <identity>GPlates-1691b9c2-5140-4a6e-91e5-0759d40177cd</identity> <revision>GPlates-270300e3-a537-4357-acb2-3b6123841ba2</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307062
+> name Hellenides Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  18.893324      36.909864
+>UnclassifiedFeature <identity>GPlates-a211942f-18ab-4ad1-a0a2-a2cf0234ffd1</identity> <revision>GPlates-49673907-870c-4884-870b-12ae2630a5f1</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307063
+> name Hellenides Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  18.965407      35.052212
+>UnclassifiedFeature <identity>GPlates-0bfd74cb-9f56-4292-8f83-ef24f9c8186e</identity> <revision>GPlates-62fe58ec-bda1-4f07-af99-8515df19c973</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307064
+> name Hellenides Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  20.151082      34.013364
+>UnclassifiedFeature <identity>GPlates-eccce807-e863-4055-8dd7-61447bd9a151</identity> <revision>GPlates-c6c2d9b2-53c1-4c48-b64a-b04814f831c2</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307065
+> name Hellenides Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  23.456078      32.566682
+>UnclassifiedFeature <identity>GPlates-772c14bf-c717-4974-abff-6c5141005ec1</identity> <revision>GPlates-120c3f68-de2e-4141-98ae-20605004cb4b</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307066
+> name Hellenides Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  25.557073      32.400201
+>UnclassifiedFeature <identity>GPlates-712da42a-5d51-41c7-b309-72ac55a742b7</identity> <revision>GPlates-88d02bba-131d-452e-81c9-195ac90e4758</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307068
+> name Hellenides Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  27.088086      33.467579
+>UnclassifiedFeature <identity>GPlates-fdd557ec-bd9a-4524-ad3e-e38434066255</identity> <revision>GPlates-57954f21-ac30-4886-9ee9-aed981053d19</revision>
+> geometryImportTime TimeInstant <timePosition>1</timePosition>
+> reconstructionPlateId 307061
+> name Hellenides Deforming Front 20-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>16</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  19.803206      38.108036
+>UnclassifiedFeature <identity>GPlates-819f9249-0c48-430a-9185-ba50c861e48b</identity> <revision>GPlates-7e33196e-38bd-4d71-9f77-b28e2d4cfb83</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307
+> name Alps-Apennines Transform
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   7.569854      45.109806
+>UnclassifiedFeature <identity>GPlates-f0fa88cc-a490-4dc0-b4c3-643388d156a7</identity> <revision>GPlates-bec93068-05d1-4011-99b6-0f50a9669dc8</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307
+> name Alps-Apennines Transform
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   7.552617      45.107232
+>UnclassifiedFeature <identity>GPlates-1f7a2f3c-4567-4880-ad09-e069dae9cd76</identity> <revision>GPlates-7abc4b48-53f8-4322-9591-85958eeaf61a</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 301
+> name Alps-Apennines Transform
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   7.207516      43.587991
+>UnclassifiedFeature <identity>GPlates-66a7d937-0bef-4819-80be-f77b5a7b1de6</identity> <revision>GPlates-70a9a4cd-5922-413d-bfa1-c427d4cf290b</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 301
+> name Alps-Apennines Transform
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   6.815314      43.424249
+>UnclassifiedFeature <identity>GPlates-503cedd7-146e-4cb0-bb40-ccb6d7e8181e</identity> <revision>GPlates-c20870a8-125c-4c3e-bc48-0c7f32c8a5fa</revision>
+> geometryImportTime TimeInstant <timePosition>83</timePosition>
+> reconstructionPlateId 304
+> name Iberia - Pyrenees
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  -3.116301      44.443660
+  -2.703707      43.723079
+  -2.397215      43.515581
+  -1.831880      43.209553
+  -0.582609      42.779928
+   1.363171      42.629884
+   3.397065      42.462163
+   3.728004      42.439614
+   4.381319      42.217605
+>UnclassifiedFeature <identity>GPlates-0ca55494-eb27-47d0-a7f0-d4cad1b003c7</identity> <revision>GPlates-462158c7-6fe5-40a0-99ad-76ebe1117974</revision>
+> geometryImportTime TimeInstant <timePosition>35</timePosition>
+> reconstructionPlateId 301
+> name France - Pyrenees
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  -2.863764      43.182831
+  -0.779589      43.668389
+   1.638733      43.435709
+   3.244091      43.493934
+   5.100023      43.647694
+   5.837980      43.712285
+   6.759336      43.786086
+   7.117150      43.817866
+>UnclassifiedFeature <identity>GPlates-da995939-5a18-436c-97ae-7d9fbaf13d82</identity> <revision>GPlates-d227d7b9-2c83-43c5-a8ef-3d4b8e933b44</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307036
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   7.610971      45.089296
+>UnclassifiedFeature <identity>GPlates-856fa51c-1244-4ae0-bf92-061964eecb3a</identity> <revision>GPlates-709fcfea-d16d-4bac-ba67-41435dee4405</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307037
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   7.993206      45.277834
+>UnclassifiedFeature <identity>GPlates-35fbf78a-766a-446a-8b9b-f721c6ef6a01</identity> <revision>GPlates-159d5242-053f-4631-895b-e30d3184c65a</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307038
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   8.558857      45.323656
+>UnclassifiedFeature <identity>GPlates-6cafdc18-7303-469f-ab80-787056e5f8be</identity> <revision>GPlates-0ced28e9-aa57-4128-946c-d1f4b36ba1cb</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307039
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   9.088093      45.071498
+>UnclassifiedFeature <identity>GPlates-5558b8f0-0087-43fa-95ae-6cbea5546be6</identity> <revision>GPlates-a8d81dfb-3f54-4c7d-b49f-db542c734a2b</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307040
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   9.443083      45.263387
+>UnclassifiedFeature <identity>GPlates-038cdc5a-dbe8-494d-b005-41d9d982c6db</identity> <revision>GPlates-702edbcf-e02b-4e8d-a8b3-898ace3c81fe</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307041
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   9.786147      45.343672
+>UnclassifiedFeature <identity>GPlates-bf453d02-c5aa-475b-8300-695b197cf40b</identity> <revision>GPlates-2e297512-6d20-4070-b384-65a14b22eedf</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307042
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  10.490818      44.911373
+>UnclassifiedFeature <identity>GPlates-51ec796c-cbcc-4b45-beca-83455e1bed21</identity> <revision>GPlates-d78122ca-7ac8-4332-b85e-cb6cfa97ba38</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307043
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>33</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  11.147218      45.047951
+>UnclassifiedFeature <identity>GPlates-e1dc540b-fb71-4d55-9139-8d4bf894d1a2</identity> <revision>GPlates-d10764d1-4c06-4d86-a68a-19d61c319fad</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307044
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  11.732262      44.987532
+>UnclassifiedFeature <identity>GPlates-38fa5c0e-8a65-4695-8d2a-ecf32b03caf6</identity> <revision>GPlates-35a03497-b023-4cbe-b047-0ebb5601bacd</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307045
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  12.275213      44.498032
+>UnclassifiedFeature <identity>GPlates-a833999d-d484-4c87-9f57-fc4e31c2bd57</identity> <revision>GPlates-0cc9e8ed-fe53-4926-8156-b3dc3073c160</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307046
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  13.575159      43.765158
+>UnclassifiedFeature <identity>GPlates-7b693166-277e-4d4d-aa08-b97f0db16715</identity> <revision>GPlates-b0b351c0-c894-4201-b97d-0fc56db0a5c3</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307047
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  13.761857      43.000259
+>UnclassifiedFeature <identity>GPlates-4571607d-9cca-4096-b404-96ba04686573</identity> <revision>GPlates-30923276-4659-4790-904c-1d9801351e6e</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307048
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  14.305233      42.296584
+>UnclassifiedFeature <identity>GPlates-243513bc-1b83-49ea-8cb4-c6d03a199009</identity> <revision>GPlates-9f8650b1-ac02-4aa8-a8a1-25abee081cfb</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307049
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  14.915680      42.096039
+>UnclassifiedFeature <identity>GPlates-94701ead-13c9-45cb-862d-67fe26ad5180</identity> <revision>GPlates-bebc61dc-7526-4319-83ee-066917729a57</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307050
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  15.747260      41.118189
+>UnclassifiedFeature <identity>GPlates-1d770078-d524-4591-ab6c-8ce4ee404786</identity> <revision>GPlates-06fe4204-4226-41f4-94b0-6bb2186f24cd</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307051
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  16.852429      40.397543
+>UnclassifiedFeature <identity>GPlates-aa4fa4be-cc5c-4ceb-8d9e-5abbe5991134</identity> <revision>GPlates-5eb29740-e386-45ae-9e28-317a415c5dd9</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307052
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  18.041554      39.471582
+>UnclassifiedFeature <identity>GPlates-f8249d8f-2d9c-424a-8d0e-1fc27907c2ac</identity> <revision>GPlates-8a8bd8e8-f480-4d70-840b-b6a02263e7d1</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307053
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  19.736346      38.097114
+>UnclassifiedFeature <identity>GPlates-b6487046-0a62-43e5-8132-2241e5dd798e</identity> <revision>GPlates-62e8ac66-a8dc-4b63-b7b7-8de4c5d82447</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307054
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  19.068167      37.120008
+>UnclassifiedFeature <identity>GPlates-3900363b-825d-4bf2-a184-2c614d238405</identity> <revision>GPlates-3fc143af-e231-459b-afe1-c5a1c6db0a0a</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307055
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  17.965966      36.152543
+>UnclassifiedFeature <identity>GPlates-a2a60a53-c6d4-46f7-bae0-0b70f1768645</identity> <revision>GPlates-3f18074a-71f1-4925-a598-a56d581363d9</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307056
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  17.143596      35.758600
+>UnclassifiedFeature <identity>GPlates-f8559fa0-0687-42fe-ac37-bd0791e7f72f</identity> <revision>GPlates-4146701c-571e-48cb-ac3f-cd0e3ff4be78</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307057
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  16.602851      35.712592
+>UnclassifiedFeature <identity>GPlates-796f8550-531f-4b80-8115-8f9da09a3378</identity> <revision>GPlates-9376bcd0-6403-41b2-99d2-acbe98c28d6f</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307058
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  15.746245      36.033819
+>UnclassifiedFeature <identity>GPlates-653daf7d-52f2-438f-9f3e-6a0698665523</identity> <revision>GPlates-803927cf-5f27-44a7-896b-a401140ace73</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307059
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  15.396157      36.685986
+>UnclassifiedFeature <identity>GPlates-b42f04a7-184d-488e-bd55-4ca8025d94a8</identity> <revision>GPlates-a7827e86-b5a6-418e-8fb1-4ef8b5000c0b</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307060
+> name Apenninic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  15.460710      37.485290
+>UnclassifiedFeature <identity>GPlates-77a3f8aa-2e22-4307-a01c-b8d5719b5ec2</identity> <revision>GPlates-dd7465a0-3e80-4475-815b-c2c24eaa625d</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714001
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  15.466820      37.473892
+>UnclassifiedFeature <identity>GPlates-6b80bd8a-dfbf-4d85-b182-601051e2cf31</identity> <revision>GPlates-d1123ccd-68b3-4d8c-aacc-787d671e1573</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714002
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  14.914247      37.515813
+>UnclassifiedFeature <identity>GPlates-fab0b9e9-1a8c-4298-9b62-769d17ed659a</identity> <revision>GPlates-29bf9b43-db6e-4ec8-930c-942e72b24b54</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714003
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  13.990678      37.121756
+>UnclassifiedFeature <identity>GPlates-20ee3939-4bba-41f3-8e5f-69677522ae96</identity> <revision>GPlates-069ba08b-5d70-4da8-9b95-92395635da33</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714004
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  12.502608      37.391672
+>UnclassifiedFeature <identity>GPlates-e056a5af-a69a-4e15-991f-461a4a96dd65</identity> <revision>GPlates-83c062a8-7936-4040-b61e-2a0f4226c9ec</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714005
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  11.241478      37.414450
+>UnclassifiedFeature <identity>GPlates-9789ecbd-7e1e-4d6d-a90b-bbbb43243b77</identity> <revision>GPlates-1aa48faa-9001-4628-afd7-35ebc4e67df8</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714006
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  10.425753      37.117202
+>UnclassifiedFeature <identity>GPlates-f8609da8-a6a9-4055-95a3-044ac95d77a4</identity> <revision>GPlates-d6674f46-2bb2-4feb-8aa1-b50f212209e9</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714007
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   9.707419      37.319126
+>UnclassifiedFeature <identity>GPlates-ba1b0f63-69df-461e-bcba-aa1a9569c1db</identity> <revision>GPlates-8756a85f-9f35-48f7-a0ad-352c6286f986</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714008
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   8.785961      36.962772
+>UnclassifiedFeature <identity>GPlates-dbc39ab3-e86f-4a12-aa20-a7fddb4e8319</identity> <revision>GPlates-c5b13b20-9b83-460a-a7cd-ea18fcf15094</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714009
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   8.084733      36.907041
+>UnclassifiedFeature <identity>GPlates-5cf45ce8-c638-416f-9d03-3a9f2958b299</identity> <revision>GPlates-ca90787a-b368-471a-9700-57f33e309b5a</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714010
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   7.637586      36.676247
+>UnclassifiedFeature <identity>GPlates-4c668093-3fa2-4109-a41e-d425bee9fa29</identity> <revision>GPlates-afaf656b-6ff2-4e3e-a988-4cbeda14815a</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714011
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   6.866243      36.756315
+>UnclassifiedFeature <identity>GPlates-8c6af8b6-4e0a-45c8-bd3c-86d125fd2eb0</identity> <revision>GPlates-447d4cfe-b403-45d8-a0ee-db2039073b2f</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714012
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   5.150936      36.638225
+>UnclassifiedFeature <identity>GPlates-0dfb2c31-9d5e-4fff-8389-d65c9f564fbb</identity> <revision>GPlates-a549b47c-21cf-4122-822d-14bc6a55288b</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714013
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   4.339386      36.413077
+>UnclassifiedFeature <identity>GPlates-839167bf-cf01-44b7-a81a-a2684427bc8f</identity> <revision>GPlates-ba3492a7-5217-42a2-891b-f28bfcc9e963</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714014
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   3.778905      36.536798
+>UnclassifiedFeature <identity>GPlates-bc2384da-79ce-46ff-944a-78694a85453f</identity> <revision>GPlates-01848c08-ced3-4b79-999c-50f396a12092</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714015
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   2.050998      36.443706
+>UnclassifiedFeature <identity>GPlates-6e3500fd-8484-4a5a-bfd7-7ec3de973581</identity> <revision>GPlates-cf69ed37-6e83-4303-9ff0-78bc479aa1e5</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714016
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   1.191839      36.513878
+>UnclassifiedFeature <identity>GPlates-a18673ee-10ac-46d1-a784-1fda839bccde</identity> <revision>GPlates-2b1e17ee-f56f-4cea-84f6-14eb9f5d7383</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714017
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   0.358833      36.182877
+>UnclassifiedFeature <identity>GPlates-70fbc2f8-b2db-41e7-8f90-f5e20ebaf4e0</identity> <revision>GPlates-5f45f00e-80e0-4dbb-ab05-86a495269bfc</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714018
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  -0.768595      35.744546
+>UnclassifiedFeature <identity>GPlates-db643162-66d1-4989-a082-8f3104695118</identity> <revision>GPlates-b0d01785-3fa8-409b-a9f9-a4d3a7fa32f5</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714019
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  -2.121916      35.099214
+>UnclassifiedFeature <identity>GPlates-9e5f9e6c-5abb-49e8-a3a3-d5a4b95cd743</identity> <revision>GPlates-ca5e11c6-d5d1-4110-a6b4-72af733e2054</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714020
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  -4.066250      34.996991
+>UnclassifiedFeature <identity>GPlates-25135b0d-9ab2-4154-a6e7-9e4de39057c3</identity> <revision>GPlates-ddc9431f-4815-4b63-91dc-4d5430946db3</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714021
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  -5.126673      34.995750
+>UnclassifiedFeature <identity>GPlates-cf738d92-e194-4752-a512-1afeaa517173</identity> <revision>GPlates-f94316d7-5219-4563-a2bc-1d9afb430259</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714022
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  -5.896412      36.358679
+>UnclassifiedFeature <identity>GPlates-93f058c7-7acf-4328-85a3-dca3c86ac66c</identity> <revision>GPlates-e1d941f1-332c-4bb5-8a9d-011d4d39bbb6</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714023
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  -3.766032      37.183652
+>UnclassifiedFeature <identity>GPlates-48d9ba42-fb39-459c-9dea-e2769adf5549</identity> <revision>GPlates-6c96498b-de2a-475d-afc0-513472ae5f57</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714024
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  -1.389404      37.898896
+>UnclassifiedFeature <identity>GPlates-6378b3f0-fcc1-4774-b3cc-df2528656005</identity> <revision>GPlates-a08d9a5b-7c95-4c2e-8f77-c843e1069059</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714025
+> name Africa-Betic Front 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   0.181741      38.763397
+>UnclassifiedFeature <identity>GPlates-cf36af03-249c-4d66-9830-3cae12a50c2f</identity> <revision>GPlates-20e85ce2-ee41-47d2-9152-f4f96311256c</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714027
+> name West Mediterranean Mesh Boundary 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   2.490856      38.555109
+>UnclassifiedFeature <identity>GPlates-3bb1f6b0-fc76-4531-8cd1-de374d754a38</identity> <revision>GPlates-868ccc5b-4e9f-4af5-aa20-11631f0b0ac3</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714028
+> name West Mediterranean Mesh Boundary 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   3.680916      38.670933
+>UnclassifiedFeature <identity>GPlates-3e3b58ed-2920-4373-bd7d-60f6b03929f0</identity> <revision>GPlates-49ee767e-7a32-4ba4-a6ce-6499eb29dece</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714029
+> name West Mediterranean Mesh Boundary 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   4.784218      38.811333
+>UnclassifiedFeature <identity>GPlates-5383a863-cdac-4a82-bae9-79d328c384b0</identity> <revision>GPlates-12b3e953-de29-4ff7-a0dc-93690554d622</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714030
+> name West Mediterranean Mesh Boundary 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   6.306703      39.034586
+>UnclassifiedFeature <identity>GPlates-0235298e-1a17-4b6d-b0aa-b8e725dfefdd</identity> <revision>GPlates-0b52cd83-5c79-4bb2-a95d-663a608eaf0f</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714031
+> name West Mediterranean Mesh Boundary 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   8.240085      37.949096
+>UnclassifiedFeature <identity>GPlates-e366d3f5-9d59-4792-bf2b-8c6be80bac70</identity> <revision>GPlates-9fee950d-5eae-496e-88e9-895894fdaedd</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 306
+> name West Mediterranean Mesh Boundary 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  10.651582      39.068832
+  10.568904      39.639033
+  10.474964      40.260820
+  10.384809      40.821469
+  10.218692      41.416200
+  10.091182      41.898252
+   9.717271      43.046646
+   9.543955      43.396072
+   9.031487      43.976071
+   8.387689      44.536194
+   7.508850      45.144555
+>UnclassifiedFeature <identity>GPlates-c18073bd-aab8-4348-bcdc-fd3afc219869</identity> <revision>GPlates-22190808-c7e0-4966-af97-449c48950632</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 714026
+> name West Mediterranean Mesh Boundary 35-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   1.288340      38.488915
+>UnclassifiedFeature <identity>GPlates-cad61f6b-2e0b-498e-af69-745621f07a9c</identity> <revision>GPlates-564cd18a-18a4-42ba-b210-d1810983825a</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 301
+> name Transform W Med
+> validTime TimePeriod <begin> TimeInstant <timePosition>25</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   3.215996      42.895255
+   3.430494      42.018325
+   3.558102      41.634348
+>UnclassifiedFeature <identity>GPlates-9d9bc85c-b2f3-4d4b-88aa-ccd889b308b5</identity> <revision>GPlates-3bf11a52-86c4-42ed-b4b5-d09e7ed92bbb</revision>
+> geometryImportTime TimeInstant <timePosition>40</timePosition>
+> reconstructionPlateId 301
+> name Boundary Eurasia-Zagros
+> validTime TimePeriod <begin> TimeInstant <timePosition>40</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  41.672807      31.882482
+  42.388409      35.095896
+  43.597048      38.610713
+  44.997918      39.976920
+  49.337855      39.143213
+  54.268571      39.074790
+  56.208584      38.892110
+  57.656417      37.623573
+  58.835391      37.211218
+  60.178526      35.683604
+  60.762162      33.585399
+  61.024319      32.561910
+  62.234200      32.224243
+  63.403064      32.715236
+  64.511701      33.534770
+  65.325856      35.419840
+  65.823620      37.424474
+  66.247931      39.399750
+  67.584310      40.328943
+  70.192052      42.598545
+  73.821507      43.602596
+  79.267470      44.498056
+  85.720113      44.717918
+  91.345096      44.317485
+  97.154034      43.797178
+  101.255786      42.935215
+  105.869327      41.616531
+  106.802159      40.297574
+  108.063474      37.666934
+  109.183289      34.730015
+  108.027748      33.055727
+  106.691666      31.374586
+  105.233709      30.915842
+  103.914687      30.016855
+  103.290666      28.999999
+  101.291346      27.313458
+  99.429539      26.501981
+  98.733033      25.464401
+  96.581036      23.212394
+  92.336925      15.723646
+  91.786608      14.831151
+  89.060964      12.114533
+>UnclassifiedFeature <identity>GPlates-c5564a1c-daa7-4cae-bf3f-5a603f2464b1</identity> <revision>GPlates-da8dbc96-99a4-49f3-9f3d-9bb23d1e2319</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 503
+> name North Arabia 10-0 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>10</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  34.111101      35.089980
+  35.765334      35.794158
+  36.255124      35.987711
+  37.121515      36.218948
+  38.490471      36.834719
+  39.569315      37.182921
+  40.792615      37.283878
+  41.692492      37.393876
+  44.608726      35.073068
+  44.962246      33.783981
+  45.765981      32.925156
+>UnclassifiedFeature <identity>GPlates-12ba2d0c-0e3a-40ca-805f-cf0e5b9b2181</identity> <revision>GPlates-127d8dfc-3e32-4749-a767-47ae53557b9a</revision>
+> geometryImportTime TimeInstant <timePosition>26</timePosition>
+> reconstructionPlateId 301
+> name Section_Boundary Between Rigid Eurasia and Himalaya-Zagros Deformation
+> validTime TimePeriod <begin> TimeInstant <timePosition>26</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  108.384146      36.849428
+  109.183289      34.730015
+  108.027748      33.055727
+  106.691666      31.374586
+  105.233709      30.915842
+  103.914687      30.016855
+  103.290666      28.999999
+  101.291346      27.313458
+  99.429539      26.501981
+  98.733033      25.464401
+  97.661278      24.356647
+  96.581036      23.212394
+  95.095773      20.682814
+  92.336925      15.723646
+>UnclassifiedFeature <identity>GPlates-f9ef4370-7f0f-412d-ae8a-81814c131467</identity> <revision>GPlates-179fb480-ac15-4b3b-bb63-68d575bcf4af</revision>
+> geometryImportTime TimeInstant <timePosition>35</timePosition>
+> reconstructionPlateId 301
+> name Pyrennees southern boundary
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   2.820972      42.506349
+   3.438291      42.461065
+   4.537513      42.479421
+   5.935695      42.806044
+   7.210966      43.603748
+   7.482221      43.809465
+   7.670275      43.996981
+   7.878695      44.256268
+   8.005063      44.609895
+>UnclassifiedFeature <identity>GPlates-46ac7018-2d20-4283-8ca5-c64787178a37</identity> <revision>GPlates-ad6aff1e-9973-4919-a2b4-89c5dbfdd9de</revision>
+> geometryImportTime TimeInstant <timePosition>20</timePosition>
+> reconstructionPlateId 334
+> name AlCaPa
+> validTime TimePeriod <begin> TimeInstant <timePosition>27.9</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  15.970161      48.013318
+  16.566056      48.264084
+  17.114084      48.543629
+  17.580203      48.776961
+  18.102861      48.985830
+  18.556783      49.163920
+  19.152061      49.247665
+  19.764742      49.330379
+  20.345275      49.347409
+  20.768440      49.217387
+  21.285590      49.055440
+  21.881660      48.896526
+  22.342132      48.770953
+  22.768380      48.502861
+  23.218072      48.215191
+>UnclassifiedFeature <identity>GPlates-266e0e63-f36d-45dc-96e2-9d9f56015012</identity> <revision>GPlates-c6811813-58e7-486b-8c1a-d41034459afb</revision>
+> geometryImportTime TimeInstant <timePosition>20</timePosition>
+> reconstructionPlateId 337
+> name Tisza
+> validTime TimePeriod <begin> TimeInstant <timePosition>27.9</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  23.288770      48.167121
+  23.671915      48.122634
+  24.026522      48.080255
+  24.387879      47.945478
+  24.902454      47.750364
+  25.306002      47.465786
+  25.692820      47.188741
+  25.876164      46.646197
+  25.665298      46.273992
+  25.136824      46.183555
+>UnclassifiedFeature <identity>GPlates-6c5523a8-b3d8-4bda-9539-fdc9d4431bc9</identity> <revision>GPlates-ce91aeb0-502f-4663-af41-37dea3a4e20b</revision>
+> geometryImportTime TimeInstant <timePosition>20</timePosition>
+> reconstructionPlateId 340
+> name Dacia
+> validTime TimePeriod <begin> TimeInstant <timePosition>27.9</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  25.108229      46.192620
+  25.535494      45.748027
+  25.396638      45.415762
+  25.197974      45.120693
+>UnclassifiedFeature <identity>GPlates-7b68a50f-6f73-42e6-95c8-137d5584198a</identity> <revision>GPlates-f04bec02-deef-4f5b-aa78-2ba7d17d675b</revision>
+> geometryImportTime TimeInstant <timePosition>19</timePosition>
+> reconstructionPlateId 301
+> name Alps Mesh Boundary 18-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>18</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  45.123462      39.892619
+  42.487018      40.362476
+  40.771080      40.675013
+  38.783581      41.610962
+  37.641937      42.121447
+  36.299531      42.333860
+  34.789021      42.552579
+  33.336075      42.742929
+  31.952443      42.906144
+  28.550074      46.930187
+>UnclassifiedFeature <identity>GPlates-9fc3fa9d-d803-41c4-9148-29accaa1cca5</identity> <revision>GPlates-7ceeea1c-41ff-4a9a-97df-b095e66f25ba</revision>
+> geometryImportTime TimeInstant <timePosition>18</timePosition>
+> reconstructionPlateId 301
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+   7.805502      43.957276
+>UnclassifiedFeature <identity>GPlates-b43ec798-0b24-45dc-9055-519db38736b4</identity> <revision>GPlates-67534f56-3c47-49bc-8612-ca14653e0106</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307070
+> name Eastern Med - Deforming front
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  27.831712      33.987864
+>UnclassifiedFeature <identity>GPlates-169bfb37-7f9d-4f81-a35b-3016154acd23</identity> <revision>GPlates-dd2b0fbb-4b47-415f-a05f-18853d3fdf3d</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307071
+> name Eastern Med - Deforming front
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  29.039829      34.326179
+>UnclassifiedFeature <identity>GPlates-019c8ba2-d3c3-473d-9847-940e2c48f6d1</identity> <revision>GPlates-73c3ab0b-5e60-4b26-ab35-fe61f8f4539a</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307072
+> name Eastern Med - Deforming front
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  30.773011      34.453043
+>UnclassifiedFeature <identity>GPlates-bfd6f91f-451b-4c5a-b40c-d2211af08a1b</identity> <revision>GPlates-cc750032-c80e-48c8-b45c-16e570e9c6a9</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307073
+> name Eastern Med - Deforming front
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  32.587158      34.381919
+>UnclassifiedFeature <identity>GPlates-a0326cbe-b957-4c73-9fa1-b7fc9bbc2ae1</identity> <revision>GPlates-909e4671-8c33-4f66-845f-83355bf6d85a</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307074
+> name Eastern Med - Deforming front
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  34.606963      35.298764
+>UnclassifiedFeature <identity>GPlates-d836d524-78dd-4dc2-98c3-eedc9b69fed7</identity> <revision>GPlates-98828e3d-f392-4cd0-ab0f-f196f9037bce</revision>
+> geometryImportTime TimeInstant <timePosition>10</timePosition>
+> reconstructionPlateId 503
+> name Boundary East Mediterranean - North Arabia Mesh 10-0 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>10</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  33.775449      37.832020
+  33.890091      36.659269
+  34.298590      35.826708
+  34.519489      34.718521
+>UnclassifiedFeature <identity>GPlates-83d90e0d-49fe-4484-b913-6f751bb5dde5</identity> <revision>GPlates-b099f14e-10b0-456c-9eed-3a344ca06c5b</revision>
+> geometryImportTime TimeInstant <timePosition>35</timePosition>
+> reconstructionPlateId 301
+> name Alpine Mesh Boundary 68-35Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  19.390858      45.041720
+  20.411401      45.007062
+  20.878730      44.988140
+  21.401929      44.964679
+  21.833057      44.943536
+  22.391539      44.913709
+  22.963054      44.880334
+  22.483601      44.521366
+  22.366625      44.105992
+  22.640661      43.878391
+  23.107906      43.642101
+  23.697568      43.408613
+  24.544445      43.267132
+  25.660032      43.196231
+  27.325235      43.033801
+  28.304662      42.967019
+  31.984242      42.888728
+  35.905378      45.277348
+>UnclassifiedFeature <identity>GPlates-8be2661b-b81d-49d3-b811-e81dd5980281</identity> <revision>GPlates-ac87478a-13c3-46f8-8fa7-4ed928fefac4</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331001
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   7.207507      43.580696
+>UnclassifiedFeature <identity>GPlates-e1b73505-eb76-4e8c-9c9f-9990420dd932</identity> <revision>GPlates-ebb026f1-14dd-462f-890d-46f32799075c</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331002
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>21</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   6.323303      43.760332
+>UnclassifiedFeature <identity>GPlates-1fda90ca-ec07-4577-9ada-6dc9a235b0a4</identity> <revision>GPlates-581fcdf2-d7cd-4b2a-8c6b-5c987b8cdef0</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331003
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>21</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   5.875338      43.828523
+>UnclassifiedFeature <identity>GPlates-9b5357e4-edaf-40e8-b916-0f2d446f50f0</identity> <revision>GPlates-1ab13339-f6e0-4d0d-bbe6-be47850e0f4d</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331008
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   5.308680      43.873245
+>UnclassifiedFeature <identity>GPlates-acf4f4e8-a461-4e97-b0dc-43cdece688d7</identity> <revision>GPlates-56f82c3a-aeaf-498b-b4d3-9065aac46b0d</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331009
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   5.237750      43.994454
+>UnclassifiedFeature <identity>GPlates-ba12da89-1e97-4108-bd33-fcf0c9f5cc5f</identity> <revision>GPlates-4799dc44-65a2-4acc-837d-abdbeb601064</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331010
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   5.268387      44.203185
+>UnclassifiedFeature <identity>GPlates-d27e05ab-6510-44bc-ae98-bf0a696ca51d</identity> <revision>GPlates-6ce8c22c-951c-475e-ac15-3735cc44efa4</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331011
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   5.172844      44.853065
+>UnclassifiedFeature <identity>GPlates-ae226da9-5d81-41f9-837a-b38f971dfc7f</identity> <revision>GPlates-a1fdeae8-9514-4619-a9c1-518bc4e8f050</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331012
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   5.243130      45.072129
+>UnclassifiedFeature <identity>GPlates-dedeff6f-b023-41f6-a5d7-524fa38f9926</identity> <revision>GPlates-33a15cbd-d185-4d69-b42e-edf6812d3fd5</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331013
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   6.317664      45.972487
+>UnclassifiedFeature <identity>GPlates-46023d02-e269-4fee-91a4-99aed8040585</identity> <revision>GPlates-2683fa50-bbdb-49a5-97ea-ac9a73acb6d3</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331014
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   6.350894      46.046477
+>UnclassifiedFeature <identity>GPlates-bc1d0e76-abbf-464b-a843-3411ace2dd96</identity> <revision>GPlates-e6e47f72-9295-44b7-b45e-7441d113a0db</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331015
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   6.286304      46.241725
+>UnclassifiedFeature <identity>GPlates-f0d3e401-65aa-419f-8950-c6780df6a8c9</identity> <revision>GPlates-e9c51807-58d9-4547-b0a1-77ad837ce939</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331016
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   6.704395      46.581766
+>UnclassifiedFeature <identity>GPlates-b9e5b99e-4d63-407f-b51d-fcbde6518d63</identity> <revision>GPlates-94dd634c-3953-496f-b0ba-cc04d0bb0f87</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331017
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   7.451535      46.815730
+>UnclassifiedFeature <identity>GPlates-d8844ccf-bc86-426e-b586-747ffaa0b57d</identity> <revision>GPlates-1be8ba60-9cb6-4d91-9a06-ac3cbf07d4e7</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331018
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   7.821630      46.841027
+>UnclassifiedFeature <identity>GPlates-e13f0c1c-341a-42e9-945e-367a37f235f9</identity> <revision>GPlates-41020f73-8580-41d7-b9a9-bcccc941b8af</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331019
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   8.013002      46.971723
+>UnclassifiedFeature <identity>GPlates-01eb429f-7b65-4166-80a3-b4c9e580af48</identity> <revision>GPlates-b62450f8-e57a-4c77-a832-0fbe07be031b</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331020
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   8.168976      47.036826
+>UnclassifiedFeature <identity>GPlates-4984af35-790c-4471-a191-73636d9f214f</identity> <revision>GPlates-21ec1531-c148-4c10-b190-cb72bd120e76</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331021
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   8.336870      47.044472
+>UnclassifiedFeature <identity>GPlates-f8e15085-05ad-46b0-9cb0-5ce9e7f7930d</identity> <revision>GPlates-a90735fa-069d-4280-b9e9-a1cd30f736c2</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331022
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   8.481703      47.133725
+>UnclassifiedFeature <identity>GPlates-622e5b2f-02cd-492f-bfc4-54052f3348f9</identity> <revision>GPlates-a2537db8-1e4e-4e91-9716-c7d65a9aecd3</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331023
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   9.852761      47.511232
+>UnclassifiedFeature <identity>GPlates-4e3f2ef9-8358-42d7-bd57-da90a169126c</identity> <revision>GPlates-a2e60cc0-c11c-45db-ba4f-4098998d78a0</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331024
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  10.261994      47.732730
+>UnclassifiedFeature <identity>GPlates-6a3a11d8-f64d-4f32-8f41-5feb4fac7f0b</identity> <revision>GPlates-faa53fe1-5c14-4f22-88a3-3540df21972c</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331025
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  11.376930      47.823848
+>UnclassifiedFeature <identity>GPlates-f5f506d9-2ec3-4a1e-ae2b-17a29d636250</identity> <revision>GPlates-63c0d57c-70f7-4b06-a59a-4b6fa99bdc6d</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331026
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  12.587501      47.821583
+>UnclassifiedFeature <identity>GPlates-fdf52b5b-2a74-46c7-8cf6-05f8ff7a9a9d</identity> <revision>GPlates-85bc25db-ca76-44c0-8091-a0fa1ae5abfe</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331027
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  12.994789      47.988547
+>UnclassifiedFeature <identity>GPlates-3658dff6-368f-44eb-bbc4-04558fb1b3e3</identity> <revision>GPlates-3b173654-41b0-485e-8ff0-e133e5cbf224</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331028
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  14.156263      48.025516
+>UnclassifiedFeature <identity>GPlates-7fcc7ec3-495e-4065-9322-91a64c8df624</identity> <revision>GPlates-4fb01dbe-0e29-4248-9a97-f6884b25d5c8</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331029
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  15.108468      48.074203
+>UnclassifiedFeature <identity>GPlates-cb4805ca-db2a-493b-98f1-241e67072fdd</identity> <revision>GPlates-d7932487-93bc-47c4-be03-8fed067cc260</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331030
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  15.988264      48.291338
+>UnclassifiedFeature <identity>GPlates-23b28dd2-492a-4972-a906-5d16aac6be93</identity> <revision>GPlates-ad89f9fb-c543-4c3a-9ac9-6acf41b1134d</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331041
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  16.596034      48.745560
+>UnclassifiedFeature <identity>GPlates-381fb3fa-8dfd-4bae-9dc7-876a63e7b7a0</identity> <revision>GPlates-8240e79c-e40b-412b-b3f6-230900ffbca6</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331042
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  16.843676      49.136172
+>UnclassifiedFeature <identity>GPlates-99099981-bf7f-49ed-b09a-3932b4a03643</identity> <revision>GPlates-c936dca9-0827-4d41-87ad-ce3e787ec7bb</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331045
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  17.561578      49.353551
+>UnclassifiedFeature <identity>GPlates-e9636d9d-f861-4ec2-ab63-1470c3065894</identity> <revision>GPlates-41305bb8-2618-4642-961d-15c9c19016db</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331046
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  17.981718      49.626468
+>UnclassifiedFeature <identity>GPlates-c0481313-e228-415f-a4ee-302e5858bf77</identity> <revision>GPlates-43156259-1f5e-4ab3-8076-b1909dafb0ad</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331047
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  18.793244      49.846831
+>UnclassifiedFeature <identity>GPlates-0d94d999-60a0-4fce-89ae-eb9ec36551e2</identity> <revision>GPlates-96678bce-0f5c-4660-987b-63b26b7d516e</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331048
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  20.241135      50.016689
+>UnclassifiedFeature <identity>GPlates-6e81b10a-5333-488a-ac49-cbb6d12e7728</identity> <revision>GPlates-1b8aff63-2d5d-46d9-b950-b205d8374595</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331049
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  22.407067      50.017629
+>UnclassifiedFeature <identity>GPlates-b0c14b40-ec3e-4ef6-bc72-541eeb47c704</identity> <revision>GPlates-7875b2a7-441f-4ce1-82c5-fed549eeb1b9</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331050
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  24.204962      49.112573
+>UnclassifiedFeature <identity>GPlates-38073fea-2163-441b-bef9-a93e2d8b5734</identity> <revision>GPlates-8030e95a-6d7b-4ea8-afab-fece2f2d69a8</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331051
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  25.344176      48.116698
+>UnclassifiedFeature <identity>GPlates-921f78b8-ab7f-4296-aa0e-482435387989</identity> <revision>GPlates-435b8880-a675-4db3-9091-85fc00dee7d0</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331052
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  26.767608      46.656118
+>UnclassifiedFeature <identity>GPlates-62f802bd-7181-4eb6-9d49-5b8a08a9adc9</identity> <revision>GPlates-e3d066e3-c373-4de2-b551-6a95a47655e3</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331054
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  26.682021      45.259775
+>UnclassifiedFeature <identity>GPlates-29e4576a-6c50-4e9d-822d-39a91f103073</identity> <revision>GPlates-28852c81-fcd7-43c4-9d13-085be4cfb4e7</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331053
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  26.751103      46.110786
+>UnclassifiedFeature <identity>GPlates-92763d73-6061-4df6-aeb8-a13632cbdd73</identity> <revision>GPlates-f3074b3e-fae1-44a0-a938-1b2cc05dd459</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331055
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>35</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  25.442857      44.717875
+>UnclassifiedFeature <identity>GPlates-c09077f3-1918-439e-b6b8-aaef410b2516</identity> <revision>GPlates-6a1a2fad-727b-4aa2-8ea2-c23c10717c96</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331056
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  24.111869      44.594811
+>UnclassifiedFeature <identity>GPlates-5ca4bd40-5f65-42c8-a465-4c240edd2959</identity> <revision>GPlates-c1f381de-ed09-4ec9-b673-c3b7ddad30f1</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 331057
+> name Alpine-Carpathians Deforming Front 67-0Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  22.862535      44.824809
+>UnclassifiedFeature <identity>GPlates-95b24379-a087-464f-9f00-810fe70090cc</identity> <revision>GPlates-30fd1255-a436-45af-a65d-0c677821c12f</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307101
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  19.789620      44.585647
+>UnclassifiedFeature <identity>GPlates-36fc25c8-3d2e-4265-a471-e8d1c2848d28</identity> <revision>GPlates-3be47ff3-b0d2-477e-9ee9-db44511971b1</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307102
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  19.973869      43.864475
+>UnclassifiedFeature <identity>GPlates-424b9a70-894a-4bc4-a03a-737c1a83e8fe</identity> <revision>GPlates-49fe5cc5-f677-4d0f-9d3d-4ce05d12ae9c</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307103
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  20.292259      43.245511
+>UnclassifiedFeature <identity>GPlates-7547e523-2628-4414-913e-3243718d8935</identity> <revision>GPlates-1866313e-3ee6-4976-a622-89438dda304a</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307104
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  20.530000      42.614659
+>UnclassifiedFeature <identity>GPlates-35d1251c-a192-490e-bfbb-fd5fcf794df2</identity> <revision>GPlates-64996524-7ac4-49a6-af2e-9f0e9bfc66fe</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307105
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  20.826684      41.971371
+>UnclassifiedFeature <identity>GPlates-9d679afd-ba2d-4d64-a984-58a72686c408</identity> <revision>GPlates-3883f170-5761-45db-9fe4-a5b94b51a4cc</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307106
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  21.466734      41.257925
+>UnclassifiedFeature <identity>GPlates-f16db1b3-171a-4825-a314-9db00d8f7eb5</identity> <revision>GPlates-d009eec6-033a-46a7-9e9b-f905ba3a3e88</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307107
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  22.034884      40.758174
+>UnclassifiedFeature <identity>GPlates-53fd1be7-bafd-4b6b-bf99-06761d896016</identity> <revision>GPlates-e00af114-d131-43ba-99bb-37eb19b579e4</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307108
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  22.628957      40.350971
+>UnclassifiedFeature <identity>GPlates-68f8e4ab-4da4-4828-a8e0-6b2cc800a8a0</identity> <revision>GPlates-8b8cd0f7-4dec-4643-b64a-7982324eff02</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307109
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  23.237510      39.910387
+>UnclassifiedFeature <identity>GPlates-b71a7c31-89b7-4937-bd4e-ed7d28006c0b</identity> <revision>GPlates-e26d5620-4ce7-4439-8f82-6dd9f95eb8ff</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307110
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  23.935608      39.547393
+>UnclassifiedFeature <identity>GPlates-46517249-b72c-4bf9-96fb-f34973dabada</identity> <revision>GPlates-730e31f8-3f6a-4a9b-bc40-aca861d77807</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307111
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  24.601468      39.179088
+>UnclassifiedFeature <identity>GPlates-c5e19070-a7f5-4e6c-8f2e-b9f6fbefcbcf</identity> <revision>GPlates-3db53acb-7233-4982-bcde-096d877d61b9</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307112
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  25.371958      39.091255
+>UnclassifiedFeature <identity>GPlates-f4fe5390-a620-4966-bb8c-d96625c790a9</identity> <revision>GPlates-c9b36e35-4ce3-41d7-82f0-90abc96841cc</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307113
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  26.407823      38.950270
+>UnclassifiedFeature <identity>GPlates-9786ed47-97fa-46d7-82b7-08ef67ff88f2</identity> <revision>GPlates-04e463e7-ca17-41d6-afea-4af177cb16e1</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307114
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  27.353701      38.855727
+>UnclassifiedFeature <identity>GPlates-886fc709-c5f6-4148-ae33-50da3ab130ed</identity> <revision>GPlates-9cc29198-c186-45b7-b2de-f0459d6c42aa</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307115
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  28.272896      38.838006
+>UnclassifiedFeature <identity>GPlates-f915ea77-186b-4de6-9fab-00abf257f133</identity> <revision>GPlates-b2c691a3-f9f7-4b4d-a11d-ce00ce6c7348</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307116
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  29.162284      38.878948
+>UnclassifiedFeature <identity>GPlates-d3e0a77e-df27-4410-9209-d3031f02c711</identity> <revision>GPlates-53cf43dd-8bd2-4847-87b3-88e33829da7b</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307117
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  30.200550      38.851960
+>UnclassifiedFeature <identity>GPlates-7385a3ff-6c52-4899-b5ab-193d3fa6e951</identity> <revision>GPlates-7cba60f8-9fd9-4589-803b-c69f8a0997bf</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307118
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  31.272961      38.872620
+>UnclassifiedFeature <identity>GPlates-25bfbe59-959a-4ded-b211-ba2b7da2fe6f</identity> <revision>GPlates-6ca6fc6f-ff67-4e32-b5be-340f39bf0251</revision>
+> geometryImportTime TimeInstant <timePosition>38.247</timePosition>
+> reconstructionPlateId 307119
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  32.291826      38.959176
+>UnclassifiedFeature <identity>GPlates-6e48ad6b-0a0f-42db-951a-2780c3f2148a</identity> <revision>GPlates-0ce6dfa2-15e7-44a3-98e7-62f55081c9b3</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307120
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  33.149644      39.043714
+>UnclassifiedFeature <identity>GPlates-62167982-43be-4cef-8474-8a387134be9c</identity> <revision>GPlates-d2645894-f646-4421-be92-035cd7a580bf</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307121
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  34.121247      39.093610
+>UnclassifiedFeature <identity>GPlates-79995fa2-acc6-4315-89cf-afab2c6c4309</identity> <revision>GPlates-d4374863-cf6f-42bb-b55c-2cf1aad2c1bb</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307122
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  34.993565      39.096595
+>UnclassifiedFeature <identity>GPlates-38d6c4cb-40d4-4ddc-9aa1-eb61680268e2</identity> <revision>GPlates-45279d3c-be6b-4950-b62e-c13f5672bc66</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307123
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  36.051316      39.042880
+>UnclassifiedFeature <identity>GPlates-2189ed83-dc6f-41ed-975d-2346252b808b</identity> <revision>GPlates-240ac98a-3e07-4b46-b750-3c81c035d6cf</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307124
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  36.969292      38.952851
+>UnclassifiedFeature <identity>GPlates-f5c6328e-45ed-4564-9abc-a02f92de99dc</identity> <revision>GPlates-70afd427-0a12-49f1-b53b-719535b32758</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307125
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  37.811050      38.876615
+>UnclassifiedFeature <identity>GPlates-22123f76-059d-4517-b02f-3b8188d82266</identity> <revision>GPlates-5b2aa51a-fbda-4e8d-b3cb-7c4d960701f1</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307126
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  38.774653      38.789978
+>UnclassifiedFeature <identity>GPlates-ae1ff5b3-bac6-4fb7-adb9-453318f79648</identity> <revision>GPlates-392d78b0-4b71-4a25-b321-c60fbf81cf4d</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307127
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  39.743546      38.627050
+>UnclassifiedFeature <identity>GPlates-ce9d75f6-5ded-4aa4-b9c4-5e896f5cc566</identity> <revision>GPlates-731705ce-df4c-41fc-b482-6a5375146eb1</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307128
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  40.678793      38.399191
+>UnclassifiedFeature <identity>GPlates-d2987709-acb0-4ca4-85fe-d243a81f667f</identity> <revision>GPlates-2a12a903-66ec-4737-8ad7-bf899280ce7a</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307129
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  41.623442      38.191728
+>UnclassifiedFeature <identity>GPlates-87e43175-52c7-4b61-94d1-cb2a487a9798</identity> <revision>GPlates-2b7d8d13-3bd6-429b-a88b-c4a950521a59</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307130
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  42.588493      37.867802
+>UnclassifiedFeature <identity>GPlates-57729613-cc47-4d82-8440-5ea3019b12eb</identity> <revision>GPlates-d996be92-051f-4059-80ee-3a7caf0b25cc</revision>
+> geometryImportTime TimeInstant <timePosition>25</timePosition>
+> reconstructionPlateId 307131
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  43.401382      37.508527
+>UnclassifiedFeature <identity>GPlates-06585b3a-cd54-4d6e-80ab-eb256fef9183</identity> <revision>GPlates-6326cdae-0d53-4516-a889-2558e11ba3e0</revision>
+> geometryImportTime TimeInstant <timePosition>67</timePosition>
+> reconstructionPlateId 307100
+> name Dinaridic Front 67-25 Ma
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  19.850872      45.007310
+>UnclassifiedFeature <identity>GPlates-bc506092-c907-4be4-af73-ed26bc4b9c25</identity> <revision>GPlates-24922b74-ec79-4375-9568-74eb0e127b7f</revision>
+> geometryImportTime TimeInstant <timePosition>35</timePosition>
+> reconstructionPlateId 307
+> name Alps - PF
+> validTime TimePeriod <begin> TimeInstant <timePosition>67</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+   7.717668      46.395069
+   8.555437      46.471761
+   9.444747      46.546262
+  10.159814      46.601031
+  10.671579      46.637430
+  11.205719      46.672937
+  11.635182      47.064359
+  12.143013      47.053597
+  12.849735      47.026618
+  13.628193      46.953857
+  14.248861      46.888161
+  14.868073      46.818983
+>UnclassifiedFeature <identity>GPlates-cde398f1-526b-4128-8079-87256cf899cf</identity> <revision>GPlates-ea3d1aaa-fd24-41a8-a4fe-cad67f24b93c</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 301
+> name Boundary 2nd Alpine Mesh - East
+> validTime TimePeriod <begin> TimeInstant <timePosition>67.6</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  19.390858      45.041720
+  20.411401      45.007062
+  20.878730      44.988140
+  21.401929      44.964679
+  21.833057      44.943536
+  22.391539      44.913709
+  22.963054      44.880334
+  22.483601      44.521366
+  22.366625      44.105992
+  22.640661      43.878391
+  23.107906      43.642101
+  23.697568      43.408613
+  24.544445      43.267132
+  25.660032      43.196231
+  27.325235      43.033801
+  28.304662      42.967019
+  31.984242      42.888728
+  35.905378      45.277348
+>UnclassifiedFeature <identity>GPlates-223226e2-e744-42d5-affc-c4c65cc3cd2b</identity> <revision>GPlates-be0dcdab-fa3a-41f3-834b-b11b56a7eb00</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 301
+> name BA-MH
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+  14.054625      46.473209
+  15.759808      46.325530
+  17.250516      46.313488
+  18.538840      46.445612
+  19.913533      46.551983
+  21.161558      46.744792
+  22.662979      47.026643
+  24.242696      47.334332
+>UnclassifiedFeature <identity>GPlates-12402631-0355-43de-953e-ec4ebcd08c8a</identity> <revision>GPlates-ed864ff5-be52-4884-9924-ac535749ae7b</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307084
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>10</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  24.613449      32.484637
+>UnclassifiedFeature <identity>GPlates-9e48858e-1593-4e4a-b54c-08026c464e0b</identity> <revision>GPlates-88d0998f-eaf1-4292-b755-e9a463b95e61</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307085
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>10</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  26.362885      32.962823
+>UnclassifiedFeature <identity>GPlates-2fc28889-4042-4a63-9cc2-5fd7f9c5e76a</identity> <revision>GPlates-03ce885b-44f6-4d9d-bf97-794079b7eabf</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307086
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>10</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  18.924078      36.030825
+>UnclassifiedFeature <identity>GPlates-8e8c868c-910c-4e38-8dcf-7f683c932940</identity> <revision>GPlates-7efc8df5-497d-4132-8d01-2a05694f47d5</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307083
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>10</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  21.085413      33.590982
+>UnclassifiedFeature <identity>GPlates-dfe5c33f-1648-44a3-9623-c88bf593a27c</identity> <revision>GPlates-9075b8b5-2c8e-474b-b873-e20197f69a6b</revision>
+> geometryImportTime TimeInstant <timePosition>0</timePosition>
+> reconstructionPlateId 307087
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>10</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  22.105089      33.157828
+>UnclassifiedFeature <identity>GPlates-d11c04ed-94e2-4066-b272-3bb8dc9f50cc</identity> <revision>GPlates-4da0efac-118d-4cad-a138-eb2756ec0328</revision>
+> geometryImportTime TimeInstant <timePosition>20</timePosition>
+> reconstructionPlateId 3446
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  19.708800      40.908389
+  19.696189      40.002085
+  20.361634      39.341974
+  20.620152      39.061577
+  20.768394      37.938385
+>UnclassifiedFeature <identity>GPlates-89b6e183-3160-4a18-a40c-a2119e31614c</identity> <revision>GPlates-c003af3b-3c72-4c78-9ce6-12ecd2e8079b</revision>
+> geometryImportTime TimeInstant <timePosition>20</timePosition>
+> reconstructionPlateId 346
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  20.768394      37.938385
+  20.847614      37.080672
+  21.167580      36.544295
+  21.870569      35.993291
+  22.582108      35.615073
+>UnclassifiedFeature <identity>GPlates-260fa51a-6883-4c5e-8450-a685e3784f45</identity> <revision>GPlates-36c07e35-7f8f-465f-a879-d930a4300798</revision>
+> geometryImportTime TimeInstant <timePosition>20</timePosition>
+> reconstructionPlateId 347
+> name 
+> validTime TimePeriod <begin> TimeInstant <timePosition>20</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  22.614902      35.560303
+  23.439924      35.090332
+  24.241640      34.860724
+  25.083640      34.743377
+  25.872145      34.751436
+  27.044807      34.907564
+>ContinentalCrust <identity>GPlates-17d3a70c-ea13-41fc-ae88-3a0a900fe0a2</identity> <revision>GPlates-e9ca7ea0-8cce-4eed-99ee-bc0531157e29</revision>
+> name Boundary_of_transitional_crust_for_mesh
+> validTime TimePeriod <begin> TimeInstant <timePosition>139</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+> reconstructionPlateId 101
+> geometryImportTime TimeInstant <timePosition>139</timePosition>
+  -134.057842      70.662685
+  -134.929055      71.278331
+  -136.317155      72.306503
+  -137.268249      72.881831
+  -136.962030      73.994523
+  -136.649987      74.991643
+  -136.386972      75.742025
+  -135.906302      76.777621
+  -135.369575      77.771153
+  -133.451104      78.928659
+>UnclassifiedFeature <identity>GPlates-6c9f752a-ab0a-4649-9a8f-d7c390e8d7fd</identity> <revision>GPlates-6bb0bbe7-822c-4f60-a7cc-cfe69e0765b9</revision>
+> reconstructionPlateId 101
+> name UCL
+> validTime TimePeriod <begin> TimeInstant <timePosition>195</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  -34.509677      83.514564
+  -58.960807      83.844201
+  -86.116211      82.717067
+  -95.395087      81.384713
+  -103.322513      80.360650
+  -112.715851      79.073781
+  -121.482366      77.552710
+  -124.240545      76.222369
+  -125.770995      74.373509
+  -126.471394      73.184437
+  -127.234908      72.149115
+  -127.848037      71.136932
+  -128.495045      70.587072
+  -128.915285      70.327783
+  -129.780020      70.145112
+  -131.777932      69.776515
+  -133.202635      69.487324
+  -133.766284      69.367557
+  -134.756435      69.191090
+  -139.121676      67.484501
+>UnclassifiedFeature <identity>GPlates-1899aa0b-57a2-402d-bc15-266888697b89</identity> <revision>GPlates-8f5d9c74-fe71-4ef6-8a17-3d5d751e8584</revision>
+> reconstructionPlateId 101
+> name COB
+> validTime TimePeriod <begin> TimeInstant <timePosition>132</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+  -137.536918      69.753260
+  -136.558000      71.242634
+  -134.869936      71.261652
+  -133.542327      71.839387
+  -132.371180      71.924246
+  -131.043661      72.300970
+  -129.924842      73.151596
+  -129.688328      74.782726
+  -130.032726      75.361446
+  -129.231845      76.039079
+  -128.723045      76.459964
+  -126.711293      77.306962
+  -125.012499      78.255808
+  -121.915281      79.445446
+  -118.167968      80.613925
+  -106.864928      82.622055
+  -100.516847      83.367660
+  -89.675984      83.900140
+  -79.275345      84.367917
+  -31.223732      84.333797
+>SlabEdge <identity>GPlates-fe84bed6-63b9-49fa-85c0-40cb24ccf967</identity> <revision>GPlates-5c6fff4d-0fa7-4aa9-9557-7817695e29a1</revision>
+> name Southern Edge Pampean flat-slab
+> validTime TimePeriod <begin> TimeInstant <timePosition>11</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+> reconstructionPlateId 201
+> slabEdgeType Side
+> slabFlatLying 1
+  -74.167301      -33.291606
+  -72.931856      -33.189367
+  -71.990959      -33.176792
+  -71.420604      -33.162472
+  -70.953645      -33.175360
+  -70.505609      -33.199177
+  -69.933170      -33.215303
+  -69.261294      -33.260212
+  -68.489443      -33.332340
+  -67.660472      -33.361327
+  -66.841656      -33.470696
+>SlabEdge <identity>GPlates-e3db9aed-d410-4999-98a0-81c548061b65</identity> <revision>GPlates-0ca5f71c-38e9-45a2-8ceb-1702f1ebd568</revision>
+> name Leading Edge Pampean flat-slab
+> validTime TimePeriod <begin> TimeInstant <timePosition>1</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+> reconstructionPlateId 201117
+> subductionPolarity ConstantValue <value>Left</value> <valueType>SubductionPolarityEnumeration</valueType>
+> slabEdgeType Leading
+> slabFlatLying 1
+> slabFlatLyingDepth 80
+> subductionZoneDeepDip 55
+> subductionZoneDepth 425
+  -67.977056      -25.687996
+  -67.943173      -25.929715
+  -67.954119      -26.065546
+  -67.979243      -26.154933
+  -68.025923      -26.288418
+  -68.080557      -26.417374
+  -68.204248      -26.818741
+  -68.235313      -27.254901
+  -68.170312      -27.757732
+  -68.049052      -28.114873
+  -67.901029      -28.401641
+  -67.741112      -28.677457
+  -67.539324      -29.072658
+  -67.274888      -29.566659
+  -67.103846      -29.968504
+  -66.978351      -30.157140
+  -66.809111      -30.369664
+  -66.632448      -30.618033
+  -66.576512      -30.812128
+  -66.598742      -30.930468
+  -66.806993      -31.110718
+  -67.207566      -31.232177
+  -68.029814      -31.350663
+  -68.420467      -31.481131
+  -68.693153      -31.690322
+  -68.888750      -31.964209
+  -69.068171      -32.346787
+  -69.200781      -32.672730
+  -69.264738      -33.015529
+  -69.219585      -33.270277
+  -69.126455      -33.480454
+  -69.057119      -33.784799
+  -69.177494      -33.968240
+>SlabEdge <identity>GPlates-4c5c7ecb-ddca-44b8-b5e6-48732257696b</identity> <revision>GPlates-48947504-c1c0-4a44-8af9-117d6264a724</revision>
+> name Northern Edge Pampean flat-slab
+> validTime TimePeriod <begin> TimeInstant <timePosition>17</timePosition></begin> <end> TimeInstant <timePosition>http://gplates.org/times/distantFuture</timePosition></end>
+> reconstructionPlateId 201
+> slabEdgeType Side
+> slabFlatLying 1
+  -73.000925      -25.717027
+  -71.509671      -25.828263
+  -71.087577      -25.841017
+  -70.556565      -25.852541
+  -70.069484      -25.881726
+  -69.566056      -25.886581
+  -69.083908      -25.948407
+  -68.591068      -26.033952
+  -68.006502      -26.150670
+  -67.196286      -26.321325
+  -66.718973      -26.435258
+  -66.386882      -26.511419
+>SlabEdge <identity>GPlates-d928484b-bd8a-4b83-af9e-c54d2c7b4607</identity> <revision>GPlates-4122a77c-618d-42aa-b0c2-d4c83a5e0f50</revision>
+> name S Edge of Peruvian Flat Slab
+> validTime TimePeriod <begin> TimeInstant <timePosition>9</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+> reconstructionPlateId 201
+> slabEdgeType Side
+> slabFlatLying 1
+  -75.997648      -17.401568
+  -75.010455      -16.641132
+  -74.428870      -16.163544
+  -73.799992      -15.691574
+  -73.307697      -15.288050
+  -72.887286      -14.958152
+  -72.486697      -14.628440
+  -71.924601      -14.178814
+  -71.545022      -13.868966
+  -71.235497      -13.640805
+  -70.978113      -13.461530
+  -70.648430      -13.207859
+  -70.345483      -12.921475
+>SlabEdge <identity>GPlates-00f5b67b-6bd7-4b79-806c-9d300b9d3c8f</identity> <revision>GPlates-498018c0-4368-4767-983b-1a2711fb47a0</revision>
+> name N Edge of Peruvian Flat Slab
+> validTime TimePeriod <begin> TimeInstant <timePosition>9</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+> reconstructionPlateId 201
+> slabEdgeType Side
+> slabFlatLying 1
+  -82.388552      -1.280610
+  -81.598767      -1.595212
+  -81.056958      -1.779540
+  -80.709288      -1.900529
+  -80.302515      -2.028251
+  -79.816982      -2.164874
+  -79.371314      -2.296449
+  -78.601299      -2.564532
+  -77.273257      -3.013839
+  -76.136685      -3.378994
+  -75.403205      -3.598500
+  -74.820871      -3.741038
+>SubductionZone <identity>GPlates-15619cbf-027b-4b8d-b6c2-82a7c05aba2d</identity> <revision>GPlates-0fdc33f6-816b-40d7-9e18-f3207544be40</revision>
+> name Andean Trench Segment
+> validTime TimePeriod <begin> TimeInstant <timePosition>11</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+> reconstructionPlateId 201124
+> subductionPolarity ConstantValue <value>Right</value> <valueType>SubductionPolarityEnumeration</valueType>
+> subductionZoneDepth 80
+> isActive ConstantValue <value> 1</value> <valueType>boolean</valueType>
+> slabEdgeType Trench
+  -73.570086      -33.935762
+  -73.336070      -33.199409
+  -72.407817      -29.608626
+  -71.554108      -26.008878
+  -71.510612      -25.030648
+>SubductionZone <identity>GPlates-7fea255d-dd55-4669-b178-953b59902af5</identity> <revision>GPlates-3f33f386-d9c1-46c2-935d-9aa949c918ba</revision>
+> name North Andes Trench Segment
+> validTime TimePeriod <begin> TimeInstant <timePosition>9</timePosition></begin> <end> TimeInstant <timePosition>0</timePosition></end>
+> reconstructionPlateId 201122
+> subductionPolarity ConstantValue <value>Left</value> <valueType>SubductionPolarityEnumeration</valueType>
+> subductionZoneDepth 100
+> isActive ConstantValue <value> 1</value> <valueType>boolean</valueType>
+> slabEdgeType Trench
+  -81.311670      -1.003826
+  -81.448440      -1.425923
+  -81.560991      -2.197280
+  -81.625128      -2.767937
+  -81.429040      -7.493327
+  -80.326238      -9.861654
+  -77.315808      -14.187608
+  -76.823282      -14.686051
+  -76.602267      -14.914451
+  -75.675935      -15.749270
+  -74.585824      -16.664944

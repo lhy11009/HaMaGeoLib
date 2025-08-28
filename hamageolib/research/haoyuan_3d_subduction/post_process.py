@@ -1731,7 +1731,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         l2_section = 10.0 * np.pi / 180.0
     else:
         l0_section = 1000e3
-        l1_section = float(Case_Options.options["SLAB_EXTENTS_FULL"])
+        l1_section = np.max([float(Case_Options.options["SLAB_EXTENTS_FULL"]), 1000e3])
         l2_section = 1000e3
     tolerance = 1e-6
     clip_l0_min = Max0-l0_section

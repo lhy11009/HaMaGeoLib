@@ -15034,6 +15034,8 @@ different age will be adjusted.",\
         self.add_key("Include metastable transition", int,\
             ['metastable', 'include metastable'], 0, nick='include_meta')
         self.add_key("Trench migration", float, ['plate setup', "trench migration"], 0.0, nick="trench_migration")
+        # todo_3d
+        self.add_key("Output non-adiabatic pressure", int, ['post-process', "nonadiabatic pressure"], 1, nick="non_adiabatic_P")
 
     
     def check(self):
@@ -15143,6 +15145,7 @@ different age will be adjusted.",\
         version = self.values[23]
         include_meta = self.values[self.start + 62]
         trench_migration = self.values[self.start + 63]
+        non_adiabatic_P = self.values[self.start + 64]
         return _type, if_wb, geometry, box_width, box_length, box_height,\
             sp_width, trailing_length, reset_trailing_morb, ref_visc,\
             relative_visc_plate, friction_angle, relative_visc_lower_mantle, cohesion,\
@@ -15154,7 +15157,7 @@ different age will be adjusted.",\
             slab_core_viscosity, global_minimum_viscosity, coarsen_side, coarsen_side_interval, fix_boudnary_temperature_auto,\
             coarsen_side_level, coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as,\
             trailing_length_1, sp_rate, ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail,\
-            include_ov_upper_plate, slab_strength, version, include_meta, trench_migration
+            include_ov_upper_plate, slab_strength, version, include_meta, trench_migration, non_adiabatic_P
         
     def to_configure_wb(self):
         '''
@@ -15234,7 +15237,7 @@ class CASE_THD(CASE):
     global_minimum_viscosity, coarsen_side, coarsen_side_interval, fix_boudnary_temperature_auto, coarsen_side_level,\
     coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as, trailing_length_1, sp_rate,\
     ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail, include_ov_upper_plate, slab_strength, version,\
-    include_meta, trench_migration):
+    include_meta, trench_migration, non_adiabatic_P):
         '''
         Configure prm file
         '''
@@ -15849,6 +15852,10 @@ class CASE_THD(CASE):
 
             # change the particles
             o_dict["Particles"]["List of particle properties"] = "initial composition, metastable"
+
+        # todo_3d
+        if non_adiabatic_P:
+            o_dict['Postprocess']["Visualization"]["List of output variables"] += ", nonadiabatic pressure"
 
         self.idict = o_dict
         pass
@@ -18910,6 +18917,7 @@ class GROUP_OPT(JSON_OPT):
         self.add_features('Base Feature to set up for the group', ['base features'], FEATURE_OPT)
         self.add_key('Combine case run', int, ['combine case run'], 0, nick='combine_case_run')
         self.add_key('Slurm options', list, ['slurm'], [], nick='slurm options')
+        self.add_key("Branch", str, ["branch"], "default", nick='branch')
     
     def check(self):
         if self.values[4] != []:
@@ -18948,9 +18956,10 @@ class GROUP_OPT(JSON_OPT):
         features = self.values[1]
         combine_case_run = self.values[7]
         slurm_options = self.values[8]
+        branch = self.values[9]
         return base_features, features, var_subs(self.values[5]),\
         var_subs(self.values[3]), self.values[0], self.values[4],\
-        combine_case_run, slurm_options
+        combine_case_run, slurm_options, branch
 
 
 class GROUP():
@@ -18963,7 +18972,6 @@ class GROUP():
         Inputs:
             C_OPT(CASE_OPT class)
         '''
-        print(C_OPT)
         self.CASE = C_CLASS
         self.CASE_OPT = C_OPT
     
@@ -18976,7 +18984,7 @@ class GROUP():
             self.base_options = json.load(fin)
 
     def create_group(self, base_features, features, base_dir, output_dir, base_name, bindings,\
-                     combine_case_run, slurm_options, **kwargs):
+                     combine_case_run, slurm_options, branch, **kwargs):
         '''
         create new group
         Inputs:
@@ -19036,6 +19044,10 @@ class GROUP():
                 options['name'] =  base_name
                 options["output directory"] = output_dir
                 options['base directory'] = base_dir
+                if branch != "default":
+                    # modify the branch option of
+                    # case.json if it is provided explicitly
+                    options['branch'] = branch
                 # assemble the features for case option
                 for j in range(len(features)):
                     feature = features[j]

@@ -42,7 +42,6 @@ Functions:
 """
 
 import matplotlib.pyplot as plt
-import fitz
 import numpy as np
 import pandas as pd
 import os
@@ -139,6 +138,8 @@ def extract_image_by_size(
     Returns:
         str: Path to the saved cropped image, or None if no image is found.
     """
+    import fitz
+    
     # Open the PDF
     doc = fitz.open(pdf_file)
     page = doc[0]

@@ -330,6 +330,17 @@ class CASE_OPTIONS:
             self.options['GRAPHICAL_TIMES'] = [self.summary_df.loc[row_idx, "Time"]]
             self.options['GRAPHICAL_TIME_STEPS'] = [self.summary_df.loc[row_idx, "Time step number"]]
 
+        # dynamic pressure
+        # data types
+        self.options["HAS_DYNAMIC_PRESSURE"] = '0'
+        try:
+            visualization_output_variables = self.idict['Postprocess']['Visualization']['List of output variables']
+        except KeyError:
+            pass
+        else:
+            if re.match('.*nonadiabatic\ pressure', visualization_output_variables):
+                self.options["HAS_DYNAMIC_PRESSURE"] = '1'
+
         # reserve some addition options
         
         for i in range(100):
