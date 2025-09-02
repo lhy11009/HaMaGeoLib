@@ -316,6 +316,8 @@ def load_pyvista_source(data_output_dir, source_name, snapshot, **kwargs):
             'dislocation_viscosity', 'diffusion_viscosity', 'peierls_viscosity', 'strain_rate', 'velocity_slice', "radius"]
         if HAS_DYNAMIC_PRESSURE:
             field_list.append('nonadiabatic_pressure')
+        if "MODEL_TYPE" == "mow":
+            field_list.append('metastable')
         source.PointArrayStatus = field_list
 
     # add rotation
