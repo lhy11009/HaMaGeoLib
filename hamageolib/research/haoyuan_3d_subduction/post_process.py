@@ -19,6 +19,8 @@ from hamageolib.utils.plot_helper import convert_eps_to_pdf, extract_image_by_si
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
 
+class PYVISTA_PROCESS_THD_WORKFLOW_ERROR(Exception):
+    pass
 
 class PYVISTA_PROCESS_THD():
 
@@ -684,7 +686,7 @@ class PYVISTA_PROCESS_THD():
 
         return iso_plate_edge
 
-    def extract_slab_surface(self, field_name, **kwargs):
+    def extract_slab_interface(self, field_name, **kwargs):
         """
         Extract the 3D surface of the subducting slab from the sp_upper iso-volume.
 
@@ -706,11 +708,11 @@ class PYVISTA_PROCESS_THD():
 
         # checking
         if field_name == "sp_upper":
-            assert self.iso_volume_upper is not None
+            my_assert(self.iso_volume_upper is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR, "Needs to run extract_iso_volume_upper first")
             source = self.iso_volume_upper
 
         elif field_name == "sp_lower":
-            assert self.iso_volume_lower_filtered_pe is not None
+            my_assert(self.iso_volume_lower_filtered_pe is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR, "Needs to run filter_slab_lower_points first")
             source = self.iso_volume_lower_filtered_pe 
         else:
             raise NotImplementedError()
@@ -725,8 +727,7 @@ class PYVISTA_PROCESS_THD():
         V2 = np.full((N0, N1), np.nan)
         vals2_tr = np.full(N1, np.nan)
 
-        upper_points = source.points
-        v0_u, v2_u, v1_u = PUnified.points2unified3(upper_points, self.is_spherical, False)
+        v0_u, v2_u, v1_u = PUnified.points2unified3(source.points, self.is_spherical, False)
         rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
         rt_tree = cKDTree(rt_upper)
 
@@ -747,6 +748,7 @@ class PYVISTA_PROCESS_THD():
 
                 V2[i, j] = max_v2
 
+
         V0, V1 = np.meshgrid(vals0, vals1, indexing='ij')
         mask = ~np.isnan(V2)
 
@@ -759,15 +761,17 @@ class PYVISTA_PROCESS_THD():
         x, y, z = PUnified.unified2points3(np.vstack((V0[mask], V2[mask], V1[mask])).T, self.is_spherical, False)
         if field_name == "sp_upper":
             self.slab_surface_points = np.vstack([x, y, z]).T
+            surface_points = self.slab_surface_points
             self.slab_surface_interp_func = KNNInterpolatorND(np.vstack((V0.ravel()/self.scale0, V1.ravel()/self.scale1)).T,\
                                                           V2.ravel(), k=1, max_distance=0.05)
         elif field_name == "sp_lower":
             self.slab_moho_points = np.vstack([x, y, z]).T
+            surface_points = self.slab_moho_points
             self.slab_moho_interp_func = KNNInterpolatorND(np.vstack((V0.ravel()/self.scale0, V1.ravel()/self.scale1)).T,\
                                                           V2.ravel(), k=1, max_distance=0.05)
 
         # save slab surface points
-        point_cloud = pv.PolyData(self.slab_surface_points)
+        point_cloud = pv.PolyData(surface_points)
         filename = "%s_surface_%05d.vtp" % (field_name, self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
         point_cloud.save(filepath)
@@ -777,7 +781,37 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
+    def extract_slab_dip_angle_by_depth(self, v0_0, v1_0, v0_1, v1_1):
+        my_assert(self.slab_moho_interp_func is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR,\
+                  "Needs to run extract_slab_interface for slab moho first")
+        my_assert(v0_0 > v0_1, ValueError, "To extract dip angle, depth1 must be bigger than depth0")
+
+        # derive the surface point from slab moho
+        v2_0 = self.slab_moho_interp_func(v0_0/self.scale0, v1_0/self.scale1)
+        v2_1 = self.slab_moho_interp_func(v0_1/self.scale0, v1_1/self.scale1)
+
+
+        # for comparision: get surface point from slab surface
+        # this approach has problem with later times (crustal material are not well distributed)
+        # v2_0 = self.slab_surface_interp_func(v0_0/self.scale0, v1_0/self.scale1)
+        # v2_1 = self.slab_surface_interp_func(v0_1/self.scale0, v1_1/self.scale1)
+
+        if self.geometry == "chunk":
+            v0_mean = (v0_0 + v0_1)/2.0
+            dip_angle = np.arctan2(v0_0 - v0_1, v0_mean * (v2_1 - v2_0))
+        else:
+            dip_angle = np.arctan2(v0_0 - v0_1, v2_1 - v2_0)
+
+        return dip_angle
+    
     def extract_slab_dip_angle(self):
+        '''
+        extract slab dip angle
+        '''
+        self.dip_100_center = self.extract_slab_dip_angle_by_depth(self.Max0-15e3, 0.0, self.Max0-100e3, 0.0)
+        
+
+    def extract_slab_dip_angle_deprecated_0(self):
         '''
         extract slab dip angle
         '''
@@ -785,7 +819,7 @@ class PYVISTA_PROCESS_THD():
         indent = 4
         
         start = time.time()
-        self.dip_100_center = get_slab_dip_angle(self.slab_surface_points, self.geometry, self.Max0, 0.0, 100e3)
+        self.dip_100_center = get_slab_dip_angle_deprecated_0(self.slab_surface_points, self.geometry, self.Max0, 0.0, 100e3)
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
@@ -1515,7 +1549,7 @@ def get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, geometry, Max0, fiel
     return dip_angle
 
 
-def get_slab_dip_angle(points, geometry, Max0, depth0, depth1):
+def get_slab_dip_angle_deprecated_0(points, geometry, Max0, depth0, depth1):
 
     d0 = 5e3 # tolerance along dimention 0
     if geometry == "chunk":
@@ -1692,6 +1726,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     i_piece = kwargs.get("i_piece", None)
     odir = kwargs.get("odir", os.path.join(case_path, "pyvista_outputs"))
     only_initialization = kwargs.get("only_initialization", False)
+    use_old_dip_angle_method = kwargs.get("use_old_dip_angle_method", False)
     
     outputs = {}
 
@@ -1851,18 +1886,21 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
 
     # extract slab surface and trench position, using "sp_upper" composition
-    PprocessThD.extract_slab_surface("sp_upper")
+    PprocessThD.extract_slab_interface("sp_upper")
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
     # extract slab surface using "sp_lower" composition
-    PprocessThD.extract_slab_surface("sp_lower")
+    PprocessThD.extract_slab_interface("sp_lower")
 
     # analysis
     # get slab depth, trenc position and slab dip angle
     PprocessThD.get_slab_depth()
-    PprocessThD.extract_slab_dip_angle()
+    if use_old_dip_angle_method:
+        PprocessThD.extract_slab_dip_angle_deprecated_0()
+    else:
+        PprocessThD.extract_slab_dip_angle()
     PprocessThD.extract_slab_trench()
 
 

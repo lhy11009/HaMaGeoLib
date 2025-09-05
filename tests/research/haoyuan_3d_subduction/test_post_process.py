@@ -123,13 +123,13 @@ def test_pyvista_process_thd_chunk():
     # extract slab surface
 
     # extract slab surface 
-    PprocessThD.extract_slab_surface("sp_upper", dr=0.001)
+    PprocessThD.extract_slab_interface("sp_upper", dr=0.001)
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
     # Slab analysis
-    PprocessThD.extract_slab_dip_angle()
+    PprocessThD.extract_slab_dip_angle_deprecated_0()
     PprocessThD.extract_slab_trench()
 
     # assert slab dip and trench location
@@ -164,6 +164,54 @@ def test_pyvista_process_thd_chunk():
     assert(os.path.isfile(trench_file))
     assert(filecmp.cmp(trench_file, trench_file_std))
 
+@pytest.mark.big_test  # Optional marker for big tests
+def test_pyvista_process_thd_chunk_dip_angle():
+
+    local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_width80_bw8000_sw2000_yd500.0_AR4")
+    pvtu_step=2
+    
+    # remove old directory 
+    pyvista_outdir = os.path.join(test_dir, "test_pyvista_process_thd_box")
+    if os.path.isdir(pyvista_outdir):
+        rmtree(pyvista_outdir)
+
+    # initiate the object
+    config = {"geometry": "chunk", "Max0": 6371e3, "Min0": 3.4810e+06,\
+         "Max1": 71.94572847349845*np.pi/180.0, "Max2": 80.00365006253027*np.pi/180.0, "time":0.0}
+    kwargs = {"pyvista_outdir": os.path.join(test_dir, "test_pyvista_process_thd_chunk")}
+    PprocessThD = PYVISTA_PROCESS_THD(os.path.join(local_dir, "output", "solution"), config, **kwargs)
+    # read vtu file
+    PprocessThD.read(pvtu_step)
+    # slice at center
+    PprocessThD.slice_center()
+    # slice at surface
+    PprocessThD.slice_surface()
+    # slice at depth
+    PprocessThD.slice_at_depth(depth=200e3, r_diff=20e3)
+    # extract sp_upper composition beyond a threshold
+    PprocessThD.extract_iso_volume_upper(threshold=0.8)
+    # extract sp_lower composition beyond a threshold
+    PprocessThD.extract_iso_volume_lower(threshold=0.8)
+    PprocessThD.get_slab_depth()
+    # extract plate_edge composition beyond a threshold
+    PprocessThD.extract_plate_edge(threshold=0.8)
+    # extract slab surface
+
+    # extract slab surface 
+    PprocessThD.extract_slab_interface("sp_upper", dr=0.001)
+    # extract slab edge
+    PprocessThD.extract_plate_edge_surface()
+    # filter the slab lower points
+    PprocessThD.filter_slab_lower_points()
+    # extract slab moho
+    PprocessThD.extract_slab_interface("sp_lower", dr=0.001)
+    # Slab analysis
+    PprocessThD.extract_slab_dip_angle()
+
+    # check value of slab dip angle
+    dip_100_center0 = 0.9466176634879051
+    assert(abs((PprocessThD.dip_100_center-dip_100_center0)/dip_100_center0) < 1e-6)
+
 
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_thd_box():
@@ -197,14 +245,14 @@ def test_pyvista_process_thd_box():
     # extract plate_edge composition beyond a threshold
     PprocessThD.extract_plate_edge(threshold=0.8)
     # extract slab surface
-    PprocessThD.extract_slab_surface("sp_upper")
+    PprocessThD.extract_slab_interface("sp_upper")
     # extract slab edge
     PprocessThD.extract_plate_edge_surface()
     # filter the slab lower points
     PprocessThD.filter_slab_lower_points()
 
     # Slab analysis
-    PprocessThD.extract_slab_dip_angle()
+    PprocessThD.extract_slab_dip_angle_deprecated_0()
     PprocessThD.extract_slab_trench()
 
     # assert slab dip and trench location
@@ -280,11 +328,11 @@ def test_pyvista_process_thd_box_big():
     PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (iso_volume_threshold), "vtu")
     
     PprocessThD.extract_plate_edge_surface()
-    PprocessThD.extract_slab_surface("sp_upper")
+    PprocessThD.extract_slab_interface("sp_upper")
     PprocessThD.filter_slab_lower_points()
 
     # analysis 
-    PprocessThD.extract_slab_dip_angle()
+    PprocessThD.extract_slab_dip_angle_deprecated_0()
     PprocessThD.extract_slab_trench()
     PprocessThD.get_slab_depth()
 
