@@ -12798,7 +12798,7 @@ opcrust: 1e+31, opharz: 1e+31", \
             # initial composition fields
             o_dict["Initial composition model"]["List of model names"] += ", metastable"
             o_dict["Initial composition model"]["List of model operators"] = "add"
-            o_dict["Initial composition model"]["metastable"] = {
+            o_dict["Initial composition model"]["Metastable"] = {
                 "Phase transition depth": "410e3",
                 "Phase transition width": "5e3",
                 "Phase transition temperature": "1740.0",
@@ -15836,7 +15836,7 @@ class CASE_THD(CASE):
             # initial composition fields
             o_dict["Initial composition model"]["List of model names"] += ", metastable"
             o_dict["Initial composition model"]["List of model operators"] = "add"
-            o_dict["Initial composition model"]["metastable"] = {
+            o_dict["Initial composition model"]["Metastable"] = {
                 "Phase transition depth": "410e3",
                 "Phase transition width": "5e3",
                 "Phase transition temperature": "1740.0",

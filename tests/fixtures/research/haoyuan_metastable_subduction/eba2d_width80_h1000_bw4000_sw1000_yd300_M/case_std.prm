@@ -135,7 +135,7 @@ end
 subsection Initial composition model
     set List of model names = world builder, metastable
     set List of model operators = add
-    subsection metastable
+    subsection Metastable
         set Phase transition depth = 410e3
         set Phase transition width = 5e3
         set Phase transition temperature = 1740.0

@@ -5,11 +5,11 @@
 #SBATCH --tasks-per-node=56
 #SBATCH -o task-%j.stdout
 #SBATCH -e task-%j.stderr
-#SBATCH -t 5:00:00
+#SBATCH -t 48:00:00
 #SBATCH --partition=normal
 #SBATCH --switches=1
 #SBATCH --mail-user=hylli@ucdavis.edu
-#SBATCH -A EAR23021
+#SBATCH -A EAR23027
 
 >&2 echo "list of modules:"
 >&2 module list

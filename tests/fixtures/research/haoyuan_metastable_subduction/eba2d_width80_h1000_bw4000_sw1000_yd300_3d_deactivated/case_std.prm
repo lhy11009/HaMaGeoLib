@@ -284,7 +284,7 @@ subsection Postprocess
         set Time between graphical output = 0
     end
     subsection Visualization
-        set List of output variables = material properties, error indicator, named additional outputs, strain rate, stress, principal stress
+        set List of output variables = material properties, error indicator, named additional outputs, strain rate, stress, principal stress, nonadiabatic pressure
         set Output format = vtu
         set Time between graphical output = 0.1e6
         set Interpolate output = false
