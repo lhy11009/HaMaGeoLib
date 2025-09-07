@@ -10,7 +10,7 @@ from plate_model_manager import PlateModelManager
 
 from hamageolib.research.haoyuan_3d_subduction.gplately_utilities import \
       read_subduction_reconstruction_data, parse_subducting_trench_option, crop_region_by_data,\
-      resample_subduction, compute_sum_of_arc_lengths, resample_positions
+      resample_subduction, compute_sum_of_arc_lengths, resample_positions, mergy_region
 
 package_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 fixture_root = os.path.join(package_root, "tests", "fixtures", "research", "haoyuan_3d_subduction")
@@ -83,6 +83,106 @@ ERROR_CASES = [
 def test_crop_region_by_data_errors(case):
     with pytest.raises(case["error"]):
         crop_region_by_data(case["s_data"], case["interval"])
+
+# ----------------------
+# Tests for mergy_region
+# ----------------------
+SUCCESS_CASES = [
+    dict(
+        name="simple_no_wrap",
+        r0=(10.0, 20.0, -5.0, 5.0),
+        r1=(15.0, 25.0, -10.0, 10.0),
+        expected=(10.0, 25.0, -10.0, 10.0),
+    ),
+    dict(
+        name="wrap_mix_170_and_neg170_choose_0to360",
+        r0=(170.0, 175.0, -10.0, 0.0),
+        r1=(-170.0, -160.0, -5.0, 5.0),
+        # minimal span is in [0, 360): [170, 200]
+        expected=(170.0, 200.0, -10.0, 5.0),
+    ),
+    dict(
+        name="wrap_neg10_and_350_choose_minus180to180",
+        r0=(-10.0, 10.0, -5.0, 5.0),
+        r1=(350.0, 355.0, -20.0, -10.0),
+        # minimal span is in [-180, 180]: [-10, 10]
+        expected=(-10.0, 10.0, -20.0, 5.0),
+    ),
+    dict(
+        name="tie_prefers_range0_branch",
+        r0=(200.0, 220.0, 0.0, 10.0),
+        r1=(210.0, 230.0, 5.0, 15.0),
+        # tie in span -> code prefers range0, which maps to [-160, -130]
+        expected=(-160.0, -130.0, 0.0, 15.0),
+    ),
+    dict(
+        name="negative_and_cross_to_positive",
+        r0=(-80.0, -30.0, -50.0, -40.0),
+        r1=(-40.0, 5.0, -60.0, -30.0),
+        expected=(-80.0, 5.0, -60.0, -30.0),
+    ),
+    dict(
+        name="identical_regions",
+        r0=(30.0, 40.0, 10.0, 20.0),
+        r1=(30.0, 40.0, 10.0, 20.0),
+        expected=(30.0, 40.0, 10.0, 20.0),
+    ),
+]
+
+
+@pytest.mark.parametrize("case", SUCCESS_CASES, ids=[c["name"] for c in SUCCESS_CASES])
+def test_mergy_region_success(case):
+    got = mergy_region(case["r0"], case["r1"])
+    assert np.allclose(got, case["expected"], rtol=0, atol=1e-9), (
+        f"{case['name']}: expected {case['expected']}, got {got}"
+    )
+
+
+@pytest.mark.parametrize("case", SUCCESS_CASES, ids=[f"commutes_{c['name']}" for c in SUCCESS_CASES])
+def test_mergy_region_commutativity(case):
+    # mergy_region should be commutative
+    got_forward = mergy_region(case["r0"], case["r1"])
+    got_reverse = mergy_region(case["r1"], case["r0"])
+    assert np.allclose(got_forward, got_reverse, rtol=0, atol=1e-9), (
+        f"{case['name']}: not commutative; {got_forward} vs {got_reverse}"
+    )
+
+
+ERROR_CASES = [
+    dict(
+        name="too_short_region0",
+        r0=(10.0, 20.0, 30.0),         # len < 4 -> IndexError at unpack
+        r1=(0.0, 1.0, 2.0, 3.0),
+        exc=IndexError,
+    ),
+    dict(
+        name="none_region0",
+        r0=None,                       # None is not subscriptable
+        r1=(0.0, 1.0, 2.0, 3.0),
+        exc=TypeError,
+    ),
+    dict(
+        name="non_numeric_entry",
+        r0=("a", 2.0, 0.0, 1.0),       # will fail during comparisons/arith
+        r1=(0.0, 1.0, 2.0, 3.0),
+        # If math.min/max are used, AttributeError may arise before TypeError;
+        # accept either to make the test informative across implementations.
+        exc=(TypeError, AttributeError),
+    ),
+    dict(
+        name="none_inside_tuple",
+        r0=(None, 10.0, 0.0, 1.0),
+        r1=(0.0, 1.0, 2.0, 3.0),
+        exc=(TypeError, AttributeError),
+    ),
+]
+
+
+@pytest.mark.parametrize("case", ERROR_CASES, ids=[c["name"] for c in ERROR_CASES])
+def test_mergy_region_errors(case):
+    with pytest.raises(case["exc"]):
+        _ = mergy_region(case["r0"], case["r1"])
+
 
 # ----------------------
 # Tests for parse_subducting_trench_option

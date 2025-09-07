@@ -255,12 +255,13 @@ class GPLATE_PROCESS():
         csv_obj.to_csv(file_path, index=False)
         print("Saved file %s" % file_path)
 
-    def save_results_ori(self, inspect_all_slabs_in_separate_plots=False):
+    def save_results_ori(self, inspect_all_slabs_in_separate_plots=False, only_one_pid=None, **kwargs):
         # Summary:
         # Render and save global and optional per-slab figures for the original (unresampled) subduction data.
         # Parameters:
         # - inspect_all_slabs_in_separate_plots: bool — if True, also produce per-slab diagnostic panels with
         #   point indices and trench IDs annotated.
+        # - only_one_pid: None or value - if value, skip all other subducting pids.
         # Returns:
         # - None (saves .png/.pdf figures into an "ori" subdirectory).
         # Preconditions:
@@ -270,6 +271,8 @@ class GPLATE_PROCESS():
         # - GPLATE_PROCESS_WORKFLOW_ERROR if reconstruct() was not called.
        
         my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"reconstruct\" first.")
+
+        color_dict = kwargs.get("color_dict", {})
         
         local_img_dir = os.path.join(self.img_dir, "ori")
         if os.path.isdir(local_img_dir):
@@ -294,12 +297,17 @@ class GPLATE_PROCESS():
         ax0 = fig0.add_subplot(111, projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
         
         gPlotter.plot_global_basics(ax0, age_grid_raster=age_grid_raster)
-        
-        color_dict = gPlotter.plot_subduction_pts(ax0, subduction_data) 
+
+        color_dict = gPlotter.plot_subduction_pts(ax0, subduction_data, color_dict=color_dict) 
         # test adding convergence vectors
         # plot_conv=True, stepping=5)
 
         for i, subducting_pid in enumerate(subducting_pids):
+            
+            if only_one_pid is not None and int(subducting_pid) != int(only_one_pid):
+                # if only one pid is given, skip all others
+                continue
+
             one_subduction_data = subduction_data[subduction_data.subducting_pid==subducting_pid]
 
             # add marker to summary plot
@@ -323,7 +331,7 @@ class GPLATE_PROCESS():
             
                 ax = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
-                gPlotter.plot_subduction_pts(ax, one_subduction_data, color=color_dict[subducting_pid])
+                sub_color_dict = gPlotter.plot_subduction_pts(ax, one_subduction_data, color_dict=color_dict[int(subducting_pid)])
                 for j, (lon, lat) in enumerate(zip(one_subduction_data.lon, one_subduction_data.lat)):
                     if j % 10 != 0:
                         continue
@@ -333,16 +341,19 @@ class GPLATE_PROCESS():
                         va="bottom"  # vertical alignment
                     )
                 ax.set_extent(region, crs=ccrs.PlateCarree())
+                
+                # update color dictionary for specific subduction zone 
+                color_dict[int(subducting_pid)] = sub_color_dict
 
                 ax = fig.add_subplot(gs[1, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
-                gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid")
+                _ = gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid", color_dict=color_dict[int(subducting_pid)])
                 trench_pids = one_subduction_data["trench_pid"].unique()
                 ax.set_extent(region, crs=ccrs.PlateCarree())
 
                 ax = fig.add_subplot(gs[2, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
-                gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid")
+                _ = gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid", color_dict=color_dict[int(subducting_pid)])
                 trench_pids = one_subduction_data["trench_pid"].unique()
                 ax.set_extent(region, crs=ccrs.PlateCarree())
                 for j, trench_pid in enumerate(trench_pids):
@@ -370,12 +381,32 @@ class GPLATE_PROCESS():
         fig0.savefig(ofile_path + ".pdf")
         print("Saved figure %s" % (ofile_path + ".pdf"))
 
-    def save_results_resampled(self, inspect_all_slabs_resampled_plot_individual=False):
+        return color_dict
+
+    def update_unique_pid_dict(self, resample_dataset, pid_dict={}):
+
+        if resample_dataset:
+            s_data = self.subduction_data_resampled
+        else:
+            s_data = self.subduction_data
+            
+        subducting_pids = s_data.subducting_pid.unique()
+        for i, subducting_pid in enumerate(subducting_pids):
+            if subducting_pid in pid_dict:
+                if int(self.reconstruction_time) not in pid_dict[subducting_pid]:
+                    pid_dict[subducting_pid].append(int(self.reconstruction_time))
+            else:
+                pid_dict[subducting_pid] = [int(self.reconstruction_time)]
+
+        return pid_dict
+
+    def save_results_resampled(self, inspect_all_slabs_resampled_plot_individual=False, only_one_pid=None, **kwargs):
         # Summary:
         # Render and save global and optional per-slab figures for the resampled subduction data.
         # Parameters:
         # - inspect_all_slabs_resampled_plot_individual: bool — if True, produce per-slab diagnostic panels
         #   with point indices (denser labels than the original plots) and trench IDs.
+        # - only_one_pid: None or value - if value, skip all other subducting pids.
         # Returns:
         # - None (saves .png/.pdf figures into a resampled-specific subdirectory).
         # Preconditions:
@@ -386,6 +417,8 @@ class GPLATE_PROCESS():
 
         my_assert(self.subduction_data_resampled is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"resample_subduction\" first.")
 
+        color_dict = kwargs.get("color_dict", {})
+        
         local_img_dir = os.path.join(self.img_dir, "resampled_edge%.1f_section%.1f" % (self.arc_length_edge, self.arc_length_resample_section))
         if os.path.isdir(local_img_dir):
             rmtree(local_img_dir)
@@ -407,10 +440,15 @@ class GPLATE_PROCESS():
         ax0 = fig0.add_subplot(111, projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
         
         gPlotter.plot_global_basics(ax0, age_grid_raster=age_grid_raster)
-        
-        color_dict = gPlotter.plot_subduction_pts(ax0, subduction_data_resampled)
+
+        color_dict = gPlotter.plot_subduction_pts(ax0, subduction_data_resampled, color_dict=color_dict)
 
         for i, subducting_pid in enumerate(subducting_pids):
+
+            if only_one_pid is not None and int(subducting_pid) != int(only_one_pid):
+                # if only one pid is given, skip all others
+                continue
+
             one_subduction_data = subduction_data_resampled[subduction_data_resampled.subducting_pid==subducting_pid]
 
             # add marker to summary plot
@@ -435,7 +473,7 @@ class GPLATE_PROCESS():
             
                 ax = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
-                gPlotter.plot_subduction_pts(ax, one_subduction_data, color=color_dict[subducting_pid])
+                sub_color_dict = gPlotter.plot_subduction_pts(ax, one_subduction_data, color_dict=color_dict[int(subducting_pid)])
                 for j, (lon, lat) in enumerate(zip(one_subduction_data.lon, one_subduction_data.lat)):
                     if j % 2 != 0:
                         continue
@@ -445,16 +483,19 @@ class GPLATE_PROCESS():
                         va="bottom"  # vertical alignment
                     )
                 ax.set_extent(region, crs=ccrs.PlateCarree())
+                
+                # update color dictionary for specific subduction zone 
+                color_dict[int(subducting_pid)] = sub_color_dict
 
                 ax = fig.add_subplot(gs[1, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
-                gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid")
+                _ = gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid", color_dict=color_dict[int(subducting_pid)])
                 trench_pids = one_subduction_data["trench_pid"].unique()
                 ax.set_extent(region, crs=ccrs.PlateCarree())
 
                 ax = fig.add_subplot(gs[2, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
-                gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid")
+                _ = gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid", color_dict=color_dict[int(subducting_pid)])
                 trench_pids = one_subduction_data["trench_pid"].unique()
                 ax.set_extent(region, crs=ccrs.PlateCarree())
                 for j, trench_pid in enumerate(trench_pids):
@@ -480,6 +521,8 @@ class GPLATE_PROCESS():
         print("Saved figure %s" % (ofile_path + ".png"))
         fig0.savefig(ofile_path + ".pdf")
         print("Saved figure %s" % (ofile_path + ".pdf"))
+
+        return color_dict
 
     def plot_age_combined(self, resample_dataset, plot_options=None):
         # Summary:
@@ -840,7 +883,7 @@ class GPLOTTER():
         Return:
             color_dict (dict): color map for all the trenches.
         '''
-        color0  = kwargs.get("color", None)
+        color_dict  = kwargs.get("color_dict", {})
         plot_conv = kwargs.get("plot_conv", False)
         stepping = kwargs.get("stepping", 1)
 
@@ -851,17 +894,16 @@ class GPLOTTER():
         pids = subduction_data[plot_by].unique()
 
         # plot data by trench_pid
-        color_dict = {}
         for i, pid in enumerate(pids):
             mask = subduction_data[plot_by] == pid
             one_subduction_data = subduction_data[mask]
 
-            if color0 is None: 
+            try:
+                _color = color_dict[int(pid)]["color"]
+            except KeyError:
                 _color = default_colors[i%4]
-            else:
-                _color = color0
+                color_dict[int(pid)] = {"color": _color}
 
-            color_dict[pid] = _color
             ax.scatter(one_subduction_data.lon, one_subduction_data.lat, marker=".", s=30, c=_color, transform=ccrs.PlateCarree(), label=pid)
 
             if plot_conv:
@@ -1180,6 +1222,37 @@ def crop_region_by_data(s_data, interval):
 
     return region
 
+# todo_gp
+def mergy_region(region0, region1):
+
+    # parse the two ranges
+    lon_min_0, lon_max_0, lat_min_0, lat_max_0 = region0[0], region0[1], region0[2], region0[3]
+    lon_min_1, lon_max_1, lat_min_1, lat_max_1 = region1[0], region1[1], region1[2], region1[3]
+
+    # new lat range, just merge the two end
+    lat_range = [min(lat_min_0, lat_min_1), max(lat_max_0, lat_max_1)]
+
+    # new lon range, derive two ranges based on different lon definition
+    # take the one that has smaller range
+    lon_arr = np.array([lon_min_0, lon_max_0, lon_min_1, lon_max_1])
+
+    lon_arr0 = lon_arr.copy()
+    mask0 = (lon_arr > 180.0)
+    lon_arr0[mask0] -= 360.0
+    lon_range0 = [np.min(lon_arr0), np.max(lon_arr0)]
+    
+    lon_arr1 = lon_arr.copy()
+    mask1 = (lon_arr < 0.0)
+    lon_arr1[mask1] += 360.0
+    lon_range1 = [np.min(lon_arr1), np.max(lon_arr1)]
+
+    tolerance = 1e-6
+    if lon_range0[1] - lon_range0[0] < lon_range1[1] - lon_range1[0] + tolerance:
+        lon_range = lon_range0
+    else:
+        lon_range = lon_range1
+
+    return [lon_range[0], lon_range[1], lat_range[0], lat_range[1]]
 
 
 def mask_data_by_region(s_data, region):
