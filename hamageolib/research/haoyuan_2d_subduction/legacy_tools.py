@@ -15034,7 +15034,6 @@ different age will be adjusted.",\
         self.add_key("Include metastable transition", int,\
             ['metastable', 'include metastable'], 0, nick='include_meta')
         self.add_key("Trench migration", float, ['plate setup', "trench migration"], 0.0, nick="trench_migration")
-        # todo_3d
         self.add_key("Output non-adiabatic pressure", int, ['post-process', "nonadiabatic pressure"], 1, nick="non_adiabatic_P")
 
     
@@ -15853,7 +15852,6 @@ class CASE_THD(CASE):
             # change the particles
             o_dict["Particles"]["List of particle properties"] = "initial composition, metastable"
 
-        # todo_3d
         if non_adiabatic_P:
             o_dict['Postprocess']["Visualization"]["List of output variables"] += ", nonadiabatic pressure"
 

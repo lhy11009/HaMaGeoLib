@@ -15,12 +15,50 @@ from hamageolib.research.haoyuan_2d_subduction.legacy_utilities import map_mid_p
 from hamageolib.utils.exception_handler import my_assert
 from plate_model_manager import PlateModelManager
 
+# Retrieve the default color cycle
+default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+
 class GPLATE_PROCESS_WORKFLOW_ERROR(Exception):
     pass
 class GPLATE_PROCESS():
+    # Summary:
+    # GPLATE_PROCESS orchestrates loading a plate-tectonic model, reconstructing subduction zones
+    # at a specified geological time, and enriching the resulting subduction features with seafloor
+    # age values from a raster. It manages output directories for images/csv and holds state needed
+    # for plotting and downstream analysis.
+    # Attributes (types and meaning):
+    # - case_dir: str — root directory for this analysis run (created if missing).
+    # - csv_dir: str — directory under case_dir where CSV outputs are stored (created if missing).
+    # - model_name: Optional[str] — identifier of the plate model to use.
+    # - reconstruction_time: Optional[int] — geological time (Ma) at which to reconstruct.
+    # - anchor_plate_id: Optional[int] — plate ID used as rotation anchor (e.g., 0 for Africa).
+    # - model: Optional[gplately.PlateReconstruction] — reconstruction engine for plate motions.
+    # - plate_model: Optional[PlateModel] — model bundle returned by PlateModelManager.get_model(...).
+    # - subduction_data: Optional[pd.DataFrame] — tabular subduction geometries and kinematics.
+    # - gPlotter: Optional[GPLOTTER] — plotting helper bound to plate_model and model.
+    # - all_columns: List[str] — column schema from gplately tessellation results.
+    # - all_columns_1: List[str] — extended schema including 'age' from the raster.
+    # Suggested renames:
+    # - GPLATE_PROCESS -> GPlatesProcessor
+    # - gPlotter -> plotter
+    # - all_columns -> subduction_columns
+    # - all_columns_1 -> subduction_columns_with_age
+
 
     def __init__(self, case_dir):
-
+        # Summary:
+        # Initialize processor state and ensure output directories exist.
+        # Parameters:
+        # - case_dir: str — base directory for outputs ("img", "csv") and local model data.
+        # Returns:
+        # - None
+        # Side effects:
+        # - Creates directories if they do not exist.
+        # - Initializes attribute placeholders for model configuration and data.
+        # Raises:
+        # - None directly (os errors would propagate if permissions fail).
+        # Implementation starts below.
+        # Paths
         if not os.path.isdir(case_dir):
             os.mkdir(case_dir)
         if not os.path.isdir(os.path.join(case_dir, "img")):
@@ -29,14 +67,50 @@ class GPLATE_PROCESS():
         if not os.path.isdir(csv_dir):
             os.mkdir(csv_dir)
         self.case_dir = case_dir
+        self.csv_dir = csv_dir
 
+        # Record options
         self.model_name = None
         self.reconstruction_time = None
+        self.anchor_plate_id = None
+
+        # Record reconstruction
+        self.model = None
+        self.plate_model = None
+
+        # Record subduction data
         self.subduction_data = None
+
+        # Plotter
         self.gPlotter = None
+
+        # Define the columns used in the subduction data DataFrame
+        # all_columns: original columns from gplately
+        # all_columns_1: append sp age from raster
+        self.all_columns = ['lon', 'lat', 'conv_rate', 'conv_angle', 'trench_velocity', 
+                                'trench_velocity_angle', 'arc_length', 'trench_azimuth_angle', 
+                                'subducting_pid', 'trench_pid']
+        self.all_columns_1 = self.all_columns + ['age']
 
 
     def reconstruct(self, model_name, reconstruction_time, anchor_plate_id):
+        # Summary:
+        # Load a plate model, build a PlateReconstruction with a chosen anchor plate, and
+        # tessellate subduction zones at the requested reconstruction time. Stores a DataFrame
+        # of subduction features and prepares a GPLOTTER for visualization.
+        # Parameters:
+        # - model_name: str — key/name of the plate model available to PlateModelManager.
+        # - reconstruction_time: int — time (in Ma) for reconstruction (validated to be int).
+        # - anchor_plate_id: int — plate ID to use as the rotational anchor (e.g., 0 for Africa).
+        # Returns:
+        # - None
+        # Side effects:
+        # - Creates an image output subdirectory for this time step.
+        # - Populates self.subduction_data (pd.DataFrame) with columns in self.all_columns.
+        # - Initializes self.model, self.plate_model, self.gPlotter, and records config.
+        # Raises:
+        # - TypeError via my_assert if reconstruction_time is not int.
+        # - File/IO errors if model data cannot be found or read by PlateModelManager.
 
         self.model_name = model_name
         my_assert(type(reconstruction_time) == int, TypeError, "reconstruction_time must be int")
@@ -69,18 +143,31 @@ class GPLATE_PROCESS():
                                                             anchor_plate_id=anchor_plate_id,
                                                             ignore_warnings=True)
 
-        # Define the columns used in the subduction data DataFrame
-        all_columns = ['lon', 'lat', 'conv_rate', 'conv_angle', 'trench_velocity', 
-                                'trench_velocity_angle', 'arc_length', 'trench_azimuth_angle', 
-                                'subducting_pid', 'trench_pid']
 
-        self.subduction_data = pd.DataFrame(subduction_data_raw, columns=all_columns)
+
+        self.subduction_data = pd.DataFrame(subduction_data_raw, columns=self.all_columns)
 
         self.gPlotter = GPLOTTER(plate_model, model)
         self.gPlotter.set_time(self.reconstruction_time)
+        self.model = model
+        self.plate_model = plate_model
+        self.anchor_plate_id = anchor_plate_id
 
     def add_age_raster(self):
-        my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR("Need to call function \"reconstruct\" first."))
+        # Summary:
+        # Attach seafloor age to each subduction data point by interpolating a global age raster
+        # at the current reconstruction time. Fills NaNs in the raster before interpolation to
+        # avoid gaps along trench boundaries.
+        # Parameters:
+        # - None
+        # Returns:
+        # - None (updates self.subduction_data in place by adding an 'age' column).
+        # Preconditions:
+        # - self.reconstruct(...) has been called, and self.subduction_data is not None.
+        # Raises:
+        # - GPLATE_PROCESS_WORKFLOW_ERROR if reconstruct() was not called prior to this method.
+
+        my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"reconstruct\" first.")
         # Initialize the age grid raster, which will be used for age-related computations
         self.age_grid_raster = gplately.Raster(
                                         data=self.plate_model.get_raster("AgeGrids", self.reconstruction_time),
@@ -94,11 +181,24 @@ class GPLATE_PROCESS():
 
         self.subduction_data['age'] = self.age_grid_raster.interpolate(self.subduction_data.lon, self.subduction_data.lat, method="nearest")
         
-        self.all_columns_1 = self.all_columns + ['age'] # leave a placeholder for age
     
     def resample_subduction(self, arc_length_edge, arc_length_resample_section):
+        # Summary:
+        # Resample subduction-zone point sets for each unique subducting plate ID so that points are
+        # spaced by a uniform arc-length step, trimming a margin at both ends. Stores results in
+        # self.subduction_data_resampled and exports a CSV.
+        # Parameters:
+        # - arc_length_edge: float — arc-length margin (same units as 'arc_length') to exclude at each edge.
+        # - arc_length_resample_section: float — resampling step in arc-length (uniform spacing).
+        # Returns:
+        # - None (updates internal attributes; writes a CSV by calling export_csv()).
+        # Preconditions:
+        # - self.subduction_data is a populated DataFrame from reconstruct().
+        # Raises:
+        # - GPLATE_PROCESS_WORKFLOW_ERROR if reconstruct() was not called.
+        # - ValueError caught per-subduction zone; zones that fail resampling are skipped.
         
-        my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR("Need to call function \"reconstruct\" first."))
+        my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"reconstruct\" first.")
 
         subduction_data = self.subduction_data
 
@@ -133,9 +233,20 @@ class GPLATE_PROCESS():
         print("subducting_pids (after resampling): ", re_subducting_pids)
         print("Total resampled points: ", len(subduction_data_resampled))
 
+        self.subduction_data_resampled = subduction_data_resampled
+
         self.export_csv("subduction_data_resampled", "resampled_edge%.1f_section%.1f.csv" % (arc_length_edge, arc_length_resample_section))
     
     def export_csv(self, _name, file_name):
+        # Summary:
+        # Write a DataFrame attribute of this instance to CSV under self.csv_dir.
+        # Parameters:
+        # - _name: str — attribute name of the DataFrame to export (e.g., "subduction_data_resampled").
+        # - file_name: str — target file name (e.g., "resampled_edgeX_sectionY.csv").
+        # Returns:
+        # - None (writes to disk and prints the destination path).
+        # Raises:
+        # - TypeError via my_assert if the named attribute is not a pandas DataFrame.
 
         csv_obj = getattr(self, _name)
         my_assert(isinstance(csv_obj, pd.DataFrame), TypeError, "object with name %s is not a pd.DataFrame" % _name)
@@ -145,8 +256,20 @@ class GPLATE_PROCESS():
         print("Saved file %s" % file_path)
 
     def save_results_ori(self, inspect_all_slabs_in_separate_plots=False):
+        # Summary:
+        # Render and save global and optional per-slab figures for the original (unresampled) subduction data.
+        # Parameters:
+        # - inspect_all_slabs_in_separate_plots: bool — if True, also produce per-slab diagnostic panels with
+        #   point indices and trench IDs annotated.
+        # Returns:
+        # - None (saves .png/.pdf figures into an "ori" subdirectory).
+        # Preconditions:
+        # - self.subduction_data is available from reconstruct().
+        # - self.age_grid_raster should exist if age shading is desired (set in add_age_raster()).
+        # Raises:
+        # - GPLATE_PROCESS_WORKFLOW_ERROR if reconstruct() was not called.
        
-        my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR("Need to call function \"reconstruct\" first."))
+        my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"reconstruct\" first.")
         
         local_img_dir = os.path.join(self.img_dir, "ori")
         if os.path.isdir(local_img_dir):
@@ -248,8 +371,20 @@ class GPLATE_PROCESS():
         print("Saved figure %s" % (ofile_path + ".pdf"))
 
     def save_results_resampled(self, inspect_all_slabs_resampled_plot_individual=False):
+        # Summary:
+        # Render and save global and optional per-slab figures for the resampled subduction data.
+        # Parameters:
+        # - inspect_all_slabs_resampled_plot_individual: bool — if True, produce per-slab diagnostic panels
+        #   with point indices (denser labels than the original plots) and trench IDs.
+        # Returns:
+        # - None (saves .png/.pdf figures into a resampled-specific subdirectory).
+        # Preconditions:
+        # - self.subduction_data_resampled exists from resample_subduction().
+        # - self.age_grid_raster is available for background shading (if add_age_raster() was used).
+        # Raises:
+        # - GPLATE_PROCESS_WORKFLOW_ERROR if resample_subduction() was not called.
 
-        my_assert(self.subduction_data_resampled is not None, GPLATE_PROCESS_WORKFLOW_ERROR("Need to call function \"resample_subduction\" first."))
+        my_assert(self.subduction_data_resampled is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"resample_subduction\" first.")
 
         local_img_dir = os.path.join(self.img_dir, "resampled_edge%.1f_section%.1f" % (self.arc_length_edge, self.arc_length_resample_section))
         if os.path.isdir(local_img_dir):
@@ -346,21 +481,45 @@ class GPLATE_PROCESS():
         fig0.savefig(ofile_path + ".pdf")
         print("Saved figure %s" % (ofile_path + ".pdf"))
 
-    def plot_age_combined(self, plot_options, resample_dataset=True):
+    def plot_age_combined(self, resample_dataset, plot_options=None):
+        # Summary:
+        # Generate and save age-vs-metrics figures for either the original or resampled subduction dataset.
+        # For each selected subducting plate ID, saves an individual figure, and also saves an aggregate figure.
+        # Parameters:
+        # - resample_dataset: bool — if True, use the resampled table (self.subduction_data_resampled) and
+        #   write to a directory labeled with resampling parameters; otherwise, use the original table.
+        # - plot_options: Optional[List[Tuple[int, Dict[str, Any]]]] — per-subducting_pid plot settings.
+        #   If None, a default configuration is constructed assigning marker shapes and colors.
+        # Returns:
+        # - None (saves .png and .pdf figures into a time- or parameter-stamped directory).
+        # Preconditions:
+        # - If resample_dataset is True, resample_subduction() must have been called (checks enforced).
+        # - If resample_dataset is False, reconstruct() must have been called (checks enforced).
+        # Raises:
+        # - GPLATE_PROCESS_WORKFLOW_ERROR if required upstream step was not executed.
+        # - File/IO errors may propagate on directory/figure writes.
         
         if resample_dataset:
             local_img_dir = os.path.join(self.img_dir, "age_combined_resampled_edge%.1f_section%.1f" %\
                                         (self.arc_length_edge, self.arc_length_resample_section))
-            my_assert(self.subduction_data_resampled is not None, GPLATE_PROCESS_WORKFLOW_ERROR("Need to call function \"resample_subduction\" first."))
+            my_assert(self.subduction_data_resampled is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"resample_subduction\" first.")
             s_data = self.subduction_data_resampled
         else:
             local_img_dir = os.path.join(self.img_dir, "age_combined_t%.2fMa" % float(self.reconstruction_time))
-            my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR("Need to call function \"reconstruct\" first."))
+            my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"reconstruct\" first.")
             s_data = self.subduction_data
 
         if os.path.isdir(local_img_dir):
             rmtree(local_img_dir)
         os.mkdir(local_img_dir)
+
+        if plot_options is None:
+            markers = ["o", '*', "d", "x", "v", "s"]
+            n_color = 10
+            plot_options = []
+            subducting_pids = s_data.subducting_pid.unique()
+            for i, subducting_pid in enumerate(subducting_pids):
+                plot_options.append((int(subducting_pid), {"marker": markers[i//n_color],  "markerfacecolor": default_colors[i%10], "name": str(int(subducting_pid))}))
 
         for sub_plot_options in plot_options:
             print("sub_plot_options: ", sub_plot_options)

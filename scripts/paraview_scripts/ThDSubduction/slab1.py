@@ -662,7 +662,6 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     HideScalarBarIfNotNeeded(fieldLUT, renderView1)
     HideScalarBarIfNotNeeded(fieldPWF, renderView1)
     # save figure for slab
-    # todo_dp
     if HAS_DYNAMIC_PRESSURE:
         set_non_adiabatic_pressure_plot_slab(transform1Display)
         fig_path = os.path.join(pv_output_dir, "slice_center_nP_slab_t%.4e.pdf" % _time)
