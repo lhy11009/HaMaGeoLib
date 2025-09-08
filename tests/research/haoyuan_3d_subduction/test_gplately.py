@@ -10,7 +10,7 @@ from plate_model_manager import PlateModelManager
 
 from hamageolib.research.haoyuan_3d_subduction.gplately_utilities import \
       read_subduction_reconstruction_data, parse_subducting_trench_option, crop_region_by_data,\
-      resample_subduction, compute_sum_of_arc_lengths, resample_positions, mergy_region
+      resample_subduction, compute_sum_of_arc_lengths, resample_positions, merge_region
 
 package_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 fixture_root = os.path.join(package_root, "tests", "fixtures", "research", "haoyuan_3d_subduction")
@@ -85,64 +85,76 @@ def test_crop_region_by_data_errors(case):
         crop_region_by_data(case["s_data"], case["interval"])
 
 # ----------------------
-# Tests for mergy_region
+# Tests for merge_region
 # ----------------------
 SUCCESS_CASES = [
     dict(
         name="simple_no_wrap",
         r0=(10.0, 20.0, -5.0, 5.0),
         r1=(15.0, 25.0, -10.0, 10.0),
-        expected=(10.0, 25.0, -10.0, 10.0),
+        expected=[0.0, 30.0, -15.0, 15.0],
     ),
     dict(
         name="wrap_mix_170_and_neg170_choose_0to360",
         r0=(170.0, 175.0, -10.0, 0.0),
         r1=(-170.0, -160.0, -5.0, 5.0),
         # minimal span is in [0, 360): [170, 200]
-        expected=(170.0, 200.0, -10.0, 5.0),
+        expected=[165.0, 210.0, -15.0, 15.0],
     ),
     dict(
         name="wrap_neg10_and_350_choose_minus180to180",
         r0=(-10.0, 10.0, -5.0, 5.0),
         r1=(350.0, 355.0, -20.0, -10.0),
         # minimal span is in [-180, 180]: [-10, 10]
-        expected=(-10.0, 10.0, -20.0, 5.0),
+        expected=(0.0, 360.0, -30.0, 15.0),
     ),
     dict(
         name="tie_prefers_range0_branch",
         r0=(200.0, 220.0, 0.0, 10.0),
         r1=(210.0, 230.0, 5.0, 15.0),
         # tie in span -> code prefers range0, which maps to [-160, -130]
-        expected=(-160.0, -130.0, 0.0, 15.0),
+        expected=[195.0, 240.0, 0.0, 15.0],
     ),
     dict(
         name="negative_and_cross_to_positive",
         r0=(-80.0, -30.0, -50.0, -40.0),
         r1=(-40.0, 5.0, -60.0, -30.0),
-        expected=(-80.0, 5.0, -60.0, -30.0),
+        expected=[-90.0, 15.0, -60.0, -30.0],
     ),
     dict(
         name="identical_regions",
         r0=(30.0, 40.0, 10.0, 20.0),
         r1=(30.0, 40.0, 10.0, 20.0),
-        expected=(30.0, 40.0, 10.0, 20.0),
+        expected=[30.0, 45.0, 0.0, 30.0]
     ),
+    dict(
+        name="identical_regions_1",
+        r0=(0.0, 360.0, 10.0, 20.0),
+        r1=(0.0, 360.0, 10.0, 20.0),
+        expected=[0.0, 360.0, 0.0, 30.0],
+    ),
+    dict(
+        name="s701_regions",
+        r0=(-15.0, 45.0, 30.0, 60.0),
+        r1=(-15.0, 30.0, 30.0, 45.0),
+        expected=(-15.0, 45.0, 30.0, 60.0),
+    )
 ]
 
 
 @pytest.mark.parametrize("case", SUCCESS_CASES, ids=[c["name"] for c in SUCCESS_CASES])
-def test_mergy_region_success(case):
-    got = mergy_region(case["r0"], case["r1"])
+def test_merge_region_success(case):
+    got = merge_region(case["r0"], case["r1"])
     assert np.allclose(got, case["expected"], rtol=0, atol=1e-9), (
         f"{case['name']}: expected {case['expected']}, got {got}"
     )
 
 
 @pytest.mark.parametrize("case", SUCCESS_CASES, ids=[f"commutes_{c['name']}" for c in SUCCESS_CASES])
-def test_mergy_region_commutativity(case):
-    # mergy_region should be commutative
-    got_forward = mergy_region(case["r0"], case["r1"])
-    got_reverse = mergy_region(case["r1"], case["r0"])
+def test_merge_region_commutativity(case):
+    # merge_region should be commutative
+    got_forward = merge_region(case["r0"], case["r1"])
+    got_reverse = merge_region(case["r1"], case["r0"])
     assert np.allclose(got_forward, got_reverse, rtol=0, atol=1e-9), (
         f"{case['name']}: not commutative; {got_forward} vs {got_reverse}"
     )
@@ -179,9 +191,9 @@ ERROR_CASES = [
 
 
 @pytest.mark.parametrize("case", ERROR_CASES, ids=[c["name"] for c in ERROR_CASES])
-def test_mergy_region_errors(case):
+def test_merge_region_errors(case):
     with pytest.raises(case["exc"]):
-        _ = mergy_region(case["r0"], case["r1"])
+        _ = merge_region(case["r0"], case["r1"])
 
 
 # ----------------------

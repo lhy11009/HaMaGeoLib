@@ -324,7 +324,6 @@ class GPLATE_PROCESS():
                 # 3. also include makers
                 region = crop_region_by_data(one_subduction_data, 15.0)
                 gPlotter.set_region(region) # set region to default, no need to filter
-                print("region: ", region) # debug
             
                 fig = plt.figure(figsize=(10, 18), dpi=100)
                 gs = gridspec.GridSpec(3, 1)
@@ -400,6 +399,22 @@ class GPLATE_PROCESS():
 
         return pid_dict
 
+    # todo_gp 
+    def update_region_dict(self, resample_dataset, region_dict={}):
+        if resample_dataset:
+            s_data = self.subduction_data_resampled
+        else:
+            s_data = self.subduction_data
+        subducting_pids = s_data.subducting_pid.unique()
+        for i, subducting_pid in enumerate(subducting_pids):
+            one_subduction_data = s_data[s_data.subducting_pid==subducting_pid]
+            new_region =  crop_region_by_data(one_subduction_data, 15.0)
+            if int(subducting_pid) in region_dict:
+                region_dict[int(subducting_pid)] = merge_region(region_dict[int(subducting_pid)], new_region)
+            else:
+                region_dict[int(subducting_pid)] = new_region
+        return region_dict
+
     def save_results_resampled(self, inspect_all_slabs_resampled_plot_individual=False, only_one_pid=None, **kwargs):
         # Summary:
         # Render and save global and optional per-slab figures for the resampled subduction data.
@@ -418,6 +433,7 @@ class GPLATE_PROCESS():
         my_assert(self.subduction_data_resampled is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"resample_subduction\" first.")
 
         color_dict = kwargs.get("color_dict", {})
+        region_dict = kwargs.get("region_dict", {})
         
         local_img_dir = os.path.join(self.img_dir, "resampled_edge%.1f_section%.1f" % (self.arc_length_edge, self.arc_length_resample_section))
         if os.path.isdir(local_img_dir):
@@ -464,9 +480,11 @@ class GPLATE_PROCESS():
                 # 1. mark indices of points
                 # 2. mark trench pid values
                 # 3. also include makers
-                region = crop_region_by_data(one_subduction_data, 15.0)
+                try:
+                    region = region_dict[int(subducting_pid)]
+                except KeyError:
+                    region = crop_region_by_data(one_subduction_data, 15.0)
                 gPlotter.set_region(region) # set region to default, no need to filter
-                print("region: ", region) # debug
             
                 fig = plt.figure(figsize=(10, 18), dpi=100)
                 gs = gridspec.GridSpec(3, 1)
@@ -1193,15 +1211,21 @@ def crop_region_by_data(s_data, interval):
             - region1: longitudes are wrapped into [0, 360).
         The function selects the region with the smaller longitude span.
     """
-
-    my_assert(len(s_data) > 0, ValueError, "s_data cannot be vacant")
+    if isinstance(s_data, pd.DataFrame):
+        my_assert(len(s_data) > 0, ValueError, "s_data cannot be vacant")
+        lon_np = s_data.lon.to_numpy()
+        lat_np = s_data.lat.to_numpy()
+    elif isinstance(s_data, np.ndarray):
+        my_assert(s_data.size > 0, ValueError, "s_data cannot be vacant")
+        my_assert(s_data.shape[1] == 2, ValueError, "s_data should contain two columns \"lon\" and \"lat\"")
+        lon_np = s_data[:, 0]
+        lat_np = s_data[:, 1]
 
     # Extract raw longitude and latitude ranges
-    lon_min_raw, lon_max_raw = np.min(s_data.lon.to_numpy()), np.max(s_data.lon.to_numpy())
-    lat_min, lat_max = np.min(s_data.lat.to_numpy()), np.max(s_data.lat.to_numpy())
+    lon_min_raw, lon_max_raw = np.min(lon_np), np.max(lon_np)
+    lat_min, lat_max = np.min(lat_np), np.max(lat_np)
 
     # Extract longitude ranges of > 0 values
-    lon_np = s_data.lon.to_numpy()
     mask = lon_np < 0
     lon_np[mask] += 360
     lon_min_1, lon_max_1 = np.min(lon_np), np.max(lon_np)
@@ -1223,39 +1247,64 @@ def crop_region_by_data(s_data, interval):
     return region
 
 # todo_gp
-def mergy_region(region0, region1):
+def merge_region(region0, region1):
+    """
+    Merge two lon–lat rectangular regions into a single bounding region.
 
+    Parameters
+    ----------
+    region0 : list[float]
+        [lon_min0, lon_max0, lat_min0, lat_max0].
+    region1 : list[float]
+        [lon_min1, lon_max1, lat_min1, lat_max1].
+
+    Returns
+    -------
+    list[float]
+        [lon_min, lon_max, lat_min, lat_max] describing a region that
+        encloses points sampled from both input rectangles. The exact
+        rounding/extension behavior is delegated to `crop_region_by_data`
+        (with interval = 15.0).
+    """
     # parse the two ranges
-    lon_min_0, lon_max_0, lat_min_0, lat_max_0 = region0[0], region0[1], region0[2], region0[3]
-    lon_min_1, lon_max_1, lat_min_1, lat_max_1 = region1[0], region1[1], region1[2], region1[3]
-
-    # new lat range, just merge the two end
-    lat_range = [min(lat_min_0, lat_min_1), max(lat_max_0, lat_max_1)]
-
-    # new lon range, derive two ranges based on different lon definition
-    # take the one that has smaller range
-    lon_arr = np.array([lon_min_0, lon_max_0, lon_min_1, lon_max_1])
-
-    lon_arr0 = lon_arr.copy()
-    mask0 = (lon_arr > 180.0)
-    lon_arr0[mask0] -= 360.0
-    lon_range0 = [np.min(lon_arr0), np.max(lon_arr0)]
+    lon_np0 = np.linspace(region0[0], region0[1], 99)
+    lat_np0 = np.linspace(region0[2], region0[3], 101)
     
-    lon_arr1 = lon_arr.copy()
-    mask1 = (lon_arr < 0.0)
-    lon_arr1[mask1] += 360.0
-    lon_range1 = [np.min(lon_arr1), np.max(lon_arr1)]
+    lon_np1 = np.linspace(region1[0], region1[1], 99)
+    lat_np1 = np.linspace(region1[2], region1[3], 101)
 
-    tolerance = 1e-6
-    if lon_range0[1] - lon_range0[0] < lon_range1[1] - lon_range1[0] + tolerance:
-        lon_range = lon_range0
-    else:
-        lon_range = lon_range1
+    Lon0, Lat0 = np.meshgrid(lon_np0, lat_np0)
+    Lon1, Lat1 = np.meshgrid(lon_np1, lat_np1)
+    mesh_np0  = np.column_stack([Lon0.ravel(), Lat0.ravel()])
+    mesh_np1  = np.column_stack([Lon1.ravel(), Lat1.ravel()])
 
-    return [lon_range[0], lon_range[1], lat_range[0], lat_range[1]]
+    mesh_np = np.concatenate([mesh_np0, mesh_np1], axis=0)
+
+    region = crop_region_by_data(mesh_np, 15.0)
+
+    return region
 
 
 def mask_data_by_region(s_data, region):
+    """
+    Build a boolean mask selecting rows of `s_data` inside a lon–lat box.
+
+    Parameters
+    ----------
+    s_data : pandas.DataFrame
+        Must contain columns `lon` and `lat` (in degrees). Longitudes are
+        assumed on a continuous circle where -180 and 180 are adjacent.
+    region : list[float]
+        [lon_a, lon_b, lat_min, lat_max]. If lon_a < lon_b, the mask
+        selects lon in (lon_a, lon_b); otherwise it wraps across the
+        dateline and selects lon in (lon_a, 360] ∪ (-∞, lon_b), effectively
+        handling cases like [170, -170] for a small window straddling 180°.
+
+    Returns
+    -------
+    pandas.Series (bool)
+        True for rows inside the open intervals (lon, lat).
+    """
 
     my_assert(isinstance(region, list) and len(region)== 4, ValueError, "region must be a list of length 4")
 

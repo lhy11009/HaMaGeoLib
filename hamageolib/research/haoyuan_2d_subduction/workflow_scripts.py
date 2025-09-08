@@ -45,7 +45,6 @@ Note:
     standards. Use within the context of research reproducibility and customization.
 """
 # Modules ..
-import cv2
 import os
 import numpy as np
 import re
@@ -493,6 +492,8 @@ def create_avi_from_images(file_paths, output_file, frame_rate=30):
     Returns:
         None
     """
+    import cv2
+
     # Check if the file_paths list is empty
     if not file_paths:
         raise ValueError("The file_paths list is empty.")
