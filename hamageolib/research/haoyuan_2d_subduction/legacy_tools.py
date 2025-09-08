@@ -12821,6 +12821,23 @@ opcrust: 1e+31, opharz: 1e+31", \
             material_model = o_dict["Material model"]
             material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
             material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:1.0|0.0|0.0|0.0|0.0|0.0|0.0"
+            # todo_meta
+            # duplicate options for opharz and opcrust
+            comp0 = "spharz"
+            comp = "opharz"
+            comp0_cr = "spcrust"
+            comp_cr = "opcrust"
+            for key, value in material_model["Visco Plastic TwoD"].items():
+                if key not in ["Minimum viscosity"]:
+                    if isinstance(value, str)\
+                        and re.match('.*' + comp0, value) and re.match('.*:', value)\
+                        and not re.match('.*;', value):
+                        # duplicate the harz
+                        temp = value
+                        temp = duplicate_composition_option(temp, comp0, comp)
+                        # duplicate the crust
+                        material_model["Visco Plastic TwoD"][key] = duplicate_composition_option(temp, comp0_cr, comp_cr)
+
             o_dict["Material model"] = material_model
 
             # change the particle properties
