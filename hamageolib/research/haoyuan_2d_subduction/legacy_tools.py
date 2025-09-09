@@ -12850,7 +12850,6 @@ opcrust: 1e+31, opharz: 1e+31", \
             material_model = o_dict["Material model"]
             material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
             material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:1.0|0.0|0.0|0.0|0.0|0.0|0.0"
-            # todo_meta
             # duplicate options for opharz and opcrust
             comp0 = "spharz"
             comp = "opharz"
@@ -12865,7 +12864,21 @@ opcrust: 1e+31, opharz: 1e+31", \
                         temp = value
                         temp = duplicate_composition_option(temp, comp0, comp)
                         # duplicate the crust
-                        material_model["Visco Plastic TwoD"][key] = duplicate_composition_option(temp, comp0_cr, comp_cr)
+                        # for all the creep parameters, reset the shear zone values
+                        if key not in ["Prefactors for diffusion creep", "Grain size exponents for diffusion creep",\
+                                       "Activation energies for diffusion creep", "Activation volumes for diffusion creep",\
+                                        "Prefactors for dislocation creep", "Stress exponents for dislocation creep",\
+                                        "Activation energies for dislocation creep", "Activation volumes for dislocation creep",\
+                                            "Cutoff pressures for Peierls creep"]:
+                            temp = duplicate_composition_option(temp, comp0_cr, comp_cr)
+                        else:
+                            comp_in = COMPOSITION(temp)
+                            var = comp_in.data[comp0_cr].copy()
+                            var[0] = var[1] # reset shear zone value
+                            comp_out = COMPOSITION(comp_in)
+                            comp_out.data[comp_cr] = var
+                            temp = comp_out.parse_back() 
+                        material_model["Visco Plastic TwoD"][key] = temp
 
             o_dict["Material model"] = material_model
 
