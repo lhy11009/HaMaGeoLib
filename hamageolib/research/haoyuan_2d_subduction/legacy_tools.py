@@ -9996,6 +9996,7 @@ def ComputeComposite(*Args):
         eta_comp = 1.0 / reciprocal
         return eta_comp
 
+# todo
 def CreepComputeA(creep, strain_rate, P, T, eta, d=1e4, Coh=1e3, **kwargs):
     """
     Compute the prefactor in the rheology with other variables in a flow law (p, r, n, E, V).
@@ -10307,6 +10308,7 @@ class RHEOLOGY_OPR():
         dAdisl_ratio = float(kwargs.get("dAdisl_ratio", 1.0))
         dEdisl = float(kwargs.get('dEdisl', 0.0))
         dVdisl = float(kwargs.get('dVdisl', 0.0))
+        Vdiff_lm = kwargs.get("Vdiff_lm", 3e-6)
         save_pdf = kwargs.get("save_pdf", False)
         rheology = kwargs.get('rheology', 'HK03_wet_mod')
         save_profile = kwargs.get('save_profile', 0)
@@ -10316,6 +10318,8 @@ class RHEOLOGY_OPR():
         Coh = kwargs.get("Coh", 1000.0)
         assign_rheology = kwargs.get("assign_rheology", False)
         ymax = kwargs.get("ymax", 2890.0) # km, only used for plots
+        depth_lm_middle = kwargs.get("depth_lm_middle", None)
+        Vdiff_lm_middle = kwargs.get("Vdiff_lm_middle", 3e-6)
 
         
         eta_diff = np.ones(self.depths.size)
@@ -10413,8 +10417,24 @@ class RHEOLOGY_OPR():
             print("eta_disl660 = ", eta_disl660)
             print("eta_comp660 = ", eta660)
         diff_lm = diffusion_creep.copy()
-        diff_lm['V'] = 3e-6  # assign a value
+        # todo_visc
+        diff_lm['V'] = Vdiff_lm  # assign a value
         diff_lm['A'] = CreepComputeA(diff_lm, strain_rate, P660, T660, eta660*jump_lower_mantle, d=1e4, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
+
+        eta660_lm = CreepRheology(diff_lm, strain_rate, P660, T660, d=1e4, Coh=Coh,\
+                                    use_effective_strain_rate=use_effective_strain_rate)
+
+        # additional step: another layer at ~1000 km
+        if depth_lm_middle is not None:
+            mask_low_middle = (self.depths > depth_lm_middle)
+            T_lm_middle = T_func(depth_lm_middle)
+            P_lm_middle = P_func(depth_lm_middle)
+            eta_lm_middle = CreepRheology(diff_lm, strain_rate, P_lm_middle, T_lm_middle, d=1e4, Coh=Coh,\
+                                    use_effective_strain_rate=use_effective_strain_rate)
+            diff_lm_middle = diff_lm.copy()
+            diff_lm_middle['V'] = Vdiff_lm_middle
+            diff_lm_middle['A'] = CreepComputeA(diff_lm_middle, strain_rate, P_lm_middle, T_lm_middle, eta_lm_middle*0.5, d=1e4, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
+
         
         # dump json file 
         constrained_rheology = {'diffusion_creep': diffusion_creep, 'dislocation_creep': dislocation_creep, 'diffusion_lm': diff_lm}
@@ -10433,7 +10453,6 @@ class RHEOLOGY_OPR():
                                         'composite': None, 'dislocation_13': None,\
                                         'composite_13': None, 'depth': None}
         
-        
         # lower mnatle rheology
         eta_diff[mask_low] = CreepRheologyInAspectViscoPlastic(diffusion_lm_aspect, strain_rate, self.pressures[mask_low], self.temperatures[mask_low])
         eta_disl[mask_low] = None  # this is just for visualization
@@ -10441,6 +10460,16 @@ class RHEOLOGY_OPR():
         eta[mask_low] = eta_diff[mask_low]  # diffusion creep is activated in lower mantle
         eta13[mask_low] = eta_diff[mask_low]  # diffusion creep is activated in lower mantle
         
+        # middle-lower mantle rheology
+        if depth_lm_middle is not None:
+            diffusion_lm_middle_aspect = Convert2AspectInput(diff_lm_middle, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
+            constrained_rheology_aspect["diffusion_lm_middle"] = diffusion_lm_middle_aspect
+            eta_diff[mask_low_middle] = CreepRheologyInAspectViscoPlastic(diffusion_lm_middle_aspect, strain_rate, self.pressures[mask_low_middle], self.temperatures[mask_low_middle])
+            eta_disl[mask_low_middle] = None  # this is just for visualization
+            eta_disl13[mask_low_middle] = None  # this is just for visualization
+            eta[mask_low_middle] = eta_diff[mask_low_middle]  # diffusion creep is activated in lower mantle
+            eta13[mask_low_middle] = eta_diff[mask_low_middle]  # diffusion creep is activated in lower mantle
+
         # Next, we visit some constraints for whole manlte rheology 
         # to see whether we match them
         # The haskel constraint

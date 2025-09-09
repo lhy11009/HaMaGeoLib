@@ -90,6 +90,86 @@ def test_CoulumbYielding():
     assert(abs(tau - tau_std)/tau_std < 1e-6)
 
 
+def test_MantleRheology_middle_lower_mantle():
+    '''
+    Test generating mantle rheology for maximum at ~1000 km
+    '''
+    # todo_visc
+    rheology_name = "WarrenHansen23"
+    mantle_coh = 300.0
+    strain_rate = 1e-15
+    jump_lower_mantle = 0.5
+    Vdiff_lm = 8.25e-6
+    depth_lm_middle = 1100e3
+
+    # initiate operators
+    rheology_prm_dict = RHEOLOGY_PRM()
+    Operator = RHEOLOGY_OPR()
+
+    # import a depth average profile
+    LEGACY_FILE_DIR = os.path.join(package_root, "hamageolib/research/haoyuan_2d_subduction/legacy_files")
+    da_file = os.path.join(LEGACY_FILE_DIR, 'reference_TwoD', "depth_average.txt")
+    Operator.ReadProfile(da_file)
+    depths, pressures, temperatures = Operator.depths, Operator.pressures, Operator.temperatures
+
+    T660, P660 = np.interp(660e3, depths, temperatures), np.interp(660e3, depths, pressures)
+    T1100, P1100 = np.interp(1100e3, depths, temperatures), np.interp(1100e3, depths, pressures)
+    T2000, P2000 = np.interp(2000e3, depths, temperatures), np.interp(2000e3, depths, pressures)
+
+    # initial rheologic parameters
+    diffusion_creep_ori = getattr(rheology_prm_dict, rheology_name + "_diff")
+    dislocation_creep_ori = getattr(rheology_prm_dict, rheology_name + "_disl")
+    rheology_dict = {'diffusion': diffusion_creep_ori, 'dislocation': dislocation_creep_ori}
+    # prescribe the correction
+    diff_correction = {'A': 1.0, 'p': 0.0, 'r': 0.0, 'n': 0.0, 'E': 0.0, 'V': -2.1e-6}
+    disl_correction = {'A': 1.0, 'p': 0.0, 'r': 0.0, 'n': 0.0, 'E': 0.0, 'V': 3e-6}
+    # prescribe the reference state
+    ref_state = {}
+    ref_state["Coh"] = mantle_coh # H / 10^6 Si
+    ref_state["stress"] = 50.0 # MPa
+    ref_state["P"] = 100.0e6 # Pa
+    ref_state["T"] = 1250.0 + 273.15 # K
+    ref_state["d"] = 15.0 # mu m
+    # refit rheology
+    rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
+    # derive mantle rheology
+    rheology, viscosity_profile = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
+                                                dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
+                                                use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
+                                                jump_lower_mantle=jump_lower_mantle, Vdiff_lm=Vdiff_lm, depth_lm_middle=depth_lm_middle)
+
+    # assert same rheology on different sides of 660 km 
+    diff_um = rheology["diffusion_creep"]
+    disl_um = rheology["dislocation_creep"]
+
+    visc_660_diff_um = CreepRheologyInAspectViscoPlastic(diff_um, strain_rate, P660, T660)
+    visc_660_disl_um = CreepRheologyInAspectViscoPlastic(disl_um, strain_rate, P660, T660)
+    visc_660_um = 1.0 / (1.0/visc_660_diff_um + 1.0/visc_660_disl_um)
+
+    diff_lm = rheology["diffusion_lm"]
+
+    visc_660_lm = CreepRheologyInAspectViscoPlastic(diff_lm, strain_rate, P660, T660)
+
+    visc_660_std = 1.433216270240052e+20
+    assert(abs(visc_660_um-visc_660_std) < 1e10)
+    assert(abs(visc_660_lm-visc_660_std) < 1e10)
+
+    # assert value at 1000 km
+    visc_1100_lm = CreepRheologyInAspectViscoPlastic(diff_lm, strain_rate, P1100, T1100)
+    visc_1100_std = 1.4897089018707233e+22
+    assert(abs(visc_1100_lm-visc_1100_std) < 1e10)
+
+    diff_lm_middle = rheology["diffusion_lm_middle"]
+    visc_1100_lm_middle = CreepRheologyInAspectViscoPlastic(diff_lm_middle, strain_rate, P1100, T1100)
+    assert(abs(visc_1100_lm_middle-visc_1100_std) < 1e10)
+
+    # assert value at 2000 km 
+    visc_2000_lm_middle = CreepRheologyInAspectViscoPlastic(diff_lm_middle, strain_rate, P2000, T2000)
+    visc_2000_std = 1.0106660064360133e+22
+    assert(abs(visc_2000_lm_middle-visc_2000_std) < 1e10)
+
+
+
 def test_MK10_peierls():
     '''
     test the MK10 rheology
