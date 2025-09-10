@@ -10318,7 +10318,7 @@ class RHEOLOGY_OPR():
         Coh = kwargs.get("Coh", 1000.0)
         assign_rheology = kwargs.get("assign_rheology", False)
         ymax = kwargs.get("ymax", 2890.0) # km, only used for plots
-        depth_lm_middle = kwargs.get("depth_lm_middle", None)
+        depth_lm_middle = kwargs.get("depth_lm_middle", -1.0)
         Vdiff_lm_middle = kwargs.get("Vdiff_lm_middle", 3e-6)
 
         
@@ -10417,7 +10417,6 @@ class RHEOLOGY_OPR():
             print("eta_disl660 = ", eta_disl660)
             print("eta_comp660 = ", eta660)
         diff_lm = diffusion_creep.copy()
-        # todo_visc
         diff_lm['V'] = Vdiff_lm  # assign a value
         diff_lm['A'] = CreepComputeA(diff_lm, strain_rate, P660, T660, eta660*jump_lower_mantle, d=1e4, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
 
@@ -10425,7 +10424,7 @@ class RHEOLOGY_OPR():
                                     use_effective_strain_rate=use_effective_strain_rate)
 
         # additional step: another layer at ~1000 km
-        if depth_lm_middle is not None:
+        if depth_lm_middle > 0.0:
             mask_low_middle = (self.depths > depth_lm_middle)
             T_lm_middle = T_func(depth_lm_middle)
             P_lm_middle = P_func(depth_lm_middle)
@@ -10434,7 +10433,6 @@ class RHEOLOGY_OPR():
             diff_lm_middle = diff_lm.copy()
             diff_lm_middle['V'] = Vdiff_lm_middle
             diff_lm_middle['A'] = CreepComputeA(diff_lm_middle, strain_rate, P_lm_middle, T_lm_middle, eta_lm_middle*0.5, d=1e4, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
-
         
         # dump json file 
         constrained_rheology = {'diffusion_creep': diffusion_creep, 'dislocation_creep': dislocation_creep, 'diffusion_lm': diff_lm}
@@ -10461,7 +10459,7 @@ class RHEOLOGY_OPR():
         eta13[mask_low] = eta_diff[mask_low]  # diffusion creep is activated in lower mantle
         
         # middle-lower mantle rheology
-        if depth_lm_middle is not None:
+        if depth_lm_middle > 0.0:
             diffusion_lm_middle_aspect = Convert2AspectInput(diff_lm_middle, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
             constrained_rheology_aspect["diffusion_lm_middle"] = diffusion_lm_middle_aspect
             eta_diff[mask_low_middle] = CreepRheologyInAspectViscoPlastic(diffusion_lm_middle_aspect, strain_rate, self.pressures[mask_low_middle], self.temperatures[mask_low_middle])
@@ -11557,6 +11555,14 @@ intiation stage causes the slab to break in the middle",\
         self.add_key("Include metastable transition", int,\
             ['metastable', 'include metastable'], 0, nick='include_meta')
         self.add_key("Trench migration", float, ["world builder", "trench migration"], 0.0, nick="trench_migration")
+        self.add_key("middle lower mantle depth", float,\
+            ['mantle rheology', "depth lm middle"], -1.0, nick='depth_lm_middle')
+        self.add_key("middle lower mantle activation volume", float,\
+            ['mantle rheology', "V lm middle"], -1.0, nick='Vdiff_lm_middle')
+        self.add_key("use 3d depth average file", int,\
+            ['mantle rheology', "use 3d da file whole mantle"], 0, nick='use_3d_da_file_wm')
+        self.add_key("lower mantle activation volume", float,\
+            ['mantle rheology', "V lm"], 3e-6, nick='Vdiff_lm')
     
     def check(self):
         '''
@@ -11747,6 +11753,10 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         delta_Vdisl = self.values[self.start + 72]
         include_meta = self.values[self.start + 73]
         trench_migration = self.values[self.start + 74]
+        depth_lm_middle = self.values[self.start + 75]
+        Vdiff_lm_middle = self.values[self.start + 76]
+        use_3d_da_file_wm = self.values[self.start + 77]
+        Vdiff_lm = self.values[self.start + 78]
 
 
         return if_wb, geometry, box_length, type_of_bd, potential_T, sp_rate,\
@@ -11761,7 +11771,7 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         rm_ov_comp, comp_method, peierls_flow_law, reset_density, maximum_peierls_iterations, CDPT_type, use_new_rheology_module, fix_peierls_V_as,\
         prescribe_T_width, prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb, lookup_table_morb_mixing,\
         delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell, refine_wedge, output_heat_flux,\
-        delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration
+        delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration, depth_lm_middle, Vdiff_lm_middle,use_3d_da_file_wm, Vdiff_lm
 
     def to_configure_wb(self):
         '''
@@ -12234,7 +12244,8 @@ class CASE_TWOD(CASE):
     maximum_peierls_iterations, CDPT_type, use_new_rheology_module, fix_peierls_V_as, prescribe_T_width,\
     prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb,\
     lookup_table_morb_mixing, delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell,\
-    refine_wedge, output_heat_flux,  delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration):
+    refine_wedge, output_heat_flux,  delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration, depth_lm_middle, Vdiff_lm_middle,\
+    use_3d_da_file_wm, Vdiff_lm):
         Ro = 6371e3
         self.configure_case_output_dir(case_o_dir)
         o_dict = self.idict.copy()
@@ -12488,7 +12499,10 @@ $ASPECT_SOURCE_DIR/build%s/isosurfaces_TwoD1/libisosurfaces_TwoD1.so" % (branch_
         
         # Material model
         if use_3d_da_file:
-            da_file = os.path.join(LEGACY_FILE_DIR, 'reference_ThD', "depth_average.txt")
+            if use_3d_da_file_wm:
+                da_file = os.path.join(LEGACY_FILE_DIR, 'reference_ThD', "depth_average_1573.txt")
+            else:
+                da_file = os.path.join(LEGACY_FILE_DIR, 'reference_ThD', "depth_average.txt")
         else:
             da_file = os.path.join(LEGACY_FILE_DIR, 'reference_TwoD', "depth_average.txt")
         assert(os.path.isfile(da_file))
@@ -12581,7 +12595,7 @@ $ASPECT_SOURCE_DIR/build%s/isosurfaces_TwoD1/libisosurfaces_TwoD1.so" % (branch_
             rheology, viscosity_profile = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
                                                         dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
                                                         use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
-                                                        jump_lower_mantle=jump_lower_mantle)
+                                                        jump_lower_mantle=jump_lower_mantle, Vdiff_lm=Vdiff_lm, Vdiff_lm_middle=Vdiff_lm_middle, depth_lm_middle=depth_lm_middle)
             # assign to the prm file
             CDPT_assign_mantle_rheology(o_dict, rheology, sz_viscous_scheme=sz_viscous_scheme, sz_constant_viscosity=sz_constant_viscosity,\
             sz_minimum_viscosity=sz_minimum_viscosity, slab_core_viscosity=slab_core_viscosity, minimum_viscosity=minimum_viscosity)
@@ -12922,6 +12936,53 @@ opcrust: 1e+31, opharz: 1e+31", \
                 "Eclogite phase divisor": "0.8"
             }
             o_dict['Material model']['Visco Plastic TwoD'] = visco_plastic_dict
+
+        # assign mid-lower-mantle rheology
+        # loop every entry and append a new PT term
+        if depth_lm_middle > 0.0:
+
+            diff_lm_middle = rheology['diffusion_lm_middle']
+            visco_plastic_dict = o_dict['Material model']['Visco Plastic TwoD']
+
+            skip_op_composition = True
+            comp_in = COMPOSITION(visco_plastic_dict["Phase transition depths"])
+            if "opcrust" in comp_in.data:
+                skip_op_composition = False
+
+            for key, value in visco_plastic_dict.items():
+                if isinstance(value, dict):
+                    continue
+                assert isinstance(value, str)
+                if re.match('.*:', value) and not re.match('.*;', value):
+                    comp_in = COMPOSITION(value)
+                    comp_out = COMPOSITION(comp_in)
+                    for key_in, value_in in comp_in.data.items():
+                        if skip_op_composition and key_in in ["opharz", "opcrust"]:
+                            continue
+                        if key == "Phase transition depths":
+                            comp_out.data[key_in].append(depth_lm_middle)
+                        elif key == "Phase transition Clapeyron slopes":
+                            comp_out.data[key_in].append(0.0)
+                        elif key == "Prefactors for diffusion creep":
+                            comp_out.data[key_in].append(float(diff_lm_middle['A']))
+                        elif key == "Grain size exponents for diffusion creep":
+                            comp_out.data[key_in].append(diff_lm_middle['m'])
+                        elif key == "Activation energies for diffusion creep":
+                            comp_out.data[key_in].append(diff_lm_middle['E'])
+                        elif key == "Activation volumes for diffusion creep":
+                            comp_out.data[key_in].append(diff_lm_middle['V'])
+                        elif key in ["Phase transition widths", "Phase transition temperatures",\
+                                     "Compute latent heat", "Densities", "Prefactors for dislocation creep",\
+                                        "Stress exponents for dislocation creep", "Activation energies for dislocation creep",\
+                                            "Activation volumes for dislocation creep", "Cutoff pressures for Peierls creep"]:
+                            comp_out.data[key_in].append(value_in[-1])
+                        else:
+                            pass
+                    visco_plastic_dict[key] = comp_out.parse_back()
+
+            o_dict['Material model']['Visco Plastic TwoD'] = visco_plastic_dict
+                    
+
         
         # remove the overiding plate composition
         if rm_ov_comp:
@@ -14058,7 +14119,6 @@ def prm_visco_plastic_TwoD_cart(visco_plastic_twoD, box_width, box_height, type_
         o_dict["Reaction mor"] = 'true'
     else:
         o_dict["Reaction mor"] = 'false'
-    print("Dsz: ", Dsz)  # debug
     o_dict["Reaction mor function"] =\
         prm_reaction_mor_function_cart(box_width, box_height, sp_trailing_length, ov_trailing_length, Dsz)
     if type_of_bd in ["all free slip"]:
@@ -14481,7 +14541,6 @@ def CDPT_set_parameters(o_dict, CDPT_type, **kwargs):
     slope_410 = kwargs.get("slope_410", 2e6)
     slope_660 = kwargs.get("slope_660", -1e6)
     sz_different_composition = kwargs.get("sz_different_composition", 1)
-    print("slope_660: ", slope_660) # debug
     if CDPT_type == 'HeFESTo_consistent':
         o_dict['Material model']['Visco Plastic TwoD']['Phase transition depths'] = \
         'background:410e3|520e3|560e3|660e3|660e3|660e3|660e3, spcrust: 80e3|665e3|720e3, spharz: 410e3|520e3|560e3|660e3|660e3|660e3|660e3'

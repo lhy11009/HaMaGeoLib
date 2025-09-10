@@ -94,7 +94,6 @@ def test_MantleRheology_middle_lower_mantle():
     '''
     Test generating mantle rheology for maximum at ~1000 km
     '''
-    # todo_visc
     rheology_name = "WarrenHansen23"
     mantle_coh = 300.0
     strain_rate = 1e-15
