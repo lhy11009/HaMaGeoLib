@@ -68,12 +68,13 @@ def parse_parameters_to_dict(file_input):
             value = key_value_pair[1]
             value = re.sub(r'^ *', '', value)
             value = re.sub(r' *(#.*)?\n$', '', value)
-            while value[-1] == '\\':
-                # Handle multi-line values where lines end with '\'
-                current_line = file_input.readline()
-                current_line = re.sub(r' *(#.*)?\n$', '', current_line)
-                value = value + '\n' + current_line
-            parameters[key] = value
+            if len(value) > 0:
+                while value[-1] == '\\':
+                    # Handle multi-line values where lines end with '\'
+                    current_line = file_input.readline()
+                    current_line = re.sub(r' *(#.*)?\n$', '', current_line)
+                    value = value + '\n' + current_line
+                parameters[key] = value
         elif re.match(r'^.*subsection', current_line):
             # Start of a subsection; create a nested dictionary
             subsection_name = re.sub(r'^.*subsection ', '', current_line)
