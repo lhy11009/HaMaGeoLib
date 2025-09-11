@@ -103,7 +103,6 @@ def test_viscosity_profile_middle_mantle():
     wb_path = os.path.join(output_dir, 'case.wb')
     assert(filecmp.cmp(wb_path, wb_std_path))
 
-# todo_meta
 def test_viscosity_profile_middle_mantle_metastable():
     '''
     test for including a middle mantle layer

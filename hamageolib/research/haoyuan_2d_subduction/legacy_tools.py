@@ -12960,7 +12960,6 @@ opcrust: 1e+31, opharz: 1e+31", \
                 if re.match('.*:', value) and not re.match('.*;', value):
                     comp_in = COMPOSITION(value)
                     comp_out = COMPOSITION(comp_in)
-                    # todo_meta
                     for key_in, value_in in comp_in.data.items():
                         if skip_op_composition and key_in in ["opharz", "opcrust"]:
                             continue
