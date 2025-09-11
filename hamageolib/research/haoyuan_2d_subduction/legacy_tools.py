@@ -11563,6 +11563,8 @@ intiation stage causes the slab to break in the middle",\
             ['mantle rheology', "use 3d da file whole mantle"], 0, nick='use_3d_da_file_wm')
         self.add_key("lower mantle activation volume", float,\
             ['mantle rheology', "V lm"], 3e-6, nick='Vdiff_lm')
+        self.add_key("duplication overriding plate composition", int,\
+            ["composition method", "duplicate op composition"], 0, nick='duplicate_op_composition')
     
     def check(self):
         '''
@@ -11757,6 +11759,7 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         Vdiff_lm_middle = self.values[self.start + 76]
         use_3d_da_file_wm = self.values[self.start + 77]
         Vdiff_lm = self.values[self.start + 78]
+        duplicate_op_composition = self.values[self.start + 79]
 
 
         return if_wb, geometry, box_length, type_of_bd, potential_T, sp_rate,\
@@ -11771,7 +11774,7 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         rm_ov_comp, comp_method, peierls_flow_law, reset_density, maximum_peierls_iterations, CDPT_type, use_new_rheology_module, fix_peierls_V_as,\
         prescribe_T_width, prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb, lookup_table_morb_mixing,\
         delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell, refine_wedge, output_heat_flux,\
-        delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration, depth_lm_middle, Vdiff_lm_middle,use_3d_da_file_wm, Vdiff_lm
+        delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration, depth_lm_middle, Vdiff_lm_middle,use_3d_da_file_wm, Vdiff_lm, duplicate_op_composition
 
     def to_configure_wb(self):
         '''
@@ -12245,7 +12248,7 @@ class CASE_TWOD(CASE):
     prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb,\
     lookup_table_morb_mixing, delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell,\
     refine_wedge, output_heat_flux,  delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration, depth_lm_middle, Vdiff_lm_middle,\
-    use_3d_da_file_wm, Vdiff_lm):
+    use_3d_da_file_wm, Vdiff_lm, duplicate_op_composition):
         Ro = 6371e3
         self.configure_case_output_dir(case_o_dir)
         o_dict = self.idict.copy()
@@ -12831,8 +12834,14 @@ opcrust: 1e+31, opharz: 1e+31", \
             o_dict = fix_particles_new_version(o_dict)
 
         if include_meta:
+            # change the material model
+            material_model = o_dict["Material model"]
+            material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
+            material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:1.0|0.0|0.0|0.0|0.0|0.0|0.0"
+
+            # change the particle properties
+            o_dict["Particles"]["List of particle properties"] += ", metastable"
             # expand composition fields
-            # o_dict = expand_multi_composition_isosurfaces(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
             o_dict = expand_multi_composition_composition_field(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
             o_dict["Compositional fields"]["Mapped particle properties"] = \
                   "spcrust:initial spcrust, spharz:initial spharz, opcrust:initial opcrust, opharz:initial opharz, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
@@ -12859,11 +12868,9 @@ opcrust: 1e+31, opharz: 1e+31", \
                                                     {"Composition reference profile": "function", 
                                                      "Function expression": "0.0; 0.0; 0.0; 0.0; 1.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0"
                                                     }}
-            
-            # change the material model
+        
+        if duplicate_op_composition:
             material_model = o_dict["Material model"]
-            material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
-            material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:1.0|0.0|0.0|0.0|0.0|0.0|0.0"
             # duplicate options for opharz and opcrust
             comp0 = "spharz"
             comp = "opharz"
@@ -12895,9 +12902,6 @@ opcrust: 1e+31, opharz: 1e+31", \
                         material_model["Visco Plastic TwoD"][key] = temp
 
             o_dict["Material model"] = material_model
-
-            # change the particle properties
-            o_dict["Particles"]["List of particle properties"] += ", metastable"
         
         # crustal phase transition
         if use_lookup_table_morb:
@@ -13015,7 +13019,7 @@ opcrust: 1e+31, opharz: 1e+31", \
             o_dict['Postprocess']["List of postprocessors"] += ', heat flux map'
             o_dict['Postprocess']["Visualization"]["List of output variables"] += ', heat flux map'
             o_dict['Postprocess']["Visualization"]["Heat flux map"] = {"Output point wise heat flux": "true"}
-
+            
     def configure_wb(self, if_wb, geometry, potential_T, sp_age_trench, sp_rate, ov_ag,\
         if_ov_trans, ov_trans_age, ov_trans_length, is_box_longer, Dsz, wb_new_ridge, version,\
         n_crust_layer, Duc, n_comp, sp_trailing_length, ov_trailing_length, box_width, rm_ov_comp,\

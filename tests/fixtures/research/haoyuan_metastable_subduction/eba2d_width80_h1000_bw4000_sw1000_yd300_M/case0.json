@@ -74,6 +74,7 @@
         "strength": 300000000.0
       },
       "composition method": {
+        "duplicate op composition": 1,
         "scheme": "particle"
       },
       "metastable": {

@@ -251,7 +251,7 @@ subsection Material model
         subsection Lookup table
             set Data directory = ./
             set Material file names = test_table_pyrolite, test_table_basalt, test_table_hartzburgite
-            set Material lookup indexes = 0,  1,  2,  1,  2,  2,  2,  2,  2,  2,  2,  2
+            set Material lookup indexes = 0, 1, 2, 1, 2
             set Bilinear interpolation = true
             set Latent heat = false
         end
