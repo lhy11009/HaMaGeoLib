@@ -12960,6 +12960,7 @@ opcrust: 1e+31, opharz: 1e+31", \
                 if re.match('.*:', value) and not re.match('.*;', value):
                     comp_in = COMPOSITION(value)
                     comp_out = COMPOSITION(comp_in)
+                    # todo_meta
                     for key_in, value_in in comp_in.data.items():
                         if skip_op_composition and key_in in ["opharz", "opcrust"]:
                             continue
@@ -12975,6 +12976,9 @@ opcrust: 1e+31, opharz: 1e+31", \
                             comp_out.data[key_in].append(diff_lm_middle['E'])
                         elif key == "Activation volumes for diffusion creep":
                             comp_out.data[key_in].append(diff_lm_middle['V'])
+                        elif key == "Metastable transition":
+                            if len(value_in) > 1:
+                                comp_out.data[key_in].append(0.0)
                         elif key in ["Phase transition widths", "Phase transition temperatures",\
                                      "Compute latent heat", "Densities", "Prefactors for dislocation creep",\
                                         "Stress exponents for dislocation creep", "Activation energies for dislocation creep",\
