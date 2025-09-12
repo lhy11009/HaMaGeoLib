@@ -678,7 +678,6 @@ def parse_log_file_for_solver_info(log_file_path, output_path, **kwargs):
         print(f"Error:\n", completed_process.stderr)  # Debug: show the captured output
 
 
-
 def parse_log_file_for_time_info_to_pd(log_file_path, **kwargs):
     """
     Parses an ASPECT log file to extract time step and wall clock time information, 
@@ -720,7 +719,8 @@ def parse_log_file_for_time_info_to_pd(log_file_path, **kwargs):
 
     for i in range(1, len(time_dat)):
         # Detected a restart, add the last wall clock time before restart
-        if time_dat["Time step number"].iloc[i] <= time_dat["Time step number"].iloc[i - 1]:
+        if (time_dat["Time step number"].iloc[i] <= time_dat["Time step number"].iloc[i - 1]) or\
+            (time_dat["Wall Clock"].iloc[i] <= time_dat["Wall Clock"].iloc[i - 1]):
             offset += time_dat["Wall Clock"].iloc[i - 1]
         
         # Apply offset

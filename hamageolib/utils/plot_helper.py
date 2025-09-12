@@ -42,6 +42,7 @@ Functions:
 """
 
 import matplotlib.pyplot as plt
+from matplotlib import gridspec
 import numpy as np
 import pandas as pd
 import os
@@ -431,7 +432,7 @@ def plot_statistic_generic(
                 textcoords="offset points",
                 xytext=(0, 5),
                 ha="center",
-                fontsize=8,
+                fontsize=16,
                 color="blue",
             )
 
@@ -448,6 +449,37 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
     Returns:
         None
     """
+    import hamageolib.utils.plot_helper as plot_helper
+    from matplotlib import rcdefaults
+
+    # Additional options
+    assemble = kwargs.get("assemble", False)
+
+    # Retrieve the default color cycle
+    default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+
+    # Example usage
+    # Rule of thumbs:
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 2. Set five major ticks for each axis
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 2.0 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.5
+    line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
+
+    # scale the matplotlib params
+    plot_helper.scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
+
+
     # Read the data
     data = read_aspect_header_file(file_path)
 
@@ -465,7 +497,7 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
             "title": "Time Step Number Over Time",
             "label": "Time Step Number",
             "color": "blue",
-            "file_name": "time_step_number_over_time.png",
+            "file_name": "time_step_number_over_time",
         },
         {
             "x_col": "Time",
@@ -483,7 +515,7 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
                 "Compositional Degrees of Freedom",
             ],
             "color": ["blue", "orange", "green"],
-            "file_name": "degrees_of_freedom_over_time.png",
+            "file_name": "degrees_of_freedom_over_time",
         },
         {
             "x_col": "Time",
@@ -493,7 +525,7 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
             "title": "Nonlinear Iterations Over Time",
             "label": "Nonlinear Iterations",
             "color": "red",
-            "file_name": "nonlinear_iterations_over_time.png",
+            "file_name": "nonlinear_iterations_over_time",
         },
         {
             "x_col": "Time",
@@ -513,7 +545,7 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
                 "Average Nondimensional Temperature",
             ],
             "color": ["blue", "orange", "green", "red"],
-            "file_name": "temperature_metrics_over_time.png",
+            "file_name": "temperature_metrics_over_time",
         },
         {
             "x_col": "Time",
@@ -523,29 +555,133 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
             "title": "RMS and Max Velocity Over Time",
             "label": ["RMS Velocity", "Max Velocity"],
             "color": ["purple", "brown"],
-            "file_name": "velocity_comparison_over_time.png",
+            "file_name": "velocity_comparison_over_time",
         },
     ]
 
     # Generate and save plots
-    for config in plot_configs:
-        fig, ax = plt.subplots(figsize=(10, 6))
-        plot_statistic_generic(
-            data=data,
-            x_col=config["x_col"],
-            y_col=config["y_col"],
-            xlabel=config["xlabel"],
-            ylabel=config["ylabel"],
-            title=config["title"],
-            label=config["label"],
-            ax=ax,
-            color=config.get("color", None),
-            **kwargs,
-        )
-        fig.savefig(os.path.join(output_dir, config["file_name"]))
+    if assemble:
+        n_col = 2
+        n_row = int(np.ceil(float(len(plot_configs)) / n_col))
+        fig = plt.figure(figsize=(10*n_row*scaling_factor, 12*scaling_factor), tight_layout=True)
+        gs = gridspec.GridSpec(n_row, n_col)
+        for i, config in enumerate(plot_configs):
+            i_row = i // n_col
+            j_col = i % n_col
+            ax = fig.add_subplot(gs[i_row, j_col])
+            plot_statistic_generic(
+                data=data,
+                x_col=config["x_col"],
+                y_col=config["y_col"],
+                xlabel=config["xlabel"],
+                ylabel=config["ylabel"],
+                title=config["title"],
+                label=config["label"],
+                ax=ax,
+                color=config.get("color", None),
+                **kwargs,
+            )
+            # Adjust spine thickness for this plot
+            for spine in ax.spines.values():
+                spine.set_linewidth(0.5 * scaling_factor * line_width_scaling_multiplier)
+        fig.savefig(os.path.join(output_dir, "assembled.png"))
+        fig.savefig(os.path.join(output_dir, "assembled.pdf"))
         plt.close(fig)
+    else:
+        for config in plot_configs:
+            fig, ax = plt.subplots(figsize=(10*scaling_factor, 6*scaling_factor))
+            plot_statistic_generic(
+                data=data,
+                x_col=config["x_col"],
+                y_col=config["y_col"],
+                xlabel=config["xlabel"],
+                ylabel=config["ylabel"],
+                title=config["title"],
+                label=config["label"],
+                ax=ax,
+                color=config.get("color", None),
+                **kwargs,
+            )
+            fig.savefig(os.path.join(output_dir, config["file_name"]+".png"))
+            fig.savefig(os.path.join(output_dir, config["file_name"]+".pdf"))
+            plt.close(fig)
+
+            # Adjust spine thickness for this plot
+            for spine in ax.spines.values():
+                spine.set_linewidth(0.5 * scaling_factor * line_width_scaling_multiplier)
+
 
     print(f"Statistic plots have been saved to: {output_dir}")
+
+    # Reset rcParams to defaults
+
+    rcdefaults()
+
+def generate_runtime_plots(time_df, output_dir="plots", **kwargs):
+
+    import hamageolib.utils.plot_helper as plot_helper
+    from matplotlib import rcdefaults
+
+    # Additional options
+    assemble = kwargs.get("assemble", False)
+
+    # Retrieve the default color cycle
+    default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+
+    # Example usage
+    # Rule of thumbs:
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 2. Set five major ticks for each axis
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 2.0 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.5
+    line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
+
+    # scale the matplotlib params
+    plot_helper.scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
+
+    hr = 3600.0 # s in hr
+    plot_attrs = ["Time step number", "Corrected Wall Clock"]
+    scalings = [1.0, 1.0/hr]
+    units = [None, "hr"]
+
+    if assemble:
+        n_col = 2
+        n_row = int(np.ceil(float(len(plot_attrs)) / n_col))
+        fig = plt.figure(figsize=(10*n_col*scaling_factor, 6*n_row*scaling_factor), tight_layout=True)
+        gs = gridspec.GridSpec(n_row, n_col)
+        for i, plot_attr in enumerate(plot_attrs):
+            i_row = i // n_col
+            j_col = i % n_col
+            ax = fig.add_subplot(gs[i_row, j_col])
+            xs = time_df.Time.to_numpy(dtype=float)
+            ys = time_df[plot_attr].to_numpy(dtype=float)
+            ys*=scalings[i]
+            ax.plot(xs, ys, color=default_colors[i])
+            ax.set_xlabel("Time")
+            ax.set_ylabel("%s (%s)" % (plot_attr, str(units[i])))
+            ax.grid()
+        fig.savefig(os.path.join(output_dir, "assembled.png"))
+        fig.savefig(os.path.join(output_dir, "assembled.pdf"))
+        plt.close(fig)
+    else:
+        raise NotImplementedError()
+
+
+    print(f"Summary plots have been saved to: {output_dir}")
+
+    # Reset rcParams to defaults
+
+    rcdefaults()
 
 # generate_solver_plot
 def generate_solver_plot_history(file_path, output_dir="plots", **kwargs):
@@ -605,70 +741,6 @@ def generate_solver_plot_history(file_path, output_dir="plots", **kwargs):
     # print("%s: Generate figure %s" % (func_name(), fig_path))
 
     # print(data) # debug
-
-def fix_wallclock_time(df):
-    """
-    Fixes the wall clock time in an ASPECT output DataFrame by correcting for restarts.
-    
-    If the time step number decreases or repeats, it is treated as a restart event,
-    and subsequent wall clock times are adjusted to ensure continuity.
-    
-    Args:
-        df (pd.DataFrame): DataFrame with columns 'Time step number', 'Time', 'Wall Clock'.
-    
-    Returns:
-        pd.DataFrame: Corrected DataFrame with continuous wall clock time.
-    """
-    
-    # Extract columns from input DataFrame
-    steps = df["Time step number"].to_numpy()
-    times = df["Time"].to_numpy()
-    wallclocks = df["Wall Clock"].to_numpy()
-
-    # Identify restart points where step number decreases or repeats
-    re_inds = []  # indices where restarts occur
-    steps_fixed = np.array([])       # initialize corrected arrays (will use original if no restart)
-    times_fixed = np.array([])
-    wallclocks_fixed = np.array([])
-    
-    last_step = -1
-    i = 0
-    for step in steps:
-        if step <= last_step:
-            re_inds.append(i)  # a decrease or repeat in step number indicates a restart
-        last_step = step
-        i += 1
-
-    if re_inds != []:
-        # If restarts were detected, adjust wall clock segments
-        for i in range(len(re_inds) - 1):
-            re_ind = re_inds[i]
-            re_ind_next = re_inds[i + 1]
-            # Add previous segment's final wall clock time to this segment
-            wallclocks[re_ind:re_ind_next] += wallclocks[re_ind - 1]
-
-        # Adjust the final segment
-        re_ind = re_inds[-1]
-        wallclocks[re_ind:] += wallclocks[re_ind - 1]
-
-        # Assign corrected arrays
-        steps_fixed = steps
-        times_fixed = times
-        wallclocks_fixed = wallclocks
-    else:
-        # No restarts: keep original arrays
-        steps_fixed = steps
-        times_fixed = times
-        wallclocks_fixed = wallclocks
-
-    # Return corrected DataFrame
-    df = pd.DataFrame({
-        "Time step number": steps_fixed,
-        "Time": times_fixed,
-        "Wall Clock": wallclocks_fixed
-    })
-
-    return df
 
 
 def MatplotlibFormatPrep():

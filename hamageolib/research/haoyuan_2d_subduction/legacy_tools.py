@@ -17526,6 +17526,7 @@ class CASE_SUMMARY():
         Inputs:
             kwargs
         '''
+        from hamageolib.utils.case_options import parse_log_file_for_time_info_to_pd
         hr = 3600.0 # s in hr
         # append the include field
         if len(self.includes) < self.n_case:
@@ -17553,14 +17554,11 @@ class CASE_SUMMARY():
 
                 try:
                     # parse time info
-                    parse_log_file_for_time_info(log_path, output_path)
-
-                    pd_data = read_aspect_header_file(output_path)
+                    pd_data = parse_log_file_for_time_info_to_pd(log_path)
                 except TypeError:
                     pass
                 else:
                     # fix wallclock time
-                    pd_data = fix_wallclock_time(pd_data)
                     step = pd_data["Time step number"].iloc[-1]
                     _time = pd_data["Time"].iloc[-1]
                     wallclock = pd_data["Wall Clock"].iloc[-1]
