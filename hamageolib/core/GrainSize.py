@@ -69,3 +69,49 @@ class GrainGrowthModel:
             arrhenius = np.exp(-(self.E + P * self.V) / (self.R * T))
 
         return (self.k / denom) * arrhenius
+    
+
+    def grain_size_at_time(self, g0, t, P, T):
+        """
+        Analytical solution for constant P,T:
+            g(t) = ( g0^m + k * exp(-(E + P*V)/(R*T)) * t )^(1/m)
+
+        Args:
+            g0 : float or array-like [m]    initial grain size (>0)
+            t  : float or array-like [s]    time (>=0)
+            P  : float or array-like [Pa]
+            T  : float or array-like [K]
+        Returns:
+            ndarray or float with broadcasted shape
+        """
+        g0 = np.asarray(g0, dtype=float)
+        t  = np.asarray(t,  dtype=float)
+        P  = np.asarray(P,  dtype=float)
+        T  = np.asarray(T,  dtype=float)
+
+        if np.any(g0 <= 0): raise ValueError("g0 must be > 0.")
+        if np.any(T  <= 0): raise ValueError("T must be > 0 K.")
+        if np.any(t  <  0): raise ValueError("t must be >= 0.")
+
+        A = np.exp(-(self.E + P * self.V) / (self.R * T))
+        inside = np.power(g0, self.m) + self.k * A * t
+        if np.any(inside <= 0):
+            raise ValueError("Nonpositive value inside the m-th root; check parameters.")
+        return np.power(inside, 1.0 / self.m)
+
+    def time_to_reach_size(self, g0, g1, P, T):
+        """
+        Inverse relation (constant P,T):
+            t = ( g1^m - g0^m ) / ( k * exp(-(E+P*V)/(R*T)) )
+        """
+        g0 = np.asarray(g0, dtype=float)
+        g1 = np.asarray(g1, dtype=float)
+        P  = np.asarray(P,  dtype=float)
+        T  = np.asarray(T,  dtype=float)
+
+        if np.any(g0 <= 0) or np.any(g1 <= 0): raise ValueError("g0, g1 must be > 0.")
+        if np.any(T  <= 0): raise ValueError("T must be > 0 K.")
+
+        A = np.exp(-(self.E + P * self.V) / (self.R * T))
+        t = (np.power(g1, self.m) - np.power(g0, self.m)) / (self.k * A)
+        return t
