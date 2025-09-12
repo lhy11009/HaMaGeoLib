@@ -135,7 +135,7 @@ def read_aspect_header_file(file_path):
     # Read the data starting from the determined index
     data = pd.read_csv(
         file_path,
-        delim_whitespace=True,
+        sep=r"\s+",
         skiprows=data_start_index,
         names=column_names,
         skip_blank_lines=True

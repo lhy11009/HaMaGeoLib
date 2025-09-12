@@ -130,10 +130,11 @@ class CASE_OPTIONS:
             # header infomation: versions
             self.time_df = parse_log_file_for_time_info_to_pd(log_file_path)
             results = parse_log_file_for_header_info(log_file_path)
-            self.aspect_version = results[0]
-            self.dealii_version = results[1]
-            self.world_builder_version = results[2]
-            self.n_mpi = int(results[3])
+            if len(results) > 0:
+                self.aspect_version = results[0]
+                self.dealii_version = results[1]
+                self.world_builder_version = results[2]
+                self.n_mpi = int(results[3])
         else:
             self.time_df = None
             self.aspect_version = None
@@ -410,7 +411,7 @@ class CASE_SUMMARY:
 
         else:
             # If abs_path does not exist, append a new row
-            self.df = self.df.append(new_row, ignore_index=True)
+            self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
 
 
     def update_single_case_attributes(self, abs_path):
@@ -423,15 +424,25 @@ class CASE_SUMMARY:
             abs_path (str): The absolute path of the case to update or add.
         """
         Case_Options = CASE_OPTIONS(abs_path)
-        
-        new_row = {
-            "basename": os.path.basename(abs_path),
-            "name": None,  # Placeholder for name
-            "end time step": Case_Options.time_df["Time step number"].iloc[-1],  # end time step
-            "end time": Case_Options.time_df["Time"].iloc[-1],  # end time
-            "wall clock": Case_Options.time_df["Corrected Wall Clock"].iloc[-1],  # wall clock
-            "abs path": os.path.abspath(abs_path)  # absolute path
-        }
+
+        try: 
+            new_row = {
+                "basename": os.path.basename(abs_path),
+                "name": None,  # Placeholder for name
+                "end time step": Case_Options.time_df["Time step number"].iloc[-1],  # end time step
+                "end time": Case_Options.time_df["Time"].iloc[-1],  # end time
+                "wall clock": Case_Options.time_df["Corrected Wall Clock"].iloc[-1],  # wall clock
+                "abs path": os.path.abspath(abs_path)  # absolute path
+            }
+        except IndexError:
+            new_row = {
+                "basename": os.path.basename(abs_path),
+                "name": None,  # Placeholder for name
+                "end time step": 0.0,  # end time step
+                "end time": 0.0,  # end time
+                "wall clock": 0.0,  # wall clock
+                "abs path": os.path.abspath(abs_path)  # absolute path
+            }
 
         return new_row, Case_Options
 
@@ -896,73 +907,3 @@ def resample_time_series_df(target_df, time_interval, time_column="Time"):
     resampled_df = pd.DataFrame(resampled_rows)
 
     return resampled_df
-
-
-class ModelConfigManager:
-    """
-    Manage and modify a finite element geodynamic model configuration.
-    
-    Attributes:
-        config (dict): The current configuration dictionary.
-    """
-    def __init__(self, base_config: dict):
-        self.config = copy.deepcopy(base_config)
-    
-    def __init__(self, base_file: str):
-        assert(os.path.isfile(base_file))
-        with open(base_file, "r") as fin:
-            self.config = parse_parameters_to_dict(fin)
-
-    def apply_patch(self, patch: dict):
-        """Apply a flat dictionary patch to override settings."""
-        self.config.update(patch)
-
-    def apply_nested_patch(self, nested_patch: dict):
-        """Recursively update config with nested dictionary patch."""
-        self._recursive_update(self.config, nested_patch)
-
-    def _recursive_update(self, base: dict, updates: dict):
-        for key, value in updates.items():
-            if isinstance(value, dict) and isinstance(base.get(key), dict):
-                self._recursive_update(base[key], value)
-            else:
-                base[key] = value
-
-    def get_config(self):
-        return self.config
-
-    def export_to_param_file(self, output_path: str):
-
-        with open(output_path, "w") as fout:
-            save_parameters_from_dict(fout, self.config)
-
-
-class SimulationStatus:
-    def __init__(self, initial_data=None):
-        """
-        Initialize the simulation status tracker.
-        `initial_data` can be a list of dicts, a DataFrame, or None.
-        """
-        columns = ["time", "time_step", "vtu_step", "vtu_snapshot"]
-        if initial_data is None:
-            self.df = pd.DataFrame(columns=columns)
-        elif isinstance(initial_data, pd.DataFrame):
-            self.df = initial_data
-        else:
-            self.df = pd.DataFrame(initial_data, columns=columns)
-
-    def add_entry(self, time, time_step, vtu_step, vtu_snapshot):
-        """Add a new row to the DataFrame."""
-        new_row = {"time": time, "time_step": time_step, "vtu_step": vtu_step, "vtu_snapshot": vtu_snapshot}
-        self.df = pd.concat([self.df, pd.DataFrame([new_row])], ignore_index=True)
-
-    def save_to_csv(self, filename):
-        """Save the current DataFrame to a CSV file."""
-        self.df.to_csv(filename, index=False)
-
-    def load_from_csv(self, filename):
-        """Load a DataFrame from a CSV file."""
-        self.df = pd.read_csv(filename)
-
-    def __repr__(self):
-        return repr(self.df)
