@@ -225,6 +225,8 @@ class PYVISTA_PROCESS_THD():
         Inputs:
             i_piece - number of piece
         '''
+        from hamageolib.utils.vtk_utilities import pyvista_safe_save
+        
         # Addtional options
         indent = 4
 
@@ -238,7 +240,7 @@ class PYVISTA_PROCESS_THD():
             if not os.path.isdir(odir):
                 os.mkdir(odir)
             ofile = os.path.join(odir, "%s_%05d.%s" % (key, self.pvtu_step, extension))
-            value[0].save(ofile)
+            pyvista_safe_save(value[0], ofile)
             print("%ssaved file for piece %d: %s" % (indent*" ", i_piece, ofile))
         
         end = time.time()
@@ -313,7 +315,6 @@ class PYVISTA_PROCESS_THD():
         assert(target is not None)
         self.write_object_to_file(target, filename_base, filetype)
 
-    
     def write_object_to_file(self, target, filename_base, filetype, **kwargs):
         '''
         Write a single class object to file
@@ -322,6 +323,8 @@ class PYVISTA_PROCESS_THD():
             filename_base - basename of output file
             filetype - type of the file
         '''
+        from hamageolib.utils.vtk_utilities import pyvista_safe_save
+
         indent = 4
         # check inputs
         assert(filetype in ["vtp", "vtu"])
@@ -330,7 +333,8 @@ class PYVISTA_PROCESS_THD():
         start = time.time()
         filename = "%s_%05d.%s" % (filename_base, self.pvtu_step, filetype)
         filepath = os.path.join(self.pyvista_outdir, filename)
-        target.save(filepath)
+
+        pyvista_safe_save(target, filepath)
         assert(os.path.isfile(filepath))
         print("%ssaved file %s" % (indent*" ", filepath))
         
@@ -368,7 +372,8 @@ class PYVISTA_PROCESS_THD():
         dot_products = np.dot(V, normal)
         V_proj = V - np.outer(dot_products, normal)
 
-        sliced["velocity_slice"] = V_proj
+        if V_proj.shape[0] > 0:
+            sliced["velocity_slice"] = V_proj
 
         # filter data with the given boundary
         if boundary_range is not None:
@@ -828,19 +833,15 @@ class PYVISTA_PROCESS_THD():
         extract slab trench
         '''
         indent = 4
-        
+
         # trench points at surface
         start = time.time()
         trench_points = self.extract_trench_profile(0.0)
         _, self.trench_center, _ = PUnified.points2unified3(trench_points[0, :], self.is_spherical, False)
 
-        # tests
-        trench_points = self.extract_trench_profile(1e3)
-        trench_points = self.extract_trench_profile(5e3)
-        trench_points = self.extract_trench_profile(10e3)
-
         # trench position at 50 km 
         trench_points = self.extract_trench_profile(50e3)
+        _, self.trench_center_50km, _ = PUnified.points2unified3(trench_points[0, :], self.is_spherical, False)
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
@@ -1903,10 +1904,11 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         PprocessThD.extract_slab_dip_angle()
     PprocessThD.extract_slab_trench()
 
-
     # extract outputs
     assert(PprocessThD.trench_center is not None)
     outputs["trench_center"] = PprocessThD.trench_center
+    assert(PprocessThD.trench_center_50km is not None)
+    outputs["trench_center_50km"] = PprocessThD.trench_center_50km
     assert(PprocessThD.slab_depth is not None)
     outputs["slab_depth"] = PprocessThD.slab_depth
     assert(PprocessThD.dip_100_center is not None)

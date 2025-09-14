@@ -287,18 +287,21 @@ class GPLATE_PROCESS():
 
         subducting_pids = subduction_data["subducting_pid"].unique()
 
-
         # start figure
         # plot the subducting_pid in the globe
-        fig0 = plt.figure(figsize=(10, 6), dpi=100)
+        # Separatly handle the dataset and the trench / transform boundaries
+        fig0 = plt.figure(figsize=(10, 12), dpi=100, tight_layout=True)
+        gs = gridspec.GridSpec(2, 1)
 
         gPlotter.set_region("default")
 
-        ax0 = fig0.add_subplot(111, projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
-        
+        ax0 = fig0.add_subplot(gs[1, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
         gPlotter.plot_global_basics(ax0, age_grid_raster=age_grid_raster)
-
         color_dict = gPlotter.plot_subduction_pts(ax0, subduction_data, color_dict=color_dict) 
+        
+        ax1 = fig0.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
+        gPlotter.plot_global_basics(ax1, age_grid_raster=age_grid_raster, plot_boundaries=True)
+
         # test adding convergence vectors
         # plot_conv=True, stepping=5)
 
@@ -319,16 +322,22 @@ class GPLATE_PROCESS():
 
             if inspect_all_slabs_in_separate_plots:
                 # plot individual subduction zone
+                # 0. mark all the boundaries in the plot
                 # 1. mark indices of points
                 # 2. mark trench pid values
                 # 3. also include makers
                 region = crop_region_by_data(one_subduction_data, 15.0)
                 gPlotter.set_region(region) # set region to default, no need to filter
             
-                fig = plt.figure(figsize=(10, 18), dpi=100)
-                gs = gridspec.GridSpec(3, 1)
-            
+                fig = plt.figure(figsize=(20, 12), dpi=100, tight_layout=True)
+                gs = gridspec.GridSpec(2, 2)
+
+                # todo_gp 
                 ax = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
+                gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster, plot_boundaries=True)
+                ax.set_extent(region, crs=ccrs.PlateCarree())
+                
+                ax = fig.add_subplot(gs[0, 1], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
                 sub_color_dict = gPlotter.plot_subduction_pts(ax, one_subduction_data, color_dict=color_dict[int(subducting_pid)])
                 for j, (lon, lat) in enumerate(zip(one_subduction_data.lon, one_subduction_data.lat)):
@@ -350,7 +359,7 @@ class GPLATE_PROCESS():
                 trench_pids = one_subduction_data["trench_pid"].unique()
                 ax.set_extent(region, crs=ccrs.PlateCarree())
 
-                ax = fig.add_subplot(gs[2, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
+                ax = fig.add_subplot(gs[1, 1], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
                 _ = gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid", color_dict=color_dict[int(subducting_pid)])
                 trench_pids = one_subduction_data["trench_pid"].unique()
@@ -370,8 +379,6 @@ class GPLATE_PROCESS():
                 print("Saved figure %s" % (ofile_path + ".png"))
                 fig.savefig(ofile_path + ".pdf")
                 print("Saved figure %s" % (ofile_path + ".pdf"))
-
-            # break
 
         ax0.set_extent((-180, 180, -90, 90), crs=ccrs.PlateCarree())
         ofile_path = os.path.join(local_img_dir, "global_subduction_ori_t%.2fMa" % float(reconstruction_time))
@@ -399,7 +406,6 @@ class GPLATE_PROCESS():
 
         return pid_dict
 
-    # todo_gp 
     def update_region_dict(self, resample_dataset, region_dict={}):
         if resample_dataset:
             s_data = self.subduction_data_resampled
@@ -449,15 +455,17 @@ class GPLATE_PROCESS():
 
         # start figure
         # plot the subducting_pid in the globe
-        fig0 = plt.figure(figsize=(10, 6), dpi=100)
+        fig0 = plt.figure(figsize=(10, 12), dpi=100, tight_layout=True)
+        gs = gridspec.GridSpec(2, 1)
 
         gPlotter.set_region("default")
 
-        ax0 = fig0.add_subplot(111, projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
-        
+        ax0 = fig0.add_subplot(gs[1, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
         gPlotter.plot_global_basics(ax0, age_grid_raster=age_grid_raster)
-
         color_dict = gPlotter.plot_subduction_pts(ax0, subduction_data_resampled, color_dict=color_dict)
+        
+        ax1 = fig0.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
+        gPlotter.plot_global_basics(ax1, age_grid_raster=age_grid_raster, plot_boundaries=True)
 
         for i, subducting_pid in enumerate(subducting_pids):
 
@@ -485,11 +493,15 @@ class GPLATE_PROCESS():
                 except KeyError:
                     region = crop_region_by_data(one_subduction_data, 15.0)
                 gPlotter.set_region(region) # set region to default, no need to filter
-            
-                fig = plt.figure(figsize=(10, 18), dpi=100)
-                gs = gridspec.GridSpec(3, 1)
-            
+
+                fig = plt.figure(figsize=(20, 12), dpi=100)
+                gs = gridspec.GridSpec(2, 2)
+                
                 ax = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
+                gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster, plot_boundaries=True)
+                ax.set_extent(region, crs=ccrs.PlateCarree())
+            
+                ax = fig.add_subplot(gs[0, 1], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
                 sub_color_dict = gPlotter.plot_subduction_pts(ax, one_subduction_data, color_dict=color_dict[int(subducting_pid)])
                 for j, (lon, lat) in enumerate(zip(one_subduction_data.lon, one_subduction_data.lat)):
@@ -511,7 +523,7 @@ class GPLATE_PROCESS():
                 trench_pids = one_subduction_data["trench_pid"].unique()
                 ax.set_extent(region, crs=ccrs.PlateCarree())
 
-                ax = fig.add_subplot(gs[2, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
+                ax = fig.add_subplot(gs[1, 1], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster)
                 _ = gPlotter.plot_subduction_pts(ax, one_subduction_data, "trench_pid", color_dict=color_dict[int(subducting_pid)])
                 trench_pids = one_subduction_data["trench_pid"].unique()
@@ -531,7 +543,6 @@ class GPLATE_PROCESS():
                 print("Saved figure %s" % (ofile_path + ".png"))
                 fig.savefig(ofile_path + ".pdf")
                 print("Saved figure %s" % (ofile_path + ".pdf"))
-
 
         ax0.set_extent((-180, 180, -90, 90), crs=ccrs.PlateCarree())
         ofile_path = os.path.join(local_img_dir, "global_subduction_resampled_t%.2fMa" % float(reconstruction_time))
@@ -850,13 +861,14 @@ class GPLOTTER():
             central_longitude = (self.region[0] + self.region[1])/2.0
         return central_longitude
 
-    def plot_global_basics(self, ax, age_grid_raster=None):
+    def plot_global_basics(self, ax, age_grid_raster=None, plot_boundaries=False):
         """
         Plots basic global geological features on a given axis, including coastlines and an age grid.
 
         Parameters:
             ax (matplotlib.axes._axes.Axes): The axis on which to plot the global features.
             age_grid_raster: A raster object containing age data, typically used for visualizing geological ages.
+            plot_bounareis: add plot of tranform and subduction boundaries
         
         Implementation:
             - Configures global gridlines on the plot with specific color, linestyle, and locations.
@@ -875,6 +887,12 @@ class GPLOTTER():
 
         # Set the reconstruction time for the gplot object and plot coastlines in grey
         self.gplot.plot_coastlines(ax, color='grey')
+
+        if plot_boundaries:
+            self.gplot.plot_ridges(ax, color='red')
+            self.gplot.plot_transforms(ax, color='red')
+            self.gplot.plot_trenches(ax, color='k')
+            self.gplot.plot_subduction_teeth(ax, color='k')
 
         # Plot the age grid on the map using a colormap from yellow to blue
         if age_grid_raster is not None:
@@ -902,6 +920,7 @@ class GPLOTTER():
             color_dict (dict): color map for all the trenches.
         '''
         color_dict  = kwargs.get("color_dict", {})
+        plot_trench_normal = kwargs.get("plot_trench_normal", False)
         plot_conv = kwargs.get("plot_conv", False)
         stepping = kwargs.get("stepping", 1)
 
@@ -924,13 +943,37 @@ class GPLOTTER():
 
             ax.scatter(one_subduction_data.lon, one_subduction_data.lat, marker=".", s=30, c=_color, transform=ccrs.PlateCarree(), label=pid)
 
+            if plot_trench_normal:
+                # Convert (angle, length) -> PlateCarree components (in "degree-like" units)
+                lon, lat, trench_azimuth_angle =\
+                      one_subduction_data.lon.to_numpy(), one_subduction_data.lat.to_numpy(),\
+                            one_subduction_data.trench_azimuth_angle.to_numpy()
+                dx = 5.0 * np.sin(trench_azimuth_angle)   # +east
+                dy = 5.0 * np.cos(trench_azimuth_angle)   # +north
+
+                # Optional: scale factor so arrows look reasonable on a degree grid
+                deg_per_unit = 1.0       # tweak this to taste (bigger = longer arrows)
+                u = deg_per_unit * dx
+                v = deg_per_unit * dy
+
+                idx = slice(0, None, stepping) 
+                Q = ax.quiver(
+                    lon[idx], lat[idx], u[idx], v[idx],
+                    transform=ccrs.PlateCarree(),   # u,v are in the same PlateCarree coordinate system
+                    angles='xy', scale_units='xy',  # interpret in data coords, not data-dependent scaling
+                    scale=1.0,                      # with scale_units='xy', scale=1 uses u,v as-is
+                    width=0.003, color='k', alpha=0.9# regrid to declutter
+                )
+
             if plot_conv:
                 # Convert (angle, length) -> PlateCarree components (in "degree-like" units)
-                lon, lat, conv_rate, conv_angle =\
+                lon, lat, conv_rate, conv_angle, trench_azimuth_angle =\
                       one_subduction_data.lon.to_numpy(), one_subduction_data.lat.to_numpy(),\
-                          one_subduction_data.conv_rate.to_numpy(), one_subduction_data.conv_angle.to_numpy()
-                dx = conv_rate * np.sin(conv_angle)   # +east
-                dy = conv_rate * np.cos(conv_angle)   # +north
+                          one_subduction_data.conv_rate.to_numpy(), one_subduction_data.conv_angle.to_numpy(),\
+                            one_subduction_data.trench_azimuth_angle.to_numpy()
+                conv_angle_map_north = conv_angle + trench_azimuth_angle
+                dx = conv_rate * np.sin(conv_angle_map_north)   # +east
+                dy = conv_rate * np.cos(conv_angle_map_north)   # +north
 
                 # Optional: scale factor so arrows look reasonable on a degree grid
                 deg_per_unit = 1.0       # tweak this to taste (bigger = longer arrows)
@@ -1246,7 +1289,6 @@ def crop_region_by_data(s_data, interval):
 
     return region
 
-# todo_gp
 def merge_region(region0, region1):
     """
     Merge two lon–lat rectangular regions into a single bounding region.

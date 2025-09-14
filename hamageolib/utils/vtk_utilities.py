@@ -2,6 +2,7 @@ import numpy as np
 import vtk
 from vtk.util.numpy_support import vtk_to_numpy
 import pyvista as pv
+from pathlib import Path
 
 
 def create_vtk_grid(points, cells):
@@ -276,3 +277,58 @@ def get_pyvista_extension(value):
         return "vtm"
     else:
         raise TypeError(f"Unsupported PyVista object type: {type(value)}")
+    
+def _write_empty_vtp(path: str):
+    xml = """<?xml version="1.0"?>
+<VTKFile type="PolyData" version="1.0" byte_order="LittleEndian">
+  <PolyData>
+    <Piece NumberOfPoints="0" NumberOfVerts="0" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="0">
+      <Points>
+        <DataArray type="Float32" NumberOfComponents="3" format="ascii"></DataArray>
+      </Points>
+    </Piece>
+  </PolyData>
+</VTKFile>
+"""
+    Path(path).write_text(xml)
+
+def _write_empty_vtu(path: str):
+    xml = """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="0" NumberOfCells="0">
+      <Points>
+        <DataArray type="Float32" NumberOfComponents="3" format="ascii"></DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int32" Name="connectivity" format="ascii"></DataArray>
+        <DataArray type="Int32" Name="offsets" format="ascii"></DataArray>
+        <DataArray type="UInt8" Name="types" format="ascii"></DataArray>
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>
+"""
+    Path(path).write_text(xml)
+
+def pyvista_safe_save(ds: pv.DataSet, filename: str):
+    """Save dataset safely; if empty, write a valid empty file to avoid segfaults."""
+    ext = Path(filename).suffix.lower()
+    empty = (ds.n_points == 0) or (getattr(ds, "n_cells", 0) == 0)
+
+    if not empty:
+        ds.save(filename)
+        return filename
+
+    # Empty: avoid VTK writer (can segfault), write a stub instead
+    if ext == ".vtp":
+        _write_empty_vtp(filename)
+    elif ext == ".vtu":
+        _write_empty_vtu(filename)
+    elif ext == ".vtm":
+        pv.MultiBlock().save(filename)  # safe empty container
+    else:
+        # Fallback: pick a sensible container
+        pv.MultiBlock().save(str(Path(filename).with_suffix(".vtm")))
+        filename = str(Path(filename).with_suffix(".vtm"))
+    return filename

@@ -157,19 +157,23 @@ def main():
             if analyze_results:
                 print("Analyze step %d" % step)
                 try:
-                    trench_center = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'])
+                    trench_center = outputs["trench_center"]
+                    # trench_center = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'])
                 except FileNotFoundError:
                     trench_center = None
                 try:
-                    trench_center_50km = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], trench_depth=50e3)
+                    trench_center_50km = outputs["trench_center_50km"]
+                    # trench_center_50km = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], trench_depth=50e3)
                 except FileNotFoundError:
                     trench_center_50km = None
                 try:
-                    slab_depth = get_slab_depth_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_lower")
+                    slab_depth = outputs["slab_depth"]
+                    # slab_depth = get_slab_depth_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_lower")
                 except FileNotFoundError:
                     slab_depth = None
                 try:
-                    dip_100_center = get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_upper", 0.0, 100e3)
+                    dip_100_center = outputs["dip_100_center"]
+                    # dip_100_center = get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_upper", 0.0, 100e3)
                 except FileNotFoundError:
                     dip_100_center = None
 
