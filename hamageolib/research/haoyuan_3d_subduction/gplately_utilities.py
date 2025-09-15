@@ -332,7 +332,6 @@ class GPLATE_PROCESS():
                 fig = plt.figure(figsize=(20, 12), dpi=100, tight_layout=True)
                 gs = gridspec.GridSpec(2, 2)
 
-                # todo_gp 
                 ax = fig.add_subplot(gs[0, 0], projection=ccrs.PlateCarree(central_longitude=gPlotter.get_central_longitude()))
                 gPlotter.plot_global_basics(ax, age_grid_raster=age_grid_raster, plot_boundaries=True)
                 ax.set_extent(region, crs=ccrs.PlateCarree())
