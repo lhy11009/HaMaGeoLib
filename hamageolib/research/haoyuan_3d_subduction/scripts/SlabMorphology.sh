@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # path to
-case_dir="/mnt/lochy/ASPECT_DATA/ThDSubduction/EBA_2d_consistent_11/eba3d_1_SA50.0_OA20.0_width80_bw2000_sw500"
+case_dir="/mnt/lochy/ASPECT_DATA/ThDSubduction/chunk_geometry3/eba3d_1_SA50.0_OA20.0_width51_bw4000_sw1000"
 
 # steps to run (vtu_step)
 min_vtu_step=0

@@ -1775,7 +1775,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     clip_l1_min = 0.0
     clip_l1_max = l1_section*2.0
     clip_l2_min = np.ceil(trench_initial / l2_section) * l2_section - 2 * l2_section
-    clip_l2_max = np.ceil(trench_initial / l2_section) * l2_section + 2 * l2_section
+    clip_l2_max = min(np.ceil(trench_initial / l2_section) * l2_section + 2 * l2_section, float(Case_Options.options["MAX_LATITUDE"]))
     if do_clip:
         clip = [[clip_l0_min-tolerance, clip_l0_max+tolerance] , [clip_l1_min-tolerance, clip_l1_max+tolerance], [clip_l2_min-tolerance, clip_l2_max+tolerance]]
         print("\tclip: ", clip)

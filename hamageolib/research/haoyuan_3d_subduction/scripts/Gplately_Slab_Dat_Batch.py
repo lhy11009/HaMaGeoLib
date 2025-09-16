@@ -15,7 +15,7 @@ def main():
     model_name = "Muller2019"
     anchor_plate_id = 0 # anchor plate id: 0 - Africa
 
-    start_time = 0.0
+    start_time = 13.0
     end_time = 61.0
     interval = 1.0
 
