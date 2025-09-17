@@ -557,8 +557,8 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
 
 
     # Show the original trench position
-    sourceTrOrigTrian = FindSource("trench_orig_triangle")
-    sourceTrOrigTrianDisplay = Show(sourceTrOrigTrian, renderView1, 'GeometryRepresentation')
+    # sourceTrOrigTrian = FindSource("trench_orig_triangle")
+    # sourceTrOrigTrianDisplay = Show(sourceTrOrigTrian, renderView1, 'GeometryRepresentation')
     
     # Show the current trench position
     sourceTrTrian = FindSource("trench_triangle")
@@ -621,7 +621,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     # Plot the density
     # get opacity transfer function/opacity map for 'field'
     Hide(sourceV, renderView1)
-    Hide(sourceTrOrigTrian, renderView1)
+    # Hide(sourceTrOrigTrian, renderView1)
     Hide(sourceTrTrian, renderView1)
     fieldLUT = GetColorTransferFunction("viscosity")
     fieldPWF = GetOpacityTransferFunction("viscosity")
@@ -639,7 +639,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     # Plot the temperature
     # get opacity transfer function/opacity map for 'field'
     Hide(sourceV, renderView1)
-    Hide(sourceTrOrigTrian, renderView1)
+    # Hide(sourceTrOrigTrian, renderView1)
     Hide(sourceTrTrian, renderView1)
     fieldLUT = GetColorTransferFunction("density")
     fieldPWF = GetOpacityTransferFunction("density")
@@ -656,7 +656,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
 
     # Plot the dynamic pressure
     Hide(sourceV, renderView1)
-    Hide(sourceTrOrigTrian, renderView1)
+    # Hide(sourceTrOrigTrian, renderView1)
     Hide(sourceTrTrian, renderView1)
     fieldLUT = GetColorTransferFunction("temperature")
     fieldPWF = GetOpacityTransferFunction("temperature")
@@ -799,24 +799,24 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
         sourceV2_repDisplay = Show(sourceV2_rep, renderView1, 'GeometryRepresentation')
 
     # Show the original trench position
-    sourceTrOrigTrian = FindSource("trench_orig_triangle")
-    sourceTrOrigTrianDisplay = Show(sourceTrOrigTrian, renderView1, 'GeometryRepresentation')
+    # sourceTrOrigTrian = FindSource("trench_orig_triangle")
+    # sourceTrOrigTrianDisplay = Show(sourceTrOrigTrian, renderView1, 'GeometryRepresentation')
     
     # Show the current trench position
     sourceTrTrian = FindSource("trench_triangle")
     sourceTrTrianDisplay = Show(sourceTrTrian, renderView1, 'GeometryRepresentation')
 
     # Show the trench position
-    sourceTr = FindSource("trench_d0.00km%s_%05d" % (trailer, snapshot))
-    sourceTrDisplay = Show(sourceTr, renderView1, 'GeometryRepresentation')
-    sourceTrDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0] # Dark red
-    sourceTrDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
+    # sourceTr = FindSource("trench_d0.00km%s_%05d" % (trailer, snapshot))
+    # sourceTrDisplay = Show(sourceTr, renderView1, 'GeometryRepresentation')
+    # sourceTrDisplay.AmbientColor = [0.3333333333333333, 0.0, 0.0] # Dark red
+    # sourceTrDisplay.DiffuseColor = [0.3333333333333333, 0.0, 0.0]
 
     # Show the trench position
     sourceTr1 = FindSource("trench_d50.00km%s_%05d" % (trailer, snapshot))
     sourceTr1Display = Show(sourceTr1, renderView1, 'GeometryRepresentation')
-    sourceTr1Display.AmbientColor = [1.0, 0.75, 0.8]   # Pink
-    sourceTr1Display.DiffuseColor = [1.0, 0.75, 0.8]   # Pink
+    sourceTr1Display.AmbientColor = [0.3333333333333333, 0.0, 0.0] # Dard red # [1.0, 0.75, 0.8]   # Pink
+    sourceTr1Display.DiffuseColor = [0.3333333333333333, 0.0, 0.0] # Dark red  # Pink
 
     # Configure layout and camera settings based on geometry.
     layout_resolution = (1350, 704)
