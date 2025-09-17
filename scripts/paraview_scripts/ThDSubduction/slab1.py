@@ -115,7 +115,9 @@ def set_non_adiabatic_pressure_plot_mantle(sourceDisplay):
     '''
     field = "nonadiabatic_pressure"
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
-    rescale_transfer_function_combined(field, -1e8, 1e8)
+    da_range = DA_RANGE
+    rescale_transfer_function_combined(field, da_range[0], da_range[1])
+    # rescale_transfer_function_combined(field, -1e8, 1e8)
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("turku", True)
 
