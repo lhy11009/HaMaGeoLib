@@ -364,9 +364,10 @@ def compute_pairwise_distances(X0, Y0, X1, Y1):
     return distances
 
 
-def cartesian_to_spherical(x, y, z):
+def cartesian_to_spherical(x, y, z, eps=1e-15):
     r = np.sqrt(x**2 + y**2 + z**2)
-    theta = np.arccos(z / r)
+    r_safe = np.where(r < eps, eps, r)  # avoid divide-by-zero
+    theta = np.arccos(z / r_safe)
     phi = np.arctan2(y, x) % (2 * np.pi)
     return r, theta, phi
 
@@ -392,3 +393,74 @@ def spherical_to_cartesian(r, theta, phi):
     y = r * np.sin(theta) * np.sin(phi)
     z = r * np.cos(theta)
     return x, y, z
+
+def rotate_vec_cart_to_sph(x, y, z, vx, vy, vz, eps=1e-15):
+    """
+    Rotate a vector v=[vx,vy,vz] defined at position p=[x,y,z] from Cartesian to spherical components.
+    
+    Basis (physics convention):
+      e_r     = [sinθ cosφ, sinθ sinφ,  cosθ]
+      e_theta = [cosθ cosφ, cosθ sinφ, -sinθ]
+      e_phi   = [-sinφ,      cosφ,       0  ]
+    Components:
+      v_r   = v · e_r
+      v_theta = v · e_theta
+      v_phi   = v · e_phi
+    Parameters
+    ----------
+    x, y, z : array_like
+        Position coordinates (broadcastable).
+    vx, vy, vz : array_like
+        Cartesian vector components at (x,y,z) (broadcastable).
+    eps : float, optional
+        Small value to stabilize computations at/near r=0.
+    Returns
+    -------
+    v_r, v_theta, v_phi : ndarray
+        Spherical components of the vector.
+    r, theta, phi : ndarray
+        Spherical coordinates of the position (returned for convenience).
+    """
+    # Implementation notes:
+    # - Compute (r,θ,φ) once, reuse sines/cosines to build the local basis.
+    # - Use broadcasted arithmetic; works for scalars and arrays alike.
+    r, theta, phi = cartesian_to_spherical(x, y, z, eps=eps)
+    st, ct = np.sin(theta), np.cos(theta)
+    sp, cp = np.sin(phi),   np.cos(phi)
+    er_x, er_y, er_z = st*cp,  st*sp,  ct
+    eth_x, eth_y, eth_z = ct*cp, ct*sp, -st
+    eph_x, eph_y, eph_z = -sp,   cp,     0.0
+    v_r   = vx*er_x  + vy*er_y  + vz*er_z
+    v_th  = vx*eth_x + vy*eth_y + vz*eth_z
+    v_ph  = vx*eph_x + vy*eph_y + vz*eph_z
+    return v_r, v_th, v_ph
+
+def rotate_vec_sph_to_cart(r, theta, phi, v_r, v_theta, v_phi):
+    """
+    Rotate spherical vector components (v_r, v_theta, v_phi) back to Cartesian (vx, vy, vz).
+    
+    Parameters
+    ----------
+    r : array_like
+        Radius (not used in the basis itself, included for signature symmetry/convenience).
+    theta : array_like
+        Colatitude in radians.
+    phi : array_like
+        Azimuth in radians.
+    v_r, v_theta, v_phi : array_like
+        Spherical components at (r, theta, phi).
+    Returns
+    -------
+    vx, vy, vz : ndarray
+        Cartesian vector components.
+    """
+    # Implementation notes:
+    # - Rebuild the orthonormal basis (e_r, e_theta, e_phi) and combine linearly.
+    # - Shape-safe by stacking along last axis then unstacking.
+    st, ct = np.sin(theta), np.cos(theta)
+    sp, cp = np.sin(phi),   np.cos(phi)
+    er  = np.stack([st*cp,  st*sp,  ct], axis=-1)
+    eth = np.stack([ct*cp,  ct*sp, -st], axis=-1)
+    eph = np.stack([-sp,     cp,    0.0*np.ones_like(st)], axis=-1)
+    v   = (v_r[..., None]*er + v_theta[..., None]*eth + v_phi[..., None]*eph)
+    return v[..., 0], v[..., 1], v[..., 2]

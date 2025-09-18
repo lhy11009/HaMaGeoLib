@@ -1980,6 +1980,8 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
         pvtu_step - pvtu_step of vtu output files
         Case_Options - options for the case
     """
+    from hamageolib.utils.geometry_utilities import rotate_vec_cart_to_sph
+
     output_dict = {}
     geometry = Case_Options.options["GEOMETRY"]
     Min0 = Case_Options.options["INNER_RADIUS"]
@@ -2049,6 +2051,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     vals2 = np.full(vals0.size, np.nan)
 
     slab_points = iso_volume_total.points
+    slab_point_data = iso_volume_total.point_data
 
     if geometry == "chunk":
         # v0_u, _, v2_u = cartesian_to_spherical(*slab_points.T)
@@ -2089,6 +2092,8 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
 
     slab_surface_points = np.vstack([x, y, z]).T
 
+
+
     # derive trench center, slab depth and dip angle
     depth0 = 0.0; depth1 = 100e3
     if geometry == "chunk": 
@@ -2123,6 +2128,46 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     
     end = time.time()
     print("%s: Extract trench center takes %.1f s" % (func_name(), end - start))
+    
+    # plate movement, reuse the Kdtree in the last step
+    # query the points base on a depth, and select points within a distance to the trench.
+    # get the velocity and project to the phi / x direction
+    # last, take the average
+    start = time.time()
+
+    query_plate_velocity_depth = 20e3 # depth to query m
+    query_plate_velocity_dist = 500e3 # distance from trench to query
+    query_plate_velocity_dist_span = 200e3 # range of distance from trench to query
+
+    query_v0 = Max0 - query_plate_velocity_depth
+    if geometry == "box":
+        query_v2_range = [trench_center - query_plate_velocity_dist - query_plate_velocity_dist_span,\
+                          trench_center - query_plate_velocity_dist]
+    elif geometry == "chunk":
+        query_v2_range = [trench_center - (query_plate_velocity_dist + query_plate_velocity_dist_span)/Max0,\
+                          trench_center - query_plate_velocity_dist/Max0]
+
+    query_pt = np.array([query_v0/Max0])
+    idxs = rt_tree.query_ball_point(query_pt, r=dr)
+    idx_np = np.array(idxs)
+    v2s = v2_u[idxs]
+    mask = ((v2s > query_v2_range[0]) & (v2s < query_v2_range[1]))
+    v2s = v2s[mask]
+    idxs = idx_np[mask]
+
+    point_np = slab_points[idxs]
+    velocity_np = slab_point_data["velocity"][idxs]
+
+    if geometry == "chunk":
+        _, _, velocity_2s = rotate_vec_cart_to_sph(point_np[:, 0], point_np[:, 1], point_np[:, 2],\
+                                                   velocity_np[:, 0], velocity_np[:, 1], velocity_np[:, 2])
+    elif geometry == "box":
+        velocity_2s = velocity_np[:, 0]
+    sp_velocity = np.mean(velocity_2s)
+    output_dict["sp_velocity"] = sp_velocity
+
+    end = time.time()
+    print("%s: Extract plate movement takes %.1f s" % (func_name(), end - start))
     
     # Process the region of slab metastablility, compute the area and output a vtu file
     # In addition, separately derive the area below a certain slab temperature (e.g 900 C)

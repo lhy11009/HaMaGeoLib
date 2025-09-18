@@ -107,6 +107,7 @@ def set_non_adiabatic_pressure_plot_slab(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("turku", True)
 
+# todo
 def set_non_adiabatic_pressure_plot_mantle(sourceDisplay):
     '''
     set the temperature plot
@@ -496,11 +497,25 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
             # default: turn off plot
             Hide(contourEq, renderView1)
 
+    # todo_da
     # Add T contour
-    if FOO01 == 1:
+    # 1 - 725 C, for blockT of metastable region
+    # 2 - 900 C, for slab internal in upper mantle
+    # 3 and 4, 1100 and 1300 C, for an envelop of slab in the mantle
+    if FOO01:
+        if FOO01 == 1:
+            contourT = 725.0+273.15
+        elif FOO01 == 2:
+            contourT = 900.0+273.15
+        elif FOO01 == 3:
+            contourT = 1100.0+273.15
+        elif FOO01 == 4:
+            contourT = 1300.0+273.15
+        else:
+            raise NotImplementedError()
         contourT_block = Contour(registrationName='ContourT_block', Input=transform1)
         contourT_block.ContourBy = ['POINTS', 'T']
-        contourT_block.Isosurfaces = [725+273.15]
+        contourT_block.Isosurfaces = [contourT]
         contourT_blockDisplay = Show(contourT_block, renderView1, 'GeometryRepresentation')
         ColorBy(contourT_blockDisplay,"T")
         rescale_transfer_function_combined('T', 273.0, 1673.0)

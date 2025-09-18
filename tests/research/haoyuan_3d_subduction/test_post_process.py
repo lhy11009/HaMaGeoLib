@@ -448,28 +448,10 @@ def test_pyvista_process_twod_chunk():
     slab_depth_std = 230000.0
     assert(abs((output_dict["slab_depth"]-slab_depth_std)/slab_depth_std)<1e-6)
 
+    sp_velocity_std = 0.03486241
+    assert(abs((output_dict["sp_velocity"]-sp_velocity_std)/sp_velocity_std)<1e-6)
 
-@pytest.mark.big_test  # Optional marker for big tests
-def test_pyvista_process_twod_chunk():
-    # test processing the 2d case
-    local_dir_2d=os.path.join("big_tests", "ThDSubduction", "eba_cdpt_coh300_SA80.0_OA40.0_width80_ss100.0")
-    pvtu_step = 4
 
-    Case_Options_2d = CASE_OPTIONS_TWOD1(local_dir_2d)
-    Case_Options_2d.Interpret()
-    Case_Options_2d.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary.csv"))
-
-    output_dict = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_2d)
-
-    # check the output of slab morphology
-    dip_100_std = 0.5354595196457564
-    assert(abs((output_dict["dip_100"]-dip_100_std)/dip_100_std)<1e-6)
-
-    trench_center_std = 0.6460465192794801
-    assert(abs((output_dict["trench_center"]-trench_center_std)/trench_center_std)<1e-6)
-
-    slab_depth_std = 230000.0
-    assert(abs((output_dict["slab_depth"]-slab_depth_std)/slab_depth_std)<1e-6)
 
 
 @pytest.mark.big_test  # Optional marker for big tests
@@ -493,3 +475,6 @@ def test_pyvista_process_twod_box():
 
     slab_depth_std = 240000.0
     assert(abs((output_dict["slab_depth"]-slab_depth_std)/slab_depth_std)<1e-6)
+    
+    sp_velocity_std = 0.040054068
+    assert(abs((output_dict["sp_velocity"]-sp_velocity_std)/sp_velocity_std)<1e-6)
