@@ -34,7 +34,7 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_TWOD1):
         # Add new columns you want to add
         # Mow area - metastable area
         # Mow area code - metastable area in cold slab
-        new_columns = ["Mow area", "Mow area cold"]
+        new_columns = ["Mow area", "Mow area cold", "Sp velocity"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:

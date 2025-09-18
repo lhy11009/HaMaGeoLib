@@ -212,7 +212,6 @@ def test_pyvista_process_thd_chunk_dip_angle():
     dip_100_center0 = 0.9466176634879051
     assert(abs((PprocessThD.dip_100_center-dip_100_center0)/dip_100_center0) < 1e-6)
 
-
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_thd_box():
 
@@ -281,6 +280,46 @@ def test_pyvista_process_thd_box():
     trench_file = os.path.join(pyvista_outdir, "trench_d0.00km_00002.vtp")
     assert(os.path.isfile(trench_file))
     assert(filecmp.cmp(trench_file, trench_file_std))
+
+@pytest.mark.big_test  # Optional marker for big tests
+def test_pyvista_process_thd_box_sp_velocity():
+
+    local_dir=os.path.join("big_tests", "ThDSubduction", "eba3d_1_SA50.0_OA20.0_width80_bw2000_sw500")
+    pvtu_step=4
+
+    # remove old directory 
+    pyvista_outdir = os.path.join(test_dir, "test_pyvista_process_thd_box_sp_velocity")
+    if os.path.isdir(pyvista_outdir):
+        rmtree(pyvista_outdir)
+
+    # initiate the object
+    config = {"geometry": "box", "Max0": 2890000.0, "Min0": 0.0, "Max1": 4000000.0, "Max2": 8896000.0, "time": 0.0}
+    kwargs = {"pyvista_outdir": os.path.join(test_dir, "test_pyvista_process_thd_box")}
+    PprocessThD = PYVISTA_PROCESS_THD(os.path.join(local_dir, "output", "solution"), config, **kwargs)
+    # read vtu file
+    pvtu_filepath = os.path.join(local_dir, "output", "solution", "solution-%05d.pvtu" % pvtu_step)
+    PprocessThD.read(pvtu_step)
+    # extract sp_upper composition beyond a threshold
+    PprocessThD.extract_iso_volume_upper(threshold=0.8)
+    # extract sp_lower composition beyond a threshold
+    PprocessThD.extract_iso_volume_lower(threshold=0.8)
+    # extract plate_edge composition beyond a threshold
+    PprocessThD.extract_plate_edge(threshold=0.8)
+    # extract slab surface
+    PprocessThD.extract_slab_interface("sp_upper")
+    # extract slab edge
+    PprocessThD.extract_plate_edge_surface()
+    # filter the slab lower points
+    PprocessThD.filter_slab_lower_points()
+    # extract slab moho
+    PprocessThD.extract_slab_interface("sp_lower")
+    # Slab analysis
+    PprocessThD.extract_slab_trench()
+    # Plate velocity
+    PprocessThD.extract_sp_velocity()
+
+
+    assert(math.isclose(PprocessThD.sp_velocity,0.022273129, rel_tol=1e-6))
 
 
 @pytest.mark.big_test  # Optional marker for big tests

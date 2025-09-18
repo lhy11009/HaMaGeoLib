@@ -130,6 +130,8 @@ class PYVISTA_PROCESS_THD():
         self.additional_trench_center = None
 
         # Initialize interpolators
+        self.sp_upper_KDTree = None
+        self.sp_lower_KDTree = None
         self.slab_surface_interp_func = None
         self.slab_moho_interp_func = None
 
@@ -767,11 +769,13 @@ class PYVISTA_PROCESS_THD():
         if field_name == "sp_upper":
             self.slab_surface_points = np.vstack([x, y, z]).T
             surface_points = self.slab_surface_points
+            self.sp_upper_KDTree = rt_tree
             self.slab_surface_interp_func = KNNInterpolatorND(np.vstack((V0.ravel()/self.scale0, V1.ravel()/self.scale1)).T,\
                                                           V2.ravel(), k=1, max_distance=0.05)
         elif field_name == "sp_lower":
             self.slab_moho_points = np.vstack([x, y, z]).T
             surface_points = self.slab_moho_points
+            self.sp_lower_KDTree = rt_tree
             self.slab_moho_interp_func = KNNInterpolatorND(np.vstack((V0.ravel()/self.scale0, V1.ravel()/self.scale1)).T,\
                                                           V2.ravel(), k=1, max_distance=0.05)
 
@@ -882,6 +886,60 @@ class PYVISTA_PROCESS_THD():
             raise ValueError("file_type needs to be default or txt")
         
         return trench_points
+    
+    def extract_sp_velocity(self):
+        # todo_plate
+        from hamageolib.utils.geometry_utilities import rotate_vec_cart_to_sph
+
+        my_assert(self.sp_lower_KDTree is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR\
+                  , "Needs to run extract_slab_interface for sp_lower first")
+        
+        start = time.time()
+
+        query_plate_velocity_depth = 40e3 # depth to query m
+        query_plate_velocity_dist = 500e3 # distance from trench to query
+        query_plate_velocity_dist_span = 200e3 # range of distance from trench to query
+
+        query_v0 = self.Max0 - query_plate_velocity_depth
+        query_v1 = 0.0 
+        if self.is_spherical:
+            query_v2_range = [self.trench_center_50km - (query_plate_velocity_dist + query_plate_velocity_dist_span)/self.Max0,\
+                            self.trench_center_50km - query_plate_velocity_dist/self.Max0]
+        else:
+            query_v2_range = [self.trench_center_50km - query_plate_velocity_dist - query_plate_velocity_dist_span,\
+                            self.trench_center_50km - query_plate_velocity_dist]
+
+        # source of data
+        points = self.iso_volume_lower_filtered_pe.points
+        point_data = self.iso_volume_lower_filtered_pe.point_data
+        
+        # query points within a radius range
+        dr = 0.003 
+        query_pt = np.array([query_v0/self.Max0, query_v1/self.Max1])
+        idxs = self.sp_lower_KDTree.query_ball_point(query_pt, r=dr)
+        idx_np = np.array(idxs)
+        _, v2s, _ = PUnified.points2unified3(points[idx_np], self.is_spherical, False)
+ 
+        # apply mask for points in v2 range (distance to the trench)
+        mask = ((v2s > query_v2_range[0]) & (v2s < query_v2_range[1]))
+        v2s = v2s[mask]
+        idxs = idx_np[mask]
+
+        point_np = points[idxs]
+        velocity_np = point_data["velocity"][idxs]
+
+        # project to coordinate
+        if self.is_spherical:
+            _, _, velocity_2s = rotate_vec_cart_to_sph(point_np[:, 0], point_np[:, 1], point_np[:, 2],\
+                                                    velocity_np[:, 0], velocity_np[:, 1], velocity_np[:, 2])
+        else:
+            velocity_2s = velocity_np[:, 0]
+        self.sp_velocity = np.mean(velocity_2s)
+
+        end = time.time()
+        print("%s: Extract plate movement takes %.1f s" % (func_name(), end - start))
+
+
 
     def extract_plate_edge_surface(self):
         """
@@ -1904,6 +1962,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     else:
         PprocessThD.extract_slab_dip_angle()
     PprocessThD.extract_slab_trench()
+    PprocessThD.extract_sp_velocity()
+
 
     # extract outputs
     assert(PprocessThD.trench_center is not None)
@@ -1914,6 +1974,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     outputs["slab_depth"] = PprocessThD.slab_depth
     assert(PprocessThD.dip_100_center is not None)
     outputs["dip_100_center"] = PprocessThD.dip_100_center
+    assert(PprocessThD.sp_velocity is not None)
+    outputs["Sp velocity"] = PprocessThD.sp_velocity
 
     return PprocessThD, outputs
 
@@ -2133,7 +2195,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     # query the points base on a depth, and select points within a distance to the trench.
     # get the velocity and project to the phi / x direction
     # last, take the average
-    # todo_plate
     start = time.time()
 
     query_plate_velocity_depth = 20e3 # depth to query m

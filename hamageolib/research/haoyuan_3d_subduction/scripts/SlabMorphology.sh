@@ -4,7 +4,7 @@
 case_dir="/mnt/lochy/ASPECT_DATA/ThDSubduction/EBA_2d_consistent_11/eba3d_1_SA50.0_OA20.0_width80_bw8000_sw2000"
 
 # steps to run (vtu_step)
-min_vtu_step=83
+min_vtu_step=130
 max_vtu_step=197
 
 # total number of pieces
