@@ -2133,6 +2133,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     # query the points base on a depth, and select points within a distance to the trench.
     # get the velocity and project to the phi / x direction
     # last, take the average
+    # todo_plate
     start = time.time()
 
     query_plate_velocity_depth = 20e3 # depth to query m
