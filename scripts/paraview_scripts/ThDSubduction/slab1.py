@@ -749,7 +749,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     transform_660Display.LineWidth = 2.0
 
     # Show the slab surface
-    transform_slab = FindSource("sp_lower_above_0.8_filtered_pe%s_%05d" % (trailer, snapshot))
+    transform_slab = FindSource("sp_lower_above_0.80_filtered_pe%s_%05d" % (trailer, snapshot))
     SetActiveSource(transform_slab)
     transform_slabDisplay = Show(transform_slab, renderView1, 'GeometryRepresentation')
     set_slab_volume_plot(transform_slabDisplay, 1000e3)
@@ -921,7 +921,7 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
         load_pyvista_source(data_output_dir, "slice_depth_200.0km", snapshot, file_type="vtu", assign_field=True, add_glyph=True)
 
         # load subducting plate 
-        load_pyvista_source(data_output_dir, "sp_lower_above_0.8_filtered_pe", snapshot, file_type="vtu", assign_field=True)
+        load_pyvista_source(data_output_dir, "sp_lower_above_0.80_filtered_pe", snapshot, file_type="vtu", assign_field=True)
         
         # load slab surfaces
         load_pyvista_source(data_output_dir, "sp_upper_surface", snapshot, file_type="vtp", assign_field=True)

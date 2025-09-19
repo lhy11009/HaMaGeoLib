@@ -115,7 +115,7 @@ class PYVISTA_PROCESS_THD():
         # We use the "combined" dict to append piecewise outputs into lists
         # and then merged to class attributes one by one
         self.keys = ["sliced", "sliced_u", "sliced_shell", "sliced_depth", "iso_volume_upper", "iso_volume_lower", "iso_volume_lower_filtered_pe",
-                     "iso_plate_edge", "slab_surface_points", "pe_edge_points", "trench_points", "additional_trench_points"]
+                     "grid_metastable", "iso_plate_edge", "slab_surface_points", "pe_edge_points", "trench_points", "additional_trench_points"]
         self.combined = {}
         for key in self.keys:
             setattr(self, key, None)
@@ -128,12 +128,21 @@ class PYVISTA_PROCESS_THD():
         self.slab_depth = None
         self.dip_100_center = None
         self.additional_trench_center = None
+        self.metastable_volume = None
+        self.metastable_area_center = None
+        self.metastable_area_cold_center = None
 
         # Initialize interpolators
         self.sp_upper_KDTree = None
         self.sp_lower_KDTree = None
         self.slab_surface_interp_func = None
         self.slab_moho_interp_func = None
+
+        # Values for threshold
+        self.threshold_upper = None
+        self.threshold_lower = None
+        self.threshold_edge = None
+        self.threshold_metastable = None
 
 
     def read(self, pvtu_step, **kwargs):
@@ -613,6 +622,8 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
+        self.threshold_upper = threshold
+
         return iso_volume_upper
 
     def extract_iso_volume_lower(self, **kwargs):
@@ -646,7 +657,102 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
+        self.threshold_lower = threshold
+
         return iso_volume_lower
+
+    # todo_mow 
+    def extract_iso_volume_metastable(self, options, **kwargs):
+        """
+        Extract the iso-volume of the 'metastable' composition field above a threshold.
+
+        Parameters:
+            threshold (float): Scalar threshold for 'metastable'.
+
+        This method:
+            - Filters the grid for regions where metastable >= threshold.
+            - Stores the result in `self.iso_volume_metastable`.
+            - Saves the extracted volume as a .vtu file.
+        """
+        start = time.time()
+        indent = 4
+        
+        # additional options 
+        T_slab = 900 + 273.15 # K
+        save_file = kwargs.get("save_file", True)
+        update_attributes = kwargs.get("update_attributes", True)
+        threshold = kwargs.get("threshold", 0.8)
+
+        # Iso volume of slab lower composition
+        grid_metastable_raw = self.grid.threshold(0.5, scalars="metastable", invert=True)
+        grid_metastable_c = grid_metastable_raw.point_data_to_cell_data(pass_point_data=False, categorical=False)
+        cell_data_P_eq =  (grid_metastable_c.cell_data['T'] - options["T_PT_EQ"]) * options["CL_PT_EQ"] + options["P_PT_EQ"]
+        mask = np.flatnonzero(grid_metastable_c.cell_data['p'] > cell_data_P_eq)
+        grid_metastable = grid_metastable_c.extract_cells(mask)
+
+        if update_attributes:
+            self.grid_metastable = grid_metastable
+            if grid_metastable.n_cells == 0:
+                vol_selected = 0.0
+            else:
+                grid_metastable = grid_metastable.compute_cell_sizes(length=False, area=False, volume=True)
+                vol_selected = float(grid_metastable.cell_data["Volume"].sum())
+
+                # extract the cold region 
+                mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
+                grid_metastable_slab = grid_metastable.extract_cells(mask)
+                if grid_metastable_slab.n_cells == 0:
+                    vol_selected_slab = 0.0
+                else:
+                    sized_cold = grid_metastable_slab.compute_cell_sizes(length=False, area=True, volume=False)
+                    vol_selected_slab = float(sized_cold.cell_data["Volume"].sum())
+            self.metastable_volume = vol_selected
+            self.metastable_volume_cold = vol_selected_slab
+        if save_file:
+            self.write_object_to_file(grid_metastable, "metastable_below_%.2f" % (threshold), "vtu")
+
+        self.threshold_metastable = threshold
+        
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
+
+        return grid_metastable
+
+    # todo_mow 
+    def extract_metastable_area(self, options, **kwargs):
+    
+        T_slab = 900 + 273.15 # K
+        threshold = kwargs.get("threshold", 0.5)
+
+        sliced_c = self.sliced.point_data_to_cell_data(pass_point_data=False, categorical=False)
+
+        grid_metastable = sliced_c.threshold(threshold, scalars="metastable", invert=True)
+        cell_data_P_eq =  (grid_metastable.cell_data['T'] - options["T_PT_EQ"]) * options["CL_PT_EQ"] + options["P_PT_EQ"]
+        mask = np.flatnonzero(grid_metastable.cell_data['p'] > cell_data_P_eq)
+        grid_metastable = grid_metastable.extract_cells(mask)
+
+
+        # if no cell presents, assign trivial values
+        # else compute the total cell area
+        if grid_metastable.n_cells == 0:
+            self.metastable_area_center = 0.0
+            self.metastable_area_cold_center = 0.0
+        else:
+            sized = grid_metastable.compute_cell_sizes(length=False, area=True, volume=False)
+            self.metastable_area_center = float(sized.cell_data["Area"].sum())
+        
+            # now derive the cold area
+            mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
+            grid_metastable_slab = grid_metastable.extract_cells(mask)
+            if grid_metastable_slab.n_cells == 0:
+                self.metastable_area_cold_center = 0.0
+            else:
+                sized_cold = grid_metastable_slab.compute_cell_sizes(length=False, area=True, volume=False)
+                self.metastable_area_cold_center = float(sized_cold.cell_data["Area"].sum())
+
+            self.write_object_to_file(grid_metastable, "metastable_sliced_%.2f" % (threshold), "vtu")
+            self.write_object_to_file(grid_metastable_slab, "metastable_sliced_slab_%.2f" % (threshold), "vtu")
+        
 
     def get_slab_depth(self):
         # Get slab depth
@@ -690,6 +796,8 @@ class PYVISTA_PROCESS_THD():
 
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
+
+        self.threshold_edge = threshold
 
         return iso_plate_edge
 
@@ -938,6 +1046,7 @@ class PYVISTA_PROCESS_THD():
 
         end = time.time()
         print("%s: Extract plate movement takes %.1f s" % (func_name(), end - start))
+    
 
 
 
@@ -1148,7 +1257,7 @@ class PYVISTA_PROCESS_THD():
         self.iso_volume_lower_filtered_pe = self.iso_volume_lower.extract_cells(cell_mask)
 
         # Save to file for ParaView or future use
-        filename = "sp_lower_above_0.8_filtered_pe_%05d.vtu" % (self.pvtu_step)
+        filename = "sp_lower_above_%.2f_filtered_pe_%05d.vtu" % (self.threshold_lower,self.pvtu_step)
         filepath = os.path.join(self.pyvista_outdir, filename)
         self.iso_volume_lower_filtered_pe.save(filepath)
 
@@ -1778,7 +1887,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
 
     # additional options
+    threshold_upper = kwargs.get("threshold_upper", 0.8)
     threshold_lower = kwargs.get("threshold_lower", 0.8)
+    threshold_edge = kwargs.get("threshold_edge", 0.8)
+    threshold_metastable = kwargs.get("threshold_metastable", 0.8)
     do_clip = kwargs.get("do_clip", False)
     extract_trench_at_additional_depths=  kwargs.get("extract_trench_at_additional_depths", None)
     n_pieces = kwargs.get("n_pieces", None)
@@ -1815,7 +1927,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         os.mkdir(os.path.join(case_path, "pyvista_outputs"))
 
     slice_depth = 200e3
-    iso_volume_threshold = 0.8
 
     # initialize the class
     # fix the meaning of Max1 - latitude
@@ -1886,11 +1997,13 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         # slice at depth
         PprocessThD.slice_at_depth(depth=slice_depth, rdiff=40e3)
         # extract sp_upper composition beyond a threshold
-        PprocessThD.extract_iso_volume_upper(threshold=iso_volume_threshold)
+        PprocessThD.extract_iso_volume_upper(threshold=threshold_upper)
         # extract sp_lower composition beyond a threshold
         PprocessThD.extract_iso_volume_lower(threshold=threshold_lower)
+        if Case_Options.options["MODEL_TYPE"] == "mow":
+            PprocessThD.extract_iso_volume_metastable(Case_Options.options.copy(), threshold=threshold_metastable)
         # extract plate_edge composition beyond a threshold
-        PprocessThD.extract_plate_edge(threshold=iso_volume_threshold)
+        PprocessThD.extract_plate_edge(threshold=threshold_edge)
         process = psutil.Process(os.getpid())
         print("Memory Usage: ", process.memory_info().rss / 1024**2, "MB")
     else:
@@ -1901,9 +2014,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
                 PprocessThD.process_piecewise("slice_center", ["sliced", "sliced_u"])
                 PprocessThD.process_piecewise("slice_surface", ["sliced_shell"])
                 PprocessThD.process_piecewise("slice_at_depth", ["sliced_depth"], depth=slice_depth, r_diff=40e3)
-                PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=iso_volume_threshold)
+                PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=threshold_upper)
                 PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=threshold_lower)
-                PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
+                PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=threshold_edge)
+                # todo_mow
                 process = psutil.Process(os.getpid())
                 print("Memory Usage piecewise %d: " % piece, process.memory_info().rss / 1024**2, "MB")
         else:
@@ -1914,9 +2028,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
                 PprocessThD.process_piecewise("slice_center", ["sliced", "sliced_u"])
                 PprocessThD.process_piecewise("slice_surface", ["sliced_shell"])
                 PprocessThD.process_piecewise("slice_at_depth", ["sliced_depth"], depth=slice_depth, r_diff=40e3)
-                PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=iso_volume_threshold)
+                PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=threshold_upper)
                 PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=threshold_lower)
-                PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=iso_volume_threshold)
+                PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=threshold_edge)
+                # todo_mow
                 process = psutil.Process(os.getpid())
                 print("Memory Usage piecewise %d: " % i_piece, process.memory_info().rss / 1024**2, "MB")
                 PprocessThD.export_piecewise(i_piece)
@@ -1937,9 +2052,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
             PprocessThD.write_key_to_file("sliced_u", "slice_center", "vtu")
             PprocessThD.write_key_to_file("sliced_shell", "slice_outer", "vtu")
             PprocessThD.write_key_to_file("sliced_depth", "slice_depth_%.1fkm" % (slice_depth/1e3), "vtu")
-            PprocessThD.write_key_to_file("iso_volume_upper", "sp_upper_above_%.2f" % (iso_volume_threshold), "vtu")
+            PprocessThD.write_key_to_file("iso_volume_upper", "sp_upper_above_%.2f" % (threshold_upper), "vtu")
             PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (threshold_lower), "vtu")
-            PprocessThD.write_key_to_file("iso_plate_edge", "plate_edge_above_%.2f" % (iso_volume_threshold), "vtu")
+            PprocessThD.write_key_to_file("iso_plate_edge", "plate_edge_above_%.2f" % (threshold_edge), "vtu")
+            # todo_mow
             process = psutil.Process(os.getpid())
             print("Memory Usage (after writing files): ", process.memory_info().rss / 1024**2, "MB")
 
@@ -1953,6 +2069,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     PprocessThD.filter_slab_lower_points()
     # extract slab surface using "sp_lower" composition
     PprocessThD.extract_slab_interface("sp_lower")
+    if Case_Options.options["MODEL_TYPE"] == "mow":
+        PprocessThD.extract_metastable_area(Case_Options.options.copy(), threshold=threshold_metastable)
 
     # analysis
     # get slab depth, trenc position and slab dip angle
@@ -2235,7 +2353,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     # In addition, separately derive the area below a certain slab temperature (e.g 900 C)
     if Case_Options.options["MODEL_TYPE"] == "mow":
         start = time.time()
-
+        # todo_mow
         # filter the grid base on cell data of "metastable"
         grid_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
         cell_data_P_eq =  (grid_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]

@@ -154,8 +154,8 @@ def test_pyvista_process_thd_chunk():
     assert(os.path.isfile(sp_upper_file))
     assert(filecmp.cmp(sp_upper_file, sp_upper_file_std))
     
-    sp_plate_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
-    sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
+    sp_plate_file_std = os.path.join(local_dir, "sp_lower_above_0.80_filtered_pe_00002_std.vtu")
+    sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.80_filtered_pe_00002.vtu")
     assert(os.path.isfile(sp_plate_file))
     assert(filecmp.cmp(sp_plate_file, sp_plate_file_std))
     
@@ -271,8 +271,8 @@ def test_pyvista_process_thd_box():
     assert(os.path.isfile(sp_upper_file))
     assert(filecmp.cmp(sp_upper_file, sp_upper_file_std))
     
-    sp_plate_file_std = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00002_std.vtu")
-    sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_00002.vtu")
+    sp_plate_file_std = os.path.join(local_dir, "sp_lower_above_0.80_filtered_pe_00002_std.vtu")
+    sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.80_filtered_pe_00002.vtu")
     assert(os.path.isfile(sp_plate_file))
     assert(filecmp.cmp(sp_plate_file, sp_plate_file_std))
 
@@ -407,7 +407,7 @@ def test_pyvista_process_thd_box_big():
     pe_surface_file = os.path.join(pyvista_outdir, "plate_edge_surface_%05d.vtp" % pvtu_step)
     assert(os.path.isfile(pe_surface_file))
     
-    sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.8_filtered_pe_%05d.vtu" % pvtu_step)
+    sp_plate_file = os.path.join(pyvista_outdir, "sp_lower_above_0.80_filtered_pe_%05d.vtu" % pvtu_step)
     assert(os.path.isfile(sp_plate_file))
 
     trench_file = os.path.join(pyvista_outdir, "trench_d0.00km_%05d.vtp" % pvtu_step)
@@ -459,9 +459,9 @@ def test_pyvista_process_thd_chunk_script_piece_wise():
     assert(filecmp.cmp(sp_upper_surface_file, sp_upper_surface_std_file))
 
     # check slab lower file
-    sp_lower_above_filtered_pe_file = os.path.join(odir, "sp_lower_above_0.8_filtered_pe_00014.vtu")
+    sp_lower_above_filtered_pe_file = os.path.join(odir, "sp_lower_above_0.80_filtered_pe_00014.vtu")
     assert(os.path.isfile(sp_lower_above_filtered_pe_file))
-    sp_lower_above_filtered_pe_std_file = os.path.join(local_dir, "sp_lower_above_0.8_filtered_pe_00014_std.vtu")
+    sp_lower_above_filtered_pe_std_file = os.path.join(local_dir, "sp_lower_above_0.80_filtered_pe_00014_std.vtu")
     assert(filecmp.cmp(sp_lower_above_filtered_pe_file, sp_lower_above_filtered_pe_std_file))
 
 
