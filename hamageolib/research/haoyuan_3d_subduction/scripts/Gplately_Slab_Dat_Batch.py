@@ -15,7 +15,8 @@ def main():
     model_name = "Muller2019"
     anchor_plate_id = 0 # anchor plate id: 0 - Africa
 
-    start_time = 13.0
+    start_time = 0.0
+    restart_time = None # invoke this options to restart from a previous fun
     end_time = 61.0
     interval = 1.0
 
@@ -23,7 +24,7 @@ def main():
     
     arc_length_edge = 2.0; arc_length_resample_section = 2.0
     
-    case_dir = "/mnt/lochy/ASPECT_DATA/ThDSubduction/gplate_dataset"
+    case_dir = "/mnt/lochy/ASPECT_DATA/ThDSubduction/gplate_dataset_09202025"
 
     # initiate
     reconstruction_times = np.arange(start_time, end_time, interval)
@@ -55,6 +56,10 @@ def main():
     # loop again to generate plots
     color_dict = {} # record color options
     for i, reconstruction_time in enumerate(reconstruction_times):
+        if restart_time is not None and reconstruction_time < restart_time:
+            # skip initial steps if restarting
+            continue
+
         reconstruction_time = int(reconstruction_time)
         
         # Import reconstruction dataset
