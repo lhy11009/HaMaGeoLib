@@ -107,7 +107,6 @@ def test_pyvista_process_twod_metastable_no_cold_area():
     assert(abs((output_dict["metastable_area_cold"] - metastable_area_cold_std)/metastable_area_cold_std) < 1e-6) 
 
 
-# todo_mow
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_thd_metastable():
 

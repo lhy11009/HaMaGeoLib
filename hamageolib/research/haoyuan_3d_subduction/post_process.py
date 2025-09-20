@@ -661,8 +661,7 @@ class PYVISTA_PROCESS_THD():
 
         return iso_volume_lower
 
-    # todo_mow 
-    def extract_iso_volume_metastable(self, options, **kwargs):
+    def extract_iso_volume_metastable(self, **kwargs):
         """
         Extract the iso-volume of the 'metastable' composition field above a threshold.
 
@@ -679,6 +678,8 @@ class PYVISTA_PROCESS_THD():
         
         # additional options 
         T_slab = 900 + 273.15 # K
+
+        options = kwargs["options"] # required, but need to preserve the interface
         save_file = kwargs.get("save_file", True)
         update_attributes = kwargs.get("update_attributes", True)
         threshold = kwargs.get("threshold", 0.8)
@@ -690,26 +691,20 @@ class PYVISTA_PROCESS_THD():
         mask = np.flatnonzero(grid_metastable_c.cell_data['p'] > cell_data_P_eq)
         grid_metastable = grid_metastable_c.extract_cells(mask)
 
+        if grid_metastable.n_cells == 0:
+            grid_metastable_slab = None
+        else:
+            # extract the cold region 
+            mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
+            grid_metastable_slab = grid_metastable.extract_cells(mask)
+
         if update_attributes:
             self.grid_metastable = grid_metastable
-            if grid_metastable.n_cells == 0:
-                vol_selected = 0.0
-            else:
-                grid_metastable = grid_metastable.compute_cell_sizes(length=False, area=False, volume=True)
-                vol_selected = float(grid_metastable.cell_data["Volume"].sum())
+            self.grid_metastable_slab = grid_metastable_slab
 
-                # extract the cold region 
-                mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
-                grid_metastable_slab = grid_metastable.extract_cells(mask)
-                if grid_metastable_slab.n_cells == 0:
-                    vol_selected_slab = 0.0
-                else:
-                    sized_cold = grid_metastable_slab.compute_cell_sizes(length=False, area=True, volume=False)
-                    vol_selected_slab = float(sized_cold.cell_data["Volume"].sum())
-            self.metastable_volume = vol_selected
-            self.metastable_volume_cold = vol_selected_slab
         if save_file:
             self.write_object_to_file(grid_metastable, "metastable_below_%.2f" % (threshold), "vtu")
+            self.write_object_to_file(grid_metastable_slab, "metastable_slab_below_%.2f" % (threshold), "vtu")
 
         self.threshold_metastable = threshold
         
@@ -718,54 +713,7 @@ class PYVISTA_PROCESS_THD():
 
         return grid_metastable
 
-    # todo_mow 
-    def extract_metastable_area(self, options, **kwargs):
-    
-        T_slab = 900 + 273.15 # K
-        threshold = kwargs.get("threshold", 0.5)
 
-        sliced_c = self.sliced.point_data_to_cell_data(pass_point_data=False, categorical=False)
-
-        grid_metastable = sliced_c.threshold(threshold, scalars="metastable", invert=True)
-        cell_data_P_eq =  (grid_metastable.cell_data['T'] - options["T_PT_EQ"]) * options["CL_PT_EQ"] + options["P_PT_EQ"]
-        mask = np.flatnonzero(grid_metastable.cell_data['p'] > cell_data_P_eq)
-        grid_metastable = grid_metastable.extract_cells(mask)
-
-
-        # if no cell presents, assign trivial values
-        # else compute the total cell area
-        if grid_metastable.n_cells == 0:
-            self.metastable_area_center = 0.0
-            self.metastable_area_cold_center = 0.0
-        else:
-            sized = grid_metastable.compute_cell_sizes(length=False, area=True, volume=False)
-            self.metastable_area_center = float(sized.cell_data["Area"].sum())
-        
-            # now derive the cold area
-            mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
-            grid_metastable_slab = grid_metastable.extract_cells(mask)
-            if grid_metastable_slab.n_cells == 0:
-                self.metastable_area_cold_center = 0.0
-            else:
-                sized_cold = grid_metastable_slab.compute_cell_sizes(length=False, area=True, volume=False)
-                self.metastable_area_cold_center = float(sized_cold.cell_data["Area"].sum())
-
-            self.write_object_to_file(grid_metastable, "metastable_sliced_%.2f" % (threshold), "vtu")
-            self.write_object_to_file(grid_metastable_slab, "metastable_sliced_slab_%.2f" % (threshold), "vtu")
-        
-
-    def get_slab_depth(self):
-        # Get slab depth
-        assert(self.iso_volume_lower is not None)
-        points = self.iso_volume_lower.points
-        if self.geometry == "chunk":
-            l0, _, _ = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
-        else:
-            l0 = points[:, 2]
-        slab_depth = self.Max0 - np.min(l0)
-        self.slab_depth  = slab_depth
-
-        return slab_depth
 
     def extract_plate_edge(self, **kwargs):
         """
@@ -897,157 +845,6 @@ class PYVISTA_PROCESS_THD():
 
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
-
-    def extract_slab_dip_angle_by_depth(self, v0_0, v1_0, v0_1, v1_1):
-        my_assert(self.slab_moho_interp_func is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR,\
-                  "Needs to run extract_slab_interface for slab moho first")
-        my_assert(v0_0 > v0_1, ValueError, "To extract dip angle, depth1 must be bigger than depth0")
-
-        # derive the surface point from slab moho
-        v2_0 = self.slab_moho_interp_func(v0_0/self.scale0, v1_0/self.scale1)
-        v2_1 = self.slab_moho_interp_func(v0_1/self.scale0, v1_1/self.scale1)
-
-
-        # for comparision: get surface point from slab surface
-        # this approach has problem with later times (crustal material are not well distributed)
-        # v2_0 = self.slab_surface_interp_func(v0_0/self.scale0, v1_0/self.scale1)
-        # v2_1 = self.slab_surface_interp_func(v0_1/self.scale0, v1_1/self.scale1)
-
-        if self.geometry == "chunk":
-            v0_mean = (v0_0 + v0_1)/2.0
-            dip_angle = np.arctan2(v0_0 - v0_1, v0_mean * (v2_1 - v2_0))
-        else:
-            dip_angle = np.arctan2(v0_0 - v0_1, v2_1 - v2_0)
-
-        return dip_angle
-    
-    def extract_slab_dip_angle(self):
-        '''
-        extract slab dip angle
-        '''
-        self.dip_100_center = self.extract_slab_dip_angle_by_depth(self.Max0-15e3, 0.0, self.Max0-100e3, 0.0)
-        
-
-    def extract_slab_dip_angle_deprecated_0(self):
-        '''
-        extract slab dip angle
-        '''
-        assert(self.slab_surface_points is not None)
-        indent = 4
-        
-        start = time.time()
-        self.dip_100_center = get_slab_dip_angle_deprecated_0(self.slab_surface_points, self.geometry, self.Max0, 0.0, 100e3)
-        end = time.time()
-        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
-
-    def extract_slab_trench(self):
-        '''
-        extract slab trench
-        '''
-        indent = 4
-
-        # trench points at surface
-        start = time.time()
-        trench_points = self.extract_trench_profile(0.0)
-        _, self.trench_center, _ = PUnified.points2unified3(trench_points[0, :], self.is_spherical, False)
-
-        # trench position at 50 km 
-        trench_points = self.extract_trench_profile(50e3)
-        _, self.trench_center_50km, _ = PUnified.points2unified3(trench_points[0, :], self.is_spherical, False)
-        end = time.time()
-        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
-
-    def extract_trench_profile(self, depth, **kwargs):
-        '''
-        Parameters:
-            depth - the depth of the trench profile (e.g. 0.0 - surface trench position)
-            kwargs:
-                N1 - number of points along dimension 1
-                file_type - type of file outputs (default: output vtp file, txt: output txt file)
-        '''
-        N1 = kwargs.get("N1", 1000)
-        file_type = kwargs.get("file_type", "default")
-
-        # K-nearneighbor interpolation
-        val1s = np.linspace(self.Min1, self.Max1, N1)
-        val0s = np.full(val1s.shape, self.Max0 - depth)
-        val2s = self.slab_surface_interp_func(val0s/self.scale0, val1s/self.scale1)
-
-        # Convert to ordinary coordinates
-        mask = ~np.isnan(val2s)
-        x, y, z = PUnified.unified2points3(np.vstack((val0s[mask], val2s[mask], val1s[mask])).T, self.is_spherical, False)
-        trench_points = np.vstack([x, y, z]).T
-
-        # Export to files
-        if file_type == "default":
-            point_cloud_tr = pv.PolyData(trench_points)
-            filename = "trench_d%.2fkm_%05d.vtp" % (depth/1e3, self.pvtu_step)
-            filepath = os.path.join(self.pyvista_outdir, filename)
-            point_cloud_tr.save(filepath)
-            print("saved file %s" % filepath)
-        elif file_type == "txt":
-            filename = "trench_d%.2fkm_%05d.txt" % (depth/1e3, self.pvtu_step)
-            filepath = os.path.join(self.pyvista_outdir, filename)
-            np.savetxt(filepath, trench_points, fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
-            print("saved file %s" % filepath)
-        else:
-            raise ValueError("file_type needs to be default or txt")
-        
-        return trench_points
-    
-    def extract_sp_velocity(self):
-        # todo_plate
-        from hamageolib.utils.geometry_utilities import rotate_vec_cart_to_sph
-
-        my_assert(self.sp_lower_KDTree is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR\
-                  , "Needs to run extract_slab_interface for sp_lower first")
-        
-        start = time.time()
-
-        query_plate_velocity_depth = 40e3 # depth to query m
-        query_plate_velocity_dist = 500e3 # distance from trench to query
-        query_plate_velocity_dist_span = 200e3 # range of distance from trench to query
-
-        query_v0 = self.Max0 - query_plate_velocity_depth
-        query_v1 = 0.0 
-        if self.is_spherical:
-            query_v2_range = [self.trench_center_50km - (query_plate_velocity_dist + query_plate_velocity_dist_span)/self.Max0,\
-                            self.trench_center_50km - query_plate_velocity_dist/self.Max0]
-        else:
-            query_v2_range = [self.trench_center_50km - query_plate_velocity_dist - query_plate_velocity_dist_span,\
-                            self.trench_center_50km - query_plate_velocity_dist]
-
-        # source of data
-        points = self.iso_volume_lower_filtered_pe.points
-        point_data = self.iso_volume_lower_filtered_pe.point_data
-        
-        # query points within a radius range
-        dr = 0.003 
-        query_pt = np.array([query_v0/self.Max0, query_v1/self.Max1])
-        idxs = self.sp_lower_KDTree.query_ball_point(query_pt, r=dr)
-        idx_np = np.array(idxs)
-        _, v2s, _ = PUnified.points2unified3(points[idx_np], self.is_spherical, False)
- 
-        # apply mask for points in v2 range (distance to the trench)
-        mask = ((v2s > query_v2_range[0]) & (v2s < query_v2_range[1]))
-        v2s = v2s[mask]
-        idxs = idx_np[mask]
-
-        point_np = points[idxs]
-        velocity_np = point_data["velocity"][idxs]
-
-        # project to coordinate
-        if self.is_spherical:
-            _, _, velocity_2s = rotate_vec_cart_to_sph(point_np[:, 0], point_np[:, 1], point_np[:, 2],\
-                                                    velocity_np[:, 0], velocity_np[:, 1], velocity_np[:, 2])
-        else:
-            velocity_2s = velocity_np[:, 0]
-        self.sp_velocity = np.mean(velocity_2s)
-
-        end = time.time()
-        print("%s: Extract plate movement takes %.1f s" % (func_name(), end - start))
-    
-
 
 
     def extract_plate_edge_surface(self):
@@ -1262,6 +1059,223 @@ class PYVISTA_PROCESS_THD():
         self.iso_volume_lower_filtered_pe.save(filepath)
 
         print("Save file %s" % filepath)
+
+    def extract_slab_dip_angle_by_depth(self, v0_0, v1_0, v0_1, v1_1):
+        my_assert(self.slab_moho_interp_func is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR,\
+                  "Needs to run extract_slab_interface for slab moho first")
+        my_assert(v0_0 > v0_1, ValueError, "To extract dip angle, depth1 must be bigger than depth0")
+
+        # derive the surface point from slab moho
+        v2_0 = self.slab_moho_interp_func(v0_0/self.scale0, v1_0/self.scale1)
+        v2_1 = self.slab_moho_interp_func(v0_1/self.scale0, v1_1/self.scale1)
+
+
+        # for comparision: get surface point from slab surface
+        # this approach has problem with later times (crustal material are not well distributed)
+        # v2_0 = self.slab_surface_interp_func(v0_0/self.scale0, v1_0/self.scale1)
+        # v2_1 = self.slab_surface_interp_func(v0_1/self.scale0, v1_1/self.scale1)
+
+        if self.geometry == "chunk":
+            v0_mean = (v0_0 + v0_1)/2.0
+            dip_angle = np.arctan2(v0_0 - v0_1, v0_mean * (v2_1 - v2_0))
+        else:
+            dip_angle = np.arctan2(v0_0 - v0_1, v2_1 - v2_0)
+
+        return dip_angle
+    
+    def extract_slab_dip_angle(self):
+        '''
+        extract slab dip angle
+        '''
+        self.dip_100_center = self.extract_slab_dip_angle_by_depth(self.Max0-15e3, 0.0, self.Max0-100e3, 0.0)
+        
+
+    def extract_slab_dip_angle_deprecated_0(self):
+        '''
+        extract slab dip angle
+        '''
+        assert(self.slab_surface_points is not None)
+        indent = 4
+        
+        start = time.time()
+        self.dip_100_center = get_slab_dip_angle_deprecated_0(self.slab_surface_points, self.geometry, self.Max0, 0.0, 100e3)
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
+
+    def extract_slab_trench(self):
+        '''
+        extract slab trench
+        '''
+        indent = 4
+
+        # trench points at surface
+        start = time.time()
+        trench_points = self.extract_trench_profile(0.0)
+        _, self.trench_center, _ = PUnified.points2unified3(trench_points[0, :], self.is_spherical, False)
+
+        # trench position at 50 km 
+        trench_points = self.extract_trench_profile(50e3)
+        _, self.trench_center_50km, _ = PUnified.points2unified3(trench_points[0, :], self.is_spherical, False)
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
+
+    def extract_trench_profile(self, depth, **kwargs):
+        '''
+        Parameters:
+            depth - the depth of the trench profile (e.g. 0.0 - surface trench position)
+            kwargs:
+                N1 - number of points along dimension 1
+                file_type - type of file outputs (default: output vtp file, txt: output txt file)
+        '''
+        N1 = kwargs.get("N1", 1000)
+        file_type = kwargs.get("file_type", "default")
+
+        # K-nearneighbor interpolation
+        val1s = np.linspace(self.Min1, self.Max1, N1)
+        val0s = np.full(val1s.shape, self.Max0 - depth)
+        val2s = self.slab_surface_interp_func(val0s/self.scale0, val1s/self.scale1)
+
+        # Convert to ordinary coordinates
+        mask = ~np.isnan(val2s)
+        x, y, z = PUnified.unified2points3(np.vstack((val0s[mask], val2s[mask], val1s[mask])).T, self.is_spherical, False)
+        trench_points = np.vstack([x, y, z]).T
+
+        # Export to files
+        if file_type == "default":
+            point_cloud_tr = pv.PolyData(trench_points)
+            filename = "trench_d%.2fkm_%05d.vtp" % (depth/1e3, self.pvtu_step)
+            filepath = os.path.join(self.pyvista_outdir, filename)
+            point_cloud_tr.save(filepath)
+            print("saved file %s" % filepath)
+        elif file_type == "txt":
+            filename = "trench_d%.2fkm_%05d.txt" % (depth/1e3, self.pvtu_step)
+            filepath = os.path.join(self.pyvista_outdir, filename)
+            np.savetxt(filepath, trench_points, fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
+            print("saved file %s" % filepath)
+        else:
+            raise ValueError("file_type needs to be default or txt")
+        
+        return trench_points
+    
+    def extract_sp_velocity(self):
+        # todo_plate
+        from hamageolib.utils.geometry_utilities import rotate_vec_cart_to_sph
+
+        my_assert(self.sp_lower_KDTree is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR\
+                  , "Needs to run extract_slab_interface for sp_lower first")
+        
+        start = time.time()
+
+        query_plate_velocity_depth = 40e3 # depth to query m
+        query_plate_velocity_dist = 500e3 # distance from trench to query
+        query_plate_velocity_dist_span = 200e3 # range of distance from trench to query
+
+        query_v0 = self.Max0 - query_plate_velocity_depth
+        query_v1 = 0.0 
+        if self.is_spherical:
+            query_v2_range = [self.trench_center_50km - (query_plate_velocity_dist + query_plate_velocity_dist_span)/self.Max0,\
+                            self.trench_center_50km - query_plate_velocity_dist/self.Max0]
+        else:
+            query_v2_range = [self.trench_center_50km - query_plate_velocity_dist - query_plate_velocity_dist_span,\
+                            self.trench_center_50km - query_plate_velocity_dist]
+
+        # source of data
+        points = self.iso_volume_lower_filtered_pe.points
+        point_data = self.iso_volume_lower_filtered_pe.point_data
+        
+        # query points within a radius range
+        dr = 0.003 
+        query_pt = np.array([query_v0/self.Max0, query_v1/self.Max1])
+        idxs = self.sp_lower_KDTree.query_ball_point(query_pt, r=dr)
+        idx_np = np.array(idxs)
+        _, v2s, _ = PUnified.points2unified3(points[idx_np], self.is_spherical, False)
+ 
+        # apply mask for points in v2 range (distance to the trench)
+        mask = ((v2s > query_v2_range[0]) & (v2s < query_v2_range[1]))
+        v2s = v2s[mask]
+        idxs = idx_np[mask]
+
+        point_np = points[idxs]
+        velocity_np = point_data["velocity"][idxs]
+
+        # project to coordinate
+        if self.is_spherical:
+            _, _, velocity_2s = rotate_vec_cart_to_sph(point_np[:, 0], point_np[:, 1], point_np[:, 2],\
+                                                    velocity_np[:, 0], velocity_np[:, 1], velocity_np[:, 2])
+        else:
+            velocity_2s = velocity_np[:, 0]
+        self.sp_velocity = np.mean(velocity_2s)
+
+        end = time.time()
+        print("%s: Extract plate movement takes %.1f s" % (func_name(), end - start))
+
+    def extract_metastable_area(self, options, **kwargs):
+    
+        T_slab = 900 + 273.15 # K
+        threshold = kwargs.get("threshold", 0.5)
+
+        # Extract metastable volume
+        if self.grid_metastable.n_cells == 0:
+            vol_selected = 0.0
+        else:
+            self.grid_metastable = self.grid_metastable.compute_cell_sizes(length=False, area=False, volume=True)
+            vol_selected = float(self.grid_metastable.cell_data["Volume"].sum())
+
+        if self.grid_metastable_slab.n_cells == 0:
+            vol_selected_slab = 0.0
+        else:
+            self.grid_metastable_slab = self.grid_metastable_slab.compute_cell_sizes(length=False, area=False, volume=True)
+            vol_selected_slab = float(self.grid_metastable_slab.cell_data["Volume"].sum())
+
+        self.metastable_volume = vol_selected
+        self.metastable_volume_cold = vol_selected_slab
+
+        # Extract metastable area of slice at the center
+        sliced_c = self.sliced.point_data_to_cell_data(pass_point_data=False, categorical=False)
+
+        grid_metastable_c = sliced_c.threshold(threshold, scalars="metastable", invert=True)
+        cell_data_P_eq_c =  (grid_metastable_c.cell_data['T'] - options["T_PT_EQ"]) * options["CL_PT_EQ"] + options["P_PT_EQ"]
+        mask = np.flatnonzero(grid_metastable_c.cell_data['p'] > cell_data_P_eq_c)
+        grid_metastable_c = grid_metastable_c.extract_cells(mask)
+
+        # if no cell presents, assign trivial values
+        # else compute the total cell area
+        if grid_metastable_c.n_cells == 0:
+            self.metastable_area_center = 0.0
+            self.metastable_area_cold_center = 0.0
+        else:
+            sized = grid_metastable_c.compute_cell_sizes(length=False, area=True, volume=False)
+            self.metastable_area_center = float(sized.cell_data["Area"].sum())
+        
+            # now derive the cold area
+            mask = np.flatnonzero(grid_metastable_c.cell_data['T'] < T_slab)
+            grid_metastable_slab_c = grid_metastable_c.extract_cells(mask)
+            if grid_metastable_slab_c.n_cells == 0:
+                self.metastable_area_cold_center = 0.0
+            else:
+                sized_cold = grid_metastable_slab_c.compute_cell_sizes(length=False, area=True, volume=False)
+                self.metastable_area_cold_center = float(sized_cold.cell_data["Area"].sum())
+
+            self.write_object_to_file(grid_metastable_c, "metastable_sliced_%.2f" % (threshold), "vtu")
+            self.write_object_to_file(grid_metastable_slab_c, "metastable_sliced_slab_%.2f" % (threshold), "vtu")
+        
+
+    def get_slab_depth(self):
+        # Get slab depth
+        assert(self.iso_volume_lower is not None)
+        points = self.iso_volume_lower.points
+        if self.geometry == "chunk":
+            l0, _, _ = cartesian_to_spherical(points[:, 0], points[:, 1], points[:, 2])
+        else:
+            l0 = points[:, 2]
+        slab_depth = self.Max0 - np.min(l0)
+        self.slab_depth  = slab_depth
+
+        return slab_depth
+
+
+
+
 
     def make_boundary_cartesian(self, **kwargs):
         """
@@ -2001,7 +2015,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         # extract sp_lower composition beyond a threshold
         PprocessThD.extract_iso_volume_lower(threshold=threshold_lower)
         if Case_Options.options["MODEL_TYPE"] == "mow":
-            PprocessThD.extract_iso_volume_metastable(Case_Options.options.copy(), threshold=threshold_metastable)
+            PprocessThD.extract_iso_volume_metastable(options=Case_Options.options.copy(), threshold=threshold_metastable)
         # extract plate_edge composition beyond a threshold
         PprocessThD.extract_plate_edge(threshold=threshold_edge)
         process = psutil.Process(os.getpid())
@@ -2017,7 +2031,9 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
                 PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=threshold_upper)
                 PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=threshold_lower)
                 PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=threshold_edge)
-                # todo_mow
+                if Case_Options.options["MODEL_TYPE"] == "mow":
+                    PprocessThD.process_piecewise("extract_iso_volume_metastable", ["grid_metastable", "grid_metastable_slab"],\
+                                              options=Case_Options.options.copy(), threshold=threshold_metastable)
                 process = psutil.Process(os.getpid())
                 print("Memory Usage piecewise %d: " % piece, process.memory_info().rss / 1024**2, "MB")
         else:
@@ -2031,7 +2047,9 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
                 PprocessThD.process_piecewise("extract_iso_volume_upper", ["iso_volume_upper"], threshold=threshold_upper)
                 PprocessThD.process_piecewise("extract_iso_volume_lower", ["iso_volume_lower"], threshold=threshold_lower)
                 PprocessThD.process_piecewise("extract_plate_edge", ["iso_plate_edge"], threshold=threshold_edge)
-                # todo_mow
+                if Case_Options.options["MODEL_TYPE"] == "mow":
+                    PprocessThD.process_piecewise("extract_iso_volume_metastable", ["grid_metastable", "grid_metastable_slab"],\
+                                              options=Case_Options.options.copy(), threshold=threshold_metastable)
                 process = psutil.Process(os.getpid())
                 print("Memory Usage piecewise %d: " % i_piece, process.memory_info().rss / 1024**2, "MB")
                 PprocessThD.export_piecewise(i_piece)
@@ -2055,7 +2073,9 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
             PprocessThD.write_key_to_file("iso_volume_upper", "sp_upper_above_%.2f" % (threshold_upper), "vtu")
             PprocessThD.write_key_to_file("iso_volume_lower", "sp_lower_above_%.2f" % (threshold_lower), "vtu")
             PprocessThD.write_key_to_file("iso_plate_edge", "plate_edge_above_%.2f" % (threshold_edge), "vtu")
-            # todo_mow
+            if Case_Options.options["MODEL_TYPE"] == "mow":
+                PprocessThD.write_key_to_file("grid_metastable", "metastable_below_%.2f" % (threshold_metastable), "vtu")
+                PprocessThD.write_key_to_file("grid_metastable_slab", "metastable_slab_below_%.2f" % (threshold_metastable), "vtu")
             process = psutil.Process(os.getpid())
             print("Memory Usage (after writing files): ", process.memory_info().rss / 1024**2, "MB")
 
@@ -2353,7 +2373,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     # In addition, separately derive the area below a certain slab temperature (e.g 900 C)
     if Case_Options.options["MODEL_TYPE"] == "mow":
         start = time.time()
-        # todo_mow
         # filter the grid base on cell data of "metastable"
         grid_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
         cell_data_P_eq =  (grid_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
