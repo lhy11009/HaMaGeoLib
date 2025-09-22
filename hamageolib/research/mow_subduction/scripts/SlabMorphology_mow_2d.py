@@ -9,7 +9,7 @@ from hamageolib.research.haoyuan_3d_subduction.post_process import PlotCaseRunTw
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_subduction_visualization
 
 
-local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow01/C_mow_h2890.0_M_gr3_ar5_jp1100i_szT7.50_szV5.00e+19"
+local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow01/C_mow_h2890.0_M_gr3_ar4"
 
 assert(local_dir_2d is not None)
 
@@ -26,6 +26,9 @@ graphical_steps = [int(step) for step in graphical_steps_np]
 #   area of the MOW area
 #   area of the MOW area in the cold slab
 for step in graphical_steps:
+    # if step < 335:
+    #     continue
+
     pvtu_step = step + int(Case_Options_2d.options['INITIAL_ADAPTIVE_REFINEMENT'])
     output_dict = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_2d)
     print("output_dict: ", output_dict) # debug

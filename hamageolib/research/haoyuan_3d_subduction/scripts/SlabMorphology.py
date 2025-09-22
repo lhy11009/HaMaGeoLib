@@ -9,6 +9,7 @@ if os.path.abspath(HaMaGeoLib_DIR) not in sys.path:
 from hamageolib.research.haoyuan_3d_subduction.post_process import get_trench_position_from_file, get_slab_depth_from_file,\
     get_slab_dip_angle_from_file, ProcessVtuFileThDStep
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS
+from hamageolib.research.mow_subduction.case_options import CASE_OPTIONS as CASE_OPTIONS_MOW
 
 
 # utility function
@@ -83,6 +84,13 @@ def main():
         const=True, default=True,
         help="Prepare pyvist results before analysis (True/False). If flag present without value, defaults to True.")
 
+    # Whether to do clip 
+    parser.add_argument(
+        "-c", "--clip",
+        type=str2bool, nargs="?", 
+        const=True, default=True,
+        help="Clip the domain before analysis (True/False). If flag present without value, defaults to True.")
+
     args = parser.parse_args()
 
     # ----------------------------
@@ -112,6 +120,10 @@ def main():
     # Initiate the case option class
     Case_Options = CASE_OPTIONS(args.indir)
     Case_Options.Interpret()
+    if Case_Options.options["MODEL_TYPE"] == "mow":
+        # reinit if the case is a mow case
+        Case_Options = CASE_OPTIONS_MOW(args.indir)
+        Case_Options.Interpret()
     Case_Options.SummaryCaseVtuStep(os.path.join(args.indir, "summary.csv"))
 
     graphical_steps_np = Case_Options.summary_df["Vtu step"].to_numpy()
@@ -147,7 +159,7 @@ def main():
                 # n_pieces tell the function to proceed piece-wise.
                 # i_pice tell the function to only process one piece at a time (otherwise loop over all pieces)
                 PprocessThD, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir,\
-                                                             n_pieces=args.n_pieces, i_piece=args.i_piece, do_clip=True)
+                                                             n_pieces=args.n_pieces, i_piece=args.i_piece, do_clip=args.clip)
             else:
                 PprocessThD, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir, only_initialization=True)
 
@@ -156,38 +168,33 @@ def main():
         else:
             if analyze_results:
                 print("Analyze step %d" % step)
-                try:
-                    trench_center = outputs["trench_center"]
-                    # trench_center = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'])
-                except FileNotFoundError:
-                    trench_center = None
-                try:
-                    trench_center_50km = outputs["trench_center_50km"]
-                    # trench_center_50km = get_trench_position_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], trench_depth=50e3)
-                except FileNotFoundError:
-                    trench_center_50km = None
-                try:
-                    slab_depth = outputs["slab_depth"]
-                    # slab_depth = get_slab_depth_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_lower")
-                except FileNotFoundError:
-                    slab_depth = None
-                try:
-                    dip_100_center = outputs["dip_100_center"]
-                    # dip_100_center = get_slab_dip_angle_from_file(pyvista_outdir, pvtu_step, Case_Options.options['GEOMETRY'], float(Case_Options.options['OUTER_RADIUS']), "sp_upper", 0.0, 100e3)
-                except FileNotFoundError:
-                    dip_100_center = None
+                trench_center = outputs["trench_center"]
+                trench_center_50km = outputs["trench_center_50km"]
+                slab_depth = outputs["slab_depth"]
+                dip_100_center = outputs["dip_100_center"]
 
-                print("\t trench_center = ", trench_center)
-                print("\t trench_center_50km = ", trench_center_50km)
-                print("\t slab_depth = ", slab_depth)
-                print("\t dip_100_center = ", dip_100_center)
+                print("\t trench_center = ", outputs["trench_center"])
+                print("\t trench_center_50km = ", outputs["trench_center_50km"])
+                print("\t slab_depth = ", outputs["slab_depth"])
+                print("\t dip_100_center = ", outputs["dip_100_center"])
+
+                if Case_Options.options["MODEL_TYPE"] == "mow":
+                    print("\t Mow volume = ", outputs["Mow volume"])
+                    print("\t Mow volume cold = ", outputs["Mow volume slab"])
+                    print("\t Mow area center = ", outputs["Mow area center"])
+                    print("\t Mow area cold center = ", outputs["Mow area slab center"])
                 
                 Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, True)
                 # update value in sumamry
-                Case_Options.SummaryCaseVtuStepUpdateValue("Slab depth", step, slab_depth)
-                Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, trench_center)
-                Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center 50km)", step, trench_center_50km)
-                Case_Options.SummaryCaseVtuStepUpdateValue("Dip 100 (center)", step, dip_100_center)
+                Case_Options.SummaryCaseVtuStepUpdateValue("Slab depth", step, outputs["slab_depth"])
+                Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, outputs["trench_center"])
+                Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center 50km)", step, outputs["trench_center_50km"])
+                Case_Options.SummaryCaseVtuStepUpdateValue("Dip 100 (center)", step, outputs["dip_100_center"])
+                if Case_Options.options["MODEL_TYPE"] == "mow":
+                    Case_Options.SummaryCaseVtuStepUpdateValue("MOW volume", step, outputs["Mow volume"])
+                    Case_Options.SummaryCaseVtuStepUpdateValue("MOW volume cold", step, outputs["Mow volume slab"])
+                    Case_Options.SummaryCaseVtuStepUpdateValue("Mow area center", step, outputs["Mow area center"])
+                    Case_Options.SummaryCaseVtuStepUpdateValue("Mow area cold center", step, outputs["Mow area slab center"])
         
         # break # debug
 

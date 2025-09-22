@@ -28,7 +28,6 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_TWOD1):
             if col not in self.summary_df.columns:
                 self.summary_df[col] = np.nan
 
-# todo_mow
 class CASE_OPTIONS(CASE_OPTIONS_BASE):
 
    def Interpret(self, **kwargs):
@@ -39,6 +38,22 @@ class CASE_OPTIONS(CASE_OPTIONS_BASE):
       metastabl_options = set_metastable_options(self.idict)
       self.options.update(**metastabl_options)
 
+   def SummaryCaseVtuStep(self, ifile=None):
+        '''
+        Summary case result
+        ofile (str): if this provided, import old results
+        '''
+        CASE_OPTIONS_BASE.SummaryCaseVtuStep(self, ifile)
+
+        # Add new columns you want to add
+        # Mow area - metastable area
+        # Mow area code - metastable area in cold slab
+        new_columns = ["Mow area center", "Mow area cold center", "MOW volume", "MOW volume cold", "Sp velocity"]
+
+        for col in new_columns:
+            if col not in self.summary_df.columns:
+                self.summary_df[col] = np.nan
+
 
 def set_metastable_options(idict):
 
@@ -47,8 +62,6 @@ def set_metastable_options(idict):
       names_of_compositional_fields_str = idict["Compositional fields"]["Names of fields"]
       if "metastable" in names_of_compositional_fields_str:
          options["MODEL_TYPE"] = "mow"
-
-      if options["MODEL_TYPE"] == "mow":
          default_dict = {
             "Phase transition Clapeyron slope": 2e6,
             "Phase transition depth": 410e3,

@@ -16,7 +16,7 @@ def main():
     anchor_plate_id = 0 # anchor plate id: 0 - Africa
 
     start_time = 0.0
-    restart_time = None # invoke this options to restart from a previous fun
+    restart_time = 30.0 # invoke this options to restart from a previous fun
     end_time = 61.0
     interval = 1.0
 

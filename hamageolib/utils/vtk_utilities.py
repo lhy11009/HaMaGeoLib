@@ -277,6 +277,28 @@ def get_pyvista_extension(value):
         return "vtm"
     else:
         raise TypeError(f"Unsupported PyVista object type: {type(value)}")
+
+def _make_empty_vtp():
+
+    xml = """<?xml version="1.0"?>
+<VTKFile type="PolyData" version="1.0" byte_order="LittleEndian">
+  <PolyData>
+    <Piece NumberOfPoints="0" NumberOfVerts="0" NumberOfLines="0" NumberOfStrips="0" NumberOfPolys="0">
+      <Points>
+        <DataArray type="Float32" NumberOfComponents="3" format="ascii"></DataArray>
+      </Points>
+    </Piece>
+  </PolyData>
+</VTKFile>
+"""
+    reader = vtk.vtkXMLPolyDataReader()
+    reader.ReadFromInputStringOn()
+    reader.SetInputString(xml)
+    reader.Update()
+
+    ugrid = pv.wrap(reader.GetOutput())
+
+    return ugrid
     
 def _write_empty_vtp(path: str):
     xml = """<?xml version="1.0"?>
@@ -291,6 +313,34 @@ def _write_empty_vtp(path: str):
 </VTKFile>
 """
     Path(path).write_text(xml)
+
+def _make_empty_vtu():
+
+    xml = """<?xml version="1.0"?>
+<VTKFile type="UnstructuredGrid" version="1.0" byte_order="LittleEndian">
+  <UnstructuredGrid>
+    <Piece NumberOfPoints="0" NumberOfCells="0">
+      <Points>
+        <DataArray type="Float32" NumberOfComponents="3" format="ascii"></DataArray>
+      </Points>
+      <Cells>
+        <DataArray type="Int32" Name="connectivity" format="ascii"></DataArray>
+        <DataArray type="Int32" Name="offsets" format="ascii"></DataArray>
+        <DataArray type="UInt8" Name="types" format="ascii"></DataArray>
+      </Cells>
+    </Piece>
+  </UnstructuredGrid>
+</VTKFile>
+"""
+    reader = vtk.vtkXMLUnstructuredGridReader()
+    reader.ReadFromInputStringOn()
+    reader.SetInputString(xml)
+    reader.Update()
+
+    ugrid = pv.wrap(reader.GetOutput())
+
+    return ugrid
+
 
 def _write_empty_vtu(path: str):
     xml = """<?xml version="1.0"?>

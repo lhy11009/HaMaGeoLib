@@ -115,7 +115,7 @@ class PYVISTA_PROCESS_THD():
         # We use the "combined" dict to append piecewise outputs into lists
         # and then merged to class attributes one by one
         self.keys = ["sliced", "sliced_u", "sliced_shell", "sliced_depth", "iso_volume_upper", "iso_volume_lower", "iso_volume_lower_filtered_pe",
-                     "grid_metastable", "iso_plate_edge", "slab_surface_points", "pe_edge_points", "trench_points", "additional_trench_points"]
+                     "grid_metastable", "grid_metastable_slab", "iso_plate_edge", "slab_surface_points", "pe_edge_points", "trench_points", "additional_trench_points"]
         self.combined = {}
         for key in self.keys:
             setattr(self, key, None)
@@ -673,6 +673,8 @@ class PYVISTA_PROCESS_THD():
             - Stores the result in `self.iso_volume_metastable`.
             - Saves the extracted volume as a .vtu file.
         """
+        from hamageolib.utils.vtk_utilities import _make_empty_vtu
+
         start = time.time()
         indent = 4
         
@@ -692,7 +694,7 @@ class PYVISTA_PROCESS_THD():
         grid_metastable = grid_metastable_c.extract_cells(mask)
 
         if grid_metastable.n_cells == 0:
-            grid_metastable_slab = None
+            grid_metastable_slab = _make_empty_vtu()
         else:
             # extract the cold region 
             mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
@@ -711,7 +713,7 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
-        return grid_metastable
+        return grid_metastable, grid_metastable_slab
 
 
 
@@ -2058,7 +2060,15 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
                 return PprocessThD, {}
 
         if i_piece < 0: 
+            # Set class attributes
             PprocessThD.pvtu_step = pvtu_step
+            PprocessThD.threshold_lower = threshold_lower
+            PprocessThD.threshold_upper = threshold_upper
+            PprocessThD.threshold_edge = threshold_edge
+            if Case_Options.options["MODEL_TYPE"] == "mow":
+                PprocessThD.threshold_metastable = threshold_metastable
+            
+            # Load the pieces
             for piece in range(n_pieces):
                 PprocessThD.import_piecewise(piece)
 
@@ -2102,7 +2112,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     PprocessThD.extract_slab_trench()
     PprocessThD.extract_sp_velocity()
 
-
     # extract outputs
     assert(PprocessThD.trench_center is not None)
     outputs["trench_center"] = PprocessThD.trench_center
@@ -2110,10 +2119,20 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     outputs["trench_center_50km"] = PprocessThD.trench_center_50km
     assert(PprocessThD.slab_depth is not None)
     outputs["slab_depth"] = PprocessThD.slab_depth
+
     assert(PprocessThD.dip_100_center is not None)
     outputs["dip_100_center"] = PprocessThD.dip_100_center
     assert(PprocessThD.sp_velocity is not None)
     outputs["Sp velocity"] = PprocessThD.sp_velocity
+    if Case_Options.options["MODEL_TYPE"] == "mow":
+        assert(PprocessThD.metastable_volume is not None)
+        outputs["Mow volume"] = PprocessThD.metastable_volume
+        assert(PprocessThD.metastable_volume_cold is not None)
+        outputs["Mow volume slab"] = PprocessThD.metastable_volume_cold
+        assert(PprocessThD.metastable_area_center is not None)
+        outputs["Mow area center"] = PprocessThD.metastable_area_center
+        assert(PprocessThD.metastable_area_cold_center is not None)
+        outputs["Mow area slab center"] = PprocessThD.metastable_area_cold_center
 
     return PprocessThD, outputs
 
@@ -2355,15 +2374,19 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     v2s = v2s[mask]
     idxs = idx_np[mask]
 
-    point_np = slab_points[idxs]
-    velocity_np = slab_point_data["velocity"][idxs]
+    try:
+        point_np = slab_points[idxs]
+        velocity_np = slab_point_data["velocity"][idxs]
 
-    if geometry == "chunk":
-        _, _, velocity_2s = rotate_vec_cart_to_sph(point_np[:, 0], point_np[:, 1], point_np[:, 2],\
-                                                   velocity_np[:, 0], velocity_np[:, 1], velocity_np[:, 2])
-    elif geometry == "box":
-        velocity_2s = velocity_np[:, 0]
-    sp_velocity = np.mean(velocity_2s)
+        if geometry == "chunk":
+            _, _, velocity_2s = rotate_vec_cart_to_sph(point_np[:, 0], point_np[:, 1], point_np[:, 2],\
+                                                    velocity_np[:, 0], velocity_np[:, 1], velocity_np[:, 2])
+        elif geometry == "box":
+            velocity_2s = velocity_np[:, 0]
+        sp_velocity = np.mean(velocity_2s)
+    except IndexError:
+        sp_velocity = np.nan
+        
     output_dict["sp_velocity"] = sp_velocity
 
     end = time.time()
