@@ -2312,7 +2312,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     slab_surface_points = np.vstack([x, y, z]).T
 
 
-
     # derive trench center, slab depth and dip angle
     depth0 = 0.0; depth1 = 100e3
     if geometry == "chunk": 
@@ -2321,21 +2320,24 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
         l2_1 = np.interp(Max0 - depth1, l0, l2)
         l2_0 = np.interp(Max0 - depth0, l0, l2)
         trench_center = l2[-1]
+        trench_center_50km = np.interp(Max0 - 50e3, l0, l2)
         slab_depth = Max0 - np.min(l0)
         # dip angle
         mask0 = ((np.abs((Max0 - l0) - depth0) < d0))
         l2_mean_0 = np.average(l2[mask0])
         dip_angle = np.arctan2(depth1 - depth0, l0_mean * (l2_1 - l2_0))
     else:
-        trench_center = slab_surface_points[-1, 0]
         slab_depth = Max0 - np.min(slab_surface_points[:, 1])
         # dip angle
         l0 = slab_surface_points[:, 1]; l2 = slab_surface_points[:, 0]
         l2_1 = np.interp(Max0 - depth1, l0, l2)
         l2_0 = np.interp(Max0 - depth0, l0, l2)
+        trench_center = slab_surface_points[-1, 0]
+        trench_center_50km = np.interp(Max0 - 50e3, l0, l2)
         dip_angle = np.arctan2(depth1 - depth0, l2_1 - l2_0)
     
     output_dict["trench_center"] = trench_center
+    output_dict["trench_center_50km"] = trench_center_50km
     output_dict["slab_depth"] = slab_depth
     output_dict["dip_100"] = dip_angle
 

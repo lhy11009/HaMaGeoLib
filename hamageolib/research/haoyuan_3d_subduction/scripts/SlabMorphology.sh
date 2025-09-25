@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # path to
-case_dir="/mnt/lochy/ASPECT_DATA/MOW/mow3_00/C_mow_h2890.0_M_gr3_ar4"
+case_dir="/mnt/lochy/ASPECT_DATA/ThDSubduction/EBA_2d_consistent_11/eba3d_1_SA50.0_OA20.0_width80_bw4000_sw1000"
 
 # steps to run (vtu_step)
-min_vtu_step=143
-max_vtu_step=184 # 184
+min_vtu_step=0
+max_vtu_step=300 # 184
 
 # total number of pieces
 n_pieces=16
