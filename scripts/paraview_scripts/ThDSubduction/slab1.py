@@ -772,7 +772,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     sourceV1Display.DiffuseColor = [0.6666666666666666, 0.0, 1.0]
 
     scale_factor = 1e7
-    n_sample_points = 500
+    n_sample_points = 200
     if "GEOMETRY" == "chunk":
         x_p, y_p, z_p = rotate_spherical_point_paraview_style(OUTER_RADIUS+250e3, np.pi/2.0, TRENCH_INI_DERIVED, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
         point_source_center = [x_p, y_p, z_p]
@@ -800,7 +800,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     sourceV2Display.DiffuseColor = [0.0, 0.3333333333333333, 1.0]
 
     scale_factor = 1e7
-    n_sample_points = 1000
+    n_sample_points = 200
     if "GEOMETRY" == "chunk":
         x_p, y_p, z_p = rotate_spherical_point_paraview_style(OUTER_RADIUS+250e3, np.pi/2.0, TRENCH_INI_DERIVED, rotate_deg=[0, 0, ROTATION_ANGLE], translate=[0, 0, 0])
         point_source_center = [x_p, y_p, z_p]
