@@ -618,12 +618,14 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     elif "GEOMETRY" == "box":
         # todo_center
         if int("DIMENSION") == 3:
-            renderView1.CameraPosition = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 8150298.613651189, 2374146.9531437973 + TOP - 2890e3]
-            renderView1.CameraFocalPoint = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 0.0, 2374146.9531437973 + TOP - 2890e3]
+            renderView1.CameraPosition = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 8150298.613651189, 2374146.9531437973 + (TOP - 2890e3) + (1300e3 - MAX_PLOT_DEPTH_IN_SLICE)]
+            renderView1.CameraFocalPoint = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 0.0, 2374146.9531437973 + (TOP - 2890e3) + (1300e3 - MAX_PLOT_DEPTH_IN_SLICE)]
             renderView1.CameraViewUp = [2.220446049250313e-16, 0.0, 1.0]
         else:
-            renderView1.CameraPosition = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 2374146.9531437973 + TOP - 2890e3, -8150298.613651189]
-            renderView1.CameraFocalPoint = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 2374146.9531437973 + TOP - 2890e3, 0.0]
+            # TOP is the top extent of the box, default is 2890e3
+            # max_depth is the maximum depth to plot, default is 1300e3 
+            renderView1.CameraPosition = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 2374146.9531437973 + (TOP - 2890e3) + (1300e3 - MAX_PLOT_DEPTH_IN_SLICE), -8150298.613651189]
+            renderView1.CameraFocalPoint = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 2374146.9531437973 + (TOP - 2890e3) + (1300e3 - MAX_PLOT_DEPTH_IN_SLICE), 0.0]
             renderView1.CameraViewUp = [2.220446049250313e-16, 1.0, 0.0]
         renderView1.CameraParallelScale = 802823.959456
 

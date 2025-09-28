@@ -183,6 +183,8 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             self.options["DEPTH_PT_EQ"] = metastable_dict.get("Phase transition depth", 410e3)
             self.options["P_PT_EQ"] = 1.34829e+10
             self.options["T_PT_EQ"] = metastable_dict.get("Phase transition temperature", 1740.0)
+        
+        self.options["MAX_PLOT_DEPTH_IN_SLICE"]  = 1300e3
 
     def vtk_options(self, **kwargs):
         '''
@@ -413,6 +415,8 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             raise ValueError("Value of geometry must be either \"chunk\" or \"box\"")
         self.options['TRENCH_INITIAL'] = theta_ref_trench
         self.options['TRENCH_INI_DERIVED'] = -1.0
+
+        self.options["MAX_PLOT_DEPTH_IN_SLICE"]  = 1300e3
 
     def SummaryCaseVtuStep(self, ifile=None):
         '''

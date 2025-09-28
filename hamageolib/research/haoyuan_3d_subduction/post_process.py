@@ -2608,6 +2608,8 @@ def finalize_visualization_2d_07222025_box(local_dir, file_name, _time, frame_pn
     # Options
     add_time = kwargs.get("add_time", True)
     canvas_size = kwargs.get("canvas_size", (996, 568))
+    pos_v_diff = kwargs.get("pos_v_diff", 0)
+    pos_v_diff_frame = kwargs.get("pos_v_diff_frame", 0)
 
     # Inputs
     eps_file = os.path.join(local_dir, "img", "pv_outputs", "%s_t%.4e.eps" % (file_name, _time))
@@ -2646,7 +2648,7 @@ def finalize_visualization_2d_07222025_box(local_dir, file_name, _time, frame_pn
     overlay_images_on_blank_canvas(
         canvas_size=canvas_size,  # Size of the blank canvas in pixels (width, height)
         image_files=[full_image_path, frame_png_file_with_ticks],  # List of image file paths to overlay
-        image_positions=[(-187, -50), (-39, -10)],  # Positions of each image on the canvas
+        image_positions=[(-187, -50+pos_v_diff), (-39, -10+pos_v_diff_frame)],  # Positions of each image on the canvas
         cropping_regions=[None, None],  # Optional cropping regions for the images
         image_scale_factors=[None, None],  # Scaling factors for resizing the images
         output_image_file=output_image_file  # Path to save the final combined image
