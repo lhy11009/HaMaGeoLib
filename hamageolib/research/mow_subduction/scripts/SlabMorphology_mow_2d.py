@@ -9,7 +9,7 @@ from hamageolib.research.haoyuan_3d_subduction.post_process import PlotCaseRunTw
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_subduction_visualization
 
 
-local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/no_mow_sz_jump/C_mow_h2890.0_gr3_ar5_jp1100i_szT7.50_szV5.00e+19"
+local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/no_mow_sz_jump/C_mow_h2890.0_gr3_ar5_jp1100i_szT7.50_szV5.00e+19_no_myd"
 
 assert(local_dir_2d is not None)
 
@@ -34,6 +34,7 @@ for step in graphical_steps:
     print("output_dict: ", output_dict) # debug
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab depth", step, output_dict["slab_depth"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Trench", step, output_dict["trench_center"])
+    Case_Options_2d.SummaryCaseVtuStepUpdateValue("Trench (50 km)", step, output_dict["trench_center_50km"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Dip 100", step, output_dict["dip_100"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Sp velocity", step, output_dict["sp_velocity"])
     if Case_Options_2d.options["MODEL_TYPE"] == "mow":
