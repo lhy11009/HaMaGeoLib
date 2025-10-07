@@ -741,6 +741,18 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     transform_bdDisplay = Show(transform_bd, renderView1, 'GeometryRepresentation')
     transform_bdDisplay.SetRepresentationType('Feature Edges')
 
+    # Show the markers
+    if FOO04:
+        boundary_marker = FindSource("model_boundary_marker_points")
+        SetActiveSource(boundary_marker)
+        boundary_markerDisplay = Show(boundary_marker, renderView1, 'GeometryRepresentation')
+        # Set the color and point size
+        boundary_markerDisplay.DiffuseColor = [1.0, 0.0, 0.0]  # RGB for red
+        boundary_markerDisplay.PointSize = 4
+
+        # Optionally ensure you're using point glyphs
+        boundary_markerDisplay.Representation = 'Points'
+
     # Show the plane at 660 km
     transform_660 = FindSource("plane_660.0km%s" % trailer)
     SetActiveSource(transform_660)
