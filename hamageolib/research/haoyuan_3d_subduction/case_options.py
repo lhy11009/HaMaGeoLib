@@ -2,7 +2,9 @@
 import os
 import numpy as np
 import pandas as pd
-from hamageolib.research.haoyuan_2d_subduction.legacy_tools import VISIT_OPTIONS_BASE, FindWBFeatures, WBFeatureNotFoundError, COMPOSITION, GetSnapsSteps
+from hamageolib.research.haoyuan_2d_subduction.legacy_tools import VISIT_OPTIONS_BASE, FindWBFeatures,\
+    WBFeatureNotFoundError, COMPOSITION, GetSnapsSteps
+from hamageolib.research.haoyuan_2d_subduction.legacy_tools import CASE_SUMMARY as CASE_SUMMARY_BASE
 from hamageolib.research.haoyuan_2d_subduction.legacy_utilities import ggr2cart, string2list, func_name, my_assert
 from hamageolib.utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
@@ -431,3 +433,9 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         for col in new_columns:
             if col not in self.summary_df.columns:
                 self.summary_df[col] = np.nan
+
+# todo_sum
+class CASE_SUMMARY(CASE_SUMMARY_BASE):
+
+    def __init__(self):
+        CASE_SUMMARY_BASE.__init__(self)

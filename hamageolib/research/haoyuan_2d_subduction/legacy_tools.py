@@ -17455,7 +17455,7 @@ def PlotDaFigure(depth_average_path, fig_path_base, **kwargs):
     print("New figure: %s" % fig_path)
 
 
-
+# todo_sum
 class CASE_SUMMARY():
     '''
     Attributes:
@@ -17466,7 +17466,7 @@ class CASE_SUMMARY():
         wallclocks: running time of cases on the wall clock
         ab_paths: absolution_paths of cases
         has_update: has update to perform
-        VISIT_OPTIONS: the VISIT_OPTIONS class. This could be initiated later in the
+        CASE_OPTIONS: the CASE_OPTIONS class. This could be initiated later in the
             scope to parse case informations.
     '''
     def __init__(self, **kwargs):
@@ -17474,7 +17474,7 @@ class CASE_SUMMARY():
         Initiation
         Inputs:
             kwargs:
-                VISIT_OPTIONS - the VISIT_OPTIONS class
+                CASE_OPTIONS - the CASE_OPTIONS class
         '''
         self.cases = []
         self.names = []
@@ -17490,7 +17490,7 @@ class CASE_SUMMARY():
         self.headers = ['names', 'includes', 'steps', 'times (yr)', 'wallclocks (s)']
 
         self.has_update = True
-        self.VISIT_OPTIONS = kwargs.get("VISIT_OPTIONS", None)
+        self.CASE_OPTIONS = kwargs.get("CASE_OPTIONS", None)
 
     def export(self, _name):
         return np.array([float(i) for i in getattr(self, _name)])
@@ -18008,9 +18008,9 @@ class CASE_SUMMARY():
         my_assert(os.path.isdir(case_dir), FileExistsError, "Directory doesn't exist %s" % case_dir)
 
         try:
-            Visit_Options = self.VISIT_OPTIONS(case_dir)
-            Visit_Options.Interpret()
-            self.geometries[i] = Visit_Options.options["GEOMETRY"]
+            Case_Options = self.CASE_OPTIONS(case_dir)
+            Case_Options.Interpret()
+            self.geometries[i] = Case_Options.options["GEOMETRY"]
         except FileNotFoundError:
             self.geometries[i] = -1.0
 
@@ -18315,11 +18315,11 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
         ''' 
         case_dir = self.ab_paths[i]
         try:
-            Visit_Options = self.CASE_OPTIONS(case_dir)
-            Visit_Options.Interpret()
-            self.sz_viscs[i] = Visit_Options.options["SHEAR_ZONE_CONSTANT_VISCOSITY"]
-            self.sz_depths[i] = Visit_Options.options["SHEAR_ZONE_CUTOFF_DEPTH"]
-            self.sz_thicks[i] = Visit_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"]
+            Case_Options = self.CASE_OPTIONS(case_dir)
+            Case_Options.Interpret()
+            self.sz_viscs[i] = Case_Options.options["SHEAR_ZONE_CONSTANT_VISCOSITY"]
+            self.sz_depths[i] = Case_Options.options["SHEAR_ZONE_CUTOFF_DEPTH"]
+            self.sz_thicks[i] = Case_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"]
         except FileNotFoundError:
             self.sz_viscs[i] = -1.0
             self.sz_depths[i] = -1.0
@@ -18331,9 +18331,9 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
         ''' 
         case_dir = self.ab_paths[i]
         try:
-            Visit_Options = self.CASE_OPTIONS(case_dir)
-            Visit_Options.Interpret()
-            self.slab_strs[i] = Visit_Options.options["MAXIMUM_YIELD_STRESS"] / 1e6
+            Case_Options = self.CASE_OPTIONS(case_dir)
+            Case_Options.Interpret()
+            self.slab_strs[i] = Case_Options.options["MAXIMUM_YIELD_STRESS"] / 1e6
         except FileNotFoundError:
             self.slab_strs[i] = -1.0
     
@@ -18343,9 +18343,9 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
         '''
         case_dir = self.ab_paths[i]
         try:
-            Visit_Options = self.CASE_OPTIONS(case_dir)
-            Visit_Options.Interpret()
-            self.sz_methods[i] = Visit_Options.options["SHEAR_ZONE_METHOD"]
+            Case_Options = self.CASE_OPTIONS(case_dir)
+            Case_Options.Interpret()
+            self.sz_methods[i] = Case_Options.options["SHEAR_ZONE_METHOD"]
         except FileNotFoundError:
             self.sz_methods[i] = -1
         pass
@@ -18356,10 +18356,10 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
         '''
         case_dir = self.ab_paths[i]
         try:
-            Visit_Options = self.CASE_OPTIONS(case_dir)
-            Visit_Options.Interpret()
-            self.sp_ages[i] = Visit_Options.options["SP_AGE"] / 1e6
-            self.ov_ages[i] = Visit_Options.options["OV_AGE"] / 1e6
+            Case_Options = self.CASE_OPTIONS(case_dir)
+            Case_Options.Interpret()
+            self.sp_ages[i] = Case_Options.options["SP_AGE"] / 1e6
+            self.ov_ages[i] = Case_Options.options["OV_AGE"] / 1e6
         except FileNotFoundError:
             self.sp_ages[i] = -1.0
             self.ov_ages[i] = -1.0
@@ -18370,9 +18370,9 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
         '''
         case_dir = self.ab_paths[i]
         try:
-            Visit_Options = self.CASE_OPTIONS(case_dir)
-            Visit_Options.Interpret()
-            self.include_Ps[i] = Visit_Options.options["INCLUDE_PEIERLS_RHEOLOGY"]
+            Case_Options = self.CASE_OPTIONS(case_dir)
+            Case_Options.Interpret()
+            self.include_Ps[i] = Case_Options.options["INCLUDE_PEIERLS_RHEOLOGY"]
         except FileNotFoundError:
             self.include_Ps[i] = np.nan
     
@@ -18396,18 +18396,18 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
 
         # set default to false
         try:
-            Visit_Options = self.CASE_OPTIONS(case_dir)
-            Visit_Options.Interpret()
+            Case_Options = self.CASE_OPTIONS(case_dir)
+            Case_Options.Interpret()
         except FileNotFoundError:
             return
         
         # if we fail to get the related vtu_step, do nothing
         try:
-            _, _, vtu_step = Visit_Options.get_timestep_by_time(t_inspect)
+            _, _, vtu_step = Case_Options.get_timestep_by_time(t_inspect)
         except ValueError:
             return
         
-        vtu_snapshot = vtu_step + int(Visit_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
+        vtu_snapshot = vtu_step + int(Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
         pvtu_file = os.path.join(case_dir, "output", "solution", "solution-%05d.pvtu" % vtu_snapshot)
         vtu_file = os.path.join(case_dir, "output", "solution", "solution-%05d.0000.vtu" % vtu_snapshot)
         # print("pvtu_file: ", pvtu_file) # debug
