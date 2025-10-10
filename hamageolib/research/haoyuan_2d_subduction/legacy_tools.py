@@ -17553,8 +17553,12 @@ class CASE_SUMMARY():
         Returns:
             None
         '''
-        # todo_sum
-        step, _time, wallclock = ReadBasicInfo(_case)
+        # process case information
+        Case_Options = self.CASE_OPTIONS(_case)
+        step = Case_Options.time_df["Time step number"].iloc[-1]
+        _time = Case_Options.time_df["Time"].iloc[-1]
+        wallclock = Case_Options.time_df["Corrected Wall Clock"].iloc[-1]
+
         self.update_case_info(os.path.basename(_case), step, _time, wallclock, _case)
 
 
@@ -17847,6 +17851,8 @@ class CASE_SUMMARY():
                     data[header] = temp[mask]
                 else:
                     data[header] = temp
+        print("data: ") # debug
+        print(data)
         df = pd.DataFrame(data)
         df.to_csv(fout, index=False) # save to csv file
 
@@ -18837,7 +18843,6 @@ def RunTimeInfo(log_path, **kwargs):
     steps = Plotter.data[:, col_step]
     wallclocks = Plotter.data[:, col_wallclock]
 
-    # todo_sum 
     # last step info
     last_step = steps[-1]
     last_time = times[-1] 
