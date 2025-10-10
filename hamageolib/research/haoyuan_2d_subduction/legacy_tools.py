@@ -17532,8 +17532,7 @@ class CASE_SUMMARY():
             self.includes += [1 for i in range(self.n_case - len(self.includes))]
         # update step, time and wallclock time
         for i in range(self.n_case):
-            step, _time, wallclock = ReadBasicInfo(self.ab_paths[i])
-            self.update_case_info(self.cases[i], step, _time, wallclock, self.ab_paths[i])
+            self.import_case(self.ab_paths[i])
             
         # These fields need to be mannualy assigned, so we
         # only initiation a nan value for the first time
@@ -17841,6 +17840,7 @@ class CASE_SUMMARY():
             header = headers[i]
             temp = np.array(getattr(self, _attr))
             if i == 0:
+                print(temp) # todo_sum
                 length_of_data = len(temp)
             if len(temp) > 0:
                 # len(temp) == 0 marks an void field

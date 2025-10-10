@@ -436,11 +436,117 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
 
 
 class CASE_SUMMARY(CASE_SUMMARY_BASE):
+    '''
+    Summary:
+        A derived class extending CASE_SUMMARY_BASE to manage case summaries with additional 
+        attributes for tracking time and velocity information at 1000 km depth.
 
-    # todo_sum
-
+    Attributes:
+        t1000s (list[float]): List of times (in Myr) corresponding to when the slab tip reaches 1000 km depth.
+        vtr1000s (list[float]): List of trench retreat velocities (in cm/yr) at the time the slab tip reaches 1000 km.
+        vsink1000s (list[float]): List of slab sinking velocities (in cm/yr) at the same reference depth.
+        attrs_to_output (list[str]): Attributes designated for export or output.
+        headers (list[str]): Header names corresponding to output attributes.
+    '''
     def __init__(self):
+        '''
+        Summary:
+            Initialize the CASE_SUMMARY object, extend the base attributes with additional 
+            time and velocity metrics, and prepare corresponding storage lists.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        '''
         CASE_SUMMARY_BASE.__init__(self, CASE_OPTIONS=CASE_OPTIONS)
 
+        self.attrs += ["t1000s", "vtr1000s", "vsink1000s"]
+
+        self.t1000s = []
+        self.vtr1000s = []
+        self.vsink1000s = []
+
+        self.attrs_to_output = self.attrs
+        self.headers = self.attrs
+
     def Update(self, **kwargs):
+        '''
+        Summary:
+            Update the case summary by calling the base Update method and ensuring that
+            time and velocity lists are initialized with NaN values when empty.
+
+        Parameters:
+            **kwargs: Arbitrary keyword arguments passed to the base class Update method.
+
+        Returns:
+            None
+        '''
         CASE_SUMMARY_BASE.Update(self, **kwargs)
+        if len(self.t1000s) == 0:
+            self.t1000s = [np.nan for i in range(self.n_case)]
+        if len(self.vtr1000s) == 0:
+            self.vtr1000s = [np.nan for i in range(self.n_case)]
+        if len(self.vsink1000s) == 0:
+            self.vsink1000s = [np.nan for i in range(self.n_case)]
+
+
+class CASE_SUMMARY_TWOD(CASE_SUMMARY_BASE):
+    '''
+    Summary:
+        A 2-D specific case summary class extending CASE_SUMMARY_BASE, designed to handle 
+        results and attributes for two-dimensional subduction models with metrics evaluated 
+        at 1000 km depth.
+
+    Attributes:
+        t1000s (list[float]): List of times (in Myr) when the slab tip reaches 1000 km depth in 2-D models.
+        vtr1000s (list[float]): List of trench retreat velocities (in cm/yr) at the reference depth.
+        vsink1000s (list[float]): List of slab sinking velocities (in cm/yr) at 1000 km depth.
+        attrs_to_output (list[str]): Attributes designated for export or output.
+        headers (list[str]): Header names corresponding to output attributes.
+    '''
+    def __init__(self):
+        '''
+        Summary:
+            Initialize the CASE_SUMMARY_TWOD object with 2-D specific case options, extend the 
+            base attributes with additional fields for depth-based metrics, and set up storage lists.
+
+        Parameters:
+            None
+
+        Returns:
+            None
+        '''
+        CASE_SUMMARY_BASE.__init__(self, CASE_OPTIONS=CASE_OPTIONS_TWOD1)
+
+        self.attrs += ["t1000s", "vtr1000s", "vsink1000s"]
+
+        self.t1000s = []
+        self.vtr1000s = []
+        self.vsink1000s = []
+
+        self.attrs_to_output = self.attrs
+        self.headers = self.attrs
+
+    def Update(self, **kwargs):
+        '''
+        Summary:
+            Update the 2-D case summary by invoking the base Update method and filling in 
+            NaN placeholders for time and velocity attributes when they are uninitialized.
+
+        Parameters:
+            **kwargs: Arbitrary keyword arguments passed to the base class Update method.
+
+        Returns:
+            None
+        '''
+        CASE_SUMMARY_BASE.Update(self, **kwargs)
+        if len(self.t1000s) == 0:
+            self.t1000s = [np.nan for i in range(self.n_case)]
+        if len(self.vtr1000s) == 0:
+            self.vtr1000s = [np.nan for i in range(self.n_case)]
+        if len(self.vsink1000s) == 0:
+            self.vsink1000s = [np.nan for i in range(self.n_case)]
+
+
