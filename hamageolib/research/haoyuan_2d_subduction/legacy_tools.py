@@ -17455,7 +17455,6 @@ def PlotDaFigure(depth_average_path, fig_path_base, **kwargs):
     print("New figure: %s" % fig_path)
 
 
-# todo_sum
 class CASE_SUMMARY():
     '''
     Attributes:
@@ -17533,45 +17532,9 @@ class CASE_SUMMARY():
             self.includes += [1 for i in range(self.n_case - len(self.includes))]
         # update step, time and wallclock time
         for i in range(self.n_case):
+            step, _time, wallclock = ReadBasicInfo(self.ab_paths[i])
+            self.update_case_info(self.cases[i], step, _time, wallclock, self.ab_paths[i])
             
-            step, _time, wallclock = -1, -1.0, -1.0
-            # log_file = os.path.join(self.ab_paths[i], 'output', 'log.txt')
-            # if os.path.isfile(log_file):
-            #     try:
-            #         step, _time, wallclock = RunTimeInfo(log_file, quiet=True)
-            #     except TypeError:
-            #         pass
-            
-            log_path = os.path.join(self.ab_paths[i], 'output', 'log.txt')
-            
-            if os.path.isfile(log_path):
-
-                output_dir = os.path.join(self.ab_paths[i], "awk_outputs")
-                if not os.path.isdir(output_dir):
-                    os.mkdir(output_dir)
-
-                output_path = os.path.join(output_dir, "run_time_output.txt") 
-
-                try:
-                    # parse time info
-                    pd_data = parse_log_file_for_time_info_to_pd(log_path)
-                except TypeError:
-                    pass
-                else:
-                    # fix wallclock time
-                    step = pd_data["Time step number"].iloc[-1]
-                    _time = pd_data["Time"].iloc[-1]
-                    wallclock = pd_data["Wall Clock"].iloc[-1]
-
-            self.steps[i] = step
-            if _time > 0.0:
-                self.times[i] = _time / 1e6
-            else:
-                self.times[i] = -1.0
-            if wallclock > 0.0:
-                self.wallclocks[i] = wallclock / hr
-            else:
-                self.wallclocks[i] = -1.0
         # These fields need to be mannualy assigned, so we
         # only initiation a nan value for the first time
         if self.names == []:
@@ -17579,13 +17542,71 @@ class CASE_SUMMARY():
         else:
             pass
 
+    def import_case(self, _case):
+        '''
+        Summary:
+            Import a case directory, read its basic simulation information, and update the internal case records.
+
+        Parameters:
+            _case (str): Absolute or relative path to the case directory to be imported.
+
+        Returns:
+            None
+        '''
+        # todo_sum
+        step, _time, wallclock = ReadBasicInfo(_case)
+        self.update_case_info(os.path.basename(_case), step, _time, wallclock, _case)
+
+
+    def update_case_info(self, _case, step, _time, wallclock, abs_path):
+        '''
+        Summary:
+            Update or add case information including simulation step, model time, wallclock time, and absolute path.
+            If the case already exists in the record, its values are updated; otherwise, a new entry is added.
+
+        Parameters:
+            _case (str): Case name or identifier to update.
+            step (int): Current step number of the simulation.
+            _time (float): Model time in seconds, which will be converted to Myr (1e6 seconds = 1 Myr).
+            wallclock (float): Wallclock time in seconds, converted to hours.
+            abs_path (str): Absolute path to the directory or file of this case.
+
+        Returns:
+            None
+        '''
+        hr = 3600.0 # s in hr
+
+        if _case in self.cases:
+            j = self.cases.index(_case)
+            self.steps[j] = step
+            if _time > 0.0:
+                self.times[j] = _time / 1e6
+            else:
+                self.times[j] = -1.0
+            if wallclock > 0.0:
+                self.wallclocks[j] = wallclock / hr
+            else:
+                self.wallclocks[j] = -1.0
+        else:
+            self.n_case += 1
+            self.cases.append(_case)
+            self.steps.append(step)
+            if _time > 0.0:
+                self.times.append(_time / 1e6)
+            else:
+                self.times.append(-1.0)
+            if wallclock > 0.0:
+                self.wallclocks.append(wallclock / hr)
+            else:
+                self.wallclocks.append(-1.0)
+            self.ab_paths.append(abs_path)
+
     def import_directory(self, _dir, **kwargs):
         '''
         Import from a directory, look for groups and cases
         Inputs:
             _dir (str): directory to import
         '''
-        hr = 3600.0 # s in hr
         assert(os.path.isdir(_dir))
         # first parse in run time information
         case_list, step_list, time_list, wallclock_list = ReadBasicInfoGroup(_dir)
@@ -17594,30 +17615,9 @@ class CASE_SUMMARY():
             step = step_list[i]
             _time = time_list[i]
             wallclock = wallclock_list[i]
-            if _case in self.cases:
-                j = self.cases.index(_case)
-                self.steps[j] = step
-                if _time > 0.0:
-                    self.times[j] = _time / 1e6
-                else:
-                    self.times[j] = -1.0
-                if wallclock > 0.0:
-                    self.wallclocks[j] = wallclock / hr
-                else:
-                    self.wallclocks[j] = -1.0
-            else:
-                self.n_case += 1
-                self.cases.append(_case)
-                self.steps.append(step)
-                if _time > 0.0:
-                    self.times.append(_time / 1e6)
-                else:
-                    self.times.append(-1.0)
-                if wallclock > 0.0:
-                    self.wallclocks.append(wallclock / hr)
-                else:
-                    self.wallclocks.append(-1.0)
-                self.ab_paths.append(os.path.join(_dir, _case))
+            abs_path = os.path.join(_dir, _case)
+            self.update_case_info(_case, step, _time, wallclock, abs_path)
+
         
         # append the include field
         if len(self.includes) < self.n_case:
@@ -17848,7 +17848,7 @@ class CASE_SUMMARY():
                 else:
                     data[header] = temp
         df = pd.DataFrame(data)
-        df.to_csv(fout) # save to csv file
+        df.to_csv(fout, index=False) # save to csv file
 
     def sort_out_case_attribute_by_absolution_path(self, full_path, _attr):
         '''
@@ -18738,6 +18738,37 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY):
         print("%s: Write file %s" % (func_name(), o_path))
 
 
+def ReadBasicInfo(case_dir):
+    '''
+    Summary:
+        Read the basic simulation information (last step, model time, and wallclock time) from the log file 
+        located in the specified case directory. If the log file exists and is readable, it extracts values 
+        using the RunTimeInfo function; otherwise, default placeholder values are returned.
+
+    Parameters:
+        case_dir (str): Path to the case directory containing an 'output/log.txt' file.
+
+    Returns:
+        tuple:
+            last_step (int): Last simulation step number, or -1 if unavailable.
+            last_time (float): Last model time in seconds, or -1.0 if unavailable.
+            last_wallclock (float): Last recorded wallclock time in seconds, or -1.0 if unavailable.
+    '''
+    # pull out information
+    last_step = -1
+    last_time = -1.0
+    last_wallclock = -1.0
+    log_file = os.path.join(case_dir, 'output', 'log.txt')
+    if os.path.isfile(log_file):
+        print(" Found case %s" % os.path.basename(case_dir))
+        try:
+            last_step, last_time, last_wallclock = RunTimeInfo(log_file, quiet=True)
+        except TypeError:
+            pass
+    
+    return int(last_step), last_time, last_wallclock
+
+
 def ReadBasicInfoGroup(group_dir):
     '''
     Read basic information from a group
@@ -18755,20 +18786,11 @@ def ReadBasicInfoGroup(group_dir):
     wallclock_list = []
     for case in cases:
         # pull out information
-        last_step = -1
-        last_time = -1.0
-        last_wallclock = -1.0
-        log_file = os.path.join(case, 'output', 'log.txt')
-        if os.path.isfile(log_file):
-            try:
-                last_step, last_time, last_wallclock = RunTimeInfo(log_file, quiet=True)
-            except TypeError:
-                pass
+        last_step, last_time, last_wallclock = ReadBasicInfo(case)
         case_list.append(os.path.basename(case))
-        step_list.append(int(last_step))
-        time_list.append(float(last_time))
-        wallclock_list.append(float(last_wallclock))
-        print(" Found case %s" % os.path.basename(case))
+        step_list.append(last_step)
+        time_list.append(last_time)
+        wallclock_list.append(last_wallclock)
     return case_list, step_list, time_list, wallclock_list
 
 
@@ -18814,7 +18836,8 @@ def RunTimeInfo(log_path, **kwargs):
     times = Plotter.data[:, col_time]
     steps = Plotter.data[:, col_step]
     wallclocks = Plotter.data[:, col_wallclock]
-    
+
+    # todo_sum 
     # last step info
     last_step = steps[-1]
     last_time = times[-1] 

@@ -434,8 +434,11 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             if col not in self.summary_df.columns:
                 self.summary_df[col] = np.nan
 
-# todo_sum
+
 class CASE_SUMMARY(CASE_SUMMARY_BASE):
 
     def __init__(self):
-        CASE_SUMMARY_BASE.__init__(self)
+        CASE_SUMMARY_BASE.__init__(self, CASE_OPTIONS=CASE_OPTIONS)
+
+    def Update(self, **kwargs):
+        CASE_SUMMARY_BASE.Update(self, **kwargs)
