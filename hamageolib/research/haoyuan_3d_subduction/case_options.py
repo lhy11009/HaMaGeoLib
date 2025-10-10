@@ -484,12 +484,11 @@ class CASE_SUMMARY(CASE_SUMMARY_BASE):
             None
         '''
         CASE_SUMMARY_BASE.Update(self, **kwargs)
-        if len(self.t1000s) == 0:
-            self.t1000s = [np.nan for i in range(self.n_case)]
-        if len(self.vtr1000s) == 0:
-            self.vtr1000s = [np.nan for i in range(self.n_case)]
-        if len(self.vsink1000s) == 0:
-            self.vsink1000s = [np.nan for i in range(self.n_case)]
+
+        # append the additional requried fields
+        self.expand_attr("t1000s")
+        self.expand_attr("vtr1000s")
+        self.expand_attr("vsink1000s")
 
 
 class CASE_SUMMARY_TWOD(CASE_SUMMARY_BASE):
@@ -542,11 +541,10 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY_BASE):
             None
         '''
         CASE_SUMMARY_BASE.Update(self, **kwargs)
-        if len(self.t1000s) == 0:
-            self.t1000s = [np.nan for i in range(self.n_case)]
-        if len(self.vtr1000s) == 0:
-            self.vtr1000s = [np.nan for i in range(self.n_case)]
-        if len(self.vsink1000s) == 0:
-            self.vsink1000s = [np.nan for i in range(self.n_case)]
+        
+        # append the additional requried fields
+        self.expand_attr("t1000s")
+        self.expand_attr("vtr1000s")
+        self.expand_attr("vsink1000s")
 
 

@@ -627,7 +627,11 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
             renderView1.CameraPosition = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 2374146.9531437973 + (TOP - 2890e3) + (1300e3 - MAX_PLOT_DEPTH_IN_SLICE), -8150298.613651189]
             renderView1.CameraFocalPoint = [4012781.8124555387 + (SP_AGE - 80e6)*0.05, 2374146.9531437973 + (TOP - 2890e3) + (1300e3 - MAX_PLOT_DEPTH_IN_SLICE), 0.0]
             renderView1.CameraViewUp = [2.220446049250313e-16, 1.0, 0.0]
-        renderView1.CameraParallelScale = 802823.959456
+        CameraParallelScale = 802823.959456
+        # make plot smaller if the plot depth is too deep
+        if MAX_PLOT_DEPTH_IN_SLICE > 1501e3:
+            CameraParallelScale*= 2.0
+        renderView1.CameraParallelScale = CameraParallelScale
 
     # save figure
     fig_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.pdf" % _time)

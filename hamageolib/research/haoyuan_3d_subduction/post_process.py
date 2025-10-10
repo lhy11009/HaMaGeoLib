@@ -1907,7 +1907,9 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     threshold_lower = kwargs.get("threshold_lower", 0.8)
     threshold_edge = kwargs.get("threshold_edge", 0.8)
     threshold_metastable = kwargs.get("threshold_metastable", 0.8)
+    # Whether to clip the domain and the depth of the clip
     do_clip = kwargs.get("do_clip", False)
+    clip_depth = kwargs.get("clip_depth", 1000e3)
     extract_trench_at_additional_depths=  kwargs.get("extract_trench_at_additional_depths", None)
     n_pieces = kwargs.get("n_pieces", None)
     i_piece = kwargs.get("i_piece", None)
@@ -1947,11 +1949,11 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     # initialize the class
     # fix the meaning of Max1 - latitude
     if geometry == "chunk":
-        l0_section = 1000e3
+        l0_section = clip_depth
         l1_section = 10.0 * np.pi / 180.0
         l2_section = 10.0 * np.pi / 180.0
     else:
-        l0_section = 1000e3
+        l0_section = clip_depth
         l1_section = np.max([float(Case_Options.options["SLAB_EXTENTS_FULL"]), 1000e3])
         l2_section = 1000e3
     tolerance = 1e-6
@@ -2603,6 +2605,7 @@ def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
     rcdefaults()
 
 
+# todo_clip
 def finalize_visualization_2d_07222025_box(local_dir, file_name, _time, frame_png_file_with_ticks, **kwargs):
 
     # Options

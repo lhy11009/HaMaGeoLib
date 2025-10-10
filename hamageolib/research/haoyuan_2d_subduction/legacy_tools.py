@@ -17519,6 +17519,22 @@ class CASE_SUMMARY():
         else:
             self.import_directory(_dir, **kwargs)
 
+    def expand_attr(self, _attr):
+        '''
+        Summary:
+            Ensure that the attribute list specified by `_attr` has the same length as the total number of cases (`self.n_case`).
+            If the list is shorter, append NaN values to match the required length.
+
+        Parameters:
+            _attr (str): Name of the attribute (as a string) whose length needs to be expanded.
+
+        Returns:
+            None
+        '''
+        val = getattr(self, _attr)
+        if len(val) < self.n_case:
+            setattr(self, _attr, val + [np.nan for i in range(self.n_case - len(val))])
+
     def Update(self, **kwargs):
         '''
         Update on properties
@@ -17527,20 +17543,13 @@ class CASE_SUMMARY():
         '''
         from hamageolib.utils.case_options import parse_log_file_for_time_info_to_pd
         hr = 3600.0 # s in hr
-        # append the include field
-        if len(self.includes) < self.n_case:
-            self.includes += [1 for i in range(self.n_case - len(self.includes))]
+        # append the required fields
+        self.expand_attr("includes")
+        self.expand_attr("names")
         # update step, time and wallclock time
         for i in range(self.n_case):
             self.import_case(self.ab_paths[i])
             
-        # These fields need to be mannualy assigned, so we
-        # only initiation a nan value for the first time
-        if self.names == []:
-            self.names = [np.nan for i in range(self.n_case)]
-        else:
-            pass
-
     def import_case(self, _case):
         '''
         Summary:
@@ -17840,7 +17849,6 @@ class CASE_SUMMARY():
             header = headers[i]
             temp = np.array(getattr(self, _attr))
             if i == 0:
-                print(temp) # todo_sum
                 length_of_data = len(temp)
             if len(temp) > 0:
                 # len(temp) == 0 marks an void field
@@ -17851,8 +17859,6 @@ class CASE_SUMMARY():
                     data[header] = temp[mask]
                 else:
                     data[header] = temp
-        print("data: ") # debug
-        print(data)
         df = pd.DataFrame(data)
         df.to_csv(fout, index=False) # save to csv file
 
@@ -17906,6 +17912,9 @@ class CASE_SUMMARY():
             raise NotImplementedError()
         my_assert(os.path.isfile(o_path), FileNotFoundError, "%s: file %s is not written successfully" % (func_name(), o_path)) 
         print("%s: Write file %s" % (func_name(), o_path))
+
+    class CaseSummaryWriteFileError(Exception):
+        pass
         
     def write_file(self, o_path):
         '''
@@ -17913,23 +17922,38 @@ class CASE_SUMMARY():
         Inputs:
             o_path (str): path of output
         '''
+        file_exist = os.path.isfile(o_path)
+
         # append the case name first and the absolute path last
         attrs_to_output = ["cases"] + self.attrs_to_output + ["ab_paths"]
         headers = ["cases"] + self.attrs_to_output + ["ab_paths"]
 
+        # in case file exist, back it up
+        if file_exist:
+            copy(o_path, o_path+".temp")
+
         # write file
         format = o_path.split('.')[-1]
-        if format == "txt":
-            with open(o_path, 'w') as fout: 
-                self.write(fout, attrs_to_output, headers) 
-        elif format == "csv":
-            with open(o_path, 'w') as fout: 
-                self.write_csv(fout, attrs_to_output, headers)
-        elif format == "tex":
-            with open(o_path, 'w') as fout: 
-                self.export_to_latex_table(fout, attrs_to_output, headers)
-        else:
-            raise ValueError("%s: filename should end with \".txt\" or \".csv\", but the given name is %s" % (func_name(), o_path))
+
+        try:
+            if format == "txt":
+                with open(o_path, 'w') as fout: 
+                    self.write(fout, attrs_to_output, headers) 
+            elif format == "csv":
+                with open(o_path, 'w') as fout: 
+                    self.write_csv(fout, attrs_to_output, headers)
+            elif format == "tex":
+                with open(o_path, 'w') as fout: 
+                    self.export_to_latex_table(fout, attrs_to_output, headers)
+            else:
+                raise ValueError("%s: filename should end with \".txt\" or \".csv\", but the given name is %s" % (func_name(), o_path))
+        except Exception as e:
+
+            if file_exist:
+                # reverse file if error happends
+                copy(o_path+".temp", o_path)
+
+            raise self.CaseSummaryWriteFileError() from e
 
         my_assert(os.path.isfile(o_path), FileNotFoundError, "%s: file %s is not written successfully" % (func_name(), o_path)) 
         print("%s: Write file %s" % (func_name(), o_path))
