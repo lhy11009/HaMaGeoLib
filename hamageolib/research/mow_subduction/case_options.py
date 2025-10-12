@@ -73,5 +73,10 @@ def set_metastable_options(idict):
          options["DEPTH_PT_EQ"] = metastable_dict.get("Phase transition depth", 410e3)
          options["P_PT_EQ"] = 1.34829e+10
          options["T_PT_EQ"] = metastable_dict.get("Phase transition temperature", 1740.0)
+         # find meta_grain_size if it is used by model
+         if "meta_grain_size" in names_of_compositional_fields_str:
+               options["HAS_METASTABLE_GRAIN_SIZE"] = 1
+         else:
+               options["HAS_METASTABLE_GRAIN_SIZE"] = 0
 
       return options

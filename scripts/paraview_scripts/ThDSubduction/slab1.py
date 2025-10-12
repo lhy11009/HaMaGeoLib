@@ -71,6 +71,39 @@ def set_metastable_plot(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
 
+
+def set_meta_x0_plot(sourceDisplay):
+    '''
+    set the meta_x0 (grain density) plot
+    using log scale
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "meta_x0"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 1, 1e25)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.MapControlPointsToLogSpace()
+    fieldLUT.UseLogScale = 1
+    fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+
+
+def set_meta_grain_size_plot(sourceDisplay):
+    '''
+    set the metastable grain_size plot
+    using log scale
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "meta_grain_size"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 1e-10, 1)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.MapControlPointsToLogSpace()
+    fieldLUT.UseLogScale = 1
+    fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+
+
 def set_density_plot(sourceDisplay):
     '''
     set the viscosity plot
@@ -320,7 +353,11 @@ def load_pyvista_source(data_output_dir, source_name, snapshot, **kwargs):
         if HAS_DYNAMIC_PRESSURE:
             field_list.append('nonadiabatic_pressure')
         if "MODEL_TYPE" == "mow":
+            # attach metastable-related fields
             field_list.append('metastable')
+            field_list.append('meta_x0')
+            if HAS_METASTABLE_GRAIN_SIZE:
+                field_list.append('meta_grain_size')
         source.PointArrayStatus = field_list
 
     # add rotation
@@ -604,7 +641,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         ColorBy(metaRegion1Display, None)
         metaRegion1Display.AmbientColor = [1.0, 0.0, 1.0] # magenta
         metaRegion1Display.DiffuseColor = [1.0, 0.0, 1.0]
-        
+
 
     # Configure layout and camera settings based on geometry.
     layout_resolution = (1350, 704)
@@ -719,6 +756,25 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         # save figure
         fig_path = os.path.join(pv_output_dir, "slice_center_mow_t%.4e.pdf" % _time)
         fig_png_path = os.path.join(pv_output_dir, "slice_center_mow_t%.4e.png" % _time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+
+        # set up metastable grain size density plot
+        set_meta_x0_plot(transform1Display)
+        # save figure
+        fig_path = os.path.join(pv_output_dir, "slice_center_meta_x0_t%.4e.pdf" % _time)
+        fig_png_path = os.path.join(pv_output_dir, "slice_center_meta_x0_t%.4e.png" % _time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+        
+        # set up metastable grain size
+        set_meta_grain_size_plot(transform1Display)
+        fig_path = os.path.join(pv_output_dir, "slice_center_meta_grain_size_t%.4e.pdf" % _time)
+        fig_png_path = os.path.join(pv_output_dir, "slice_center_meta_grain_size_t%.4e.png" % _time)
         SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
         ExportView(fig_path, view=renderView1)
         print("Figure saved: %s" % fig_png_path)
