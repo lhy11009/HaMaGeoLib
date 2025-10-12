@@ -791,7 +791,6 @@ class PYVISTA_PROCESS_THD():
         vals1 = np.linspace(self.Min1, self.Max1, N1)
         V2 = np.full((N0, N1), np.nan)
         vals2_tr = np.full(N1, np.nan)
-
         v0_u, v2_u, v1_u = PUnified.points2unified3(source.points, self.is_spherical, False)
         rt_upper = np.vstack([v0_u/self.Max0, v1_u/self.Max1]).T
         rt_tree = cKDTree(rt_upper)
@@ -1260,6 +1259,71 @@ class PYVISTA_PROCESS_THD():
 
             self.write_object_to_file(grid_metastable_c, "metastable_sliced_%.2f" % (threshold), "vtu")
             self.write_object_to_file(grid_metastable_slab_c, "metastable_sliced_slab_%.2f" % (threshold), "vtu")
+
+    # todo_da
+    def extract_slice_ref_da_profile(self, **kwargs):
+
+        query_dist = kwargs.get("query_dist", 500e3)
+        query_dist_span = kwargs.get("query_dist_span", 200e3)
+        
+
+        # construct the kd tree
+        points = self.sliced.points
+        point_data = self.sliced.point_data
+
+        v0, _, _ = PUnified.points2unified3(points, self.is_spherical, False)
+        rt_pts = np.vstack([v0/self.Max0]).T
+        rt_tree = cKDTree(rt_pts)
+        # da_func = KNNInterpolatorND(v0/self.scale0, point_data["nonadiabatic_pressure"], k=1, max_distance=0.05)
+
+        # construct the query points
+        query_v0s = np.linspace(self.Min0, self.Max0, 101)
+
+        if self.is_spherical:
+            query_v2_range = [self.trench_center_50km - (query_dist + query_dist_span)/self.Max0,\
+                            self.trench_center_50km - query_dist/self.Max0]
+        else:
+            query_v2_range = [self.trench_center_50km - query_dist - query_dist_span,\
+                            self.trench_center_50km - query_dist] 
+
+        # loop and interpolate along v0
+        # take the average dynamic pressure value
+        # dr  = 0.006 * 6731km ~= 40 km
+        dr = 0.006 
+        query_das = np.zeros(query_v0s.size)
+        for i, query_v0 in enumerate(query_v0s):
+
+            query_pt = [query_v0/self.Max0]
+            idxs = rt_tree.query_ball_point(query_pt, r=dr)
+
+            # try fix the issue of no adjacent points
+            if len(idxs) == 0:
+                idxs = rt_tree.query_ball_point(query_pt, r=2*dr)
+
+            
+            idx_np = np.array(idxs, dtype=int)
+            _, v2s, _ = PUnified.points2unified3(points[idx_np], self.is_spherical, False)
+    
+            # apply mask for points in v2 range (distance to the trench)
+            mask = ((v2s > query_v2_range[0]) & (v2s < query_v2_range[1]))
+            idxs = idx_np[mask]
+
+            try:
+                da_np = point_data["nonadiabatic_pressure"][idxs]
+
+                da = np.mean(da_np)
+            except IndexError:
+                da = np.nan
+
+            query_das[i] = da
+
+        # export to file
+        filename = "da_profile_%05d.txt" % (self.pvtu_step)
+        filepath = os.path.join(self.pyvista_outdir, filename)
+        np.savetxt(filepath, np.column_stack((query_v0s, query_das)), fmt="%.6f", delimiter="\t")
+        print("saved file: %s" % filepath)
+
+
         
 
     def get_slab_depth(self):
@@ -2114,6 +2178,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     PprocessThD.extract_slab_trench()
     PprocessThD.extract_sp_velocity()
 
+    # todo_da
+    if Case_Options.options["HAS_DYNAMIC_PRESSURE"]:
+        PprocessThD.extract_slice_ref_da_profile()
+
     # extract outputs
     assert(PprocessThD.trench_center is not None)
     outputs["trench_center"] = PprocessThD.trench_center
@@ -2378,6 +2446,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options):
     v2s = v2s[mask]
     idxs = idx_np[mask]
 
+    # todo_da
     try:
         point_np = slab_points[idxs]
         velocity_np = slab_point_data["velocity"][idxs]

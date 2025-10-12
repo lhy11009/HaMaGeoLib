@@ -140,7 +140,21 @@ def set_non_adiabatic_pressure_plot_slab(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("turku", True)
 
-# todo
+# todo_da
+def set_non_adiabatic_pressure_plot_mantle_with_ref_profile(sourceDisplay):
+    '''
+    set the temperature plot
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "nonadiabatic_pressure"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    da_range = DA_RANGE
+    rescale_transfer_function_combined(field, da_range[0], da_range[1])
+    # rescale_transfer_function_combined(field, -1e8, 1e8)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("turku", True)
+
 def set_non_adiabatic_pressure_plot_mantle(sourceDisplay):
     '''
     set the temperature plot
@@ -739,6 +753,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         ExportView(fig_path, view=renderView1)
         print("Figure saved: %s" % fig_png_path)
         print("Figure saved: %s" % fig_path)
+        # todo_da
         # reset colorbar
         fieldLUT = GetColorTransferFunction("nonadiabatic_pressure")
         fieldPWF = GetOpacityTransferFunction("nonadiabatic_pressure")
