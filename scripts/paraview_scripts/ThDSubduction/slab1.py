@@ -140,18 +140,16 @@ def set_non_adiabatic_pressure_plot_slab(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("turku", True)
 
-# todo_da
 def set_non_adiabatic_pressure_plot_mantle_with_ref_profile(sourceDisplay):
     '''
-    set the temperature plot
+    set the adiabatic pressure plot with a reference profile
     Inputs:
         sourceDisplay - source of the display (renderview)
     '''
-    field = "nonadiabatic_pressure"
+    field = "nonadiabatic_pressure_ref_diff"
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     da_range = DA_RANGE
     rescale_transfer_function_combined(field, da_range[0], da_range[1])
-    # rescale_transfer_function_combined(field, -1e8, 1e8)
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("turku", True)
 
@@ -516,6 +514,32 @@ output.PointData.append(eq_trans, 'eq_trans')
     programmableFilter1.RequestUpdateExtentScript = ''
     programmableFilter1.PythonPath = ''
 
+def add_da_ref_profile(source, file_path):
+    programmableFilter1 = ProgrammableFilter(registrationName="programmable_da_ref", Input=source)
+    programmableFilter1.Script = \
+"""
+import numpy as np 
+from vtk.util.numpy_support import vtk_to_numpy
+
+data = np.loadtxt("%s")
+if data.ndim != 2 or data.shape[1] < 2:
+    raise RuntimeError("Expected a 2-D array with at least 2 columns: [radius, field]")
+
+r_tab = np.asarray(data[:, 0], dtype=float)
+f_tab = np.asarray(data[:, 1], dtype=float)
+
+points_np = vtk_to_numpy(inputs[0].Points)
+r_np = np.sqrt(points_np[:, 0]*points_np[:, 0] + points_np[:, 1]*points_np[:, 1] + points_np[:, 2]*points_np[:, 2])
+vals = np.interp(r_np, r_tab, f_tab, left=f_tab[0], right=f_tab[-1])
+
+da_ref_diff = inputs[0].PointData["nonadiabatic_pressure"] - vals
+output.PointData.append(da_ref_diff, "nonadiabatic_pressure_ref_diff")
+""" % (file_path)
+    programmableFilter1.RequestInformationScript = ''
+    programmableFilter1.RequestUpdateExtentScript = ''
+    programmableFilter1.PythonPath = ''
+    
+
 
 def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **kwargs):
 
@@ -548,7 +572,6 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
             # default: turn off plot
             Hide(contourEq, renderView1)
 
-    # todo_da
     # Add T contour
     # 1 - 725 C, for blockT of metastable region
     # 2 - 900 C, for slab internal in upper mantle
@@ -574,6 +597,11 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
         contourT_blockDisplay.LineWidth = 2.0
         contourT_blockDisplay.Ambient = 1.0
+
+    # add the reference dynamic profile and the difference to it
+    if HAS_DYNAMIC_PRESSURE:
+        file_path = '%s/../pyvista_outputs/%05d/da_profile_%05d.txt' % (data_output_dir, snapshot, snapshot)
+        add_da_ref_profile(transform1, file_path)
 
     # Show the slab center plot and viscosities
     SetActiveSource(transform1)
@@ -753,7 +781,19 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         ExportView(fig_path, view=renderView1)
         print("Figure saved: %s" % fig_png_path)
         print("Figure saved: %s" % fig_path)
-        # todo_da
+        # add differences to a ref profile
+        da_ref = FindSource("programmable_da_ref")
+        da_refDisplay = Show(da_ref, renderView1, 'GeometryRepresentation')
+        set_non_adiabatic_pressure_plot_mantle_with_ref_profile(da_refDisplay)
+        fig_path = os.path.join(pv_output_dir, "slice_center_nP_mantle_ref_t%.4e.pdf" % _time)
+        fig_png_path = os.path.join(pv_output_dir, "slice_center_nP_mantle_ref_t%.4e.png" % _time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+        # reset active source
+        SetActiveSource(transform1)
+        transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
         # reset colorbar
         fieldLUT = GetColorTransferFunction("nonadiabatic_pressure")
         fieldPWF = GetOpacityTransferFunction("nonadiabatic_pressure")
@@ -1022,10 +1062,10 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
 
 
         # plot slice center viscosity
-        # plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir, _time)
+        plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir, _time)
         
         # plot slab_velocity_field
-        plot_slab_velocity_field(snapshot, _time, pv_output_dir)
+        # plot_slab_velocity_field(snapshot, _time, pv_output_dir)
 
 def twod_workflow(pv_output_dir, data_output_dir, steps, times):
     '''
