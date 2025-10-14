@@ -2461,7 +2461,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
     # Process the dynamic pressure
     # similar to extract_slice_ref_da_profile function in the 3-d case
-    # todo_da
     query_dist = kwargs.get("query_dist", 500e3)
     query_dist_span = kwargs.get("query_dist_span", 200e3)
     
