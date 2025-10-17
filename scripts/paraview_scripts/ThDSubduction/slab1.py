@@ -623,7 +623,8 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     # sourceVDisplay.SetScalarBarVisibility(renderView1, True)
     pointSource1 = FindSource("PointSource_%s_glyph_%05d" % (source_name, snapshot))
 
-    if False:
+    # todo_glyph
+    if FOO05 == 1:
         # show the representative vector
         sourceVRE = FindSource("%s_glyph_%05d_representative" % (source_name, snapshot))
         sourceVREDisplay = Show(sourceVRE, renderView1, 'GeometryRepresentation')
@@ -783,6 +784,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         print("Figure saved: %s" % fig_path)
         # add differences to a ref profile
         da_ref = FindSource("programmable_da_ref")
+        SetActiveSource(da_ref)
         da_refDisplay = Show(da_ref, renderView1, 'GeometryRepresentation')
         set_non_adiabatic_pressure_plot_mantle_with_ref_profile(da_refDisplay)
         fig_path = os.path.join(pv_output_dir, "slice_center_nP_mantle_ref_t%.4e.pdf" % _time)
@@ -791,6 +793,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         ExportView(fig_path, view=renderView1)
         print("Figure saved: %s" % fig_png_path)
         print("Figure saved: %s" % fig_path)
+        Hide(da_ref, renderView1)
         # reset active source
         SetActiveSource(transform1)
         transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
@@ -940,7 +943,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     adjust_glyph_properties("slice_depth_200.0km_glyph_%05d" % snapshot, scale_factor, n_sample_points, point_source_center)
     
     # Show the slice at 200 km depth glyph representative
-    if False:
+    if FOO05 == 1:
         sourceV2_rep = FindSource("slice_depth_200.0km_glyph_%05d_representative" % snapshot)
         sourceV2_repDisplay = Show(sourceV2_rep, renderView1, 'GeometryRepresentation')
 
