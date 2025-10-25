@@ -76,6 +76,22 @@ def main():
         default=-1,
         help="Step number to process (default: -1, meaning process all steps)."
     )
+     
+    # Step option: start step (default -1: loop all steps)
+    parser.add_argument(
+        "-ss", "--start_step",
+        type=int,
+        default=0,
+        help="Step number to start processing (default: -1, meaning process all steps)."
+    )
+    
+    # Step option: end step (default -1: loop all steps)
+    parser.add_argument(
+        "-es", "--end_step",
+        type=int,
+        default=sys.float_info.max,
+        help="Step number to start processing (default: -1, meaning process all steps)."
+    )
 
     # pyvista option: Whether to generate pyvista outputs
     parser.add_argument(
@@ -127,7 +143,7 @@ def main():
     Case_Options.SummaryCaseVtuStep(os.path.join(args.indir, "summary.csv"))
 
     graphical_steps_np = Case_Options.summary_df["Vtu step"].to_numpy()
-    graphical_steps = [int(step) for step in graphical_steps_np]
+    graphical_steps = [int(step) for step in graphical_steps_np if args.start_step <= int(step) <= args.end_step]
 
     # Specify the step if an option is given
     if args.step >= 0:

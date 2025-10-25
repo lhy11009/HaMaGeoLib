@@ -2,6 +2,7 @@
 # todo_gp
 import os,sys
 import numpy as np
+import json
 
 HaMaGeoLib_DIR = "/home/lochy/ASPECT_PROJECT/HaMaGeoLib"
 if os.path.abspath(HaMaGeoLib_DIR) not in sys.path:
@@ -52,6 +53,15 @@ def main():
         
         # update the region dict
         region_dict = GplateP.update_region_dict(True, region_dict)
+
+    # todo_data
+    pid_filepath = os.path.join(case_dir, "pid_dict.json")
+
+    with open(pid_filepath, 'w') as fout:
+        json.dump(pid_dict, fout)
+    print("Save file %s" % pid_filepath)
+
+    return 0
 
     # loop again to generate plots
     color_dict = {} # record color options
