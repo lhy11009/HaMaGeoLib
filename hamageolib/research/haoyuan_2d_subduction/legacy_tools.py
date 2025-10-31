@@ -255,18 +255,22 @@ class CASE_OPTIONS(CODESUB):
         i_dict(dict): dictionary for prm file
         wb_dict(dict): dictionary for wb file
     """
-    def __init__(self, case_dir):
+    def __init__(self, case_dir, **kwargs):
         """
         Initiation
         Args:
             case_dir(str): directory of case
         """
+        prm_basename = kwargs.get("case_file", "case.prm")
+        wb_basename = kwargs.get("world_builder_file", "case.wb")
+        output_dir_basename = kwargs.get("output_directory", "output")
+
         CODESUB.__init__(self)
         # check directory
         self._case_dir = case_dir
         my_assert(os.path.isdir(self._case_dir), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case directory - %s doesn\'t exist' % self._case_dir)
-        self._output_dir = os.path.join(case_dir, 'output')
+        self._output_dir = os.path.join(case_dir, output_dir_basename)
         my_assert(os.path.isdir(self._output_dir), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case output directory - %s doesn\'t exist' % self._output_dir)
         self.visit_file = os.path.join(self._output_dir, 'solution.visit')
@@ -274,7 +278,7 @@ class CASE_OPTIONS(CODESUB):
         my_assert(os.access(self.visit_file, os.R_OK), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case visit file - %s cannot be read' % self.visit_file)
         # output dir
-        self._output_dir = os.path.join(case_dir, 'output')
+        self._output_dir = os.path.join(case_dir, output_dir_basename)
         if not os.path.isdir(self._output_dir):
             os.mkdir(self._output_dir)
         # img dir
@@ -283,7 +287,7 @@ class CASE_OPTIONS(CODESUB):
             os.mkdir(self._img_dir)
 
         # get inputs from .prm file
-        prm_file = os.path.join(self._case_dir, 'case.prm')
+        prm_file = os.path.join(self._case_dir, prm_basename)
         my_assert(os.access(prm_file, os.R_OK), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case prm file - %s cannot be read' % prm_file)
         with open(prm_file, 'r') as fin:
@@ -293,7 +297,7 @@ class CASE_OPTIONS(CODESUB):
         #   if there is a .wb file, it is loaded. Otherwise, just start with
         # a vacant dictionary.
         self.wb_dict = {}
-        wb_file = os.path.join(self._case_dir, 'case.wb')
+        wb_file = os.path.join(self._case_dir, wb_basename)
         if os.access(wb_file, os.R_OK):
             with open(wb_file, 'r') as fin:
                 self.wb_dict = json.load(fin)
@@ -391,6 +395,9 @@ class VISIT_OPTIONS_BASE(CASE_OPTIONS):
     """
     parse .prm file to a option file that bash can easily read
     """
+    def __init__(self, case_path, **kwargs):
+        CASE_OPTIONS.__init__(self, case_path, **kwargs)
+
     def Interpret(self, **kwargs):
         """
         Interpret the inputs, to be reloaded in children

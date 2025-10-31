@@ -93,3 +93,29 @@ class Mute:
         self._warnings.__exit__(exc_type, exc_val, exc_tb)
 
 
+def str_to_bool_int(value: str) -> int:
+    """
+    Convert a string to 0/1 based on True/False semantics.
+
+    Parameters
+    ----------
+    value : str
+        The input string. Must be "True"/"true" or "False"/"false".
+
+    Returns
+    -------
+    int
+        1 if value is "True"/"true", 0 if "False"/"false".
+
+    Raises
+    ------
+    ValueError
+        If the input string does not match expected values.
+    """
+    if value == "True" or value == "true":
+        return 1
+    elif value == "False" or value == "false":
+        return 0
+    else:
+        raise ValueError(f"Invalid boolean string: {value}")
+

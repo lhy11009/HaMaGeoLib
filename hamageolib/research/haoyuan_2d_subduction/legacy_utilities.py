@@ -345,8 +345,7 @@ class CODESUB():
         options(disc)
     '''
     def __init__(self):
-        contents=''
-        options={}
+        pass
 
     def read_contents(self, *paths):
         '''

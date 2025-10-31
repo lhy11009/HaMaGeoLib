@@ -41,11 +41,12 @@ import pandas as pd
 import numpy as np
 from .dealii_param_parser import parse_parameters_to_dict, save_parameters_from_dict
 from .exception_handler import my_assert
-from .handy_shortcuts_haoyuan import func_name, strip_and_split
+from .handy_shortcuts_haoyuan import func_name, strip_and_split, str_to_bool_int
 from .file_reader import read_aspect_header_file
+from ..research.haoyuan_2d_subduction.legacy_utilities import CODESUB
 import copy
 
-class CASE_OPTIONS:
+class CASE_OPTIONS(CODESUB):
     """
     A class to substitute existing code with specific values and parameters for geodynamic modeling cases.
 
@@ -61,7 +62,7 @@ class CASE_OPTIONS:
         summary_df (panda object): case summary
     """
 
-    def __init__(self, case_dir):
+    def __init__(self, case_dir, **kwargs):
         """
         Initializes the CASE_OPTIONS class by setting up file paths, checking directories,
         and loading parameters from .prm and .wb files if available.
@@ -69,6 +70,9 @@ class CASE_OPTIONS:
         Args:
             case_dir (str): The directory of the case.
         """
+        prm_basename = kwargs.get("case_file", "case.prm")
+        wb_basename = kwargs.get("world_builder_file", "case.wb")
+        output_dir_basename = kwargs.get("output_directory", "output")
         
         # Validate and set case directory
         self.case_dir = case_dir
@@ -76,7 +80,7 @@ class CASE_OPTIONS:
                   'BASH_OPTIONS.__init__: case directory - %s doesn\'t exist' % self.case_dir)
 
         # Validate and set output directory
-        self.output_dir = os.path.join(case_dir, 'output')
+        self.output_dir = os.path.join(case_dir, output_dir_basename)
         my_assert(os.path.isdir(self.output_dir), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case output directory - %s doesn\'t exist' % self.output_dir)
 
@@ -97,7 +101,7 @@ class CASE_OPTIONS:
             os.mkdir(self.img_dir)
 
         # Parse parameters from .prm file
-        prm_file = os.path.join(self.case_dir, 'case.prm')
+        prm_file = os.path.join(self.case_dir, prm_basename)
         my_assert(os.access(prm_file, os.R_OK), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case prm file - %s cannot be read' % prm_file)
         with open(prm_file, 'r') as fin:
@@ -105,7 +109,7 @@ class CASE_OPTIONS:
 
         # Parse .wb file if available, or initialize an empty dictionary
         self.wb_dict = {}
-        wb_file = os.path.join(self.case_dir, 'case.wb')
+        wb_file = os.path.join(self.case_dir, wb_basename)
         if os.access(wb_file, os.R_OK):
             with open(wb_file, 'r') as fin:
                 self.wb_dict = json.load(fin)
@@ -118,7 +122,7 @@ class CASE_OPTIONS:
 
         # Read statistic results
         self.statistic_df = None
-        statistic_path = os.path.join(case_dir, "output/statistics")
+        statistic_path = os.path.join(self.output_dir, "statistics")
         if os.path.isfile(statistic_path):
             self.statistic_df = read_aspect_header_file(statistic_path)
 
@@ -192,10 +196,14 @@ class CASE_OPTIONS:
         
         # Get a summary of case status
         initial_adaptive_refinement = int(self.options['INITIAL_ADAPTIVE_REFINEMENT'])
-        Time = self.visualization_df["Time"].iloc[initial_adaptive_refinement:]
-        Time_step_number = self.visualization_df["Time step number"].iloc[initial_adaptive_refinement:]
+
+        # Get the first visualization snapshot
+        pvtu_step0 = self.get_pvtu_step(0)
+        Time = self.visualization_df["Time"].iloc[pvtu_step0:]
+        Time_step_number = self.visualization_df["Time step number"].iloc[pvtu_step0:]
         Vtu_step = np.arange(0, Time_step_number.size, dtype=int)
-        Vtu_snapshot = Vtu_step + initial_adaptive_refinement
+        Vtu_snapshot = self.get_pvtu_step(Vtu_step)
+
         self.summary_df = pd.DataFrame({
             "Vtu step": Vtu_step,
             "Time": Time,
@@ -313,6 +321,9 @@ class CASE_OPTIONS:
         # adaptive mesh
         self.options['INITIAL_ADAPTIVE_REFINEMENT'] = self.idict['Mesh refinement'].get('Initial adaptive refinement', '0')
 
+        # whether postprocessers are run on initial refinement
+        self.options["PP_INITIAL_REFINEMENT"] = str_to_bool_int(self.idict["Mesh refinement"].get("Run postprocessors on initial refinement", 'true'))
+
         # get the graphical steps
         # first make sure a summary is generated
         # Interpret the visualization information
@@ -348,9 +359,26 @@ class CASE_OPTIONS:
             key = "FOO%02d" % i
             self.options[key] = 0
 
+    def get_pvtu_step(self, vtu_step):
+        '''
+        Compute the corresponding .pvtu step index from a given .vtu step.
+        Parameters:
+            vtu_step (int or array): Index of the .vtu file step.
+        Returns:
+            pvtu_step (int or array): Adjusted .pvtu step index, offset by initial adaptive refinement
+                             if `PP_INITIAL_REFINEMENT` option is enabled.
+        Notes:
+            `.pvtu` files represent parallel data aggregation steps, and may require shifting
+            when adaptive refinement is applied at the beginning of the simulation.
+        '''
 
+        # If initial refinement was used, offset the step index by required refinement levels
+        if self.options["PP_INITIAL_REFINEMENT"]:
+            pvtu_step = vtu_step + int(self.options['INITIAL_ADAPTIVE_REFINEMENT'])
+        else:
+            pvtu_step = vtu_step  # Otherwise, .pvtu and .vtu steps align directly
 
-
+        return pvtu_step
             
 class CASE_SUMMARY:
 

@@ -1854,7 +1854,7 @@ class PLOT_CASE_RUN_THD():
         # use a list to record whether files are found
         file_found_list = []
         for vtu_step in self.Case_Options.options['GRAPHICAL_STEPS']:
-            pvtu_step = vtu_step + int(self.Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
+            pvtu_step = self.Case_Options.get_pvtu_step(vtu_step)
             try:
                 ProcessVtuFileThDStep(self.case_path, pvtu_step, self.Case_Options, **kwargs)
                 file_found_list.append(True)
