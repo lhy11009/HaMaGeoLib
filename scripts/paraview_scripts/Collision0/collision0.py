@@ -1,3 +1,19 @@
+def set_viscosity_plot(sourceDisplay, eta_min, eta_max):
+    '''
+    set the viscosity plot
+    Inputs:
+        eta_min (float): minimum viscosity
+        eta_max (float): maximum viscosity
+    '''
+    field = "viscosity"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, eta_min, eta_max)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.MapControlPointsToLogSpace()
+    fieldLUT.UseLogScale = 1
+    fieldLUT.ApplyPreset("bilbao", True)
+
+
 def twod_workflow(pv_output_dir, data_output_dir, steps, times):
     '''
     Workflow for the twod case
@@ -18,8 +34,36 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
         filein = os.path.join(data_output_dir, "solution", "solution-%05d.pvtu" %snapshot) 
 
         XMLPartitionedUnstructuredGridReader(registrationName='solution_%05d' % snapshot, FileName=[filein])
+
+        plot_full_domain("solution-%05d" % snapshot, _time, pv_output_dir)
+
+
+def plot_full_domain(source_name, _time, pv_output_dir):
         
-    pass
+    _source = FindSource(source_name)
+    sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
+
+    # todo_collision
+    # plot viscosity    
+    layout_resolution = (1350, 704)
+
+    set_viscosity_plot(sourceDisplay, ETA_MIN, ETA_MAX)
+    layout1 = GetLayout()
+    layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+
+    renderView1.InteractionMode = '2D'
+    renderView1.CameraPosition = [4350000.0, 1450918.5, 17717371.391353175]
+    renderView1.CameraFocalPoint = [4350000.0, 1450918.5, 0.0]
+    renderView1.CameraParallelScale = 3789746.4010221055
+
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "full_domain_viscosity_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "full_domain_viscosity_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+
 
 def thd_workflow(pv_output_dir, data_output_dir, steps, times):
     '''

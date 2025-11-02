@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from hamageolib.utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
+from hamageolib.research.haoyuan_2d_subduction.legacy_tools import COMPOSITION
 
 class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
     '''
@@ -42,3 +43,12 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
         CASE_OPTIONS_BASE.Interpret(self, **kwargs)
 
         # add additional options below
+
+        # todo_collision
+        eta_min_inputs =\
+            COMPOSITION(self.idict['Material model']['Visco Plastic']['Minimum viscosity']) 
+        self.options['ETA_MIN'] = eta_min_inputs.data['background'][0] # use phases
+            
+        eta_max_inputs =\
+            COMPOSITION(self.idict['Material model']['Visco Plastic']['Maximum viscosity']) 
+        self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases

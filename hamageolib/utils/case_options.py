@@ -327,6 +327,8 @@ class CASE_OPTIONS(CODESUB):
         # get the graphical steps
         # first make sure a summary is generated
         # Interpret the visualization information
+        # The float(x) is added explicitly to convert numpy float object to
+        # normal float object.
         vtu_step = kwargs.get("step", None)
         
         if self.summary_df is None:
@@ -334,12 +336,12 @@ class CASE_OPTIONS(CODESUB):
         
         if vtu_step is None:
             self.options['GRAPHICAL_TIMES'] = self.summary_df["Time"].to_list()
-            self.options['GRAPHICAL_STEPS'] = self.summary_df["Vtu step"].to_list()
+            self.options['GRAPHICAL_STEPS'] = [float(x) for x in self.summary_df["Vtu step"].to_list()]
             self.options['GRAPHICAL_TIME_STEPS'] = self.summary_df["Time step number"].to_list()
         else:
             row_idx = self.summary_df[self.summary_df["Vtu step"] == vtu_step].index[0]
             self.options['GRAPHICAL_STEPS'] = [vtu_step]
-            self.options['GRAPHICAL_TIMES'] = [self.summary_df.loc[row_idx, "Time"]]
+            self.options['GRAPHICAL_TIMES'] = [float(self.summary_df.loc[row_idx, "Time"])]
             self.options['GRAPHICAL_TIME_STEPS'] = [self.summary_df.loc[row_idx, "Time step number"]]
 
         # dynamic pressure
