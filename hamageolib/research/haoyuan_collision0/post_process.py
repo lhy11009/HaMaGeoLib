@@ -110,7 +110,7 @@ def finalize_visualization_2d_11022025(local_dir, file_name, _time, frame_png_fi
     overlay_images_on_blank_canvas(
         canvas_size=canvas_size,  # Size of the blank canvas in pixels (width, height)
         image_files=[full_image_path, frame_png_file_with_ticks],  # List of image file paths to overlay
-        image_positions=[(-210, -158), (0, 0)],  # Positions of each image on the canvas
+        image_positions=[(-210, -160), (0, 0)],  # Positions of each image on the canvas
         cropping_regions=[None, None],  # Optional cropping regions for the images
         image_scale_factors=[None, None],  # Scaling factors for resizing the images
         output_image_file=output_image_file  # Path to save the final combined image
