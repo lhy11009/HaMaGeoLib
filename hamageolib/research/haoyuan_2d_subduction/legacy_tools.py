@@ -11572,7 +11572,6 @@ intiation stage causes the slab to break in the middle",\
             ['mantle rheology', "V lm"], 3e-6, nick='Vdiff_lm')
         self.add_key("duplication overriding plate composition", int,\
             ["composition method", "duplicate op composition"], 0, nick='duplicate_op_composition')
-        # todo_meta
         self.add_key("Include metastable transition grain size evolution", int,\
             ['metastable', 'include grain size'], 0, nick='include_meta_grain_size')
     
@@ -15191,6 +15190,8 @@ different age will be adjusted.",\
             ['metastable', 'include metastable'], 0, nick='include_meta')
         self.add_key("Trench migration", float, ['plate setup', "trench migration"], 0.0, nick="trench_migration")
         self.add_key("Output non-adiabatic pressure", int, ['post-process', "nonadiabatic pressure"], 1, nick="non_adiabatic_P")
+        self.add_key("Include metastable transition grain size evolution", int,\
+            ['metastable', 'include grain size'], 0, nick='include_meta_grain_size')
 
     
     def check(self):
@@ -15301,6 +15302,8 @@ different age will be adjusted.",\
         include_meta = self.values[self.start + 62]
         trench_migration = self.values[self.start + 63]
         non_adiabatic_P = self.values[self.start + 64]
+        include_meta_grain_size = self.values[self.start + 65]
+
         return _type, if_wb, geometry, box_width, box_length, box_height,\
             sp_width, trailing_length, reset_trailing_morb, ref_visc,\
             relative_visc_plate, friction_angle, relative_visc_lower_mantle, cohesion,\
@@ -15312,7 +15315,7 @@ different age will be adjusted.",\
             slab_core_viscosity, global_minimum_viscosity, coarsen_side, coarsen_side_interval, fix_boudnary_temperature_auto,\
             coarsen_side_level, coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as,\
             trailing_length_1, sp_rate, ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail,\
-            include_ov_upper_plate, slab_strength, version, include_meta, trench_migration, non_adiabatic_P
+            include_ov_upper_plate, slab_strength, version, include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size
         
     def to_configure_wb(self):
         '''
@@ -15392,7 +15395,7 @@ class CASE_THD(CASE):
     global_minimum_viscosity, coarsen_side, coarsen_side_interval, fix_boudnary_temperature_auto, coarsen_side_level,\
     coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as, trailing_length_1, sp_rate,\
     ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail, include_ov_upper_plate, slab_strength, version,\
-    include_meta, trench_migration, non_adiabatic_P):
+    include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size):
         '''
         Configure prm file
         '''
@@ -15983,11 +15986,16 @@ class CASE_THD(CASE):
         # metastable related features
         if include_meta:
             # todo_meta
+            meta_fields = ["metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"]
+            mapped_particle_properties = "sp_upper:initial sp_upper, sp_lower:initial sp_lower, plate_edge:initial plate_edge, ov_upper:initial ov_upper, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
+            if include_meta_grain_size:
+                meta_fields.append("meta_grain_size")
+                mapped_particle_properties += ", meta_grain_size: kinetic meta_grain_size"
+
+
             # expand composition fields
-            # o_dict = expand_multi_composition_isosurfaces(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
-            o_dict = expand_multi_composition_composition_field(o_dict, 'ov_upper', ["ov_upper", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
-            o_dict["Compositional fields"]["Mapped particle properties"] = \
-                  "sp_upper:initial sp_upper, sp_lower:initial sp_lower, plate_edge:initial plate_edge, ov_upper:initial ov_upper, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
+            o_dict = expand_multi_composition_composition_field(o_dict, 'ov_upper', ['ov_upper'] + meta_fields)
+            o_dict["Compositional fields"]["Mapped particle properties"] = mapped_particle_properties
             
             # change Compositional field methods to particles
             # initial composition fields
@@ -16004,6 +16012,11 @@ class CASE_THD(CASE):
             material_model = o_dict["Material model"]
             material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
             material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, sp_upper: 0.0, sp_lower: 1.0|0.0|0.0|0.0|0.0|0.0|0.0, plate_edge: 0.0, ov_upper: 0.0"
+            if include_meta_grain_size:
+                material_model["Visco Plastic TwoD"]["Metastable decomposition"] = "background:0.0000e+00|0.0000e+00|0.0000e+00|1.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00, sp_upper:0.0000e+00, sp_lower:0.0000e+00|0.0000e+00|0.0000e+00|1.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00, plate_edge: 0.0000e+00, ov_upper: 0.0000e+00"
+                material_model["Visco Plastic TwoD"]["Minimum viscosity"] = "background:1e+19, sp_upper:1e+19, sp_lower:1e+22|1e+19|1e+19|1e+19|1e+22|1e+22|1e+22|1e+22, plate_edge: 1.0000e+19, ov_upper: 1.0000e+19"
+                material_model["Visco Plastic TwoD"]["Use phase rheology mixing"] = "true"
+                material_model["Visco Plastic TwoD"]["Phase rheology mixing models"] = "1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0"
             o_dict["Material model"] = material_model
 
             # change the particles
