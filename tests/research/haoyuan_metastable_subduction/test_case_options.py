@@ -28,31 +28,6 @@ SCRIPT_DIR = os.path.join(package_root, "scripts")
 # ---------------------------------------------------------------------
 # Test generate cases
 # ---------------------------------------------------------------------
-# todo_meta
-def test_haoyuan_metastable_subduction_grain_size():
-    '''
-    test for including metastable_subduction and grain size evolution
-    cartesian, 2d geometry
-    '''
-    source_dir = os.path.join(fixture_root, "eba2d_width80_h1000_bw4000_sw1000_yd300_M_gz")
-    json_path = os.path.join(source_dir, 'case0.json')
-
-    # output directory
-    output_dir = os.path.join(test_dir,'eba2d_width80_h1000_bw4000_sw1000_yd300_M_gz')
-    if os.path.isdir(output_dir):
-        rmtree(output_dir)
-
-    # print("output_dir: ", output_dir) # debug
-
-    create_case_with_json(json_path, CASE_TWOD, CASE_OPT_TWOD)  # create case
-    assert(os.path.isdir(output_dir))  # check case generation
-    prm_std_path = os.path.join(source_dir, 'case_std.prm')
-    prm_path = os.path.join(output_dir, 'case.prm')
-    assert(filecmp.cmp(prm_path, prm_std_path))
-    wb_std_path = os.path.join(source_dir, 'case_std.wb')
-    wb_path = os.path.join(output_dir, 'case.wb')
-    assert(filecmp.cmp(wb_path, wb_std_path))
-
 def test_haoyuan_metastable_subduction():
     '''
     test for including metastable_subduction
@@ -88,6 +63,30 @@ def test_haoyuan_metastable_subduction_deactivated():
 
     # output directory
     output_dir = os.path.join(test_dir,'eba2d_width80_h1000_bw4000_sw1000_yd300')
+    if os.path.isdir(output_dir):
+        rmtree(output_dir)
+
+    # print("output_dir: ", output_dir) # debug
+
+    create_case_with_json(json_path, CASE_TWOD, CASE_OPT_TWOD)  # create case
+    assert(os.path.isdir(output_dir))  # check case generation
+    prm_std_path = os.path.join(source_dir, 'case_std.prm')
+    prm_path = os.path.join(output_dir, 'case.prm')
+    assert(filecmp.cmp(prm_path, prm_std_path))
+    wb_std_path = os.path.join(source_dir, 'case_std.wb')
+    wb_path = os.path.join(output_dir, 'case.wb')
+    assert(filecmp.cmp(wb_path, wb_std_path))
+
+def test_haoyuan_metastable_subduction_grain_size():
+    '''
+    test for including metastable_subduction and grain size evolution
+    cartesian, 2d geometry
+    '''
+    source_dir = os.path.join(fixture_root, "eba2d_width80_h1000_bw4000_sw1000_yd300_M_gz")
+    json_path = os.path.join(source_dir, 'case0.json')
+
+    # output directory
+    output_dir = os.path.join(test_dir,'eba2d_width80_h1000_bw4000_sw1000_yd300_M_gz')
     if os.path.isdir(output_dir):
         rmtree(output_dir)
 

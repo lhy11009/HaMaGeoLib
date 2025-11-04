@@ -12845,7 +12845,7 @@ opcrust: 1e+31, opharz: 1e+31", \
             o_dict = fix_particles_new_version(o_dict)
 
         if include_meta:
-            # todo_meta
+            # Here the metastable entries are mannaged
             meta_fields = ["metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"]
             mapped_particle_properties = "spcrust:initial spcrust, spharz:initial spharz, opcrust:initial opcrust, opharz:initial opharz, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
             type_of_compositional_fields = "chemical composition, chemical composition, chemical composition, chemical composition, generic, generic, generic, generic, generic, generic, generic"
@@ -15985,7 +15985,7 @@ class CASE_THD(CASE):
 
         # metastable related features
         if include_meta:
-            # todo_meta
+            # Here the metastable entries are mannaged
             meta_fields = ["metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"]
             mapped_particle_properties = "sp_upper:initial sp_upper, sp_lower:initial sp_lower, plate_edge:initial plate_edge, ov_upper:initial ov_upper, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
             if include_meta_grain_size:
