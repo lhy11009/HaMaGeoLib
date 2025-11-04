@@ -11572,6 +11572,9 @@ intiation stage causes the slab to break in the middle",\
             ['mantle rheology', "V lm"], 3e-6, nick='Vdiff_lm')
         self.add_key("duplication overriding plate composition", int,\
             ["composition method", "duplicate op composition"], 0, nick='duplicate_op_composition')
+        # todo_meta
+        self.add_key("Include metastable transition grain size evolution", int,\
+            ['metastable', 'include grain size'], 0, nick='include_meta_grain_size')
     
     def check(self):
         '''
@@ -11767,6 +11770,7 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         use_3d_da_file_wm = self.values[self.start + 77]
         Vdiff_lm = self.values[self.start + 78]
         duplicate_op_composition = self.values[self.start + 79]
+        include_meta_grain_size = self.values[self.start + 80]
 
 
         return if_wb, geometry, box_length, type_of_bd, potential_T, sp_rate,\
@@ -11781,7 +11785,8 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         rm_ov_comp, comp_method, peierls_flow_law, reset_density, maximum_peierls_iterations, CDPT_type, use_new_rheology_module, fix_peierls_V_as,\
         prescribe_T_width, prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb, lookup_table_morb_mixing,\
         delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell, refine_wedge, output_heat_flux,\
-        delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration, depth_lm_middle, Vdiff_lm_middle,use_3d_da_file_wm, Vdiff_lm, duplicate_op_composition
+        delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration, depth_lm_middle, Vdiff_lm_middle,use_3d_da_file_wm, Vdiff_lm, duplicate_op_composition,\
+        include_meta_grain_size
 
     def to_configure_wb(self):
         '''
@@ -12255,7 +12260,7 @@ class CASE_TWOD(CASE):
     prescribe_T_with_trailing_edge, plate_age_method, jump_lower_mantle, use_3d_da_file, use_lookup_table_morb,\
     lookup_table_morb_mixing, delta_Vdiff, slope_410, slope_660, slab_strength, box_height, minimum_particles_per_cell, maximum_particles_per_cell,\
     refine_wedge, output_heat_flux,  delta_Ediff, delta_Edisl, delta_Vdisl, include_meta, trench_migration, depth_lm_middle, Vdiff_lm_middle,\
-    use_3d_da_file_wm, Vdiff_lm, duplicate_op_composition):
+    use_3d_da_file_wm, Vdiff_lm, duplicate_op_composition, include_meta_grain_size):
         Ro = 6371e3
         self.configure_case_output_dir(case_o_dir)
         o_dict = self.idict.copy()
@@ -12841,18 +12846,34 @@ opcrust: 1e+31, opharz: 1e+31", \
             o_dict = fix_particles_new_version(o_dict)
 
         if include_meta:
+            # todo_meta
+            meta_fields = ["metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"]
+            mapped_particle_properties = "spcrust:initial spcrust, spharz:initial spharz, opcrust:initial opcrust, opharz:initial opharz, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
+            type_of_compositional_fields = "chemical composition, chemical composition, chemical composition, chemical composition, generic, generic, generic, generic, generic, generic, generic"
+            if include_meta_grain_size:
+                meta_fields.append("meta_grain_size")
+                mapped_particle_properties += ", meta_grain_size: kinetic meta_grain_size"
+                type_of_compositional_fields += ", generic"
+            
             # change the material model
             material_model = o_dict["Material model"]
             material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
             material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:1.0|0.0|0.0|0.0|0.0|0.0|0.0"
 
+            if include_meta_grain_size:
+                material_model["Visco Plastic TwoD"]["Metastable decomposition"] = "background:0.0000e+00|0.0000e+00|0.0000e+00|1.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00, spcrust:0.0000e+00, spharz:0.0000e+00|0.0000e+00|0.0000e+00|1.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00, opharz:0.0000e+00|0.0000e+00|0.0000e+00|1.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00, opcrust:0.0000e+00"
+                material_model["Visco Plastic TwoD"]["Minimum viscosity"] = "background:1e+19, spcrust:1e+19, spharz:1e+22|1e+19|1e+19|1e+19|1e+22|1e+22|1e+22|1e+22, opharz:1e+19, opcrust:1e+19"
+                material_model["Visco Plastic TwoD"]["Use phase rheology mixing"] = "true"
+                material_model["Visco Plastic TwoD"]["Phase rheology mixing models"] = "1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0"
+
             # change the particle properties
             o_dict["Particles"]["List of particle properties"] += ", metastable"
+
             # expand composition fields
-            o_dict = expand_multi_composition_composition_field(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
-            o_dict["Compositional fields"]["Mapped particle properties"] = \
-                  "spcrust:initial spcrust, spharz:initial spharz, opcrust:initial opcrust, opharz:initial opharz, metastable: kinetic metastable, meta_x0: kinetic meta_x0, meta_x1: kinetic meta_x1, meta_x2: kinetic meta_x2, meta_x3: kinetic meta_x3, meta_is: kinetic meta_is, meta_rate: kinetic meta_rate"
-            o_dict["Compositional fields"]["Types of fields"] = "chemical composition, chemical composition, chemical composition, chemical composition, generic, generic, generic, generic, generic, generic, generic"
+            o_dict = expand_multi_composition_composition_field(o_dict, 'opharz', ["opharz"] + meta_fields)
+            o_dict["Compositional fields"]["Mapped particle properties"] = mapped_particle_properties
+                  
+            o_dict["Compositional fields"]["Types of fields"] = type_of_compositional_fields
             
             # initial composition fields
             o_dict["Initial composition model"]["List of model names"] += ", metastable"
@@ -12871,9 +12892,12 @@ opcrust: 1e+31, opharz: 1e+31", \
             o_dict["Discretization"]["Stabilization parameters"].pop("Global composition minimum")
 
             # add adiabatic condition model
+            ad_condition_func_expr = "0.0; 0.0; 0.0; 0.0; 1.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0"
+            if include_meta_grain_size:
+                ad_condition_func_expr += "; 0.0"
             o_dict["Adiabatic conditions model"] = {"Compute profile": 
                                                     {"Composition reference profile": "function", 
-                                                     "Function expression": "0.0; 0.0; 0.0; 0.0; 1.0; 0.0; 0.0; 0.0; 0.0; 0.0; 0.0"
+                                                     "Function expression": ad_condition_func_expr
                                                     }}
         
         if duplicate_op_composition:
@@ -15958,6 +15982,7 @@ class CASE_THD(CASE):
 
         # metastable related features
         if include_meta:
+            # todo_meta
             # expand composition fields
             # o_dict = expand_multi_composition_isosurfaces(o_dict, 'opharz', ["opharz", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
             o_dict = expand_multi_composition_composition_field(o_dict, 'ov_upper', ["ov_upper", "metastable", "meta_x0", "meta_x1", "meta_x2", "meta_x3", "meta_is", "meta_rate"])
