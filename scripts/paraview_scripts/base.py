@@ -469,8 +469,8 @@ def hide_everything():
         Hide(proxy, view)
 
     # Hide all color legends explicitly
-    for rep in GetRepresentations():
-        rep.SetScalarBarVisibility(view, False)
+    # for rep in GetRepresentations():
+    #     rep.SetScalarBarVisibility(view, False)
 
     # Update the view
     Render()

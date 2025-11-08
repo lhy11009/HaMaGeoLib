@@ -11574,6 +11574,9 @@ intiation stage causes the slab to break in the middle",\
             ["composition method", "duplicate op composition"], 0, nick='duplicate_op_composition')
         self.add_key("Include metastable transition grain size evolution", int,\
             ['metastable', 'include grain size'], 0, nick='include_meta_grain_size')
+        # todo_3d
+        self.add_key("mantle jump scheme", str,\
+            ['mantle rheology', "jump scheme"], "default", nick='viscosity_jump_type')
     
     def check(self):
         '''
@@ -11669,6 +11672,9 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         # metastable setup
         if include_meta:
             assert(version >= 3.0 and comp_method == "particle")
+        # viscosity_jump
+        viscosity_jump_type = self.values[self.start + 81]
+        assert(type(viscosity_jump_type) == str and viscosity_jump_type in ["default", "660", "1100", "1100i"])
 
     def to_configure_prm(self):
         if_wb = self.values[8]
@@ -11770,6 +11776,35 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         Vdiff_lm = self.values[self.start + 78]
         duplicate_op_composition = self.values[self.start + 79]
         include_meta_grain_size = self.values[self.start + 80]
+        # todo_3d
+        viscosity_jump_type = self.values[self.start + 81]
+        if viscosity_jump_type == "660":
+            mantle_rheology_scheme = "HK03_WarrenHansen23"
+            mantle_coh = 300.0
+            adjust_mantle_rheology_detail = 1
+            jump_lower_mantle = 60.0
+            use_3d_da_file = 1
+        elif viscosity_jump_type == "1100":
+            mantle_rheology_scheme = "HK03_WarrenHansen23"
+            mantle_coh = 300.0
+            adjust_mantle_rheology_detail = 1
+            jump_lower_mantle = 0.5
+            use_3d_da_file = 1
+            use_3d_da_file_wm = 1
+            depth_lm_middle = 1100e3
+            Vdiff_lm = 9e-6
+            Vdiff_lm_middle = 3e-6 
+        elif viscosity_jump_type == "1100i":
+            mantle_rheology_scheme = "HK03_WarrenHansen23"
+            mantle_coh = 300.0
+            adjust_mantle_rheology_detail = 1
+            jump_lower_mantle = 5.0
+            use_3d_da_file = 1
+            use_3d_da_file_wm = 1
+            depth_lm_middle = 1100e3
+            Vdiff_lm = 6e-6 
+            Vdiff_lm_middle = 3e-6 
+
 
 
         return if_wb, geometry, box_length, type_of_bd, potential_T, sp_rate,\
@@ -15192,6 +15227,7 @@ different age will be adjusted.",\
         self.add_key("Output non-adiabatic pressure", int, ['post-process', "nonadiabatic pressure"], 1, nick="non_adiabatic_P")
         self.add_key("Include metastable transition grain size evolution", int,\
             ['metastable', 'include grain size'], 0, nick='include_meta_grain_size')
+        # todo_3d
 
     
     def check(self):

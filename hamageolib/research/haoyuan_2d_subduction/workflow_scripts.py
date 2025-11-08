@@ -1085,11 +1085,12 @@ def finalize_visualization_2d_12172024(local_dir, file_name, _time, frame_png_fi
 
     full_image_path = extract_image_by_size(pdf_file, target_size, os.path.join(local_dir, "img"), crop_box)
 
+    fig_pos = (-102, -9)
     # Overlays multiple images on a blank canvas with specified sizes, positions, cropping, and scaling.
     overlay_images_on_blank_canvas(
         canvas_size=canvas_size,  # Size of the blank canvas in pixels (width, height)
         image_files=[full_image_path, frame_png_file_with_ticks],  # List of image file paths to overlay
-        image_positions=[(-102, -9), (0, 0)],  # Positions of each image on the canvas
+        image_positions=[fig_pos, (0, 0)],  # Positions of each image on the canvas
         cropping_regions=[None, None],  # Optional cropping regions for the images
         image_scale_factors=[0.81185, None],  # Scaling factors for resizing the images
         output_image_file=output_image_file  # Path to save the final combined image
@@ -1113,7 +1114,7 @@ def finalize_visualization_2d_wedge_12202024(local_dir, file_name, _time, frame_
     # Options
     add_time = kwargs.get("add_time", True)
 
-    canvas_size = kwargs.get("canvas_size", (650, 450))
+    canvas_size = kwargs.get("canvas_size", (650, 550))
 
     # Inputs
     eps_file = os.path.join(local_dir, "img", "pv_outputs", "%s_t%.4e.eps" % (file_name, _time))

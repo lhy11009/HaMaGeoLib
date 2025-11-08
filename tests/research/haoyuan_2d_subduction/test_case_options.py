@@ -19,6 +19,25 @@ if os.path.isdir(test_dir):
     rmtree(test_dir)
 os.mkdir(test_dir)
 
+# todo_3d
+def test_2d_mantle_jump():
+    '''
+    test for setting the 3d case in the box geometry
+    '''
+    source_dir = os.path.join(fixture_root, "test_2d_mantle_jump")
+    json_path = os.path.join(source_dir, 'case0.json')
+    output_dir = os.path.join(test_dir,'test_2d_mantle_jump')
+    if os.path.isdir(output_dir):
+        rmtree(output_dir)
+    create_case_with_json(json_path, CASE_TWOD, CASE_OPT_TWOD)  # create case
+    assert(os.path.isdir(output_dir))  # check case generation
+    prm_std_path = os.path.join(source_dir, 'case_std.prm')
+    prm_path = os.path.join(output_dir, 'case.prm')
+    assert(filecmp.cmp(prm_path, prm_std_path))
+    wb_std_path = os.path.join(source_dir, 'case_std.wb')
+    wb_path = os.path.join(output_dir, 'case.wb')
+    assert(filecmp.cmp(wb_path, wb_std_path))
+
 def test_visc_diff():
     '''
     test change viscosity

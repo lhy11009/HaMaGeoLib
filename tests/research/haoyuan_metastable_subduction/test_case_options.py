@@ -101,6 +101,7 @@ def test_haoyuan_metastable_subduction_grain_size():
     wb_path = os.path.join(output_dir, 'case.wb')
     assert(filecmp.cmp(wb_path, wb_std_path))
 
+# todo_3d
 def test_viscosity_profile_middle_mantle():
     '''
     test for including a middle mantle layer

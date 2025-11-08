@@ -138,7 +138,7 @@ def set_non_adiabatic_pressure_plot_slab(sourceDisplay):
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, -1e9, 1e9)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("turku", True)
+    fieldLUT.ApplyPreset("roma", True)
 
 def set_non_adiabatic_pressure_plot_mantle_with_ref_profile(sourceDisplay):
     '''
@@ -151,7 +151,7 @@ def set_non_adiabatic_pressure_plot_mantle_with_ref_profile(sourceDisplay):
     da_range = DA_RANGE
     rescale_transfer_function_combined(field, da_range[0], da_range[1])
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("turku", True)
+    fieldLUT.ApplyPreset("roma", True)
 
 def set_non_adiabatic_pressure_plot_mantle(sourceDisplay):
     '''
@@ -165,7 +165,7 @@ def set_non_adiabatic_pressure_plot_mantle(sourceDisplay):
     rescale_transfer_function_combined(field, da_range[0], da_range[1])
     # rescale_transfer_function_combined(field, -1e8, 1e8)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("turku", True)
+    fieldLUT.ApplyPreset("roma", True)
 
 def set_slab_volume_plot(sourceDisplay, max_depth, **kwargs):
     '''
@@ -538,11 +538,10 @@ output.PointData.append(da_ref_diff, "nonadiabatic_pressure_ref_diff")
     programmableFilter1.RequestInformationScript = ''
     programmableFilter1.RequestUpdateExtentScript = ''
     programmableFilter1.PythonPath = ''
-    
 
 
 def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **kwargs):
-
+    
     # addtional_options
     has_metastable_region = kwargs.get("has_metastable_region", False)
     has_metastable_region_slab = kwargs.get("has_metastable_region_slab", False)
@@ -607,8 +606,6 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     SetActiveSource(transform1)
     transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
 
-    set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
-    
     # Adjust the position of the point source and show related annotations.
     # In box with 3-d setup, the 2d glyph is not in the slice plane. The solution is rotate it 90 degree.
     # Adjust glyph properties based on the specified parameters.
@@ -685,7 +682,6 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         metaRegion1Display.AmbientColor = [1.0, 0.0, 1.0] # magenta
         metaRegion1Display.DiffuseColor = [1.0, 0.0, 1.0]
 
-
     # Configure layout and camera settings based on geometry.
     layout_resolution = (1350, 704)
     layout1 = GetLayout()
@@ -713,6 +709,8 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
             CameraParallelScale*= 2.0
         renderView1.CameraParallelScale = CameraParallelScale
 
+    # Plot the viscosity
+    set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
     # save figure
     fig_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.pdf" % _time)
     fig_png_path = os.path.join(pv_output_dir, "slice_center_viscosity_t%.4e.png" % _time)
@@ -768,6 +766,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     # save figure for slab
     if HAS_DYNAMIC_PRESSURE:
         set_non_adiabatic_pressure_plot_slab(transform1Display)
+        sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
         fig_path = os.path.join(pv_output_dir, "slice_center_nP_slab_t%.4e.pdf" % _time)
         fig_png_path = os.path.join(pv_output_dir, "slice_center_nP_slab_t%.4e.png" % _time)
         SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
@@ -837,6 +836,229 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         ExportView(fig_path, view=renderView1)
         print("Figure saved: %s" % fig_png_path)
         print("Figure saved: %s" % fig_path)
+
+    # hide objects
+    if ANIMATION:
+        hide_everything()
+
+
+def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwargs):
+
+    # addtional_options
+    has_metastable_region = kwargs.get("has_metastable_region", False)
+    has_metastable_region_slab = kwargs.get("has_metastable_region_slab", False)
+
+    # Get the active view 
+    renderView1 = GetActiveViewOrCreate('RenderView')
+
+    # Select the slice center source
+    if "GEOMETRY" == "chunk":
+        transform1 = FindSource("%s_transform_%05d" % (source_name, snapshot))
+    else:
+        transform1 = FindSource("%s_%05d" % (source_name, snapshot))
+    
+    # Add programmable filter for equilibrium phase transition at 410.0
+    if "MODEL_TYPE" == "mow":
+        add_eq_410_condition(transform1)
+        source_eq_trans = FindSource("programmable_eq")
+        contourEq = Contour(registrationName='contour_eq_trans', Input=source_eq_trans)
+        contourEq.ContourBy = ['POINTS', 'eq_trans']
+        contourEq.Isosurfaces = [0.0]
+        contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
+        ColorBy(contourEqDisplay, None)
+        contourEqDisplay.LineWidth = 2.0
+        contourEqDisplay.Ambient = 1.0
+        
+        if FOO00 == 0:
+            # default: turn off plot
+            Hide(contourEq, renderView1)
+
+    # Add T contour
+    # 1 - 725 C, for blockT of metastable region
+    # 2 - 900 C, for slab internal in upper mantle
+    # 3 and 4, 1100 and 1300 C, for an envelop of slab in the mantle
+    if FOO01:
+        if FOO01 == 1:
+            contourT = 725.0+273.15
+        elif FOO01 == 2:
+            contourT = 900.0+273.15
+        elif FOO01 == 3:
+            contourT = 1100.0+273.15
+        elif FOO01 == 4:
+            contourT = 1300.0+273.15
+        else:
+            raise NotImplementedError()
+        contourT_block = Contour(registrationName='ContourT_block', Input=transform1)
+        contourT_block.ContourBy = ['POINTS', 'T']
+        contourT_block.Isosurfaces = [contourT]
+        contourT_blockDisplay = Show(contourT_block, renderView1, 'GeometryRepresentation')
+        ColorBy(contourT_blockDisplay,"T")
+        rescale_transfer_function_combined('T', 273.0, 1673.0)
+        fieldLUT = GetColorTransferFunction("T")
+        fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+        contourT_blockDisplay.LineWidth = 2.0
+        contourT_blockDisplay.Ambient = 1.0
+
+    # add the reference dynamic profile and the difference to it
+    if HAS_DYNAMIC_PRESSURE:
+        file_path = '%s/../pyvista_outputs/%05d/da_profile_%05d.txt' % (data_output_dir, snapshot, snapshot)
+        add_da_ref_profile(transform1, file_path)
+
+    # Show the slab center plot and viscosities
+    SetActiveSource(transform1)
+    transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
+
+    # plot of the wedge corner - smaller
+    # adjusted from the plot_step_wedge_02252025 function from the 2-D project
+    # for 2d, use 3 times the sample points because I plotted the whole domain
+    if int("DIMENSION") == 3:
+        n_stride = 5
+    else:
+        n_stride = 2
+        raise NotImplementedError()
+    if "GEOMETRY" == "chunk":
+        # Plot scales
+        camera_x = -192.1742524223165 # x coordinate of camera
+        CameraParallelScaleMantle = 651407.1273990012
+        CameraParallelScale = 101605.30740967988
+        # Glyph properties
+        scale_fraction = CameraParallelScale / CameraParallelScaleMantle
+        point_source_center = [camera_x - 0.1e5, 6.4e6, 0]
+        scale_factor = 2.8e6
+    elif "GEOMETRY" == "box":
+        # In Box geometry, used a different scale_factor because we first need to maintain the scale of length
+        raise NotImplementedError()
+    else:
+        raise NotImplementedError()
+    adjust_glyph_properties("%s_glyph_%05d" % (source_name, snapshot), scale_factor * scale_fraction, n_stride, point_source_center, GlyphMode="Every Nth Point")
+    
+    # Configure layout and camera settings based on geometry.
+    layout_resolution = (1350, 704)
+    layout1 = GetLayout()
+    layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+    renderView1.InteractionMode = '2D'
+    if "GEOMETRY" == "chunk":
+        renderView1.CameraPosition = [camera_x, 6300734.12934143, 25000000.0]
+        renderView1.CameraFocalPoint = [camera_x, 6300734.12934143, 0.0]
+        renderView1.CameraParallelScale = CameraParallelScale
+    elif "GEOMETRY" == "box":
+        raise NotImplementedError()
+
+    # set up plot    
+    set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
+    # set glyph
+    sourceV = FindSource("%s_glyph_%05d" % (source_name, snapshot))
+    if "GEOMETRY" == "box" and int("DIMENSION") == 3:
+        sourceV.GlyphTransform.Rotate = [90.0, 0.0, 0.0]
+        sourceVRE = FindSource("%s_glyph_%05d_representative" % (source_name, snapshot))
+        sourceVRE.GlyphTransform.Rotate = [90.0, 0.0, 0.0]
+    sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
+    if int("DIMENSION") == 3:
+        ColorBy(sourceVDisplay, None)
+    # show glyph representative
+    if FOO05 == 1:
+        # show the representative vector
+        sourceVRE = FindSource("%s_glyph_%05d_representative" % (source_name, snapshot))
+        sourceVREDisplay = Show(sourceVRE, renderView1, 'GeometryRepresentation')
+        sourceVTXT = FindSource("%s_glyph_%05d_text" % (source_name, snapshot))
+        sourceVTXTDisplay = Show(sourceVTXT, renderView1, 'GeometryRepresentation')
+        sourceVTXTDisplay.Color = [0.0, 0.0, 0.0]
+
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "slice_center_viscosity_wedge_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "slice_center_viscosity_wedge_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+
+    if HAS_DYNAMIC_PRESSURE:
+        da_ref = FindSource("programmable_da_ref")
+        SetActiveSource(da_ref)
+        da_refDisplay = Show(da_ref, renderView1, 'GeometryRepresentation')
+        set_non_adiabatic_pressure_plot_mantle_with_ref_profile(da_refDisplay)
+        fig_path = os.path.join(pv_output_dir, "slice_center_nP_mantle_ref_wedge_t%.4e.pdf" % _time)
+        fig_png_path = os.path.join(pv_output_dir, "slice_center_nP_mantle_ref_wedge_t%.4e.png" % _time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+        Hide(da_ref, renderView1)
+
+    # plot of the wedge corner: bigger
+    if int("DIMENSION") == 3:
+        n_stride = 5
+    else:
+        n_stride = 2
+        raise NotImplementedError()
+    if "GEOMETRY" == "chunk":
+        # Plot scales
+        camera_x = 0.0 # x coordinate of camera
+        CameraParallelScaleMantle = 651407.1273990012
+        CameraParallelScale = 175692.00000000006
+        # Glyph properties
+        scale_fraction = CameraParallelScale / CameraParallelScaleMantle
+        point_source_center = [0.0, 0.0, 0.0]
+        scale_factor = 2.8e6
+    elif "GEOMETRY" == "box":
+        # In Box geometry, used a different scale_factor because we first need to maintain the scale of length
+        raise NotImplementedError()
+    else:
+        raise NotImplementedError()
+    adjust_glyph_properties("%s_glyph_%05d" % (source_name, snapshot), scale_factor * scale_fraction, n_stride, point_source_center, GlyphMode="Every Nth Point")
+
+    # Configure layout and camera settings based on geometry.
+    layout_resolution = (1350, 704)
+    layout1 = GetLayout()
+    layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+    renderView1.InteractionMode = '2D'
+    if "GEOMETRY" == "chunk":
+        renderView1.CameraPosition = [camera_x, 6259332.1857954515, 25000000.0]
+        renderView1.CameraFocalPoint = [camera_x, 6259332.1857954515, 0.0]
+        renderView1.CameraParallelScale = 175692.00000000006
+    elif "GEOMETRY" == "box":
+        raise NotImplementedError()
+    
+    set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
+    # set glyph
+    sourceV = FindSource("%s_glyph_%05d" % (source_name, snapshot))
+    if "GEOMETRY" == "box" and int("DIMENSION") == 3:
+        sourceV.GlyphTransform.Rotate = [90.0, 0.0, 0.0]
+        sourceVRE = FindSource("%s_glyph_%05d_representative" % (source_name, snapshot))
+        sourceVRE.GlyphTransform.Rotate = [90.0, 0.0, 0.0]
+    sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
+    if int("DIMENSION") == 3:
+        ColorBy(sourceVDisplay, None)
+    # show glyph representative
+    if FOO05 == 1:
+        # show the representative vector
+        sourceVRE = FindSource("%s_glyph_%05d_representative" % (source_name, snapshot))
+        sourceVREDisplay = Show(sourceVRE, renderView1, 'GeometryRepresentation')
+        sourceVTXT = FindSource("%s_glyph_%05d_text" % (source_name, snapshot))
+        sourceVTXTDisplay = Show(sourceVTXT, renderView1, 'GeometryRepresentation')
+        sourceVTXTDisplay.Color = [0.0, 0.0, 0.0]
+
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "slice_center_viscosity_wedge_bigger_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "slice_center_viscosity_wedge_bigger_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+
+    if HAS_DYNAMIC_PRESSURE:
+        da_ref = FindSource("programmable_da_ref")
+        SetActiveSource(da_ref)
+        da_refDisplay = Show(da_ref, renderView1, 'GeometryRepresentation')
+        set_non_adiabatic_pressure_plot_mantle_with_ref_profile(da_refDisplay)
+        fig_path = os.path.join(pv_output_dir, "slice_center_nP_mantle_ref_wedge_bigger_t%.4e.pdf" % _time)
+        fig_png_path = os.path.join(pv_output_dir, "slice_center_nP_mantle_ref_wedge_bigger_t%.4e.png" % _time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+        Hide(da_ref, renderView1)
+    
 
     # hide objects
     if ANIMATION:
@@ -998,7 +1220,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     if ANIMATION:
         hide_everything()
 
-def thd_workflow(pv_output_dir, data_output_dir, steps, times):
+def thd_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
     # load model boundary
     load_pyvista_source(data_output_dir, "model_boundary", None, file_type="vtu")
     load_pyvista_source(data_output_dir, "model_boundary_marker_points", None)
@@ -1065,12 +1287,16 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
 
 
         # plot slice center viscosity
-        plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir, _time)
         
-        # plot slab_velocity_field
-        # plot_slab_velocity_field(snapshot, _time, pv_output_dir)
+        if "slab_3d" in plot_types:
+            plot_slab_velocity_field(snapshot, _time, pv_output_dir)
+        if "upper_mantle" in plot_types:
+            plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir, _time)
+        if "wedge" in plot_types:
+            plot_slice_center_wedge("slice_center_unbounded", snapshot, pv_output_dir, _time)
+        
 
-def twod_workflow(pv_output_dir, data_output_dir, steps, times):
+def twod_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
     '''
     Workflow for the twod case
     Inputs:
@@ -1178,9 +1404,15 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
                 has_metastable_region_slab = True
 
         # plot slice
-        plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time, has_metastable_region=has_metastable_region,\
+        if "upper_mantle" in plot_types:
+            plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time, has_metastable_region=has_metastable_region,\
+                                        has_metastable_region_slab=has_metastable_region_slab)
+        if "wedge" in plot_types:
+            plot_slice_center_wedge("solution", snapshot, pv_output_dir, _time, has_metastable_region=has_metastable_region,\
                                     has_metastable_region_slab=has_metastable_region_slab)
 
+# types of plots included
+plot_types = PLOT_TYPES
 
 steps = GRAPHICAL_STEPS
 times = GRAPHICAL_TIMES
@@ -1192,6 +1424,6 @@ renderView1 = GetActiveViewOrCreate('RenderView')
     
 
 if int("DIMENSION") == 3:
-    thd_workflow(pv_output_dir, data_output_dir, steps, times)
+    thd_workflow(pv_output_dir, data_output_dir, steps, times, plot_types)
 else:
-    twod_workflow(pv_output_dir, data_output_dir, steps, times)
+    twod_workflow(pv_output_dir, data_output_dir, steps, times, plot_types)

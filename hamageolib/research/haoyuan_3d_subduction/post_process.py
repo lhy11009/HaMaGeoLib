@@ -1876,7 +1876,7 @@ class PLOT_CASE_RUN_THD():
         for ofile_base in ofile_list:
             # Different file name if make animation
             if animation:
-                snapshot = self.kwargs["steps"][0] + int(self.Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
+                snapshot = self.Case_Options.options['GRAPHICAL_STEPS'][0] + int(self.Case_Options.options['INITIAL_ADAPTIVE_REFINEMENT'])
                 odir = os.path.join(self.case_path, 'paraview_scripts', "%05d" % snapshot)
                 if not os.path.isdir(odir):
                     os.mkdir(odir)
@@ -2554,6 +2554,10 @@ def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
     factor_3d = kwargs.get("factor_3d", 10)
     factor_2d = kwargs.get("factor_2d", 5)
     odir = kwargs.get("odir", os.path.join(local_dir, "img"))
+    tr_lim = kwargs.get("tr_lim", [-150.0, 100.0])  # limit for trench axis
+    depth_lim = kwargs.get("depth_lim", [0, 1000.0])
+    v_lim = kwargs.get("v_lim", [-5.0, 15.0])
+    angle_lim = kwargs.get("angle_lim", [20.0, 60.0]) # limit for the dip angle
     
     if not os.path.isdir(odir):
         os.mkdir(odir)
@@ -2573,7 +2577,6 @@ def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
     t_tick_interval = 5.0   # tick interval along x
     y_lim = (-5.0, 5.0)
     y_tick_interval = 100.0  # tick interval along y
-    v_lim = (-1.5, 1.5)
     v_level = 50  # number of levels in contourf plot
     v_tick_interval = 0.5  # tick interval along v
     n_minor_ticks = 4  # number of minor ticks between two major ones
@@ -2610,16 +2613,17 @@ def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
     if geometry == "chunk":
         trench_center_3d *= Ro
 
-    Case_Options_2d = CASE_OPTIONS_TWOD1(local_dir_2d)
-    Case_Options_2d.Interpret()
-    Case_Options_2d.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary.csv"))
+    if local_dir_2d is not None:
+        Case_Options_2d = CASE_OPTIONS_TWOD1(local_dir_2d)
+        Case_Options_2d.Interpret()
+        Case_Options_2d.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary.csv"))
 
-    time_2d = Case_Options_2d.summary_df["Time"].to_numpy()
-    trench_center_2d = Case_Options_2d.summary_df["Trench"].to_numpy()
-    slab_depth_2d = Case_Options_2d.summary_df["Slab depth"].to_numpy()
-    dip_angle_2d = Case_Options_2d.summary_df["Dip 100"].to_numpy()
-    if geometry == "chunk":
-        trench_center_2d *= Ro
+        time_2d = Case_Options_2d.summary_df["Time"].to_numpy()
+        trench_center_2d = Case_Options_2d.summary_df["Trench"].to_numpy()
+        slab_depth_2d = Case_Options_2d.summary_df["Slab depth"].to_numpy()
+        dip_angle_2d = Case_Options_2d.summary_df["Dip 100"].to_numpy()
+        if geometry == "chunk":
+            trench_center_2d *= Ro
 
     # plot
     ax = fig.add_subplot(gs[0, 0])
@@ -2633,19 +2637,20 @@ def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
     ax.plot(Xs_3d[::factor_3d],  Ys_3d[::factor_3d], label="Trench (center)", color=default_colors[0])
     ax_twin.plot(Xs_3d[::factor_3d],  Ys_3d_1[::factor_3d], linestyle="-.", label="Slab Depth", color=default_colors[0])
 
-    Xs_2d = time_2d/1e6
-    Ys_2d = (trench_center_2d - trench_center_2d[0])/1e3
-    Ys_2d_1 = slab_depth_2d/1e3
-    dx_dy_2d = np.gradient(Ys_2d[::factor_2d], Xs_2d[::factor_2d]) / 1e3 * 1e2
-    dx_dy_2d_1 = np.gradient(Ys_2d_1[::factor_2d], Xs_2d[::factor_2d]) / 1e3 * 1e2
-    ax.plot(Xs_2d[::factor_2d],  Ys_2d[::factor_2d], label="Trench 2d", color=default_colors[1])
-    if time_marker is not None:
-        ax.vlines(time_marker/1e6, linestyle="--", color="k", ymin=-150.0, ymax=100.0, linewidth=1)
-    ax_twin.plot(Xs_2d[::factor_2d],  Ys_2d_1[::factor_2d], linestyle="-.", label="Slab Depth 2d", color=default_colors[1])
+    if local_dir_2d is not None:
+        Xs_2d = time_2d/1e6
+        Ys_2d = (trench_center_2d - trench_center_2d[0])/1e3
+        Ys_2d_1 = slab_depth_2d/1e3
+        dx_dy_2d = np.gradient(Ys_2d[::factor_2d], Xs_2d[::factor_2d]) / 1e3 * 1e2
+        dx_dy_2d_1 = np.gradient(Ys_2d_1[::factor_2d], Xs_2d[::factor_2d]) / 1e3 * 1e2
+        ax.plot(Xs_2d[::factor_2d],  Ys_2d[::factor_2d], label="Trench 2d", color=default_colors[1])
+        if time_marker is not None:
+            ax.vlines(time_marker/1e6, linestyle="--", color="k", ymin=-150.0, ymax=100.0, linewidth=1)
+        ax_twin.plot(Xs_2d[::factor_2d],  Ys_2d_1[::factor_2d], linestyle="-.", label="Slab Depth 2d", color=default_colors[1])
 
     ax.set_xlim(t_lim)
-    ax.set_ylim([-150.0, 100.0])
-    ax_twin.set_ylim([0, 1000.0])
+    ax.set_ylim(tr_lim)
+    ax_twin.set_ylim(depth_lim)
     ax.set_xlabel("Time (Ma)")
     ax.set_ylabel("Trench (km)")
 
@@ -2667,13 +2672,14 @@ def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
 
     ax1.plot(Xs_3d[::factor_3d], dx_dy_3d, label="Trench Velocity (center)", color=default_colors[0])
     ax1.plot(Xs_3d[::factor_3d], dx_dy_3d_1, linestyle="-.", label="Sinking Velocity (center)", color=default_colors[0])
-    ax1.plot(Xs_2d[::factor_2d], dx_dy_2d, label="Trench Velocity 2d", color=default_colors[1])
-    ax1.plot(Xs_2d[::factor_2d], dx_dy_2d_1, linestyle="-.", label="Sinking Velocity 2d", color=default_colors[1])
+    if local_dir_2d is not None:
+        ax1.plot(Xs_2d[::factor_2d], dx_dy_2d, label="Trench Velocity 2d", color=default_colors[1])
+        ax1.plot(Xs_2d[::factor_2d], dx_dy_2d_1, linestyle="-.", label="Sinking Velocity 2d", color=default_colors[1])
     if time_marker is not None:
         ax.vlines(time_marker/1e6, linestyle="--", color="k", ymin=-5.0, ymax=15.0, linewidth=1)
 
     ax1.set_xlim(t_lim)
-    ax1.set_ylim([-5.0, 15.0])
+    ax1.set_ylim(v_lim)
     ax1.set_xlabel("Time (Ma)")
     ax1.set_ylabel("Velocity (cm/yr)")
 
@@ -2687,8 +2693,9 @@ def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
     
     ax1_twinx = ax1.twinx()
     ax1_twinx.plot(Xs_3d[::factor_3d], dip_angle_center_3d[::factor_3d]*180.0/np.pi, label="Dip 100 (center)", linestyle="--", color=default_colors[0])
-    ax1_twinx.plot(Xs_2d[::factor_3d], dip_angle_2d[::factor_3d]*180.0/np.pi, label="Dip 100 2d", linestyle="--", color=default_colors[1])
-    ax1_twinx.set_ylim([20.0, 60.0])
+    if local_dir_2d is not None:
+        ax1_twinx.plot(Xs_2d[::factor_3d], dip_angle_2d[::factor_3d]*180.0/np.pi, label="Dip 100 2d", linestyle="--", color=default_colors[1])
+    ax1_twinx.set_ylim(angle_lim)
     ax1_twinx.yaxis.set_major_locator(MultipleLocator(10.0))
     ax1_twinx.yaxis.set_minor_locator(MultipleLocator(10.0/(n_minor_ticks+1))) 
 
