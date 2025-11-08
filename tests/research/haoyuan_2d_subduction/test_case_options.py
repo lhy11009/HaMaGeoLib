@@ -19,7 +19,6 @@ if os.path.isdir(test_dir):
     rmtree(test_dir)
 os.mkdir(test_dir)
 
-# todo_3d
 def test_2d_mantle_jump():
     '''
     test for including a middle-lower mantle viscosity jump

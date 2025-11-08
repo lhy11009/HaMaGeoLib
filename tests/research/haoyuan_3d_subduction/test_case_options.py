@@ -28,10 +28,10 @@ if os.path.isdir(test_dir):
 os.mkdir(test_dir)
 
 
-# todo_3d
 def test_3d_mantle_jump():
     '''
     test for setting the 3d case in the box geometry
+    test for a mantle viscosity discontinuity around 1100 km
     '''
     source_dir = os.path.join(fixture_root, "test_3d_mantle_jump")
     json_path = os.path.join(source_dir, 'case0.json')

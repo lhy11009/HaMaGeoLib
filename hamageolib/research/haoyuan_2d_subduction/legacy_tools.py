@@ -11574,7 +11574,6 @@ intiation stage causes the slab to break in the middle",\
             ["composition method", "duplicate op composition"], 0, nick='duplicate_op_composition')
         self.add_key("Include metastable transition grain size evolution", int,\
             ['metastable', 'include grain size'], 0, nick='include_meta_grain_size')
-        # todo_3d
         self.add_key("mantle jump scheme", str,\
             ['mantle rheology', "jump scheme"], "default", nick='viscosity_jump_type')
     
@@ -11776,7 +11775,6 @@ than the multiplication of the default values of \"sp rate\" and \"age trench\""
         Vdiff_lm = self.values[self.start + 78]
         duplicate_op_composition = self.values[self.start + 79]
         include_meta_grain_size = self.values[self.start + 80]
-        # todo_3d
         viscosity_jump_type = self.values[self.start + 81]
         if viscosity_jump_type == "660":
             mantle_rheology_scheme = "HK03_WarrenHansen23"
@@ -15235,7 +15233,6 @@ different age will be adjusted.",\
             ['mantle rheology', "V lm middle"], -1.0, nick='Vdiff_lm_middle')
         self.add_key("use 3d depth average file", int,\
             ['mantle rheology', "use 3d da file whole mantle"], 0, nick='use_3d_da_file_wm')
-        # todo_3d
         self.add_key("mantle jump scheme", str,\
             ['mantle rheology', "jump scheme"], "default", nick='viscosity_jump_type')
 
@@ -15716,7 +15713,6 @@ class CASE_THD(CASE):
                 # refit rheology
                 rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
                 # derive mantle rheology
-                # todo_3d
                 if depth_lm_middle > 0.0: 
                     rheology, viscosity_profile = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
                                                             dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
@@ -16126,7 +16122,6 @@ class CASE_THD(CASE):
         if non_adiabatic_P:
             o_dict['Postprocess']["Visualization"]["List of output variables"] += ", nonadiabatic pressure"
 
-        # todo_3d
         # assign mid-lower-mantle rheology
         # loop every entry and append a new PT term
         if depth_lm_middle > 0.0:
