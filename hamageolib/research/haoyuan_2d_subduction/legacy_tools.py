@@ -15224,10 +15224,20 @@ different age will be adjusted.",\
         self.add_key("Include metastable transition", int,\
             ['metastable', 'include metastable'], 0, nick='include_meta')
         self.add_key("Trench migration", float, ['plate setup', "trench migration"], 0.0, nick="trench_migration")
-        self.add_key("Output non-adiabatic pressure", int, ['post-process', "nonadiabatic pressure"], 1, nick="non_adiabatic_P")
+        self.add_key("Output non-adiabatic pressure", int, ['post-process', "nonadiabatic pressure"], 0, nick="non_adiabatic_P")
         self.add_key("Include metastable transition grain size evolution", int,\
             ['metastable', 'include grain size'], 0, nick='include_meta_grain_size')
+        self.add_key("middle lower mantle depth", float,\
+            ['mantle rheology', "depth lm middle"], -1.0, nick='depth_lm_middle')
+        self.add_key("lower mantle activation volume", float,\
+            ['mantle rheology', "V lm"], 3e-6, nick='Vdiff_lm')
+        self.add_key("middle lower mantle activation volume", float,\
+            ['mantle rheology', "V lm middle"], -1.0, nick='Vdiff_lm_middle')
+        self.add_key("use 3d depth average file", int,\
+            ['mantle rheology', "use 3d da file whole mantle"], 0, nick='use_3d_da_file_wm')
         # todo_3d
+        self.add_key("mantle jump scheme", str,\
+            ['mantle rheology', "jump scheme"], "default", nick='viscosity_jump_type')
 
     
     def check(self):
@@ -15257,6 +15267,14 @@ different age will be adjusted.",\
         include_meta = self.values[self.start + 62]
         if include_meta:
             assert(comp_method == "particle")
+
+        # jump in the mantle 
+        # in case we require a deep viscousity boundary, check the box is as deep;
+        viscosity_jump_type = self.values[self.start + 70]
+        box_height = self.values[self.start+2]
+        assert(type(viscosity_jump_type) == str and viscosity_jump_type in ["default", "660", "1100", "1100i"])
+        if viscosity_jump_type in ["1100", "1100i"]:
+            assert(box_height > 1200e3)
 
     def reset_refinement(self, refinement_level):
         '''
@@ -15339,6 +15357,36 @@ different age will be adjusted.",\
         trench_migration = self.values[self.start + 63]
         non_adiabatic_P = self.values[self.start + 64]
         include_meta_grain_size = self.values[self.start + 65]
+        depth_lm_middle = self.values[self.start + 66]
+        Vdiff_lm = self.values[self.start + 67]
+        Vdiff_lm_middle = self.values[self.start + 68]
+        use_3d_da_file_wm = self.values[self.start + 69]
+
+        viscosity_jump_type = self.values[self.start + 70]
+        if viscosity_jump_type == "660":
+            mantle_rheology_scheme = "HK03_WarrenHansen23"
+            detail_mantle_coh = 300.0
+            adjust_mantle_rheology_detail = 1
+            detail_jump_lower_mantle = 60.0
+            use_3d_da_file_wm = 1
+        elif viscosity_jump_type == "1100":
+            mantle_rheology_scheme = "HK03_WarrenHansen23"
+            detail_mantle_coh = 300.0
+            adjust_mantle_rheology_detail = 1
+            detail_jump_lower_mantle = 0.5
+            use_3d_da_file_wm = 1
+            depth_lm_middle = 1100e3
+            Vdiff_lm = 9e-6
+            Vdiff_lm_middle = 3e-6 
+        elif viscosity_jump_type == "1100i":
+            mantle_rheology_scheme = "HK03_WarrenHansen23"
+            detail_mantle_coh = 300.0
+            adjust_mantle_rheology_detail = 1
+            detail_jump_lower_mantle = 5.0
+            use_3d_da_file_wm = 1
+            depth_lm_middle = 1100e3
+            Vdiff_lm = 6e-6 
+            Vdiff_lm_middle = 3e-6 
 
         return _type, if_wb, geometry, box_width, box_length, box_height,\
             sp_width, trailing_length, reset_trailing_morb, ref_visc,\
@@ -15351,7 +15399,8 @@ different age will be adjusted.",\
             slab_core_viscosity, global_minimum_viscosity, coarsen_side, coarsen_side_interval, fix_boudnary_temperature_auto,\
             coarsen_side_level, coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as,\
             trailing_length_1, sp_rate, ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail,\
-            include_ov_upper_plate, slab_strength, version, include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size
+            include_ov_upper_plate, slab_strength, version, include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size,\
+            depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm
         
     def to_configure_wb(self):
         '''
@@ -15431,7 +15480,7 @@ class CASE_THD(CASE):
     global_minimum_viscosity, coarsen_side, coarsen_side_interval, fix_boudnary_temperature_auto, coarsen_side_level,\
     coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as, trailing_length_1, sp_rate,\
     ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail, include_ov_upper_plate, slab_strength, version,\
-    include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size):
+    include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size, depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm):
         '''
         Configure prm file
         '''
@@ -15667,10 +15716,17 @@ class CASE_THD(CASE):
                 # refit rheology
                 rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
                 # derive mantle rheology
-                rheology, _ = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
+                # todo_3d
+                if depth_lm_middle > 0.0: 
+                    rheology, viscosity_profile = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
                                                             dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
                                                             use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
-                                                            jump_lower_mantle=jump_lower_mantle)
+                                                            jump_lower_mantle=jump_lower_mantle, Vdiff_lm=Vdiff_lm, Vdiff_lm_middle=Vdiff_lm_middle, depth_lm_middle=depth_lm_middle)
+                else:
+                    rheology, _ = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
+                                                                dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
+                                                                use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
+                                                                jump_lower_mantle=jump_lower_mantle)
             else:
                 rheology, _ = Operator.MantleRheology(rheology=mantle_rheology_scheme,\
                             save_profile=0, save_json=1, use_effective_strain_rate=True)
@@ -15685,7 +15741,10 @@ class CASE_THD(CASE):
         if _type == '2d_consistent':
             # for the 2d_consistent type
             # The adjustment of rheology is done after I implement the "HK03_WarrenHansen23" type
-            da_file = os.path.join(LEGACY_FILE_DIR, 'reference_ThD', "depth_average.txt")
+            if use_3d_da_file_wm:
+                da_file = os.path.join(LEGACY_FILE_DIR, 'reference_ThD', "depth_average_1573.txt")
+            else:
+                da_file = os.path.join(LEGACY_FILE_DIR, 'reference_ThD', "depth_average.txt")
             assert(os.path.isfile(da_file))
             Operator = RHEOLOGY_OPR()
             # read profile
@@ -15717,7 +15776,13 @@ class CASE_THD(CASE):
                 # refit rheology
                 rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
                 # derive mantle rheology
-                rheology, _ = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
+                if depth_lm_middle > 0.0: 
+                    rheology, viscosity_profile = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
+                                                            dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
+                                                            use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
+                                                            jump_lower_mantle=jump_lower_mantle, Vdiff_lm=Vdiff_lm, Vdiff_lm_middle=Vdiff_lm_middle, depth_lm_middle=depth_lm_middle)
+                else:
+                    rheology, _ = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
                                                             dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
                                                             use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
                                                             jump_lower_mantle=jump_lower_mantle)
@@ -16060,6 +16125,53 @@ class CASE_THD(CASE):
 
         if non_adiabatic_P:
             o_dict['Postprocess']["Visualization"]["List of output variables"] += ", nonadiabatic pressure"
+
+        # todo_3d
+        # assign mid-lower-mantle rheology
+        # loop every entry and append a new PT term
+        if depth_lm_middle > 0.0:
+
+            diff_lm_middle = rheology['diffusion_lm_middle']
+            visco_plastic_dict = o_dict['Material model']['Visco Plastic TwoD']
+
+            skip_op_composition = True
+            comp_in = COMPOSITION(visco_plastic_dict["Phase transition depths"])
+            if "opcrust" in comp_in.data:
+                skip_op_composition = False
+
+            for key, value in visco_plastic_dict.items():
+                if isinstance(value, dict):
+                    continue
+                assert isinstance(value, str)
+                if re.match('.*:', value) and not re.match('.*;', value):
+                    comp_in = COMPOSITION(value)
+                    comp_out = COMPOSITION(comp_in)
+                    for key_in, value_in in comp_in.data.items():
+                        # if skip_op_composition and key_in in ["opharz", "opcrust"]:
+                            # continue
+                        if key == "Phase transition depths":
+                            comp_out.data[key_in].append(depth_lm_middle)
+                        elif key == "Phase transition Clapeyron slopes":
+                            comp_out.data[key_in].append(0.0)
+                        elif key == "Prefactors for diffusion creep":
+                            comp_out.data[key_in].append(float(diff_lm_middle['A']))
+                        elif key == "Grain size exponents for diffusion creep":
+                            comp_out.data[key_in].append(diff_lm_middle['m'])
+                        elif key == "Activation energies for diffusion creep":
+                            comp_out.data[key_in].append(diff_lm_middle['E'])
+                        elif key == "Activation volumes for diffusion creep":
+                            comp_out.data[key_in].append(diff_lm_middle['V'])
+                        elif key == "Metastable transition":
+                            if len(value_in) > 1:
+                                comp_out.data[key_in].append(0.0)
+                        elif key in ["Phase transition widths", "Phase transition temperatures",\
+                                     "Compute latent heat", "Densities", "Prefactors for dislocation creep",\
+                                        "Stress exponents for dislocation creep", "Activation energies for dislocation creep",\
+                                            "Activation volumes for dislocation creep", "Cutoff pressures for Peierls creep"]:
+                            comp_out.data[key_in].append(value_in[-1])
+                        else:
+                            pass
+                    visco_plastic_dict[key] = comp_out.parse_back()
 
         self.idict = o_dict
         pass
