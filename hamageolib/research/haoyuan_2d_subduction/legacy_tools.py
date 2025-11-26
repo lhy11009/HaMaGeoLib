@@ -813,6 +813,7 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             else:
                 # rotate to center on the slab
                 feature_sp = self.wb_dict['features'][index]
+                # todo_ani
                 rotation_angle = 90.0 - feature_sp["coordinates"][2][0] - 2.0 + rotation_plus
             self.options['ROTATION_ANGLE'] = rotation_angle
         elif self.options['GEOMETRY'] == 'box':
@@ -911,6 +912,7 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             self.options['INCLUDE_METASTABLE'] = "False"
         
         self.options["ADDITIONAL_FIELDS"] = str(additional_fields) # prescribe additional fields
+
 
     def vtk_options(self, **kwargs):
         '''
@@ -15360,7 +15362,7 @@ different age will be adjusted.",\
         use_3d_da_file_wm = self.values[self.start + 69]
 
         viscosity_jump_type = self.values[self.start + 70]
-        if viscosity_jump_type == "660":
+        if viscosity_jump_type  == "660":
             mantle_rheology_scheme = "HK03_WarrenHansen23"
             detail_mantle_coh = 300.0
             adjust_mantle_rheology_detail = 1

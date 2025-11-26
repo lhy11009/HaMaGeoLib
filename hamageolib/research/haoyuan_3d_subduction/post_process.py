@@ -1120,6 +1120,38 @@ class PYVISTA_PROCESS_THD():
         end = time.time()
         print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
 
+    def interpolate_slab_surface(self, max_depth, depth_interval):
+        '''
+        extract slab surface at different depths
+        '''
+        indent = 4
+
+        # trench points at surface
+        # note: by default, we extract the points on the moho surface
+        start = time.time()
+        geoms = []
+        for depth in np.arange(0.0, max_depth, depth_interval):
+
+            # rematch 0 to 25 km, so the points all have some depth
+            if np.isclose(depth, 0.0, atol=1e-6):
+                depth = 25e3
+
+            trench_points = self.extract_trench_profile(depth, field_name="sp_lower")
+            poly = pv.PolyData(trench_points)
+            geoms.append(poly)
+
+        # Merge all PolyData into one
+        merged = pv.merge(geoms)
+
+        # Save file
+        filename = "slab_surface_interpolated_%05d.vtp" % self.pvtu_step
+        filepath = os.path.join(self.pyvista_outdir, filename)
+        merged.save(filename)
+        print("Saved file %s" % filepath)
+
+        end = time.time()
+        print("%sPYVISTA_PROCESS_THD: %s takes %.1f s" % (indent * " ", func_name(), end - start))
+
     def extract_trench_profile(self, depth, **kwargs):
         '''
         Parameters:
@@ -1130,11 +1162,22 @@ class PYVISTA_PROCESS_THD():
         '''
         N1 = kwargs.get("N1", 1000)
         file_type = kwargs.get("file_type", "default")
+        field_name = kwargs.get("field_name", "sp_upper")
 
         # K-nearneighbor interpolation
         val1s = np.linspace(self.Min1, self.Max1, N1)
         val0s = np.full(val1s.shape, self.Max0 - depth)
-        val2s = self.slab_surface_interp_func(val0s/self.scale0, val1s/self.scale1)
+        # todo_surf
+
+        # interpolation function
+        # use field name to adjust interpolation from crustal or moho surface
+        if field_name == "sp_lower":
+            interp_func = self.slab_moho_interp_func
+            filebase = "trench_l"
+        else:
+            interp_func = self.slab_surface_interp_func
+            filebase = "trench"
+        val2s = interp_func(val0s/self.scale0, val1s/self.scale1)
 
         # Convert to ordinary coordinates
         mask = ~np.isnan(val2s)
@@ -1144,12 +1187,12 @@ class PYVISTA_PROCESS_THD():
         # Export to files
         if file_type == "default":
             point_cloud_tr = pv.PolyData(trench_points)
-            filename = "trench_d%.2fkm_%05d.vtp" % (depth/1e3, self.pvtu_step)
+            filename = "%s_d%.2fkm_%05d.vtp" % (filebase, depth/1e3, self.pvtu_step)
             filepath = os.path.join(self.pyvista_outdir, filename)
             point_cloud_tr.save(filepath)
             print("saved file %s" % filepath)
         elif file_type == "txt":
-            filename = "trench_d%.2fkm_%05d.txt" % (depth/1e3, self.pvtu_step)
+            filename = "%s_d%.2fkm_%05d.txt" % (filebase, depth/1e3, self.pvtu_step)
             filepath = os.path.join(self.pyvista_outdir, filename)
             np.savetxt(filepath, trench_points, fmt="%.6f", delimiter="\t", header="X\tY\tZ", comments="")
             print("saved file %s" % filepath)
@@ -1973,7 +2016,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     odir = kwargs.get("odir", os.path.join(case_path, "pyvista_outputs"))
     only_initialization = kwargs.get("only_initialization", False)
     use_old_dip_angle_method = kwargs.get("use_old_dip_angle_method", False)
-    
+    extract_slab_surface_profiles = kwargs.get("extract_slab_surface_profiles", False)
+    extract_slab_surface_profiles_depth_interval = kwargs.get("extract_slab_surface_profiles_depth_interval", 100e3)
     outputs = {}
 
     # geometry information
@@ -2170,6 +2214,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         PprocessThD.extract_slab_dip_angle()
     PprocessThD.extract_slab_trench()
     PprocessThD.extract_sp_velocity()
+
+    # todo_surf
+    if extract_slab_surface_profiles:
+        PprocessThD.interpolate_slab_surface(PprocessThD.slab_depth, extract_slab_surface_profiles_depth_interval)
 
     # extract reference dynamic profile
     if Case_Options.options["HAS_DYNAMIC_PRESSURE"] == '1':
