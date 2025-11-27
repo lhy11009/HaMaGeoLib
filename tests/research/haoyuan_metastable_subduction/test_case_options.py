@@ -127,18 +127,42 @@ def test_viscosity_profile_middle_mantle():
     wb_path = os.path.join(output_dir, 'case.wb')
     assert(filecmp.cmp(wb_path, wb_std_path))
 
-def test_viscosity_profile_middle_mantle_metastable():
+def test_haoyuan_metastable_subduction_grain_size():
+    '''
+    test for including metastable_subduction and grain size evolution
+    cartesian, 2d geometry
+    '''
+    source_dir = os.path.join(fixture_root, "eba2d_width80_h1000_bw4000_sw1000_yd300_M_gz")
+    json_path = os.path.join(source_dir, 'case0.json')
+
+    # output directory
+    output_dir = os.path.join(test_dir,'eba2d_width80_h1000_bw4000_sw1000_yd300_M_gz')
+    if os.path.isdir(output_dir):
+        rmtree(output_dir)
+
+    # print("output_dir: ", output_dir) # debug
+
+    create_case_with_json(json_path, CASE_TWOD, CASE_OPT_TWOD)  # create case
+    assert(os.path.isdir(output_dir))  # check case generation
+    prm_std_path = os.path.join(source_dir, 'case_std.prm')
+    prm_path = os.path.join(output_dir, 'case.prm')
+    assert(filecmp.cmp(prm_path, prm_std_path))
+    wb_std_path = os.path.join(source_dir, 'case_std.wb')
+    wb_path = os.path.join(output_dir, 'case.wb')
+    assert(filecmp.cmp(wb_path, wb_std_path))
+
+def test_viscosity_profile_middle_mantle_metastable_grain_size():
     '''
     test for including a middle mantle layer
     that have maximum rheology around 1100 km
     cartesian, 2-d consistent geometry
     activate the metastable kinetics
     '''
-    source_dir = os.path.join(fixture_root, "eba2d_width80_h1000_bw4000_sw1000_yd300_middle_mantle_metastable")
+    source_dir = os.path.join(fixture_root, "test_viscosity_profile_middle_mantle_metastable_grain_size")
     json_path = os.path.join(source_dir, 'case0.json')
 
     # output directory
-    output_dir = os.path.join(test_dir,'eba2d_width80_h1000_bw4000_sw1000_yd300_middle_mantle_metastable')
+    output_dir = os.path.join(test_dir,'test_viscosity_profile_middle_mantle_metastable_grain_size')
     if os.path.isdir(output_dir):
         rmtree(output_dir)
 

@@ -9,7 +9,7 @@ from hamageolib.research.haoyuan_3d_subduction.post_process import PlotCaseRunTw
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_subduction_visualization
 
 
-local_dir_2d = "/mnt/lochz/ASPECT_DATA/TwoDSubduction/EBA_CDPT_3dconsistent_13/eba_cdpt_coh300_SA80.0_OA40.0_width80_h1000_ss1000000.0"
+local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow02_2/C_mow_SA120.0_OA40.0_ss300.0_SZV1e20"
 
 assert(local_dir_2d is not None)
 

@@ -10,6 +10,9 @@
     "post process": {
         "visualization software": "paraview"
     },
+    "post-process": {
+        "nonadiabatic pressure": 1
+    },
     "world builder": {
         "use new ridge implementation": 1
     },

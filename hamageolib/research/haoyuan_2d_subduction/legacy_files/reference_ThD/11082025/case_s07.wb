@@ -1,0 +1,157 @@
+{
+  "version": "0.5",
+  "interpolation": "continuous monotone spline",
+  "coordinate system": {
+    "model": "cartesian"
+  },
+  "cross section": [
+    [
+      0,
+      0
+    ],
+    [
+      20000000.0,
+      0.0
+    ]
+  ],
+  "surface temperature": 273,
+  "force surface temperature": true,
+  "features": [
+    {
+      "model": "oceanic plate",
+      "name": "Subducting plate",
+      "max depth": 150000.0,
+      "min depth": -100000.0,
+      "coordinates": [
+        [
+          0.0,
+          -1000000.0
+        ],
+        [
+          0.0,
+          1000000.0
+        ],
+        [
+          3000000.0,
+          1000000.0
+        ],
+        [
+          3000000.0,
+          -1000000.0
+        ]
+      ],
+      "composition models": [
+        {
+          "model": "uniform",
+          "min depth": -10000.0,
+          "max depth": 50000.0,
+          "compositions": [
+            0
+          ]
+        },
+        {
+          "model": "uniform",
+          "min depth": 50000.0,
+          "max depth": 100000.0,
+          "compositions": [
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "model": "subducting plate",
+      "name": "Slab",
+      "coordinates": [
+        [
+          3000000.0,
+          -10000000.0
+        ],
+        [
+          3000000.0,
+          1500000.0
+        ]
+      ],
+      "dip point": [
+        20000000.0,
+        0.0
+      ],
+      "segments": [
+        {
+          "length": 20000.0,
+          "thickness": [
+            300000.0
+          ],
+          "top truncation": [
+            -100000.0
+          ],
+          "angle": [
+            0,
+            15.5
+          ],
+          "composition models": [
+            {
+              "model": "uniform",
+              "compositions": [
+                0
+              ],
+              "max distance slab top": 50000.0
+            },
+            {
+              "model": "uniform",
+              "compositions": [
+                1
+              ],
+              "min distance slab top": 50000.0,
+              "max distance slab top": 100000.0
+            }
+          ]
+        },
+        {
+          "length": 167000.0,
+          "thickness": [
+            300000.0
+          ],
+          "top truncation": [
+            -100000.0
+          ],
+          "angle": [
+            15.5,
+            15.5
+          ],
+          "composition models": [
+            {
+              "model": "uniform",
+              "compositions": [
+                0
+              ],
+              "max distance slab top": 50000.0
+            },
+            {
+              "model": "uniform",
+              "compositions": [
+                1
+              ],
+              "min distance slab top": 50000.0,
+              "max distance slab top": 100000.0
+            }
+          ]
+        },
+        {
+          "length": 50000.0,
+          "thickness": [
+            300000.0
+          ],
+          "top truncation": [
+            -100000.0
+          ],
+          "angle": [
+            15.5,
+            15.5
+          ]
+        }
+      ]
+    }
+  ],
+  "potential mantle temperature": 1573.0
+}
