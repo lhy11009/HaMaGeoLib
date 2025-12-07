@@ -61,6 +61,7 @@ def set_metastable_options(idict):
       options = {}
 
       names_of_compositional_fields_str = idict["Compositional fields"]["Names of fields"]
+      options["HAS_METASTABLE_GRAIN_SIZE"] = 0 # assign default value of 0 (no grain size evolution)
       if "metastable" in names_of_compositional_fields_str:
          options["MODEL_TYPE"] = "mow"
          default_dict = {
@@ -76,7 +77,5 @@ def set_metastable_options(idict):
          # find meta_grain_size if it is used by model
          if "meta_grain_size" in names_of_compositional_fields_str:
                options["HAS_METASTABLE_GRAIN_SIZE"] = 1
-         else:
-               options["HAS_METASTABLE_GRAIN_SIZE"] = 0
 
       return options

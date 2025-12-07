@@ -101,7 +101,8 @@ def set_meta_grain_size_plot(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.MapControlPointsToLogSpace()
     fieldLUT.UseLogScale = 1
-    fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+    fieldLUT.ApplyPreset("devon", True)
+    # fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
 
 
 def set_density_plot(sourceDisplay):
@@ -810,6 +811,8 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
 
         # set up metastable plot
         set_metastable_plot(transform1Display)
+        Hide(sourceV, renderView1)
+        Hide(sourceTrTrian, renderView1)
         # save figure
         fig_path = os.path.join(pv_output_dir, "slice_center_mow_t%.4e.pdf" % _time)
         fig_png_path = os.path.join(pv_output_dir, "slice_center_mow_t%.4e.png" % _time)
@@ -820,6 +823,8 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
 
         # set up metastable grain size density plot
         set_meta_x0_plot(transform1Display)
+        Hide(sourceV, renderView1)
+        Hide(sourceTrTrian, renderView1)
         # save figure
         fig_path = os.path.join(pv_output_dir, "slice_center_meta_x0_t%.4e.pdf" % _time)
         fig_png_path = os.path.join(pv_output_dir, "slice_center_meta_x0_t%.4e.png" % _time)
@@ -830,6 +835,8 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         
         # set up metastable grain size
         set_meta_grain_size_plot(transform1Display)
+        Hide(sourceV, renderView1)
+        Hide(sourceTrTrian, renderView1)
         fig_path = os.path.join(pv_output_dir, "slice_center_meta_grain_size_t%.4e.pdf" % _time)
         fig_png_path = os.path.join(pv_output_dir, "slice_center_meta_grain_size_t%.4e.png" % _time)
         SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)

@@ -15368,7 +15368,7 @@ different age will be adjusted.",\
         use_3d_da_file_wm = self.values[self.start + 69]
 
         viscosity_jump_type = self.values[self.start + 70]
-        if viscosity_jump_type  == "660":
+        if viscosity_jump_type  in "660":
             mantle_rheology_scheme = "HK03_WarrenHansen23"
             detail_mantle_coh = 300.0
             adjust_mantle_rheology_detail = 1

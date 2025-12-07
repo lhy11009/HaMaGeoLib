@@ -2509,12 +2509,15 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
     # Process the dynamic pressure
     # similar to extract_slice_ref_da_profile function in the 3-d case
+    # TODO: this dynamic pressure code doesn't work for Cartesian case
+    # e.g. try test with "/mnt/lochz/ASPECT_DATA/TwoDSubduction/EBA_CDPT_3dconsistent_box_0/eba_cdpt_coh300_SA50.0_OA20.0_width80_ss1000000.0"
+    # it produces irregular value (values have large differences at same radius) at shallower depth, while producing nan at deeper depth.
     query_dist = kwargs.get("query_dist", 500e3)
     query_dist_span = kwargs.get("query_dist_span", 200e3)
     
     # construct the kd tree
     v0, v2, _ = PUnified.points2unified3(points, (geometry == "chunk"), False)
-    da_func = KNNInterpolatorND(np.vstack((v0/Max0, v2/Max2)).T, grid.point_data["nonadiabatic_pressure"], k=1, max_distance=0.05)
+    da_func = KNNInterpolatorND(np.vstack((v0/Max0, v2/Max2)).T, grid.point_data["nonadiabatic_pressure"], k=1, max_distance=0.05) # 0.05
 
     # construct the query points
     query_v0s = np.linspace(Min0, Max0, 1001)
