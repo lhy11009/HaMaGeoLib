@@ -199,8 +199,8 @@ def main():
                     print("\t Mow volume cold = ", outputs["Mow volume slab"])
                     print("\t Mow area center = ", outputs["Mow area center"])
                     print("\t Mow area cold center = ", outputs["Mow area slab center"])
+                    print("\t Sp velocity = ", outputs["Sp velocity"])
                 
-                print("\t Sp velocity = ", outputs["Sp velocity"])
                 
                 Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, True)
                 # update value in sumamry
@@ -213,7 +213,7 @@ def main():
                     Case_Options.SummaryCaseVtuStepUpdateValue("MOW volume cold", step, outputs["Mow volume slab"])
                     Case_Options.SummaryCaseVtuStepUpdateValue("Mow area center", step, outputs["Mow area center"])
                     Case_Options.SummaryCaseVtuStepUpdateValue("Mow area cold center", step, outputs["Mow area slab center"])
-                Case_Options.SummaryCaseVtuStepUpdateValue("Sp velocity", step, outputs["Sp velocity"])
+                    Case_Options.SummaryCaseVtuStepUpdateValue("Sp velocity", step, outputs["Sp velocity"])
         
         # break # debug
 

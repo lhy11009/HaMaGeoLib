@@ -41,6 +41,11 @@ for step in graphical_steps:
     if Case_Options_2d.options["MODEL_TYPE"] == "mow":
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area", step, output_dict["metastable_area"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area cold", step, output_dict["metastable_area_cold"])
+        # todo_depth
+        Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area cold depth", step, output_dict["metastable_area_cold_depth"])
+        Case_Options_2d.SummaryCaseVtuStepUpdateValue("T depth 973.15", step, output_dict["T_depth_973.15"])
+        Case_Options_2d.SummaryCaseVtuStepUpdateValue("T depth 923.15", step, output_dict["T_depth_923.15"])
+        Case_Options_2d.SummaryCaseVtuStepUpdateValue("T depth 1023.15", step, output_dict["T_depth_1023.15"])
     # break # debug
 
 Case_Options_2d.SummaryCaseVtuStepExport(os.path.join(local_dir_2d, "summary.csv"))

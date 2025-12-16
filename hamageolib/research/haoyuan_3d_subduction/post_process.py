@@ -2234,7 +2234,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     assert(PprocessThD.dip_100_center is not None)
     outputs["dip_100_center"] = PprocessThD.dip_100_center
     assert(PprocessThD.sp_velocity is not None)
-    outputs["Sp velocity"] = PprocessThD.sp_velocity
     if Case_Options.options["MODEL_TYPE"] == "mow":
         assert(PprocessThD.metastable_volume is not None)
         outputs["Mow volume"] = PprocessThD.metastable_volume
@@ -2244,6 +2243,8 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         outputs["Mow area center"] = PprocessThD.metastable_area_center
         assert(PprocessThD.metastable_area_cold_center is not None)
         outputs["Mow area slab center"] = PprocessThD.metastable_area_cold_center
+        
+        outputs["Sp velocity"] = PprocessThD.sp_velocity
 
     return PprocessThD, outputs
 
@@ -2570,26 +2571,69 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
             print("Save file %s" % filepath)
 
             # now derive the cold area
+            # and extract the depth of the mow
             mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
             grid_metastable_slab = grid_metastable.extract_cells(mask)
             if grid_metastable_slab.n_cells == 0:
                 metastable_area_cold = 0.0
+                metastable_max_depth = 0.0
             else:
+                # mow in slab & area
                 sized_cold = grid_metastable_slab.compute_cell_sizes(length=False, area=True, volume=False)
                 metastable_area_cold = float(sized_cold.cell_data["Area"].sum())
                 filename = "metastable_region_slab_%05d.vtu" % pvtu_step
                 filepath = os.path.join(pyvista_outdir, filename)
                 grid_metastable_slab.save(filepath)
                 print("Save file %s" % filepath)
-
+                # maximum depth
+                points = grid_metastable_slab.points
+                deepest_id = np.argmin(points[:, 1])
+                min_y = points[deepest_id, 1]
+                metastable_max_depth = Max0 - min_y
+                deepest_points = grid.extract_points([deepest_id], adjacent_cells=False)
+                # print("=== Deepest cells: point coordinates ===")
+                # print(points[deepest_id, :])
+                # print("=== metastable max depth ===")
+                # print(metastable_max_depth)
 
         output_dict["metastable_area"] = metastable_area
         output_dict["metastable_area_cold"] = metastable_area_cold
+        output_dict["metastable_area_cold_depth"] = metastable_max_depth
+
     
         end = time.time()
         print("%s: Compute metastable area takes %.1f s" % (func_name(), end - start))
 
+        # todo_depth
+        contourTs = [650+273.15, 700+273.15, 750+273.15]
+
+        for T0 in contourTs:
+            contour_depth = ContourTDepth(grid_c, T0, Max0)
+            output_dict["T_depth_%.2f" % T0] = contour_depth
+
     return output_dict
+
+# todo_depth
+def ContourTDepth(grid_c, T0, Ro):
+    """
+    Derive the depth of a given contour
+    """
+    T = grid_c.cell_data["T"]
+
+    # Filter points where T < T0
+    mask = (T < T0)
+
+    # Extract their y-values (depth axis)
+    grid_low_T = grid_c.extract_cells(mask)
+    points = grid_low_T.points
+    y_vals = points[:, 1]
+
+    if y_vals.size == 0:
+        max_depth = 0.0
+    else:
+        max_depth = Ro - np.min(y_vals)
+
+    return max_depth
 
 
 def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
