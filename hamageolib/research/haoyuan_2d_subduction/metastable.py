@@ -358,11 +358,18 @@ class MO_KINETICS:
     - post_process (list): additional post-process steps
     - X_saturated: solution when citet situation is reached.
     """
+    # mandatory constants used in the kinetics
     Constants = namedtuple("Constants", [
         "R", "k", "kappa", "D", "d0",
         "A", "n", "dHa", "V_star_growth",
         "gamma", "fs", "K0", "Vm", "dS", "dV",
         "nucleation_type"
+    ])
+
+    # additional constant
+    # cp and M - used in computation of T change due to latent heat release
+    Constants1 = namedtuple("Constants1", [
+        "cp", "M"
     ])
 
     def __init__(self, constants=None, **kwargs):
@@ -385,10 +392,18 @@ class MO_KINETICS:
         else:
             self.post_process_tg = False
 
+        # get mandatory constants
         if constants is None:
             self.constants = self._default_constants()
         else:
             self.constants = constants
+
+        # get additional constants
+        constants1 = kwargs.get("constants1", None)
+        if constants1 is None:
+            self.constants1 = self._default_constants1()
+        else:
+            self.constants1 = constants1
 
         # model functions
         self.Y_func_ori = None
@@ -440,6 +455,12 @@ class MO_KINETICS:
             dS=7.7,
             dV=3.16e-6,
             nucleation_type=0
+        )
+    
+    def _default_constants1(self):
+        return self.Constants1(
+            cp=800.0,
+            M=0.149
         )
     
     def set_initial_grain_size(self, d0):
@@ -861,6 +882,23 @@ class MO_KINETICS:
                 results[i_t*n_span + j_s, :] =  result_timestep
                 
         return results
+
+    def compute_latent_heat(self, temperature_K, transformed_fraction):
+        '''
+        Compute latent heat release and associated temperature increase during a phase transition.
+
+        Parameters:
+        - temperature_K (float): Transition temperature in Kelvin.
+        - transformed_fraction (float): Volume fraction of material that has transformed (dimensionless).
+
+        Returns:
+        - latent_heat_J_per_mol (float): Latent heat released per mole (J/mol).
+        - temperature_increase_K (float): Resulting temperature increase due to latent heat (K).
+        '''
+        latent_heat_J_per_mol = transformed_fraction * temperature_K * self.constants.dS
+        temperature_increase_K = latent_heat_J_per_mol / (self.constants1.cp * self.constants1.M)
+        return latent_heat_J_per_mol, temperature_increase_K
+
     
 def get_kinetic_constants(nucleation_type):
     """

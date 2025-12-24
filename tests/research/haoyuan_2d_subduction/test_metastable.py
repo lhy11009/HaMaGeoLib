@@ -973,3 +973,43 @@ def test_solve_profile():
 
     result_std = 0.622758932311021
     assert(abs((foo_contents_wl_mo1[257]-result_std)/result_std) < 1e-6)
+
+# todo_latent
+def test_compute_latent_heat():
+    '''
+    test for compute_latent_heat
+    '''
+
+    nucleation_type = 1
+
+    PT410 = {"P": 13.5e9, "T": 1740.0, "cl": 2e6} # equlibrium conditions
+    
+    Coh = 150.0 # wt% for methods with mo kinetics
+    d_ol = 1e-2 # m background grain size for methods with mo kinetics
+
+    # intiate the class
+    _constants1 = MO_KINETICS.Constants(
+            R=8.31446,
+            k=1.38e-23,
+            kappa=1e-6,
+            D=100e3,
+            d0=d_ol,
+            A=np.exp(-18.0),
+            n=3.2,
+            dHa=274e3,
+            V_star_growth=3.3e-6,
+            gamma=0.46,
+            fs=6e-4,
+            K0=1e30,
+            Vm=4.05e-5,
+            dS=7.7,
+            dV=3.16e-6,
+            nucleation_type=1
+        )
+    Mo_Kinetics = MO_KINETICS(_constants1)
+
+    Mo_Kinetics.set_PT_eq(PT410['P'], PT410['T'], PT410['cl'])
+    Mo_Kinetics.link_and_set_kinetics_model(PTKinetics)
+    L, dT = Mo_Kinetics.compute_latent_heat(1740.0, 1.0)
+    assert(np.allclose(L, 13398.0, rtol=1e-6))
+    assert(np.allclose(dT, 112.39932885906042, rtol=1e-6))
