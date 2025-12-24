@@ -193,6 +193,8 @@ def overlay_images_on_blank_canvas(
             If None, no scaling is applied.
         output_image_file (str): Path to save the final combined image.
     """
+    from pathlib import Path
+
     # Debug option
     debug = kwargs.get("debug", False)
 
@@ -209,6 +211,25 @@ def overlay_images_on_blank_canvas(
 
     # Process each image
     for idx, image_file in enumerate(image_files):
+        
+        # Assert all image files are valid paths
+        assert image_file is not None, (
+            f"overlay_images_on_blank_canvas: "
+            f"image_files[{idx}] is None. "
+            "Each entry must be a valid image path."
+        )
+
+        assert isinstance(image_file, (str, Path)), (
+            f"overlay_images_on_blank_canvas: "
+            f"image_files[{idx}] must be str or Path, "
+            f"got {type(image_file)}."
+        )
+
+        assert Path(image_file).exists(), (
+            f"overlay_images_on_blank_canvas: "
+            f"image file does not exist: {image_file}"
+        )
+
         # Load the image
         image = Image.open(image_file).convert("RGBA")
         if debug:

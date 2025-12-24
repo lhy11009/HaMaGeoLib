@@ -12894,7 +12894,6 @@ opcrust: 1e+31, opharz: 1e+31", \
             material_model["Visco Plastic TwoD"]["Reaction metastable"] = "true"
             material_model["Visco Plastic TwoD"]["Metastable transition"] = "background:1.0|0.0|0.0|0.0|0.0|0.0|0.0, spcrust: 0.0, spharz:1.0|0.0|0.0|0.0|0.0|0.0|0.0"
 
-            # todo_gz
             if include_meta_grain_size:
                 if depth_lm_middle > 0.0:
                     material_model["Visco Plastic TwoD"]["Metastable decomposition"] = "background:0.0000e+00|0.0000e+00|0.0000e+00|1.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00, spcrust:0.0000e+00, spharz:0.0000e+00|0.0000e+00|0.0000e+00|1.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00, opharz:0.0000e+00|0.0000e+00|0.0000e+00|1.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00|0.0000e+00, opcrust:0.0000e+00"
@@ -13013,7 +13012,6 @@ opcrust: 1e+31, opharz: 1e+31", \
 
         # assign mid-lower-mantle rheology
         # loop every entry and append a new PT term
-        # todo_gz
         if depth_lm_middle > 0.0:
 
             diff_lm_middle = rheology['diffusion_lm_middle']
