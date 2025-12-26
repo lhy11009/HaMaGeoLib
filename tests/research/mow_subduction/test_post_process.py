@@ -129,3 +129,4 @@ def test_pyvista_process_thd_metastable():
     assert(math.isclose(PprocessThD.metastable_volume_cold, 5.513010062993408e15, rel_tol=1e-6))
     assert(math.isclose(PprocessThD.metastable_area_center, 9.0663777258125e9, rel_tol=1e-6))
     assert(math.isclose(PprocessThD.metastable_area_cold_center, 7.119436112875e9, rel_tol=1e-6))
+    assert(math.isclose(PprocessThD.metastable_max_depth, 602083.25, rel_tol=1e-6))

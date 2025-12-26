@@ -213,6 +213,7 @@ def main():
                     Case_Options.SummaryCaseVtuStepUpdateValue("MOW volume cold", step, outputs["Mow volume slab"])
                     Case_Options.SummaryCaseVtuStepUpdateValue("Mow area center", step, outputs["Mow area center"])
                     Case_Options.SummaryCaseVtuStepUpdateValue("Mow area cold center", step, outputs["Mow area slab center"])
+                    Case_Options.SummaryCaseVtuStepUpdateValue("MOW slab depth", step, outputs["MOW slab depth"])
                     Case_Options.SummaryCaseVtuStepUpdateValue("Sp velocity", step, outputs["Sp velocity"])
         
         # break # debug

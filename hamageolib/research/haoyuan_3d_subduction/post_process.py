@@ -1302,6 +1302,17 @@ class PYVISTA_PROCESS_THD():
 
             self.write_object_to_file(grid_metastable_c, "metastable_sliced_%.2f" % (threshold), "vtu")
             self.write_object_to_file(grid_metastable_slab_c, "metastable_sliced_slab_%.2f" % (threshold), "vtu")
+    
+    def extract_metastable_depth(self):
+        
+        assert(self.grid_metastable_slab is not None)
+        grid_metastable_slab = self.grid_metastable_slab
+        points = grid_metastable_slab.points
+        deepest_id = np.argmin(points[:, 2])
+        min_z = points[deepest_id, 2]
+        self.metastable_max_depth = self.Max0 - min_z
+        deepest_points =  grid_metastable_slab.extract_points([deepest_id], adjacent_cells=False)
+        return deepest_points
 
     def extract_slice_ref_da_profile(self, **kwargs):
         '''
@@ -2204,6 +2215,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     PprocessThD.extract_slab_interface("sp_lower")
     if Case_Options.options["MODEL_TYPE"] == "mow":
         PprocessThD.extract_metastable_area(Case_Options.options.copy(), threshold=threshold_metastable)
+        deepest_points = PprocessThD.extract_metastable_depth()
 
     # analysis
     # get slab depth, trenc position and slab dip angle
@@ -2243,6 +2255,7 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         outputs["Mow area center"] = PprocessThD.metastable_area_center
         assert(PprocessThD.metastable_area_cold_center is not None)
         outputs["Mow area slab center"] = PprocessThD.metastable_area_cold_center
+        outputs["MOW slab depth"] = PprocessThD.metastable_max_depth
         
         outputs["Sp velocity"] = PprocessThD.sp_velocity
 
