@@ -974,7 +974,7 @@ def test_solve_profile():
     result_std = 0.622758932311021
     assert(abs((foo_contents_wl_mo1[257]-result_std)/result_std) < 1e-6)
 
-# todo_latent
+
 def test_compute_latent_heat():
     '''
     test for compute_latent_heat
