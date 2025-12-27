@@ -10488,8 +10488,8 @@ class RHEOLOGY_OPR():
         # upper mantle
         # use harmonic average
         # lower mantle
-        integral = np.trapz(integral_cores[mask_integral] * np.log10(eta[mask_integral]), self.depths[mask_integral])
-        volume = np.trapz(integral_cores[mask_integral], self.depths[mask_integral])
+        integral = np.trapezoid(integral_cores[mask_integral] * np.log10(eta[mask_integral]), self.depths[mask_integral])
+        volume = np.trapezoid(integral_cores[mask_integral], self.depths[mask_integral])
         average_log_eta = integral / volume
         if save_json == 1:
             json_path = os.path.join(RESULT_DIR, "mantle_profile_v1_%s_dEdiff%.4e_dEdisl%.4e_dVdiff%4e_dVdisl%.4e_dAdiff%.4e_dAdisl%.4e.json" % (rheology, dEdiff, dEdisl, dVdiff, dVdisl, dAdiff_ratio, dAdisl_ratio))
@@ -15243,6 +15243,9 @@ different age will be adjusted.",\
             ['mantle rheology', "jump scheme"], "default", nick='viscosity_jump_type')
         self.add_key("Update refinement scheme with metastable transition", int,\
             ['metastable', "update refinement"], 0, nick='update_mow_refinement')
+        # todo_mow
+        self.add_key("Lower the number of particles", int,\
+            ["composition method", "lower particle numbers"], 0, nick='lower_particle_numbers')
 
     
     def check(self):
@@ -15394,6 +15397,7 @@ different age will be adjusted.",\
             Vdiff_lm_middle = 3e-6 
         
         update_mow_refinement = self.values[self.start + 71]
+        lower_particle_numbers = self.values[self.start + 72]
 
         return _type, if_wb, geometry, box_width, box_length, box_height,\
             sp_width, trailing_length, reset_trailing_morb, ref_visc,\
@@ -15407,7 +15411,7 @@ different age will be adjusted.",\
             coarsen_side_level, coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as,\
             trailing_length_1, sp_rate, ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail,\
             include_ov_upper_plate, slab_strength, version, include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size,\
-            depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm, update_mow_refinement
+            depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm, update_mow_refinement, lower_particle_numbers
         
     def to_configure_wb(self):
         '''
@@ -15488,7 +15492,7 @@ class CASE_THD(CASE):
     coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as, trailing_length_1, sp_rate,\
     ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail, include_ov_upper_plate, slab_strength, version,\
     include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size, depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm,\
-        update_mow_refinement):
+        update_mow_refinement, lower_particle_numbers):
         '''
         Configure prm file
         '''
@@ -16072,8 +16076,15 @@ class CASE_THD(CASE):
                 #fix the particle properties for newer version.
                 o_dict = fix_particles_new_version(o_dict)
                             # fix the particle properties
-                particle_options = {"Minimum particles per cell": "33",
-                                    "Maximum particles per cell": "140",
+                # todo_mow
+                if lower_particle_numbers:
+                    minimum_number = 15
+                    maximum_number = 60
+                else:
+                    minimum_number = 33
+                    maximum_number = 140
+                particle_options = {"Minimum particles per cell": "%d" % minimum_number,
+                                    "Maximum particles per cell": "%d" % maximum_number,
                                     "Load balancing strategy": "remove and add particles",
                                     "Interpolation scheme": "cell average",
                                     "Update ghost particles": "true",
@@ -16120,8 +16131,8 @@ class CASE_THD(CASE):
             # 1. the sp_lower composition needs to be allowed to max
             # 2. turn on the flag for adding refinement in depth range of the MTZ
             if update_mow_refinement:
-                o_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"] = "max, max, sp_upper: 0.5 | 1.0; max-1, max, sp_lower: 0.5 | 1.0; max-1, max-1, plate_edge: 0.5 | 1.0"
-                o_dict["Adjust metastable flag"] = "true"
+                o_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"] = "max, max, sp_upper: 0.5 | 1.0; max-1, max, sp_lower: 0.5 | 1.0; max-1, max, plate_edge: 0.5 | 1.0"
+                o_dict["Mesh refinement"]["Isosurfaces"]["Adjust metastable flag"] = "true"
             
             # change the material model
             material_model = o_dict["Material model"]
@@ -16187,6 +16198,7 @@ class CASE_THD(CASE):
                     visco_plastic_dict[key] = comp_out.parse_back()
 
         self.idict = o_dict
+
         pass
 
 
