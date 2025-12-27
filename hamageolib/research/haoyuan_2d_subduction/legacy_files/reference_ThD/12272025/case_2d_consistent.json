@@ -1,0 +1,97 @@
+{
+  "_comments": "This case is modified from the Schellart 2007 paper, but include newtonian T-dependent rheology",
+  "base directory": "/home/lochy/ASPECT_PROJECT/aspectLib/files/ThDSubduction/03172024",
+  "output directory": "${ASPECT_LAB_DIR}/.test/",
+  "depth average file": "${ASPECT_LAB_DIR}/files/ThDSubduction/reference/depth_average_1573.txt",
+  "name": "test_fix_CDPT",
+  "type": "2d_consistent",
+  "use world builder": 1,
+  "branch": "master_TwoD_9.4.0",
+  "post process": {
+    "visualization software": "paraview"
+  },
+  "world builder": {
+    "use new ridge implementation": 1
+  },
+  "include fast first step": 1,
+  "geometry setup": {
+    "box width": 4000000.0,
+    "box length": 5000000.0,
+    "box height": 2890000.0,
+    "box length before adjusting": 6783000.0,
+    "adjust box trailing length": 1,
+    "repitition slice method": "nearest",
+    "fix boudnary temperature auto": 1
+  },
+  "plate setup": {
+    "sp width": 1000000.0,
+    "sp length": 3000000.0,
+    "trailing length": 0.0,
+    "trailing length 1": 600000.0,
+    "reset trailing morb": 3,
+    "sp depth refining": 300000.0,
+    "ov age": 40000000.0,
+    "sp age": 80000000.0,
+    "assign side plate": 1,
+    "ov transit age": 20000000.0,
+    "ov transit length": 700000.0,
+    "sp ridge x": 0.0,
+    "prescribe mantle sp start": 0,
+    "ov side dist": 0.0,
+    "prescribe mantle ov end": 1,
+    "include ov upper plate": 1
+  },
+  "use new rheology module": 1,
+  "mantle rheology": {
+    "scheme": "HK03_WarrenHansen23",
+    "flow law": "composite"
+  },
+  "include peierls creep": 1,
+  "peierls creep": {
+    "fix peierls V as": "dislocation"
+  },
+  "shear zone": {
+    "thickness": 15000.0,
+    "slab core viscosity": 1e+23
+  },
+  "slab setup": {
+    "length": 530000.0,
+    "dip": 70.0
+  },
+  "refinement": {
+    "global refinement": 3,
+    "adaptive refinement": 4,
+    "coarsen minimum refinement level": 2
+  },
+  "rheology": {
+    "reset trailing ov viscosity": 0
+  },
+  "setup method": "2d_consistent",
+  "stokes solver": {
+    "type": "block GMG with iterated defect correction Stokes"
+  },
+  "slurm": [
+    {
+      "slurm file": "./files/slurm_files/221018/job_p-billen.sh",
+      "build directory": "master_TwoD",
+      "tasks per node": 128,
+      "cpus": 512
+    },
+    {
+      "slurm file": "./files/slurm_files/221018/job_skx-normal.sh",
+      "build directory": "master_TwoD",
+      "tasks per node": 48,
+      "cpus": 480
+    },
+    {
+      "slurm file": "./files/slurm_files/221018/job_normal.sh",
+      "build directory": "master_TwoD_knl",
+      "tasks per node": 68,
+      "cpus": 680
+    }
+  ],
+  "make 2d consistent plate": 2,
+  "composition method": {
+    "scheme": "field"
+  }
+}

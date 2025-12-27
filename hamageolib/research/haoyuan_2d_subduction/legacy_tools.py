@@ -15243,9 +15243,10 @@ different age will be adjusted.",\
             ['mantle rheology', "jump scheme"], "default", nick='viscosity_jump_type')
         self.add_key("Update refinement scheme with metastable transition", int,\
             ['metastable', "update refinement"], 0, nick='update_mow_refinement')
-        # todo_mow
         self.add_key("Lower the number of particles", int,\
             ["composition method", "lower particle numbers"], 0, nick='lower_particle_numbers')
+        self.add_key("Use loose solver scheme", int,\
+            ["stokes solver", "use loose solver scheme"], 0, nick='use_loose_solver_scheme')
 
     
     def check(self):
@@ -15398,6 +15399,7 @@ different age will be adjusted.",\
         
         update_mow_refinement = self.values[self.start + 71]
         lower_particle_numbers = self.values[self.start + 72]
+        use_loose_solver_scheme = self.values[self.start + 73]
 
         return _type, if_wb, geometry, box_width, box_length, box_height,\
             sp_width, trailing_length, reset_trailing_morb, ref_visc,\
@@ -15411,7 +15413,8 @@ different age will be adjusted.",\
             coarsen_side_level, coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as,\
             trailing_length_1, sp_rate, ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail,\
             include_ov_upper_plate, slab_strength, version, include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size,\
-            depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm, update_mow_refinement, lower_particle_numbers
+            depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm, update_mow_refinement, lower_particle_numbers,\
+            use_loose_solver_scheme
         
     def to_configure_wb(self):
         '''
@@ -15492,7 +15495,7 @@ class CASE_THD(CASE):
     coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as, trailing_length_1, sp_rate,\
     ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail, include_ov_upper_plate, slab_strength, version,\
     include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size, depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm,\
-        update_mow_refinement, lower_particle_numbers):
+        update_mow_refinement, lower_particle_numbers, use_loose_solver_scheme):
         '''
         Configure prm file
         '''
@@ -16060,6 +16063,12 @@ class CASE_THD(CASE):
         else:
             raise ValueError("stokes_solver_type must be in [block AMG, block GMG].")
 
+        # Assign a looser solver scheme
+        if use_loose_solver_scheme:
+            o_dict["Max nonlinear iterations"] = "40"
+            o_dict["Nonlinear solver tolerance"] = "5e-3"
+            o_dict["Solver parameters"]["Stokes solver parameters"]["Number of cheap Stokes solver steps"] = "60"
+
         
         # version related features: part 1
         if version >= 3.0:
@@ -16076,7 +16085,6 @@ class CASE_THD(CASE):
                 #fix the particle properties for newer version.
                 o_dict = fix_particles_new_version(o_dict)
                             # fix the particle properties
-                # todo_mow
                 if lower_particle_numbers:
                     minimum_number = 15
                     maximum_number = 60
@@ -16185,9 +16193,12 @@ class CASE_THD(CASE):
                             comp_out.data[key_in].append(diff_lm_middle['E'])
                         elif key == "Activation volumes for diffusion creep":
                             comp_out.data[key_in].append(diff_lm_middle['V'])
-                        elif key == "Metastable transition":
+                        elif key in ["Metastable transition", "Metastable decomposition"]:
                             if len(value_in) > 1:
                                 comp_out.data[key_in].append(0.0)
+                        elif key == "Minimum viscosity":
+                            if key_in == "sp_lower" and len(value_in) > 1:
+                                comp_out.data[key_in].append(value_in[-1])  # only append if this is specified for sp_lower's phases
                         elif key in ["Phase transition widths", "Phase transition temperatures",\
                                      "Compute latent heat", "Densities", "Prefactors for dislocation creep",\
                                         "Stress exponents for dislocation creep", "Activation energies for dislocation creep",\
