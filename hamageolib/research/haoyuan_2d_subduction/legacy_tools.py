@@ -15241,6 +15241,8 @@ different age will be adjusted.",\
             ['mantle rheology', "use 3d da file whole mantle"], 0, nick='use_3d_da_file_wm')
         self.add_key("mantle jump scheme", str,\
             ['mantle rheology', "jump scheme"], "default", nick='viscosity_jump_type')
+        self.add_key("Update refinement scheme with metastable transition", int,\
+            ['metastable', "update refinement"], 0, nick='update_mow_refinement')
 
     
     def check(self):
@@ -15390,6 +15392,8 @@ different age will be adjusted.",\
             depth_lm_middle = 1100e3
             Vdiff_lm = 6e-6 
             Vdiff_lm_middle = 3e-6 
+        
+        update_mow_refinement = self.values[self.start + 71]
 
         return _type, if_wb, geometry, box_width, box_length, box_height,\
             sp_width, trailing_length, reset_trailing_morb, ref_visc,\
@@ -15403,7 +15407,7 @@ different age will be adjusted.",\
             coarsen_side_level, coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as,\
             trailing_length_1, sp_rate, ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail,\
             include_ov_upper_plate, slab_strength, version, include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size,\
-            depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm
+            depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm, update_mow_refinement
         
     def to_configure_wb(self):
         '''
@@ -15483,7 +15487,8 @@ class CASE_THD(CASE):
     global_minimum_viscosity, coarsen_side, coarsen_side_interval, fix_boudnary_temperature_auto, coarsen_side_level,\
     coarsen_minimum_refinement_level, use_new_rheology_module, if_peierls, fix_peierls_V_as, trailing_length_1, sp_rate,\
     ov_age, detail_mantle_coh, detail_jump_lower_mantle, adjust_mantle_rheology_detail, include_ov_upper_plate, slab_strength, version,\
-    include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size, depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm):
+    include_meta, trench_migration, non_adiabatic_P, include_meta_grain_size, depth_lm_middle, Vdiff_lm, Vdiff_lm_middle, use_3d_da_file_wm,\
+        update_mow_refinement):
         '''
         Configure prm file
         '''
@@ -16110,6 +16115,13 @@ class CASE_THD(CASE):
                 "Phase transition temperature": "1740.0",
                 "Phase transition Clapeyron slope": "2e6"
             }
+
+            # update the refinement scheme when running 3-d metastable model
+            # 1. the sp_lower composition needs to be allowed to max
+            # 2. turn on the flag for adding refinement in depth range of the MTZ
+            if update_mow_refinement:
+                o_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"] = "max, max, sp_upper: 0.5 | 1.0; max-1, max, sp_lower: 0.5 | 1.0; max-1, max-1, plate_edge: 0.5 | 1.0"
+                o_dict["Adjust metastable flag"] = "true"
             
             # change the material model
             material_model = o_dict["Material model"]

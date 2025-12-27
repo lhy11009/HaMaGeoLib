@@ -245,3 +245,26 @@ def test_haoyuan_metastable_subduction_3d_gz():
     wb_path = os.path.join(output_dir, 'case.wb')
     assert(filecmp.cmp(wb_path, wb_std_path))
 
+
+def test_haoyuan_metastable_subduction_3d_update_refinement():
+    '''
+    test for including metastable_subduction
+    cartesian, 3d geometry
+    update refinement in the sp_lower composition
+    '''
+    source_dir = os.path.join(fixture_root, "eba2d_width80_h1000_bw4000_sw1000_yd300_3d_update_refinement")
+    json_path = os.path.join(source_dir, 'case0.json')
+
+    # output directory
+    output_dir = os.path.join(test_dir,'eba2d_width80_h1000_bw4000_sw1000_yd300_3d_update_refinement')
+    if os.path.isdir(output_dir):
+        rmtree(output_dir)
+
+    create_case_with_json(json_path, CASE_THD, CASE_OPT_THD)  # create case
+    assert(os.path.isdir(output_dir))  # check case generation
+    prm_std_path = os.path.join(source_dir, 'case_std.prm')
+    prm_path = os.path.join(output_dir, 'case.prm')
+    assert(filecmp.cmp(prm_path, prm_std_path))
+    wb_std_path = os.path.join(source_dir, 'case_std.wb')
+    wb_path = os.path.join(output_dir, 'case.wb')
+    assert(filecmp.cmp(wb_path, wb_std_path))
