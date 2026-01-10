@@ -255,6 +255,175 @@ class GPLATE_PROCESS():
         csv_obj.to_csv(file_path, index=False)
         print("Saved file %s" % file_path)
 
+    # todo_plot
+    def save_results_global_paper(self, **kwargs):
+        """
+        Generate and save a global plate-tectonic figure for publication.
+
+        Parameters
+        ----------
+        kwargs:
+            scheme : str
+                Plotting scheme controlling whether a plate-age raster is shown.
+                - "no_age_raster": only plates, trenches, and teeth
+                - otherwise: includes plate age raster
+        """
+
+        import matplotlib.ticker as mticker
+        
+        # Shortcut to the gplately-based plotting helper
+        gPlotter = self.gPlotter
+
+        # scheme
+        scheme = kwargs.get("scheme", "no_age_raster")
+
+        # projection type
+        projection_type = kwargs.get("projection_type", "plate_carree")
+
+        if projection_type  == "plate_carree":
+            projection = ccrs.PlateCarree(
+                    central_longitude=gPlotter.get_central_longitude()
+                )
+        elif projection_type  == "robinson":
+            projection = ccrs.Robinson(
+                    central_longitude=gPlotter.get_central_longitude()
+                )
+        else:
+            raise NotImplementedError("The option %s is not currently an option for projection type." % projection_type)
+
+        # Create figure with fixed size and resolution suitable for papers
+        fig = plt.figure(
+            figsize=(10, 6),
+            dpi=100,
+            tight_layout=True
+        )
+            
+        # Set global plotting region (uses gPlotter internal defaults)
+        gPlotter.set_region("default")
+
+        # Create Cartopy axis with PlateCarree projection
+        # Central longitude is controlled by gPlotter for consistent wrapping
+        ax = fig.add_subplot(
+            projection=projection
+        )
+
+        # ------------------------------------------------------------------
+        # Gridlines: geographic reference (visual background element)
+        # ------------------------------------------------------------------
+
+        # Interval (degrees) between gridlines
+        grid_line_interval = 30
+
+        gl = ax.gridlines(
+            color='0.7',                 # neutral gray
+            linestyle='--',
+            linewidth=0.8,
+            xlocs=np.arange(
+                gPlotter.region[0],
+                gPlotter.region[1] + 1,
+                grid_line_interval
+            ),
+            ylocs=np.arange(
+                gPlotter.region[2],
+                gPlotter.region[3] + 1,
+                grid_line_interval
+            ),
+            draw_labels=True
+        )
+
+        gl.xlabel_style = {         # Label styling (subordinate to tectonics)
+            'size': 9,
+            'color': '0.3',
+        }
+        gl.ylabel_style = {
+            'size': 9,
+            'color': '0.3',
+        }
+
+        # gl.zorder = 0           # Ensure gridlines stay in the background
+
+        # ------------------------------------------------------------------
+        # Ocean background
+        # ------------------------------------------------------------------
+
+        # Light blue ocean background, matching reference tectonic maps
+        ax.set_facecolor("#E6F2FB")
+
+        # ------------------------------------------------------------------
+        # Plate age raster (optional)
+        # ------------------------------------------------------------------
+
+        if scheme == "no_age_raster":
+            # No background raster; keep plates fully opaque
+            pass
+        else:
+            # Plot plate age grid as a semi-transparent raster
+            age_grid_raster = self.age_grid_raster
+
+            im_age = gPlotter.gplot.plot_grid(
+                ax,
+                age_grid_raster.data,
+                cmap='YlGnBu',
+                vmin=0,
+                vmax=200,
+                alpha=0.8
+            )
+
+            # Add colorbar for plate age
+            cbar_age = plt.colorbar(im_age)
+            cbar_age.ax.get_yaxis().labelpad = 15
+            cbar_age.ax.set_ylabel(
+                "Age (Ma)",
+                rotation=90
+            )
+
+        # ------------------------------------------------------------------
+        # Continents / plates
+        # ------------------------------------------------------------------
+
+        # Adjust continent appearance depending on whether age raster is present
+        if scheme == "no_age_raster":
+            # White plates on blue ocean (reference-style map)
+            c_face_color = "#FFFFFF"
+            c_edge_color = "#FFFFFF"
+            c_alpha = 1.0
+        else:
+            # Darkened plates so age raster remains visible
+            c_face_color = "#646060"
+            c_edge_color = "#646060"
+            c_alpha = 1.0
+
+        # Plot continental polygons (edges suppressed to avoid internal boundaries)
+        gPlotter.gplot.plot_continents(
+            ax,
+            facecolor=c_face_color,
+            edgecolor=c_edge_color,
+            alpha=c_alpha,
+            zorder=1
+        )
+
+        # ------------------------------------------------------------------
+        # Subduction features (primary tectonic signals)
+        # ------------------------------------------------------------------
+
+        # Plot subduction teeth (directional indicator)
+        gPlotter.gplot.plot_subduction_teeth(
+            ax,
+            facecolor="black",
+            edgecolor="black",
+            zorder=4
+        )
+
+        # Plot trench lines beneath teeth
+        gPlotter.gplot.plot_trenches(
+            ax,
+            color="black",
+            linewidth=2,
+            zorder=3
+        )
+
+
+
     def save_results_ori(self, inspect_all_slabs_in_separate_plots=False, only_one_pid=None, **kwargs):
         # Summary:
         # Render and save global and optional per-slab figures for the original (unresampled) subduction data.
@@ -885,7 +1054,12 @@ class GPLOTTER():
         ax.set_global()
 
         # Set the reconstruction time for the gplot object and plot coastlines in grey
-        self.gplot.plot_coastlines(ax, color='grey')
+        self.gplot.plot_continents(ax,
+                                  facecolor ="#F2F2F2",
+                                  edgecolor ="#7A7A7A",
+                                  linewidth=0.6,
+                                  alpha=0.85,
+                                  zorder=1,)
 
         if plot_boundaries:
             self.gplot.plot_ridges(ax, color='red')
@@ -904,7 +1078,7 @@ class GPLOTTER():
 
         return ax
 
-
+    # todo_plot
     def plot_subduction_pts(self, ax, subduction_data, plot_by="subducting_pid", **kwargs):
         '''
         Plot points in a subduction dataset
