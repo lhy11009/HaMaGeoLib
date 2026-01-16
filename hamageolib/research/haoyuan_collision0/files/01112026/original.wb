@@ -1,10 +1,3 @@
-// Composition 1 is bound fluid
-// Composition 2 is peridotite
-// Composition 3 is gabbro
-// Composition 4 is MORB
-// Composition 5 is sediment
-// Composition 6 is overriding
-
 {
   "version": "1.0",
   "gravity model":{"model":"uniform", "magnitude":9.81},

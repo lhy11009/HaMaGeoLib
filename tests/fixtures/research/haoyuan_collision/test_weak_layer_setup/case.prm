@@ -1,0 +1,273 @@
+set World builder file = case.wb
+set Adiabatic surface temperature = 1573
+set Nonlinear solver scheme = iterated Advection and Stokes
+set Nonlinear solver failure strategy = cut timestep size
+set Output directory = output
+set Max nonlinear iterations = 70
+set Nonlinear solver tolerance = 5e-3
+set Dimension = 2
+set End time = 100e6
+set CFL number = 0.5
+set Pressure normalization = no
+set Maximum time step = 10000
+set Maximum first time step = 100
+set Maximum relative increase in time step = 50.0
+set Use operator splitting = false
+set Resume computation = auto
+
+subsection Solver parameters
+    subsection Stokes solver parameters
+        set Stokes solver type = block AMG
+        set GMRES solver restart length = 1000
+        set Number of cheap Stokes solver steps = 20000
+        set Use full A block as preconditioner = true
+        set Linear solver tolerance = 5e-05
+        set Maximum number of expensive Stokes solver steps = 0
+    end
+    subsection Operator splitting parameters
+        set Reaction solver type = fixed step
+        set Reaction time step = 50
+        set Reaction time steps per advection step = 50
+    end
+end
+
+
+subsection Time stepping
+    subsection Repeat on nonlinear solver failure
+        set Cut back factor = 0.25
+    end
+end
+
+
+subsection Discretization
+    subsection Stabilization parameters
+        set beta = 0.052
+        set cR = 0.11
+    end
+end
+
+
+subsection Checkpointing
+    set Steps between checkpoint = 10
+end
+
+
+subsection Compositional fields
+    set Number of fields = 4
+    set Names of fields = gabbro, MORB, sediment, overriding
+    set Compositional field methods = particles, particles, particles, particles
+    set Mapped particle properties = gabbro: initial gabbro, MORB: initial MORB, sediment: initial sediment, overriding: initial overriding
+end
+
+
+subsection Temperature field
+    set Temperature method = field
+end
+
+
+subsection Initial composition model
+    set List of model names = world builder
+    subsection World builder
+        set List of relevant compositions = gabbro, MORB, sediment, overriding
+    end
+end
+
+
+subsection Mesh deformation
+    set Mesh deformation boundary indicators = top: free surface & diffusion
+    set Additional tangential mesh velocity boundary indicators = left,right
+    subsection Free surface
+        set Free surface stabilization theta = 0.5
+        set Surface velocity projection = normal
+    end
+    subsection Diffusion
+        set Hillslope transport coefficient = 1e-6
+    end
+end
+
+
+subsection Particles
+    set Minimum particles per cell = 25
+    set Maximum particles per cell = 100
+    set Load balancing strategy = remove and add particles
+    set List of particle properties = initial composition, pT path, position
+    set Interpolation scheme = bilinear least squares
+    set Update ghost particles = true
+    set Particle generator name = reference cell
+    subsection Generator
+        subsection Reference cell
+            set Number of particles per cell per direction = 7
+        end
+    end
+end
+
+
+subsection Geometry model
+    set Model name = box
+    subsection Box
+        set X extent = 8700e3
+        set Y extent = 1000e3
+        set X repetitions = 17
+        set Y repetitions = 2
+        set Box origin X coordinate = 0
+        set Box origin Y coordinate = 0
+    end
+end
+
+
+subsection Gravity model
+    set Model name = function
+    subsection Function
+        set Variable names = x,y
+        set Function expression = 0; -9.81
+    end
+end
+
+
+subsection Formulation
+    set Formulation = isentropic compression
+    set Temperature equation = real density
+end
+
+
+subsection Initial temperature model
+    set Model name = world builder
+end
+
+
+subsection Boundary temperature model
+    set List of model names = constant
+    set Fixed temperature boundary indicators = top, bottom
+    subsection Constant
+        set Boundary indicator to temperature mappings = bottom:1990.5153448275862, top:273
+    end
+end
+
+
+subsection Heating model
+    set List of model names = adiabatic heating, shear heating
+end
+
+
+subsection Material model
+    set Model name = compositing
+    set Material averaging = geometric average only viscosity
+    subsection Multicomponent compressible
+        set Reference temperatures = 1600
+        set Reference densities = background: 3300.0, gabbro: 3175.0, MORB: 3175.0, sediment: 3175.0, overriding: 3175.0
+        set Reference isothermal compressibilities = 4e-12
+        set Isothermal bulk modulus pressure derivatives = 4
+        set Reference thermal expansivities = 2.e-5
+        set Isochoric specific heats = 1250
+        set Thermal conductivities = 0.0
+    end
+    subsection Visco Plastic
+        set Viscosity averaging scheme = geometric
+        set Viscous flow law = composite
+        set Use plastic damper = true
+        set Plastic damper viscosity = 1e20
+        set Viscosity prefactor scheme = none
+        set Minimum strain rate = 1e-20
+        set Reference strain rate = 1e-15
+        set Phase transition depths = background: 660000.0, gabbro: 125000.0|660000.0, MORB: 125000.0|660000.0, sediment: 125000.0|660000.0, overriding: 660000.0
+        set Phase transition widths = background: 20000.0, gabbro: 10000.0|20000.0, MORB: 10000.0|20000.0, sediment: 10000.0|20000.0, overriding: 20000.0
+        set Phase transition temperatures = background: 1573.0, gabbro: 1573.0|1573.0, MORB: 1573.0|1573.0, sediment: 1573.0|1573.0, overriding: 1573.0
+        set Phase transition Clapeyron slopes = background: 0.0, gabbro: 0.0|0.0, MORB: 0.0|0.0, sediment: 0.0|0.0, overriding: 0.0
+        set Densities = background: 3300.0, gabbro: 3300.0, MORB: 3300.0, sediment: 3300.0, overriding: 3300.0
+        set Minimum viscosity = background: 2.5e+18|2.5e+18, gabbro: 9.996e+19|2.5e+18|2.5e+18, MORB: 9.996e+19|2.5e+18|2.5e+18, sediment: 9.996e+19|2.5e+18|2.5e+18, overriding: 2.5e+18|2.5e+18
+        set Maximum viscosity = background: 2.5e+23|2.5e+23, gabbro: 1.000e+20|2.5e+23|2.5e+23, MORB: 1.000e+20|2.5e+23|2.5e+23, sediment: 1.000e+20|2.5e+23|2.5e+23, overriding: 2.5e+23|2.5e+23
+        set Prefactors for diffusion creep = background: 1.577e-22|8e-25, gabbro: 1.577e-22|1.577e-22|8e-25, MORB: 1.577e-22|1.577e-22|8e-25, sediment: 1.577e-22|1.577e-22|8e-25, overriding: 1.577e-22|8e-25
+        set Stress exponents for diffusion creep = 1.0
+        set Grain size exponents for diffusion creep = 3
+        set Activation volumes for diffusion creep = background: 1.13e-05|9.8e-06, gabbro: 1.13e-05|1.13e-05|9.8e-06, MORB: 1.13e-05|1.13e-05|9.8e-06, sediment: 1.13e-05|1.13e-05|9.8e-06, overriding: 1.13e-05|1e-05
+        set Grain size = 1e-3
+        set Activation energies for diffusion creep = 375e3
+        set Prefactors for dislocation creep = background: 2.75e-26|1e-50, gabbro: 2.75e-26|2.75e-26|1e-50, MORB: 2.75e-26|2.75e-26|1e-50, sediment: 2.75e-26|2.75e-26|1e-50, overriding: 2.75e-26|1e-50
+        set Stress exponents for dislocation creep = 3.5
+        set Activation volumes for dislocation creep = 22e-6
+        set Activation energies for dislocation creep = 520e3
+        set Angles of internal friction = 30
+        set Cohesions = 60e6
+        set Maximum yield stress = 500e6
+        set Use adiabatic pressure in plasticity = true
+        set Thermal expansivities = 3.0e-5
+        set Thermal diffusivities = 1e-6
+        set Heat capacities = 750
+    end
+    subsection Compositing
+        set Viscosity = visco plastic
+        set Density = multicomponent compressible
+        set Thermal expansion coefficient = multicomponent compressible
+        set Specific heat = multicomponent compressible
+        set Thermal conductivity = multicomponent compressible
+        set Compressibility = multicomponent compressible
+        set Entropy derivative pressure = multicomponent compressible
+        set Entropy derivative temperature = multicomponent compressible
+        set Reaction terms = multicomponent compressible
+    end
+end
+
+
+subsection Mesh refinement
+    set Coarsening fraction = 0.3
+    set Refinement fraction = 0.5
+    set Initial adaptive refinement = 4
+    set Initial global refinement = 4
+    set Strategy = viscosity, minimum refinement function, maximum refinement function, isosurfaces
+    set Time steps between mesh refinement = 2
+    set Refinement criteria scaling factors = 2, 2, 1, 1
+    set Refinement criteria merge operation = max
+    set Run postprocessors on initial refinement = false
+    set Skip solvers on initial refinement = true
+    subsection Minimum refinement function
+        set Function constants = litho_thickness=120e3, ymax=1000e3
+        set Coordinate system = cartesian
+        set Variable names = x, y
+        set Function expression = if(y>(ymax-litho_thickness),4, \
+                              if(y>=(ymax - 662e3) && y<=(ymax - 658e3), 3, 2))
+    end
+    subsection Maximum refinement function
+        set Function constants = xmax=5500e3, xmin=4000e3, ymax=1000e3
+        set Coordinate system = cartesian
+        set Variable names = x, y
+        set Function expression = if( x<=xmax && x>=xmin && y>=(ymax - 660e3), 8, 6)
+    end
+    subsection Isosurfaces
+        set Isosurfaces = max, max, sediment: 0.5 | 1.0; max, max, gabbro: 0.5 | 1.0; max, max, MORB: 0.5 | 1.0; max-2, max, overriding: 0.5 | 1.0
+    end
+end
+
+
+subsection Boundary velocity model
+    set Tangential velocity boundary indicators = left, right, bottom
+end
+
+
+subsection Melt settings
+    set Include melt transport = false
+end
+
+
+subsection Postprocess
+    set List of postprocessors = visualization, composition statistics, velocity statistics, particles, material statistics, depth average
+    subsection Visualization
+        set List of output variables = material properties, strain rate, named additional outputs, stress second invariant, depth, heat flux map
+        set Output format = vtu
+        set Time between graphical output = 100e3
+        set Interpolate output = true
+        set Number of grouped files = 0
+        subsection Material properties
+            set List of material properties = density, viscosity
+        end
+    end
+    subsection Particles
+        set Time between data output = 100e3
+        set Data output format = vtu
+    end
+    subsection Depth average
+        set Number of zones = 50
+        set Output format = txt
+        set Time between graphical output = 100e3
+    end
+end
+
