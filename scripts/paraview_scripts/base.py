@@ -158,7 +158,10 @@ def apply_rotation(_source, origin, angles, **kwargs):
     transform.Transform.Rotate = angles
 
     # same as uncheck "show box"
-    Hide3DWidgets()
+    try:
+        Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+    except NameError:
+        pass
 
 
 # Note: to add a feature in script, it follows the same structure

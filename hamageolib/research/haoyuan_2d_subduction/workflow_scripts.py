@@ -425,6 +425,8 @@ def run_2d_subduction_visualization(local_dir, config):
     rotation_plus = config["rotation_plus"]
     additional_fields = config["additional_fields"]
     CaseOptions = config["CaseOptions"]
+    plot_slab_interface_points = config["plot_slab_interface_points"]
+    plot_mdd_extract_profile_points = config["plot_mdd_extract_profile_points"]
     
 
     # Determine ASPECT major version
@@ -453,6 +455,7 @@ def run_2d_subduction_visualization(local_dir, config):
         )
         plt.close()
 
+    # todo_thin
     # Full visual plotting
     Visit_Options = PlotCaseRun_project(
         local_dir,
@@ -466,7 +469,9 @@ def run_2d_subduction_visualization(local_dir, config):
         plot_types=plot_types,
         rotation_plus=rotation_plus,
         additional_fields=additional_fields,
-        slices=slices
+        slices=slices,
+        plot_slab_interface_points=plot_slab_interface_points,
+        plot_mdd_extract_profile_points=plot_mdd_extract_profile_points
     )
     plt.close()
 

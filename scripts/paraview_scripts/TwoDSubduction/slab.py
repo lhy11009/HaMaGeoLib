@@ -39,6 +39,10 @@ class SLAB(PARAVIEW_PLOT):
         kwargs['all_variables'] = ['velocity', 'p', 'T',  'density', 'viscosity', 'spcrust', 'spharz',\
                 'dislocation_viscosity', 'diffusion_viscosity', 'peierls_viscosity', 'strain_rate', 'nonadiabatic_pressure']\
                     +  ADDITIONAL_FIELDS
+        
+        if "N_CRUST" == "2":
+            kwargs['all_variables'].remove('spcrust')
+            kwargs['all_variables'] += ["spcrust_up", "spcrust_low"]
        
         PARAVIEW_PLOT.__init__(self, filein, **kwargs)
         
@@ -73,6 +77,8 @@ class SLAB(PARAVIEW_PLOT):
 
         # add plot of deformation mechanism
         add_deformation_mechanism("Transform1", registrationName="pFilter_DM")
+
+
 
 
         # Extract points
@@ -167,6 +173,56 @@ class SLAB(PARAVIEW_PLOT):
         Hide(contourT1, renderView1)
         Hide(contourCr, renderView1)
         HideScalarBarIfNotNeeded(fieldTLUT, renderView1)
+
+    def load_slab_interface_points(self, step, file_name_base):
+
+        filein = "PARAVIEW_FILE"
+        file_folder = os.path.dirname(filein)
+        filename = os.path.join(file_folder, "..", "vtk_outputs/temperature", "%s_%05d.vtp" % (file_name_base, step))
+        slab_surface_points = XMLPolyDataReader(registrationName="%s_%05d.vtp" % (file_name_base, step), FileName=[filename])
+        # add rotation 
+        apply_rotation("%s_%05d.vtp" % (file_name_base, step), [0.0, 0.0, 0.0], [0.0, 0.0, ROTATION_ANGLE], registrationName=file_name_base)
+        # Get render view
+        renderView1 = GetActiveViewOrCreate("RenderView")
+        Transform_slab_interface_source = FindSource(file_name_base)
+        slab_surface_pointsDisplay = Show(Transform_slab_interface_source, renderView1)
+        slab_surface_pointsDisplay.Representation = "Points"
+        slab_surface_pointsDisplay.PointSize = 4
+        # Hide plot
+        Hide(Transform_slab_interface_source, renderView1)
+
+    def mdd_extract_profile_points(self, object_name):
+
+        renderView1 = GetActiveViewOrCreate("RenderView")
+        
+        filein = "PARAVIEW_FILE"
+        file_folder = os.path.dirname(filein)
+        file_basename = object_name + ".txt"
+        filename = os.path.join(file_folder, "..", "vtk_outputs", file_basename)
+        source = mdd_extract_profile_reader(filename)
+        RenameSource(object_name, source)
+        foo_source = FindSource(object_name)
+        foo_pointsDisplay=Show(foo_source, renderView1)
+        foo_pointsDisplay=Show(foo_source, renderView1)
+        renderView1.Update()
+        renderView1.ResetCamera()
+        Render()
+        Hide(foo_source, renderView1)
+
+        # add rotation 
+        apply_rotation(object_name, [0.0, 0.0, 0.0], [0.0, 0.0, ROTATION_ANGLE], registrationName=object_name+"_rot")
+        # Get render view
+        mdd_extract_profile_source = FindSource(object_name+"_rot")
+        slab_surface_pointsDisplay = Show(mdd_extract_profile_source, renderView1)
+        slab_surface_pointsDisplay = Show(mdd_extract_profile_source, renderView1)
+        renderView1.Update()
+        renderView1.ResetCamera()
+        slab_surface_pointsDisplay.Representation = "Points"
+        slab_surface_pointsDisplay.PointSize = 4
+        # Hide plot
+        Render()
+        Hide(mdd_extract_profile_source, renderView1)
+
 
 
     def plot_step_upper_mantle(self, **kwargs): 
@@ -2200,7 +2256,7 @@ output.GetPointData().AddArray(vtk_array)
 
 def main():
     all_available_graphical_snapshots = ALL_AVAILABLE_GRAPHICAL_SNAPSHOTS
-    all_available_graphical_times = ALL_AVAILABLE_GRAPHICAL_TIMES
+    all_available_graphical_times = ALL_AVAILABLE_GRAPHICAL_TS
     # types of plots included
     plot_types = PLOT_TYPES
     assert(len(all_available_graphical_snapshots) == len(all_available_graphical_times))
@@ -2222,6 +2278,18 @@ def main():
                 idx = all_available_graphical_snapshots.index(snapshot)
                 _time =  all_available_graphical_times[idx]
                 Slab.goto_time(_time)
+                # todo_thin
+                if PLOT_SLAB_INTERFACE_POINTS:
+                    Slab.load_slab_interface_points(step, "slab_surf_points")
+                    Slab.load_slab_interface_points(step, "slab_moho_points")
+                if PLOT_MDD_EXTRACT_PROFILE_POINTS:
+                    object_name = "mdd1_profile_%05d" % step
+                    Slab.mdd_extract_profile_points(object_name)
+                    object_name = "mdd2_profile_%05d" % step
+                    Slab.mdd_extract_profile_points(object_name)
+                    for depth in PLOT_MDD_EXTRACT_PROFILE_DEPTHS:
+                        object_name = "mdd_extract_profile_%05d_depth_%.2fkm" % (step, depth/1e3)
+                        Slab.mdd_extract_profile_points(object_name)
                 if "upper_mantle" in plot_types:
                     Slab.plot_step_upper_mantle()
                 if "upper_mantle_DM" in plot_types:
@@ -2266,6 +2334,77 @@ def ggr2cart(lat,lon,r):
     z = r * sla
 
     return x,y,z
+
+def mdd_extract_profile_reader(filename):
+    """
+    Reader for a mdd_extract_profile
+    Inputs:
+        filename (str) - filename of the mdd_extract_profile
+    Returns:
+        source - a vtk source from points in the file
+    """
+    import vtk
+
+    assert(os.path.isfile(filename))
+
+    z_value = 0.0   # because your data is 2D (x, y)
+    point_size = 6
+
+    # =========================
+
+    # VTK containers
+    points = vtk.vtkPoints()
+    velocities = vtk.vtkFloatArray()
+    velocities.SetName("velocity")
+    velocities.SetNumberOfComponents(3)
+
+    # Read file
+    with open(filename, "r") as f:
+        for line in f:
+            line = line.strip()
+
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+
+            x, y, vx, vy = map(float, line.split())
+
+            # Add point
+            points.InsertNextPoint(x, y, z_value)
+
+            # Add velocity vector (vz = 0)
+            velocities.InsertNextTuple((vx, vy, 0.0))
+
+    # Build PolyData
+    polydata = vtk.vtkPolyData()
+    polydata.SetPoints(points)
+    polydata.GetPointData().AddArray(velocities)
+    polydata.GetPointData().SetActiveVectors("velocity")
+
+    # 👇 This is the critical addition
+    vertices = vtk.vtkCellArray()
+    for i in range(points.GetNumberOfPoints()):
+        vertices.InsertNextCell(1)
+        vertices.InsertCellPoint(i)
+    
+    polydata.SetVerts(vertices)
+
+
+    # Wrap into ParaView source
+    source = TrivialProducer()
+    source.GetClientSideObject().SetOutput(polydata)
+
+    # Display
+    view = GetActiveViewOrCreate("RenderView")
+    display = Show(source, view)
+
+    display.Representation = "Points"
+    display.PointSize = point_size
+    view.ResetCamera()
+    Render()
+    Hide(source, view)
+
+    return source
 
 
 main()

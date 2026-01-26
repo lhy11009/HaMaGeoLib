@@ -468,8 +468,8 @@ class VISIT_OPTIONS_BASE(CASE_OPTIONS):
         self.all_graphical_timesteps = time_steps 
         self.all_graphical_times = times
         self.options['ALL_AVAILABLE_GRAPHICAL_SNAPSHOTS'] = str(graphical_snaps)
-        self.options['ALL_AVAILABLE_GRAPHICAL_TIMESTEPS'] = str(time_steps)
-        self.options['ALL_AVAILABLE_GRAPHICAL_TIMES'] = str(times)
+        self.options['ALL_AVAILABLE_GRAPHICAL_TSTEPS'] = str(time_steps)
+        self.options['ALL_AVAILABLE_GRAPHICAL_TS'] = str(times)
         particle_snaps, _, _ = GetSnapsSteps(self._case_dir, 'particle')
         self.options['ALL_AVAILABLE_PARTICLE_SNAPSHOTS'] = str(particle_snaps)
         particle_output_dir = os.path.join(self._output_dir, "slab_morphs")
@@ -724,6 +724,10 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         self.options['IF_PLOT_SLAB'] = 'True'
         self.options['GLOBAL_UPPER_MANTLE_VIEW_BOX'] = 0.0
         self.options['ROTATION_ANGLE'] = 0.0
+        self.options['PLOT_SLAB_INTERFACE_POINTS'] = kwargs.get("plot_slab_interface_points", "False")
+        # todo_thin
+        self.options['PLOT_MDD_EXTRACT_PROFILE_POINTS'] = kwargs.get("plot_mdd_extract_profile_points", "False")
+        self.options['PLOT_MDD_EXTRACT_PROFILE_DEPTHS'] = kwargs.get("plot_mdd_extract_profile_depths", [])
         
 
         # additional inputs
@@ -3513,6 +3517,7 @@ class VTKP(VTKP_BASE):
         trench_lookup_range = kwargs.get("trench_lookup_range", 15.0 * np.pi / 180.0)
         export_shallow_file = kwargs.get("export_shallow_file", None)
         n_crust = kwargs.get("n_crust", 1)
+        use_upper_crust_only = kwargs.get("use_upper_crust_only", False)
     
         print("%s started" % func_name())
         start = time.time()
@@ -3527,7 +3532,10 @@ class VTKP(VTKP_BASE):
         if n_crust == 1:
             pinned_field = vtk_to_numpy(point_data.GetArray("spcrust"))
         elif n_crust == 2:
-            pinned_field = vtk_to_numpy(point_data.GetArray("spcrust_up")) + vtk_to_numpy(point_data.GetArray("spcrust_low"))
+            if use_upper_crust_only:
+                pinned_field = vtk_to_numpy(point_data.GetArray("spcrust_up"))
+            else:
+                pinned_field = vtk_to_numpy(point_data.GetArray("spcrust_up")) + vtk_to_numpy(point_data.GetArray("spcrust_low"))
         else:
             raise NotImplementedError()
         pinned_bottom_field = vtk_to_numpy(point_data.GetArray("spharz"))
@@ -4329,7 +4337,11 @@ class VTKP(VTKP_BASE):
     def FindMDD(self, **kwargs):
         '''
         find the mechanical decoupling depth from the velocity field
+        **kwargs:
+        d0, d1 (float): These define distance to the interplace surface (given by slab_envelopt1)
+            to extract velocity and thereafter compare them to decide whether it's the mdd depth.
         '''
+        # todo_thin
         print("%s started" % func_name())
         start=time.time()
         dx0 = kwargs.get('dx0', 10e3)
@@ -4363,6 +4375,8 @@ class VTKP(VTKP_BASE):
             query_poly_data = InterpolateGrid(self.i_poly_data, query_grid, quiet=True)
             query_vs = vtk_to_numpy(query_poly_data.GetPointData().GetArray('velocity'))
             vi = query_vs[0, :]
+            
+            # Determine both the velocity magnitudes and angles (relative to the X direction)
             vi_mag = (query_vs[0, 0]**2.0 + query_vs[0, 1]**2.0)**0.5
             vi_theta = np.arctan2(query_vs[0,0], query_vs[0, 1])
             vo = query_vs[1, :]
@@ -4372,14 +4386,16 @@ class VTKP(VTKP_BASE):
             if debug:
                 print("%sx: %.4e, y: %.4e, depth: %.4e, vi: [%.4e, %.4e] (mag = %.4e, theta = %.4e), vo: [%.4e, %.4e] (mag = %.4e, theta = %.4e)"\
                 % (indent*" ", x, y, depth, vi[0], vi[1], vi_mag, vi_theta, vo[0], vo[1], vo_mag, vo_theta))
+
+            # Verify both velocity magnitude and angle are close.
             if (abs((vo_mag - vi_mag)/vi_mag) < tolerance) and (abs((vo_theta - vi_theta)/vi_theta) < tolerance):
                 # mdd depth
                 mdd = depth
                 # extract a horizontal profile at this dept
                 if self.geometry == "chunk":
-                    query_grid, query_vs = self.extract_mdd_profile(r, theta)
+                    query_grid, query_vs = self.extract_mdd_profile(r, theta, dx0, dx1)
                 elif self.geometry == "box":
-                    query_grid, query_vs = self.extract_mdd_profile(x, y)
+                    query_grid, query_vs = self.extract_mdd_profile(x, y, dx0, dx1)
                 break
         print("\t%sfindmdd_tolerance = %.4e, dx0 = %.4e, dx1 = %.4e" % (indent*" ", tolerance, dx0, dx1))
         end = time.time()
@@ -4398,9 +4414,9 @@ class VTKP(VTKP_BASE):
                 if self.geometry == "chunk":
                     rc = get_r(xc, yc, self.geometry) 
                     theta_c = get_theta(xc, yc, self.geometry)
-                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(rc, theta_c)
+                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(rc, theta_c, dx0, dx1)
                 elif self.geometry == "box":
-                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(xc, yc)
+                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(xc, yc, dx0, dx1)
                 extract_profiles_grid.append(query_grid_foo)
                 extract_profiles_vs.append(query_vs_foo)
             
@@ -4414,21 +4430,23 @@ class VTKP(VTKP_BASE):
             raise ValueError("FindMDD: a valid MDD has not been found, please considering changing the tolerance")
         pass
 
-    def extract_mdd_profile(self, coord1, coord2):
+    def extract_mdd_profile(self, coord1, coord2, dx0, dx1):
         '''
         extract mdd profile at given depths
+        dx0, dx1 (float) - These define distance to the interplace surface (given by slab_envelopt1)
+            to extract velocity. This information is exported from the FindMDD function so we can
+            generate the exact profile we use to derive the mdd.
         '''
         # extract a horizontal profile at this dept
         n_query1 = 51
         query_grid1 = np.zeros((n_query1,2))
-        dx2 = 10e3 # query distance of the profile
         for i in range(n_query1):
             if self.geometry == "chunk":
-                theta_i = coord2 + ((n_query1-1.0-i) * (-1.0*dx2) + i*dx2)/(n_query1-1.0)/self.Ro
+                theta_i = coord2 + ((n_query1-1.0-i) * (-dx0) + i*dx1)/(n_query1-1.0)/self.Ro
                 xi = coord1 * np.cos(theta_i) 
                 yi = coord1 * np.sin(theta_i)
             elif self.geometry == "box":
-                xi = coord1 + ((n_query1-1.0-i) * (-1.0*dx2) + i*dx2)/(n_query1-1.0)
+                xi = coord1 + ((n_query1-1.0-i) * (-dx0) + i*dx1)/(n_query1-1.0)
                 yi = coord2
             else:
                 raise NotImplementedError()
@@ -4821,6 +4839,7 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     dip_angle_depth_lookup_interval = kwargs.get("dip_angle_depth_lookup_interval", 60e3)
     project_velocity = kwargs.get('project_velocity', False)
     find_shallow_trench = kwargs.get("find_shallow_trench", False)
+    use_upper_crust_only = kwargs.get("use_upper_crust_only", False)
     print("find_shallow_trench: ", find_shallow_trench) # debug
     extract_depths = kwargs.get("extract_depths", None)
     mdd = -1.0 # an initial value
@@ -4860,11 +4879,12 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
     else:
         raise NotImplementedError()
     if find_shallow_trench:
-        outputs = VtkP.PrepareSlabShallow(n_crust=n_crust)
+        outputs = VtkP.PrepareSlabShallow(crust_fields=crust_fields, use_upper_crust_only=use_upper_crust_only)
         x, y, z = outputs["corrected"]["points"]
         _, _, trench_shallow = cart2sph(x, y, z)
     if findmdd:
         try:
+            # todo_thin
             # mdd depths and horizontal profiles of velocity
             mdd1, query_grid1, query_vs1, extract_profiles_grid, extract_profiles_vs = \
                 VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=-Visit_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"], 
@@ -5207,9 +5227,11 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     ofile_surface = kwargs.get("ofile_surface", None)
     ofile_moho = kwargs.get("ofile_moho", None)
     n_crust = kwargs.get("n_crust", 1)
+    use_upper_crust_only = kwargs.get("use_upper_crust_only", False)
     compute_crust_thickness = kwargs.get("compute_crust_thickness", False)
     output_path = os.path.join(case_dir, "vtk_outputs")
     slab_shallow_cutoff = kwargs.get("slab_shallow_cutoff", 25e3)
+    use_upper_crust_only = kwargs.get("use_upper_crust_only", False)
     if not os.path.isdir(output_path):
         os.mkdir(output_path)
     filein = os.path.join(case_dir, "output", "solution",\
@@ -5233,7 +5255,10 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     if n_crust == 1:
         crust_fields = ['spcrust']
     elif n_crust == 2:
-        crust_fields = ['spcrust_up', 'spcrust_low']
+        if not use_upper_crust_only:
+            crust_fields = ['spcrust_up', 'spcrust_low']
+        else:
+            crust_fields = ['spcrust_up']
     else:
         return NotImplementedError()
     field_names = ['T', 'p', 'density', 'spharz'] + crust_fields
@@ -5290,7 +5315,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     
     if fix_shallow:
         # append the shallow trench point
-        outputs_shallow = VtkP.PrepareSlabShallow(n_crust=n_crust)
+        outputs_shallow = VtkP.PrepareSlabShallow(n_crust=n_crust, use_upper_crust_only=use_upper_crust_only)
         slab_envelop_rs_raw = np.vstack((outputs_shallow["corrected"]["points"][0:2], slab_envelop_rs_raw)) 
     else:
         outputs_shallow = None
@@ -19240,10 +19265,9 @@ def HeatFlowRetriveProfile(local_dir: str, _time: float, _time_step: float, Visi
 
     _time1, timestep, _ = Visit_Options.get_timestep_by_time(_time)
     filein = os.path.join(local_dir, "output", "heat_flux.%05d" % timestep)
-    my_assert(os.path.isfile(filein), FileExistsError, "%s: %s doesn't exist" % (func_name(), filein))
+    # my_assert(os.path.isfile(filein), FileExistsError, "%s: %s doesn't exist" % (func_name(), filein))
     slab_morph_path = os.path.join(local_dir, "vtk_outputs", "slab_morph_t1.00e+05.txt")
     my_assert(os.path.isfile(slab_morph_path), FileExistsError, "%s: %s doesn't exist" % (func_name(), slab_morph_path))
-    print("Plot file %s, time %.2f, timestep %d" % (filein, _time1, timestep))
 
     # Retrieve trench location from slab morphology data, 
     # ensure the slab morphology file exists, load the data, 
@@ -19284,17 +19308,23 @@ def HeatFlowRetriveProfile(local_dir: str, _time: float, _time_step: float, Visi
     # Read the boundary output data from the specified file, process it 
     # to compute heat flux between inner and outer radii, and export 
     # the heat flow data (xs, ys, zs: cartesian coordinates; hfs: heat flux).
-    BdOutputs.ReadFile(filein)
-    BdOutputs.ProcessBds(inner_radius=Ri, outer_radius=Ro)
-    xs, ys, zs, hfs = BdOutputs.ExportBdHeatFlow(3)
-    Rs, Thetas, Phis = cart2sph(xs, ys, zs)
+    if os.path.isfile(filein):
+        print("Heat flux file %s, time %.2f, timestep %d" % (filein, _time1, timestep))
+        BdOutputs.ReadFile(filein)
+        BdOutputs.ProcessBds(inner_radius=Ri, outer_radius=Ro)
+        xs, ys, zs, hfs = BdOutputs.ExportBdHeatFlow(3)
+        Rs, Thetas, Phis = cart2sph(xs, ys, zs)
 
-    # Let's get the masked data adjacent to the trench
-    phi0 = trench - phi_diff / 180.0 * np.pi  # Trench lower boundary
-    phi1 = trench + phi_diff / 180.0 * np.pi  # Trench upper boundary
-    mask = ((Phis > phi0) & (Phis < phi1))
-    hfs_masked = hfs[mask]
-    Phis_masked = Phis[mask]
+        # Let's get the masked data adjacent to the trench
+        phi0 = trench - phi_diff / 180.0 * np.pi  # Trench lower boundary
+        phi1 = trench + phi_diff / 180.0 * np.pi  # Trench upper boundary
+        mask = ((Phis > phi0) & (Phis < phi1))
+        hfs_masked = hfs[mask]
+        Phis_masked = Phis[mask]
+    else:
+        print("Heat flux file %s dosen't exist.")
+        hfs_masked = None
+        Phis_masked = None
 
     return hfs_masked, Phis_masked, [mdd1_depth, mdd2_depth], trench, shallow_trench
 

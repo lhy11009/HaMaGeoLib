@@ -1129,7 +1129,7 @@ output.PointData.append(d_mech, "deformation_mechanism")
 
 def main():
     all_available_graphical_snapshots = ALL_AVAILABLE_GRAPHICAL_SNAPSHOTS
-    all_available_graphical_times = ALL_AVAILABLE_GRAPHICAL_TIMES
+    all_available_graphical_times = ALL_AVAILABLE_GRAPHICAL_TS
     # types of plots included
     plot_types = PLOT_TYPES
     assert(len(all_available_graphical_snapshots) == len(all_available_graphical_times))

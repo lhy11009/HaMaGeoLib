@@ -384,7 +384,10 @@ def load_pyvista_source(data_output_dir, source_name, snapshot, **kwargs):
         transform.Transform = 'Transform'
         transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
         transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
-        Hide3DWidgets()
+        try:
+            Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        except NameError:
+            pass
 
     # add glyph 
     if add_glyph:
@@ -1365,7 +1368,10 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
             transform.Transform = 'Transform'
             transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
             transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
-            Hide3DWidgets()
+            try:
+                Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+            except NameError:
+                pass
 
         registration_name_glyph = 'solution_glyph_%05d' % (snapshot)
         if "GEOMETRY" == "chunk":
@@ -1390,7 +1396,10 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
                     transform.Transform = 'Transform'
                     transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
                     transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
-                    Hide3DWidgets()
+                    try:
+                        Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+                    except NameError:
+                        pass
                 else:
                     pass
                 has_metastable_region = True
@@ -1405,7 +1414,10 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
                     transform.Transform = 'Transform'
                     transform.Transform.Translate = [0.0, 0.0, 0.0]  # center of rotation
                     transform.Transform.Rotate = [0.0, 0.0, ROTATION_ANGLE]  # angle of rotation
-                    Hide3DWidgets()
+                    try:
+                        Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+                    except NameError:
+                        pass
                 else:
                     pass
                 has_metastable_region_slab = True

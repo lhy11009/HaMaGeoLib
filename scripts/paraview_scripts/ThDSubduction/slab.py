@@ -44,7 +44,10 @@ class SLAB(PARAVIEW_PLOT):
         self.camera_dict['slice_surface_z'] = _camera
         self.colorbar_dict['slice_surface_z'] = _color_bar
         adjust_camera(self.renderView1, _camera[0],_camera[1], _camera[2], _camera[3])
-        Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        try:
+            Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        except NameError:
+            pass
         Hide(slice1, self.renderView1) # hide data in view
 
 
@@ -61,7 +64,10 @@ class SLAB(PARAVIEW_PLOT):
         self.camera_dict['slice_trench_center_y'] = _camera
         self.colorbar_dict['slice_trench_center_y'] = _color_bar
         adjust_camera(self.renderView1, _camera[0],_camera[1], _camera[2], _camera[3])
-        Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        try:
+            Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        except NameError:
+            pass
         Hide(slice1, self.renderView1) # hide data in view
     
     
@@ -72,7 +78,10 @@ class SLAB(PARAVIEW_PLOT):
         '''
         slice1, slice1Display, _ = add_slice(self.solutionpvd, "sp_upper", [CHUNK_RIDGE_CENTER_X, 0.0, CHUNK_RIDGE_CENTER_Z],\
         [0.0, 0.0, -1.0], renderView=self.renderView1, name="trench_center_lat")
-        Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        try:
+            Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        except NameError:
+            pass
         Hide(slice1, self.renderView1) # hide data in view
     
     
@@ -83,7 +92,10 @@ class SLAB(PARAVIEW_PLOT):
         '''
         slice1, slice1Display, _ = add_slice(self.solutionpvd, "sp_upper", [CHUNK_RIDGE_EDGE_X, 0.0, CHUNK_RIDGE_EDGE_Z],\
         [0.0, 0.0, -1.0], renderView=self.renderView1, name="trench_edge_lat")
-        Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        try:
+            Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        except NameError:
+            pass
         Hide(slice1, self.renderView1) # hide data in view
     
     
@@ -100,7 +112,10 @@ class SLAB(PARAVIEW_PLOT):
         self.camera_dict['slice_trench_edge_y'] = _camera
         self.colorbar_dict['slice_trench_edge_y'] = _color_bar
         adjust_camera(self.renderView1, _camera[0],_camera[1], _camera[2], _camera[3])
-        Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        try:
+            Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        except NameError:
+            pass
         Hide(slice1, self.renderView1) # hide data in view
     
     def setup_slab_iso_volume_upper(self):
@@ -151,7 +166,10 @@ class SLAB(PARAVIEW_PLOT):
         # show data in view
         Show(streamTracer1, renderView1, 'GeometryRepresentation')
         # streamTracer1Display = GetDisplayProperties(streamTracer1, view=renderView1)
-        Hide3DWidgets()
+        try:
+            Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        except NameError:
+            pass
         Hide(streamTracer1, renderView1)
 
         # add the 2nd one
@@ -168,7 +186,10 @@ class SLAB(PARAVIEW_PLOT):
         streamTracer2.SeedType.NumberOfPoints = 100
 
         Show(streamTracer2, renderView1, 'GeometryRepresentation')
-        Hide3DWidgets()
+        try:
+            Hide3DWidgets()  # this is the same thing as unchecking the "show plane"
+        except NameError:
+            pass
         Hide(streamTracer2, renderView1)
 
     def setup_cross_section_depth(self, _source, _type=0):
@@ -949,7 +970,7 @@ def main():
 
     # First, get all the possible snapshots
     all_available_graphical_snapshots = ALL_AVAILABLE_GRAPHICAL_SNAPSHOTS
-    all_available_graphical_times = ALL_AVAILABLE_GRAPHICAL_TIMES
+    all_available_graphical_times = ALL_AVAILABLE_GRAPHICAL_TS
     assert(len(all_available_graphical_snapshots) == len(all_available_graphical_times))
     # Then, make directory for images if it's not there
     if not os.path.isdir("IMG_OUTPUT_DIR"):
