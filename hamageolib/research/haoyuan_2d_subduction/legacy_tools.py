@@ -725,7 +725,6 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         self.options['GLOBAL_UPPER_MANTLE_VIEW_BOX'] = 0.0
         self.options['ROTATION_ANGLE'] = 0.0
         self.options['PLOT_SLAB_INTERFACE_POINTS'] = kwargs.get("plot_slab_interface_points", "False")
-        # todo_thin
         self.options['PLOT_MDD_EXTRACT_PROFILE_POINTS'] = kwargs.get("plot_mdd_extract_profile_points", "False")
         self.options['PLOT_MDD_EXTRACT_PROFILE_DEPTHS'] = kwargs.get("plot_mdd_extract_profile_depths", [])
         
@@ -2334,7 +2333,10 @@ class VTKP_BASE():
             T_field = vtk_to_numpy(self.c_poly_data.GetPointData().GetArray('T'))
             fields = []
             for field_name in field_names:
-                fields.append(vtk_to_numpy(self.c_poly_data.GetPointData().GetArray(field_name)))
+                try:
+                    fields.append(vtk_to_numpy(self.c_poly_data.GetPointData().GetArray(field_name)))
+                except AttributeError:
+                    raise AttributeError("field_name %s doesn't have data" % field_name)
             # density_field =  vtk_to_numpy(self.c_poly_data_raw.GetPointData().GetArray('density'))
             if fix_cell_value:
                 for i in range(noC):
@@ -4338,10 +4340,9 @@ class VTKP(VTKP_BASE):
         '''
         find the mechanical decoupling depth from the velocity field
         **kwargs:
-        d0, d1 (float): These define distance to the interplace surface (given by slab_envelopt1)
+        dx0, dx1 (float): These define distance to the interplace surface (given by slab_envelopt1)
             to extract velocity and thereafter compare them to decide whether it's the mdd depth.
         '''
-        # todo_thin
         print("%s started" % func_name())
         start=time.time()
         dx0 = kwargs.get('dx0', 10e3)
@@ -4414,9 +4415,9 @@ class VTKP(VTKP_BASE):
                 if self.geometry == "chunk":
                     rc = get_r(xc, yc, self.geometry) 
                     theta_c = get_theta(xc, yc, self.geometry)
-                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(rc, theta_c, dx0, dx1)
+                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(rc, theta_c, 10e3, 10e3)
                 elif self.geometry == "box":
-                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(xc, yc, dx0, dx1)
+                    query_grid_foo, query_vs_foo = self.extract_mdd_profile(xc, yc, 10e3, 10e3)
                 extract_profiles_grid.append(query_grid_foo)
                 extract_profiles_vs.append(query_vs_foo)
             
@@ -4826,9 +4827,22 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
         vtu_snapshot (int): index of file in vtu outputs
         kwargs:
             project_velocity - whether the velocity is projected to the tangential direction
+            findmdd - derive the position of DD
+            mdd1_dx0 - bottom profile position for deriving mdd1 (distance below the slab surface), default
+                value is 10e3
+            mdd1_dx1 - top profile position for deriving mdd1 (distance on top of the slab surface), default
+                value is -1.0 * shear_zone_thickness
+            mdd2_dx0 - bottom profile position for deriving mdd2 (distance below the slab surface), default
+                value is 10e3
+            mdd2_dx1 - top profile position for deriving mdd2 (distance on top of the slab surface), default 
+                value is 10e3
     '''
     indent = kwargs.get("indent", 0)  # indentation for outputs
     findmdd = kwargs.get("findmdd", False)
+    mdd1_dx0 = kwargs.get("mdd1_dx0", 10e3)
+    mdd1_dx1 = kwargs.get("mdd1_dx1", None)
+    mdd2_dx0 = kwargs.get("mdd2_dx0", 10e3)
+    mdd2_dx1 = kwargs.get("mdd2_dx1", None)
     output_ov_ath_profile = kwargs.get("output_ov_ath_profile", False)
     output_path = kwargs.get("output_path", os.path.join(case_dir, "vtk_outputs"))
     if not os.path.isdir(output_path):
@@ -4882,14 +4896,21 @@ def SlabMorphology_dual_mdd(case_dir, vtu_snapshot, **kwargs):
         outputs = VtkP.PrepareSlabShallow(crust_fields=crust_fields, use_upper_crust_only=use_upper_crust_only)
         x, y, z = outputs["corrected"]["points"]
         _, _, trench_shallow = cart2sph(x, y, z)
+
+    # Find position of mdd
     if findmdd:
+        if mdd1_dx1 is None:
+            mdd1_dx1 = -Visit_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"]
+        if mdd2_dx1 is None:
+            mdd2_dx1 = 10e3
         try:
-            # todo_thin
             # mdd depths and horizontal profiles of velocity
+            # here when mdd1 is derived, there are options to pass in an "extract_depths" option
+            # to extract profile at different depth
             mdd1, query_grid1, query_vs1, extract_profiles_grid, extract_profiles_vs = \
-                VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=-Visit_Options.options["INITIAL_SHEAR_ZONE_THICKNESS"], 
+                VtkP.FindMDD(tolerance=findmdd_tolerance, dx0=mdd1_dx0, dx1=mdd1_dx1, 
                              extract_depths=extract_depths)
-            mdd2, query_grid2, query_vs2, _, _ = VtkP.FindMDD(tolerance=findmdd_tolerance, dx1=10e3)
+            mdd2, query_grid2, query_vs2, _, _ = VtkP.FindMDD(tolerance=findmdd_tolerance, dx0=mdd2_dx0, dx1=mdd2_dx1)
             # velocity profile at mdd1
             header = "# 1: x (m)\n# 2: y (m)\n# 3: velocity_x (m/s)\n# 4: velocity_y (m/s)\n"
             outputs1 = np.concatenate((query_grid1, query_vs1[:, 0:2]), axis=1)

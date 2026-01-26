@@ -427,6 +427,7 @@ def run_2d_subduction_visualization(local_dir, config):
     CaseOptions = config["CaseOptions"]
     plot_slab_interface_points = config["plot_slab_interface_points"]
     plot_mdd_extract_profile_points = config["plot_mdd_extract_profile_points"]
+    plot_mdd_extract_profile_depths = config["plot_mdd_extract_profile_depths"]
     
 
     # Determine ASPECT major version
@@ -455,7 +456,6 @@ def run_2d_subduction_visualization(local_dir, config):
         )
         plt.close()
 
-    # todo_thin
     # Full visual plotting
     Visit_Options = PlotCaseRun_project(
         local_dir,
@@ -471,7 +471,8 @@ def run_2d_subduction_visualization(local_dir, config):
         additional_fields=additional_fields,
         slices=slices,
         plot_slab_interface_points=plot_slab_interface_points,
-        plot_mdd_extract_profile_points=plot_mdd_extract_profile_points
+        plot_mdd_extract_profile_points=plot_mdd_extract_profile_points,
+        plot_mdd_extract_profile_depths=plot_mdd_extract_profile_depths
     )
     plt.close()
 
