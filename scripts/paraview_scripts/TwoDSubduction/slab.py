@@ -162,15 +162,22 @@ class SLAB(PARAVIEW_PLOT):
         # add contour of sp_crust
         contourCr = Contour(registrationName='ContourCr', Input=pvd)
         contourCr.ContourBy = ['POINTS', 'spcrust']
-        contourCr.Isosurfaces = [0.8]
+        contourCr.Isosurfaces = [PLOT_CRUST_CONTOUR_LEVEL]
         contourCrDisplay = Show(contourCr, renderView1, 'GeometryRepresentation')
         contourCrDisplay.LineWidth = 2.0
         contourCrDisplay.AmbientColor = [0.3333333333333333, 0.3333333333333333, 0.0]
         contourCrDisplay.ColorArrayName = [None, '']
         contourCrDisplay.DiffuseColor = [0.3333333333333333, 0.3333333333333333, 0.0]
 
+        # add contour of P in the transition region
+        contourP1 = Contour(registrationName='ContourP1', Input=pvd)
+        contourP1.ContourBy = ['POINTS', 'p']
+        contourP1.Isosurfaces = PLOT_P_TRANS_CONTOUR_LEVELS # [1.5e9, 1.6e9, 1.7e9, 1.8e9, 1.9e9, 2.0e9, 2.1e9, 2.2e9, 2.3e9, 2.4e9, 2.5e9]
+        contourP1Display = Show(contourP1, renderView1, 'GeometryRepresentation')
+
         # hide all plots
         Hide(contourT1, renderView1)
+        Hide(contourP1, renderView1)
         Hide(contourCr, renderView1)
         HideScalarBarIfNotNeeded(fieldTLUT, renderView1)
 
@@ -1372,22 +1379,24 @@ class SLAB(PARAVIEW_PLOT):
         
         # show sourceV (vector field)
         sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
-        sourceVDisplay.SetScalarBarVisibility(renderView1, True)
+        ColorBy(sourceVDisplay, None)
+        sourceVDisplay.DiffuseColor = [1.0, 1.0, 1.0]
+        sourceVDisplay.SetScalarBarVisibility(renderView1, False)
         # get color transfer function/color map for 'field'
-        fieldVLUT = GetColorTransferFunction('velocity')
-        if MAX_VELOCITY > 0.0:
-            fieldVLUT.RescaleTransferFunction(0.0, MAX_VELOCITY)
-        # colorbar position
-        fieldVLUTColorBar = GetScalarBar(fieldVLUT, renderView1)
-        fieldVLUTColorBar.Orientation = 'Horizontal'
-        fieldVLUTColorBar.WindowLocation = 'Any Location'
-        fieldVLUTColorBar.Position = [0.630, 0.908]
-        fieldVLUTColorBar.ScalarBarLength = 0.33
-        fieldVLUTColorBar.TitleColor = [0.0, 0.0, 0.0]
-        fieldVLUTColorBar.LabelColor = [0.0, 0.0, 0.0]
-        fieldVLUTColorBar.TitleFontFamily = 'Times'
-        fieldVLUTColorBar.LabelFontFamily = 'Times'
-        # hide the grid axis
+        # fieldVLUT = GetColorTransferFunction('velocity')
+        # if MAX_VELOCITY > 0.0:
+        #     fieldVLUT.RescaleTransferFunction(0.0, MAX_VELOCITY)
+        # # colorbar position
+        # fieldVLUTColorBar = GetScalarBar(fieldVLUT, renderView1)
+        # fieldVLUTColorBar.Orientation = 'Horizontal'
+        # fieldVLUTColorBar.WindowLocation = 'Any Location'
+        # fieldVLUTColorBar.Position = [0.630, 0.908]
+        # fieldVLUTColorBar.ScalarBarLength = 0.33
+        # fieldVLUTColorBar.TitleColor = [0.0, 0.0, 0.0]
+        # fieldVLUTColorBar.LabelColor = [0.0, 0.0, 0.0]
+        # fieldVLUTColorBar.TitleFontFamily = 'Times'
+        # fieldVLUTColorBar.LabelFontFamily = 'Times'
+        # # hide the grid axis
         renderView1.OrientationAxesVisibility = 0
 
 
@@ -1421,12 +1430,23 @@ class SLAB(PARAVIEW_PLOT):
         
 
         # Show contour
-        fieldTLUT = GetColorTransferFunction("T")
-        source_contour = FindSource("ContourT1")
-
-        contourTDisplay = Show(source_contour, renderView1, 'GeometryRepresentation')
+        if PLOT_T_SHALLOW_CONTOURS:
+            fieldTLUT = GetColorTransferFunction("T")
+            source_contour = FindSource("ContourT1")
+            contourTDisplay = Show(source_contour, renderView1, 'GeometryRepresentation')
+            rescale_transfer_function_combined('T', 273.15, 1273.15) # change this range to adjust temperature
         
-        rescale_transfer_function_combined('T', 273.15, 1273.15) # change this range to adjust temperature
+        if PLOT_P_TRANS_CONTOURS:
+            source_contour = FindSource("ContourP1")
+            contourP1Display = Show(source_contour, renderView1, 'GeometryRepresentation')
+            contourP1Display.LineWidth = 2.0
+            contourP1Display.Ambient = 1.0
+            fieldPLUT = GetColorTransferFunction("p")
+            fieldPLUT.ApplyPreset("Viridis (matplotlib)", True)
+            fieldPLUT.InvertTransferFunction()
+            ColorBy(contourP1Display, ('POINTS', 'p'))
+            p_trans_contours_levels = PLOT_P_TRANS_CONTOUR_LEVELS
+            rescale_transfer_function_combined('p', p_trans_contours_levels[0], p_trans_contours_levels[-1]) # change this range to adjust temperature
         
         # Show contour1: spcrust 
         source_contour1 = FindSource("ContourCr")
@@ -1610,6 +1630,25 @@ class SLAB(PARAVIEW_PLOT):
         else:
             raise NotImplementedError()
         self.adjust_glyph_properties('Glyph1', scale_factor, n_sample_points, point_source_center)
+        # show crust & moho profile
+        if PLOT_SLAB_INTERFACE_POINTS:
+            sourceSurf = FindSource("slab_surf_points")                                                                                               
+            sourceSurfDisplay = Show(sourceSurf, renderView1, 'GeometryRepresentation')
+            ColorBy(sourceSurfDisplay, ('POINTS', None))
+            sourceSurfDisplay.DiffuseColor = [1.0, 0.0, 0.0] # Set color to red (RGB in 0–1)
+            sourceSurfDisplay.AmbientColor = [1.0, 0.0, 0.0]
+            sourceSurfDisplay.Specular = 0.0
+            sourceSurfDisplay.Representation = 'Points' # (optional but often needed) Make sure points are visible
+            sourceSurfDisplay.PointSize = 5
+            sourceMoho = FindSource("slab_moho_points")                                                                                               
+            sourceMohoDisplay = Show(sourceMoho, renderView1, 'GeometryRepresentation')
+            ColorBy(sourceMohoDisplay, ('POINTS', None))
+            sourceMohoDisplay.DiffuseColor = [1.0, 0.0, 1.0] # Set color to magenta (RGB in 0–1)
+            sourceMohoDisplay.AmbientColor = [1.0, 0.0, 1.0]
+            sourceMohoDisplay.Specular = 0.0
+            sourceMohoDisplay.Representation = 'Points' # (optional but often needed) Make sure points are visible
+            sourceMohoDisplay.PointSize = 5
+
         # adjust layout and camera & get layout & set layout/tab size in pixels
         layout1 = GetLayout()
         layout1.SetSize(1350, 704)
@@ -1688,6 +1727,9 @@ class SLAB(PARAVIEW_PLOT):
         fig_png_path = os.path.join(self.pv_output_dir, "spcrust_wedge_small_t%.4e.png" % self.time)
         SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
         ExportView(fig_path, view=renderView1)
+        if PLOT_SLAB_INTERFACE_POINTS:
+            Hide(sourceSurf, renderView1) # hide surface and moho points
+            Hide(sourceMoho, renderView1)
 
 
         # fourth plot
@@ -1793,6 +1835,108 @@ class SLAB(PARAVIEW_PLOT):
         fig_png_path = os.path.join(self.pv_output_dir, "strain_rate_wedge_small_t%.4e.png" % self.time)
         SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
         ExportView(fig_path, view=renderView1)
+
+        # fifth plot - dynamic pressure
+        # set scalar coloring
+        field5 = "nonadiabatic_pressure"
+        ColorBy(source1Display, ('POINTS', field5, 'Magnitude'))
+        source1Display.SetScalarBarVisibility(renderView1, True)
+        # hide the grid axis
+        renderView1.OrientationAxesVisibility = 0
+        # Hide the scalar bar for the first field color map
+        HideScalarBarIfNotNeeded(field4LUT, renderView1)
+        # Adjust glyph 
+        point_source_center = [0.0, 0.0, 0.0]
+        if "chunk" == "chunk":
+            point_source_center = [camera_x - 0.1e5, 6.4e6, 0]
+        elif "chunk" == "box":
+            point_source_center = [4.65e6, 2.95e6, 0]
+        else:
+            raise NotImplementedError()
+        self.adjust_glyph_properties('Glyph1', scale_factor, n_sample_points, point_source_center)
+        # adjust layout and camera & get layout & set layout/tab size in pixels
+        layout1 = GetLayout()
+        layout1.SetSize(1350, 704)
+        renderView1.InteractionMode = '2D'
+        if "GEOMETRY" == "chunk":
+            # test new camera parameters
+            renderView1.CameraPosition = [camera_x, 6300734.12934143, 25000000.0]
+            renderView1.CameraFocalPoint = [camera_x, 6300734.12934143, 0.0]
+            renderView1.CameraParallelScale = CameraParallelScale
+        elif "GEOMETRY" == "box":
+            raise NotImplementError()
+        # colorbar position
+        field5LUT = GetColorTransferFunction(field5)
+        field5LUTColorBar = GetScalarBar(field5LUT, renderView1)
+        field5LUTColorBar.Orientation = 'Horizontal'
+        field5LUTColorBar.WindowLocation = 'Any Location'
+        field5LUTColorBar.Position = [0.041, 0.908]
+        field5LUTColorBar.ScalarBarLength = 0.33
+        field5LUTColorBar.TitleColor = [0.0, 0.0, 0.0]
+        field5LUTColorBar.LabelColor = [0.0, 0.0, 0.0]
+        field5LUTColorBar.TitleFontFamily = 'Times'
+        field5LUTColorBar.LabelFontFamily = 'Times'
+        # get color transfer function/color map for 'field'
+        # convert to log space
+        non_adiabatic_pressure_range = PLOT_NON_ADIABATIC_PRESSURE_RANGE
+        field5LUT.ApplyPreset("roma", True)
+        field5LUT = GetColorTransferFunction(field5)
+        field5PWF = GetOpacityTransferFunction(field5)
+        field5LUT.RescaleTransferFunction(non_adiabatic_pressure_range[0], non_adiabatic_pressure_range[1])
+        field5LUT.InvertTransferFunction()
+        field5PWF.RescaleTransferFunction(non_adiabatic_pressure_range[0], non_adiabatic_pressure_range[1])
+        field5PWF.InvertTransferFunction()
+        # save figure
+        fig_path = os.path.join(self.pv_output_dir, "nonadiabatic_pressure_wedge_02252025_t%.4e.pdf" % self.time)
+        fig_png_path = os.path.join(self.pv_output_dir, "nonadiabatic_pressure_wedge_02252025_t%.4e.png" % self.time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+
+        # adjust for a smaller region
+        # change point position
+        pointName = "PointSource_" + glyphRegistrationName
+        pointSource1 = FindSource(pointName)
+        if "chunk" == "chunk":
+            pointSource1.Center = [0, 6.7e6, 0]
+        # show the representative point                                                                                                    
+        _source_v_re = _source_v + "_representative"                                                                                       
+        sourceVRE = FindSource(_source_v_re)                                                                                               
+        sourceVREDisplay = Show(sourceVRE, renderView1, 'GeometryRepresentation') 
+        # show the annotation
+        _source_v_txt = _source_v + "_text" 
+        sourceVTXT = FindSource(_source_v_txt)                                                                                               
+        sourceVTXTDisplay = Show(sourceVTXT, renderView1, 'GeometryRepresentation')
+        sourceVTXTDisplay.Color = [0.0, 0.0, 0.0]
+        # set the camera position
+        CameraPosition = [-5144.780289291184, 6305365.90238875, 25000000.0]
+        CameraFocalPoint = [-5144.780289291184, 6305365.90238875, 0.0]
+        # Set Glyph
+        point_source_center = [0.0, 0.0, 0.0]
+        if "chunk" == "chunk":
+            point_source_center = [CameraPosition[0] - 0.1e5, 6.4e6, 0]
+        elif "chunk" == "box":
+            point_source_center = [4.65e6, 2.95e6, 0]
+        else:
+            raise NotImplementedError()
+        self.adjust_glyph_properties('Glyph1', scale_factor * small_scale_fraction, n_stride_small,\
+            point_source_center, GlyphMode="Every Nth Point")
+        # adjust layout and camera & get layout & set layout/tab size in pixels
+        layout1 = GetLayout()
+        layout1.SetSize(layout_resolution[0], layout_resolution[1])
+        renderView1.InteractionMode = '2D'
+        if "GEOMETRY" == "chunk":
+            # test new camera parameters
+            renderView1.CameraPosition = CameraPosition
+            renderView1.CameraFocalPoint = CameraFocalPoint
+            renderView1.CameraParallelScale = CameraParallelScaleSmall
+        elif "GEOMETRY" == "box":
+            raise NotImplementError()
+        # save figure
+        fig_path = os.path.join(self.pv_output_dir, "nonadiabatic_pressure_wedge_small_t%.4e.pdf" % self.time)
+        fig_png_path = os.path.join(self.pv_output_dir, "nonadiabatic_pressure_wedge_small_t%.4e.png" % self.time)
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+
 
 
         # hide plots
@@ -2278,7 +2422,6 @@ def main():
                 idx = all_available_graphical_snapshots.index(snapshot)
                 _time =  all_available_graphical_times[idx]
                 Slab.goto_time(_time)
-                # todo_thin
                 if PLOT_SLAB_INTERFACE_POINTS:
                     Slab.load_slab_interface_points(step, "slab_surf_points")
                     Slab.load_slab_interface_points(step, "slab_moho_points")

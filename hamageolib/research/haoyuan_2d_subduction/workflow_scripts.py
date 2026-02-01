@@ -428,6 +428,12 @@ def run_2d_subduction_visualization(local_dir, config):
     plot_slab_interface_points = config["plot_slab_interface_points"]
     plot_mdd_extract_profile_points = config["plot_mdd_extract_profile_points"]
     plot_mdd_extract_profile_depths = config["plot_mdd_extract_profile_depths"]
+    plot_T_shallow_contours = config["plot_T_shallow_contours"]
+    plot_P_trans_contours = config["plot_P_trans_contours"]
+    plot_P_trans_contour_levels = config["plot_P_trans_contour_levels"]
+    plot_crust_contour_level = config["plot_crust_contour_level"]
+    plot_non_adiabatic_pressure_range = config["plot_non_adiabatic_pressure_range"]
+    # todo_thin
     
 
     # Determine ASPECT major version
@@ -472,7 +478,11 @@ def run_2d_subduction_visualization(local_dir, config):
         slices=slices,
         plot_slab_interface_points=plot_slab_interface_points,
         plot_mdd_extract_profile_points=plot_mdd_extract_profile_points,
-        plot_mdd_extract_profile_depths=plot_mdd_extract_profile_depths
+        plot_mdd_extract_profile_depths=plot_mdd_extract_profile_depths,
+        plot_T_shallow_contours=plot_T_shallow_contours,
+        plot_P_trans_contours=plot_P_trans_contours,
+        plot_P_trans_contour_levels=plot_P_trans_contour_levels,
+        plot_crust_contour_level=plot_crust_contour_level,
     )
     plt.close()
 

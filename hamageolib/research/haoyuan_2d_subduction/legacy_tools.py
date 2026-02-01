@@ -727,6 +727,12 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         self.options['PLOT_SLAB_INTERFACE_POINTS'] = kwargs.get("plot_slab_interface_points", "False")
         self.options['PLOT_MDD_EXTRACT_PROFILE_POINTS'] = kwargs.get("plot_mdd_extract_profile_points", "False")
         self.options['PLOT_MDD_EXTRACT_PROFILE_DEPTHS'] = kwargs.get("plot_mdd_extract_profile_depths", [])
+        self.options["PLOT_T_SHALLOW_CONTOURS"] = kwargs.get("plot_T_shallow_contours", "False")
+        self.options["PLOT_P_TRANS_CONTOURS"] = kwargs.get("plot_P_trans_contours", "False")
+        self.options["PLOT_P_TRANS_CONTOUR_LEVELS"] = kwargs.get("plot_P_trans_contour_levels", np.arange(1.5e9, 2.6e9, 0.1e9).tolist())
+        self.options["PLOT_CRUST_CONTOUR_LEVEL"] = kwargs.get("plot_crust_contour_level", 0.8)
+        self.options["PLOT_NON_ADIABATIC_PRESSURE_RANGE"] = kwargs.get("plot_non_adiabatic_pressure_range", [-200e6, 200e6])
+        # todo_thin
         
 
         # additional inputs
@@ -5253,6 +5259,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     output_path = os.path.join(case_dir, "vtk_outputs")
     slab_shallow_cutoff = kwargs.get("slab_shallow_cutoff", 25e3)
     use_upper_crust_only = kwargs.get("use_upper_crust_only", False)
+    slab_threshold = kwargs.get("slab_threshold", 0.2)
     if not os.path.isdir(output_path):
         os.mkdir(output_path)
     filein = os.path.join(case_dir, "output", "solution",\
@@ -5282,7 +5289,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
             crust_fields = ['spcrust_up']
     else:
         return NotImplementedError()
-    field_names = ['T', 'p', 'density', 'spharz'] + crust_fields
+    field_names = ['T', 'p', 'density', 'spharz', "viscosity"] + crust_fields  # viscosity is needed because we also extract viscosity along the profile
     has_dynamic_pressure = int(Visit_Options.options['HAS_DYNAMIC_PRESSURE']) 
     if has_dynamic_pressure == 1:
         field_names += ['nonadiabatic_pressure']
@@ -5304,9 +5311,9 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     
     # slab envelop
     if n_crust == 1:
-        VtkP.PrepareSlab(crust_fields + ['spharz'], prepare_moho=crust_fields)  # slab: composition
+        VtkP.PrepareSlab(crust_fields + ['spharz'], prepare_moho=crust_fields, slab_threshold=slab_threshold)  # slab: composition
     if n_crust == 2:
-        VtkP.PrepareSlab(crust_fields, prepare_moho=crust_fields)  # slab: composition
+        VtkP.PrepareSlab(crust_fields, prepare_moho=crust_fields, slab_threshold=slab_threshold)  # slab: composition
     slab_envelop0, slab_envelop1 = VtkP.ExportSlabEnvelopCoord()
     moho_envelop = VtkP.ExportSlabmohoCoord()
     if output_slab:
@@ -5378,6 +5385,8 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     id_valid = np.where(depths_moho > 0.0)[0][-1] # reason: max depth could be shallower than the slab surface
 
     start = time.time() 
+
+    
     # interpolate the curve
     # start = np.ceil(depths[0]/ip_interval) * ip_interval
     start_depth = np.ceil(depths[0]/ip_interval) * ip_interval
@@ -5385,7 +5394,7 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     n_out = int((end_depth-start_depth) / ip_interval)
     depths_out = np.arange(start_depth, end_depth, ip_interval)
 
-    # interpolate T for surface
+    # interpolate T and viscosity for surface
     interp_kind = kwargs.get("interp_kind", "cubic")
     slab_Xs = interp1d(depths, slab_envelop_rs[:, 0], kind=interp_kind)(depths_out)
     slab_Ys = interp1d(depths, slab_envelop_rs[:, 1], kind=interp_kind)(depths_out)
@@ -5398,9 +5407,11 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     start = end
 
     slab_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((slab_Xs, slab_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
-    env_Ttops  = vtk_to_numpy(slab_env_polydata.GetPointData().GetArray('T'))
-    # fix invalid 0.0 values
-    env_Ttops = fix_profile_field_zero_values(slab_Xs, slab_Ys, None, env_Ttops)
+    pd = slab_env_polydata.GetPointData()
+    env_Ttops  = vtk_to_numpy(pd.GetArray('T')) # Extract both T and viscosity along the profile
+    env_LogEtatops  = np.log10(vtk_to_numpy(pd.GetArray('viscosity')))
+    env_Ttops = fix_profile_field_zero_values(slab_Xs, slab_Ys, None, env_Ttops)  # fix invalid 0.0 values
+    env_LogEtatops = fix_profile_field_zero_values(slab_Xs, slab_Ys, None, env_LogEtatops)
 
 
     # interpolate T for moho
@@ -5423,20 +5434,26 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
     print("Interpolating main profiles takes %.2f" % (end - start))
     start = end
     
-    offset_Xs_array=[]; offset_Ys_array=[]; env_Toffsets_array = []
+    offset_Xs_array=[]; offset_Ys_array=[]; env_Toffsets_array = []; env_LogEtaoffsets_array=[]
     # interpolate T for offest profiles
     for i, offset in enumerate(offsets):
         offset_Xs, offset_Ys = offset_profile(slab_Xs, slab_Ys, offset)
         offset_env_polydata = InterpolateGrid(VtkP.i_poly_data, np.column_stack((offset_Xs, offset_Ys)), quiet=True) # note here VtkPp is module shilofue/VtkPp, while the VtkP is the class
-        env_Toffsets = vtk_to_numpy(offset_env_polydata.GetPointData().GetArray('T'))
+        pd = offset_env_polydata.GetPointData()
+        env_Toffsets = vtk_to_numpy(pd.GetArray('T'))
         env_Toffsets = fix_profile_field_zero_values(offset_Xs, offset_Ys, None, env_Toffsets) # fix 0 values
+        env_LogEtaoffsets  = np.log10(vtk_to_numpy(pd.GetArray('viscosity')))
+        env_LogEtaoffsets = fix_profile_field_zero_values(offset_Xs, offset_Ys, None, env_LogEtaoffsets) # fix 0 values
     
         mask = (env_Toffsets < 1.0) # fix the non-sense values
         env_Toffsets[mask] = -np.finfo(np.float32).max
+        mask = (env_LogEtaoffsets < 1.0) # fix the non-sense values
+        env_LogEtaoffsets[mask] = -np.finfo(np.float32).max
 
         offset_Xs_array.append(offset_Xs)
         offset_Ys_array.append(offset_Ys)
         env_Toffsets_array.append(env_Toffsets)
+        env_LogEtaoffsets_array.append(env_LogEtaoffsets)
     end = time.time()
     print("Interpolating offset profiles takes %.2f" % (end - start))
     start = end
@@ -5448,9 +5465,12 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
 
     
     # output 
+    # Here the idx tracks the increasing index with more columns
+    # The idx1, id2 .. track where different entries are in the table. These are used
+    # later in the indexes of the header.
     if ofile is not None:
         # write output if a valid path is given
-        n_columns = 7+len(offsets)*3
+        n_columns = 8+len(offsets)*4
         if compute_crust_thickness:
             n_columns += 1
         data_env0 = np.zeros((depths_out.size, n_columns)) # output: x, y, Tbot, Ttop
@@ -5476,11 +5496,24 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
             data_env0[:, idx+i+1] = env_Toffsets_array[i]
         idx += len(offsets)
         idx4 = idx
+        # crust thickness
         if compute_crust_thickness:
             data_env0[:, idx+1] = distances
+        idx += 1
+        idx5 = idx
+        # viscosity (log10 value)
+        data_env0[:, idx+1] = env_LogEtatops
+        idx += 1
+        idx6 = idx
+        for i in range(len(offsets)):
+            data_env0[:, idx+i+1] = env_LogEtaoffsets_array[i]
+        idx += len(offsets)
+        idx7 = idx
+
 
         # interpolate data to regular grid & prepare outputs
         # add additional headers if offset profiles are required
+        # make use of the id1, id2, ... defined in the previous section
         header = "# 1: depth (m)\n# 2: x (m)\n# 3: y (m)\n# 4: x bot (m)\n# 5: y bot (m)\n"
         for i in range(len(offsets)):
             header += "# %d: x offset %d (m)\n# %d: y offset %d (m)\n" % (idx1+2*i+2,i,idx1+2*i+3,i)
@@ -5489,6 +5522,10 @@ def SlabTemperature(case_dir, vtu_snapshot, ofile=None, **kwargs):
             header += "# %d: Toffset %d (K)\n" % (idx3+i+2, i)
         if compute_crust_thickness:
             header += "# %d: crustal thickness (m)\n" % (idx4+2)
+        header += "# %d: LogEtatop (Pa*s)\n" % (idx5+2)
+        for i in range(len(offsets)):
+            header += "# %d: LogEtaoffset %d (Pa*s)\n" % (idx6+i+2, i)
+        
         with open(ofile, 'w') as fout:
             fout.write(header)
         with open(ofile, 'a') as fout: 
