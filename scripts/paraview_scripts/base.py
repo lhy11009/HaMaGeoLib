@@ -16,6 +16,12 @@ import math
 from paraview.simple import *
 #### disable automatic camera reset on 'Show'
 paraview.simple._DisableFirstRenderCameraReset()
+#### get paraview version numbers
+from paraview.simple import GetParaViewVersion
+pv_version = GetParaViewVersion()   # returns (major, minor, patch)
+# ParaView version components (works in 5.10+)
+pv_major = pv_version.major
+pv_minor = pv_version.minor
 
 class PARAVIEW_PLOT():
 

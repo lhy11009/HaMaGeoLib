@@ -822,7 +822,6 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             else:
                 # rotate to center on the slab
                 feature_sp = self.wb_dict['features'][index]
-                # todo_ani
                 rotation_angle = 90.0 - feature_sp["coordinates"][2][0] - 2.0 + rotation_plus
             self.options['ROTATION_ANGLE'] = rotation_angle
         elif self.options['GEOMETRY'] == 'box':

@@ -21,6 +21,13 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if len(prefix) > 0:
             case_name += "_"
         case_name += "D%d" % int(variables["domain_depth"]/1e3)
+
+    # viscosity
+    if use_all or "viscosity_range" in use_keys:
+        if not np.isclose(variables["viscosity_range"][0], 2.5e18, rtol=1e-6):
+            case_name += "_minV%.1e" % variables["viscosity_range"][0]
+        if not np.isclose(variables["viscosity_range"][1], 2.5e23, rtol=1e-6):
+            case_name += "_maxV%.1e" % variables["viscosity_range"][1]
     
     # Weak layer
     if use_all or "weak_layer_compositions" in use_keys:
@@ -476,6 +483,8 @@ class PostProcessorRule(Rule):
                 "Output format": "txt",
                 "Time between graphical output": "0"
             }
+            # set up output variables in visualization
+            prm_dict["Postprocess"]["Visualization"]["List of output variables"] = "material properties, strain rate, named additional outputs, stress second invariant, depth, heat flux map, nonadiabatic pressure, principal stress"
         else:
             pass
 
@@ -887,13 +896,16 @@ class RheologyRule(Rule):
     - use_my_setup_of_rheology (bool):
       Flag indicating whether the custom rheology setup should be applied.
       Default value: False.
+    - viscosity_range (list of 2):
+      The range of viscosity in the model.
+      Default value: [2.5e18, 2.5e23]
     """
-
-    requires = ["use_my_setup_of_rheology"]
+    requires = ["use_my_setup_of_rheology", "viscosity_range", "use_safer_options"]
     
-    defaults = {"use_my_setup_of_rheology": False}
+    defaults = {"use_my_setup_of_rheology": False, "viscosity_range": [2.5e18, 2.5e23], "use_safer_options": False}
 
-    requires_comments = {"use_my_setup_of_rheology": "Set reference strain rate to 1e-15."}
+    requires_comments = {"use_my_setup_of_rheology": "Set reference strain rate to 1e-15.", "viscosity_range": "Range of viscosity in the model",
+                         "use_safer_options": "Use adiabatic pressure in rheology and also cutoff unrealistic temperatures"}
 
     provides = []
 
@@ -933,7 +945,28 @@ class RheologyRule(Rule):
         # In my setup, I use a reference strain rate of 1e-15 to start the model
         if use_my_setup_of_rheology:
             prm_dict["Material model"]["Visco Plastic"]["Reference strain rate"] = "1e-15"
-            pass
+
+        # Prescribe maximum and minimum viscosity
+        # Here, just assign every phase to min and max values.
+        # Later, the WeakLayerRule will further modify these by weak layer phases.
+        viscosity_range = config["viscosity_range"]
+
+        max_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"])
+        min_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"])
+
+        for key, value in min_viscosity_dict.items():
+            min_viscosity_dict[key] = ["%.1e" % viscosity_range[0] for i in range(len(min_viscosity_dict[key]))]
+        for key, value in max_viscosity_dict.items():
+            max_viscosity_dict[key] = ["%.1e" % viscosity_range[1] for i in range(len(max_viscosity_dict[key]))]
+    
+        prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"] = format_composition_entry(max_viscosity_dict)
+        prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"] = format_composition_entry(min_viscosity_dict)
+
+        # Use adiabatic pressure in rheology and also cutoff unrealistic temperatures
+        use_safer_options = config["use_safer_options"]
+        if use_safer_options:
+            prm_dict["Material model"]["Visco Plastic"]["Use adiabatic pressure in creep viscosity"] = "true"
+            prm_dict["Material model"]["Visco Plastic"]["Minimum temperature for viscosity"] = "273.15"
 
 
 class WeakLayerRule(Rule):
