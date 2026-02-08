@@ -1,0 +1,68 @@
+{
+  "base directory": "/home/lochy/ASPECT_PROJECT/aspectLib/files/TwoDSubduction/240106",
+  "branch": "master_TwoD",
+  "output directory": "",
+  "name": "eba_cdpt_SA80.0_OA40.0",
+  "depth average file": "${ASPECT_LAB_DIR}/files/TwoDSubduction/depth_average.txt",
+  "include fast first step": 1,
+  "version": 1.0,
+  "test initial steps": {
+    "number of outputs": 3,
+    "interval of outputs": 10000.0
+  },
+  "geometry": "chunk",
+  "potential temperature": 1573.0,
+  "boundary condition": {
+    "model": "all free slip"
+  },
+  "use world builder": 1,
+  "world builder": {
+    "use new ridge implementation": 1,
+    "plate age method": "adjust box width",
+    "box width before adjusting": 15570000.0,
+    "adjust mesh with box width": 1,
+    "subducting plate": {
+      "age trench": 80000000.0,
+      "sp rate": 0.05
+    },
+    "overiding plate": {
+      "age": 40000000.0,
+      "transit": {
+        "age": 20000000.0,
+        "length": 700000.0
+      }
+    }
+  },
+  "use new rheology module": 1,
+  "coupling the eclogite phase to shear zone viscosity": 0,
+  "slurm": [
+    {
+      "slurm file": "./files/slurm_files/230924/job_p-billen.sh",
+      "build directory": "master_TwoD_p-billen",
+      "tasks per node": 8,
+      "cpus": 8
+    }
+  ],
+  "mantle rheology": {
+    "scheme": "HK03_WarrenHansen23",
+    "Coh": 500.0
+  },
+  "include peierls creep": 1,
+  "peierls creep": {
+    "scheme": "MK10",
+    "maximum peierls iterations": 100,
+    "fix peierls V as": "dislocation"
+  },
+  "refinement level": 9,
+  "shear zone": {
+    "constant viscosity": 1e+20,
+    "cutoff depth": 100000.0,
+    "thickness": 7500.0
+  },
+  "phase transition model CDPT type": "HeFESTo_consistent",
+  "prescribe temperature method": "plate model 1",
+  "prescribe temperature width": 4e5,
+  "outputs": {
+    "heat flux": 1
+  }
+}
