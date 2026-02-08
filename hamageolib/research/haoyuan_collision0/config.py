@@ -1125,4 +1125,18 @@ class SolverRule(Rule):
 
         # configure solver to skip expensive stokes solves
         if skip_expensive_stokes:
-            prm_dict["Solver parameters"]["Stokes solver parameters"]["Skip expensive stokes solver"] = "true" 
+            prm_dict["Solver parameters"]["Stokes solver parameters"]["Skip expensive stokes solver"] = "true"
+
+# todo_ct
+class ContinentRule(Rule): 
+
+    requires = ["add_continents"]
+
+    defaults = {"add_continents": "none"}
+
+    requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\""} 
+    
+    provides = []
+
+    def apply(self, config, prm_dict, wb_dict, context):
+        pass

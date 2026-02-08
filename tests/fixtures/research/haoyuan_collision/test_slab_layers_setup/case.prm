@@ -251,7 +251,7 @@ end
 subsection Postprocess
     set List of postprocessors = visualization, composition statistics, velocity statistics, particles, material statistics, depth average
     subsection Visualization
-        set List of output variables = material properties, strain rate, named additional outputs, stress second invariant, depth, heat flux map
+        set List of output variables = material properties, strain rate, named additional outputs, stress second invariant, depth, heat flux map, nonadiabatic pressure, principal stress
         set Output format = vtu
         set Time between graphical output = 100e3
         set Interpolate output = true
