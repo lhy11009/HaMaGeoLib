@@ -5,6 +5,7 @@ from gdmate.aspect.config_engine import Rule, RuleConflictError
 from gdmate.aspect.table import DepthAverageTable
 from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
     parse_isosurfaces_entry, format_isosurfaces_entry
+from gdmate.aspect.prm_wb_utils import delete_composition_from_prm, duplicate_composition_from_prm, remove_composition_from_prm_recursive # todo_ct
 
 # root of the package
 package_root = Path(__file__).resolve().parents[3]
@@ -40,6 +41,14 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "prescribe_subducting_plate_velocity" in use_keys:
         if variables["prescribe_subducting_plate_velocity"]:
             case_name += "_PC%.1e" % variables["convergence_rate"]
+    
+    # todo_ct
+    # Continent
+    if use_all or "add_continents" in use_keys:
+        if variables["add_continents"] == "overriding":
+            case_name += "_CTover"
+        if variables["add_continents"] == "both":
+            case_name += "_CTboth"
 
     return case_name
 
@@ -98,41 +107,13 @@ class RemovePeridotiteRule(Rule):
         context["removed_peridotite_compositional_indexes"] = []
 
         if remove_peridotite:
-            # Directly manage entries in Compositional fields
-            # For this, first figure out the indexes of the fields to remove
-            # Then remove this from related fields
-            names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
-            compositional_field_methods = parse_entry_as_list(prm_dict["Compositional fields"]["Compositional field methods"])
-            relevant_compositions_in_worldbuilder = parse_entry_as_list(prm_dict["Initial composition model"]["World builder"]["List of relevant compositions"])
-            remove_idxs = []
-            composition = "peridotite"
-            remove_idx = names_of_fields.index(composition)
-            remove_idxs.append(remove_idx)
-            for remove_idx in sorted(remove_idxs, reverse=True):
-                # Second, remove them in reverse order
-                names_of_fields.pop(remove_idx)
-                compositional_field_methods.pop(remove_idx)
-                relevant_compositions_in_worldbuilder.pop(remove_idx)
-            number_of_compositional_fields = len(names_of_fields)
-
-            prm_dict["Compositional fields"]["Number of fields"] = str(number_of_compositional_fields)
-            prm_dict["Compositional fields"]["Names of fields"] = format_list_as_entry(names_of_fields)
-            prm_dict["Compositional fields"]["Compositional field methods"] = format_list_as_entry(compositional_field_methods)
-            prm_dict["Initial composition model"]["World builder"]["List of relevant compositions"] = format_list_as_entry(relevant_compositions_in_worldbuilder)
-
-            # Record the removed indexes
-            context["removed_peridotite_compositional_indices"] = sorted(remove_idxs)
-
-            # Reset the related entry in mesh refinement
-            compositional_field_thresholds = parse_entry_as_list(prm_dict["Mesh refinement"]["Composition threshold"]["Compositional field thresholds"])
-            for remove_idx in sorted(remove_idxs, reverse=True):
-                compositional_field_thresholds.pop(remove_idx)
-            prm_dict["Mesh refinement"]["Composition threshold"]["Compositional field thresholds"] = format_list_as_entry(compositional_field_thresholds)
+            # todo_ct
+            # Remove the composition and record the removed indexes
+            remove_idx = delete_composition_from_prm(prm_dict, "peridotite")
+            context["removed_peridotite_compositional_indices"] = sorted([remove_idx])
 
             # Recursively manage other entries related to compositions
-            # self.remove_fluid_from_prm_recursive(prm_dict, remove_fluid_compositions=remove_fluid_compositions)
-            # self.remove_fluid_from_wb_recursive(wb_dict, context)
-            remove_composition_from_prm_recursive(prm_dict, remove_compositions=[composition])
+            # remove_composition_from_prm_recursive(prm_dict, remove_compositions=["peridotite"])
             remove_composition_from_wb_recursive(wb_dict, context["removed_peridotite_compositional_indices"])
 
             # the peridotite mantle section is also removed
@@ -337,32 +318,7 @@ def remove_composition_from_wb_recursive(wb_dict, removed_indices):
                 composition_models.pop(i)
 
 
-def remove_composition_from_prm_recursive(prm_dict, *, remove_compositions=[]):
-    """
-    Remove entries of composition from the prm file
-    prm_dict : dict
-        Deal.II/ASPECT-style nested parameter dictionary to be modified
-        in-place by the rule.
-    remove_compositions: list
-        names of compositions to remove from prm file
-    """
-    for key, value in prm_dict.items():
-        if isinstance(value, dict):
-            # call function recursively in case value is dict
-            remove_composition_from_prm_recursive(value, remove_compositions=remove_compositions)
-        else:
-            my_assert(isinstance(value, str), TypeError, "value must be dict or str, get %s" % str(value))
-            try:
-                # look for entries with composition options
-                comp_dict = parse_composition_entry(value)
-            except ValueError:
-                pass
-            else:
-                # delete certain compositions from them and parsed back
-                for composition in remove_compositions:
-                    if composition in comp_dict:
-                        comp_dict.pop(composition)
-                prm_dict[key] = format_composition_entry(comp_dict)
+
     
 
 def expand_phase_in_composition_from_prm_recursive(prm_dict:dict, composition:str, from_index:int, to_index:int, *, force_expand_entries=[], force_expand_length=2):
@@ -1139,4 +1095,10 @@ class ContinentRule(Rule):
     provides = []
 
     def apply(self, config, prm_dict, wb_dict, context):
-        pass
+
+        # handle the overriding plate
+        if config["add_continents"] == "both" or config["add_continents"] == "overriding":
+            pass
+            name_upper = "crust_upper"
+            name_lower = "crust_lower"
+            duplicate_composition_from_prm(prm_dict, "gabbro", name_upper)
