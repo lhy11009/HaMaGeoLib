@@ -255,7 +255,32 @@ class GPLATE_PROCESS():
         csv_obj.to_csv(file_path, index=False)
         print("Saved file %s" % file_path)
 
-    # todo_plot
+
+    # todo_gplate
+    def region_from_resampled_data(self, subducting_pid):
+        """
+        Extract a geographic region corresponding to a specific subducting plate ID.
+
+        This function filters the resampled subduction dataset to select entries
+        associated with the given subducting plate ID and then determines a cropped
+        region based on those data points.
+
+        Parameters:
+            subducting_pid (int): Identifier of the subducting plate to extract.
+
+        Returns:
+            object: Cropped region object generated from the filtered data.
+        """
+
+        one_subduction_data = self.subduction_data_resampled[
+            self.subduction_data_resampled.subducting_pid == subducting_pid
+        ]
+
+        region = crop_region_by_data(one_subduction_data, 15.0)
+
+        return region
+
+
     def save_results_global_paper(self, **kwargs):
         """
         Generate and save a global plate-tectonic figure for publication.
@@ -267,6 +292,8 @@ class GPLATE_PROCESS():
                 Plotting scheme controlling whether a plate-age raster is shown.
                 - "no_age_raster": only plates, trenches, and teeth
                 - otherwise: includes plate age raster
+            region : list or str
+                Assigning the region to plot
         """
 
         import matplotlib.ticker as mticker
@@ -274,20 +301,24 @@ class GPLATE_PROCESS():
         # Shortcut to the gplately-based plotting helper
         gPlotter = self.gPlotter
 
-        # scheme
+        # Additional variables
         scheme = kwargs.get("scheme", "no_age_raster")
-
-        # projection type
+        region = kwargs.get("region", "default")
         projection_type = kwargs.get("projection_type", "plate_carree")
 
+        # Set global plotting region (uses gPlotter internal defaults)
+        
+        gPlotter.set_region(region)
+
         if projection_type  == "plate_carree":
-            projection = ccrs.PlateCarree(
-                    central_longitude=gPlotter.get_central_longitude()
-                )
+            # todo_plate
+            projection = ccrs.PlateCarree()
+                    # central_longitude=gPlotter.get_central_longitude()
+                # )
         elif projection_type  == "robinson":
-            projection = ccrs.Robinson(
-                    central_longitude=gPlotter.get_central_longitude()
-                )
+            projection = ccrs.Robinson()
+                    # central_longitude=gPlotter.get_central_longitude()
+                # )
         else:
             raise NotImplementedError("The option %s is not currently an option for projection type." % projection_type)
 
@@ -298,21 +329,13 @@ class GPLATE_PROCESS():
             tight_layout=True
         )
             
-        # Set global plotting region (uses gPlotter internal defaults)
-        gPlotter.set_region("default")
-
-        # Create Cartopy axis with PlateCarree projection
-        # Central longitude is controlled by gPlotter for consistent wrapping
         ax = fig.add_subplot(
             projection=projection
         )
 
-        # ------------------------------------------------------------------
         # Gridlines: geographic reference (visual background element)
-        # ------------------------------------------------------------------
 
-        # Interval (degrees) between gridlines
-        grid_line_interval = 30
+        grid_line_interval = 30  # Interval (degrees) between gridlines
 
         gl = ax.gridlines(
             color='0.7',                 # neutral gray
@@ -340,19 +363,9 @@ class GPLATE_PROCESS():
             'color': '0.3',
         }
 
-        # gl.zorder = 0           # Ensure gridlines stay in the background
+        ax.set_facecolor("#E6F2FB")  # Light blue ocean background, matching reference tectonic maps
 
-        # ------------------------------------------------------------------
-        # Ocean background
-        # ------------------------------------------------------------------
-
-        # Light blue ocean background, matching reference tectonic maps
-        ax.set_facecolor("#E6F2FB")
-
-        # ------------------------------------------------------------------
         # Plate age raster (optional)
-        # ------------------------------------------------------------------
-
         if scheme == "no_age_raster":
             # No background raster; keep plates fully opaque
             pass
@@ -377,10 +390,7 @@ class GPLATE_PROCESS():
                 rotation=90
             )
 
-        # ------------------------------------------------------------------
         # Continents / plates
-        # ------------------------------------------------------------------
-
         # Adjust continent appearance depending on whether age raster is present
         if scheme == "no_age_raster":
             # White plates on blue ocean (reference-style map)
@@ -402,11 +412,9 @@ class GPLATE_PROCESS():
             zorder=1
         )
 
-        # ------------------------------------------------------------------
         # Subduction features (primary tectonic signals)
-        # ------------------------------------------------------------------
-
         # Plot subduction teeth (directional indicator)
+        # Plot trench lines beneath teeth
         gPlotter.gplot.plot_subduction_teeth(
             ax,
             facecolor="black",
@@ -414,13 +422,14 @@ class GPLATE_PROCESS():
             zorder=4
         )
 
-        # Plot trench lines beneath teeth
         gPlotter.gplot.plot_trenches(
             ax,
             color="black",
             linewidth=2,
             zorder=3
         )
+
+        return ax, gPlotter
 
 
 
@@ -721,7 +730,12 @@ class GPLATE_PROCESS():
 
         return color_dict
 
-    def plot_age_combined(self, resample_dataset, plot_options=None):
+
+    def plot_age_combined(self, resample_dataset, plot_options=None, *,\
+                          plot_individual=False,\
+                           plot_pid=None,\
+                         plot_index=False,\
+                          age_limit=(0.0, 200.0)):
         # Summary:
         # Generate and save age-vs-metrics figures for either the original or resampled subduction dataset.
         # For each selected subducting plate ID, saves an individual figure, and also saves an aggregate figure.
@@ -730,6 +744,8 @@ class GPLATE_PROCESS():
         #   write to a directory labeled with resampling parameters; otherwise, use the original table.
         # - plot_options: Optional[List[Tuple[int, Dict[str, Any]]]] — per-subducting_pid plot settings.
         #   If None, a default configuration is constructed assigning marker shapes and colors.
+        # Key words:
+        # - plot_individual - plot each of the individual trench
         # Returns:
         # - None (saves .png and .pdf figures into a time- or parameter-stamped directory).
         # Preconditions:
@@ -754,32 +770,47 @@ class GPLATE_PROCESS():
         os.mkdir(local_img_dir)
 
         if plot_options is None:
-            markers = ["o", '*', "d", "x", "v", "s"]
+            markers = ["o", "d", "^", "x", "v", "s"]
             n_color = 10
             plot_options = []
             subducting_pids = s_data.subducting_pid.unique()
-            for i, subducting_pid in enumerate(subducting_pids):
+            for i, subducting_pid in enumerate(sorted(subducting_pids)):
                 plot_options.append((int(subducting_pid), {"marker": markers[i//n_color],  "markerfacecolor": default_colors[i%10], "name": str(int(subducting_pid))}))
 
-        for sub_plot_options in plot_options:
-            print("sub_plot_options: ", sub_plot_options)
-            _name = sub_plot_options[1]["name"]
-            fig, axes = plot_age_combined(s_data, [sub_plot_options], plot_index=True)
-            file_path = os.path.join(local_img_dir, "age_combined_%s" % _name)
-            fig.savefig(file_path + ".png")
-            print("Saved figure %s" % (file_path + ".png"))
-            fig.savefig(file_path + ".pdf")
-            print("Saved figure %s" % (file_path + ".pdf"))
-            
+        if plot_individual:
+            for sub_plot_options in plot_options:
+                print("sub_plot_options: ", sub_plot_options)
+                _name = sub_plot_options[1]["name"]
+                fig, axes = plot_age_combined(s_data, [sub_plot_options], plot_index=plot_index, age_limit=age_limit)
+                file_path = os.path.join(local_img_dir, "age_combined_%s" % _name)
+                fig.savefig(file_path + ".png")
+                print("Saved figure %s" % (file_path + ".png"))
+                fig.savefig(file_path + ".pdf")
+                print("Saved figure %s" % (file_path + ".pdf"))
         
-        fig, _ = plot_age_combined(s_data, plot_options)
+        if plot_pid is not None:
+            my_assert(isinstance(plot_pid, int), ValueError, "plot_pid must be an integar.")
+            for sub_plot_options in plot_options:
+                subducting_pid = sub_plot_options[0]
+                if plot_pid == subducting_pid:
+                    print("sub_plot_options: ", sub_plot_options)
+                    _name = sub_plot_options[1]["name"]
+                    fig, axes = plot_age_combined(s_data, [sub_plot_options], plot_index=plot_index, age_limit=age_limit)
+                    file_path = os.path.join(local_img_dir, "age_combined_%s" % _name)
+                    fig.savefig(file_path + ".png")
+                    print("Saved figure %s" % (file_path + ".png"))
+                    fig.savefig(file_path + ".pdf")
+                    print("Saved figure %s" % (file_path + ".pdf"))
+                    break
+
+        fig, _ = plot_age_combined(s_data, plot_options=plot_options, plot_index=False)
         file_path = os.path.join(local_img_dir, "age_combined")
         fig.savefig(file_path + ".png")
         print("Saved figure %s" % (file_path + ".png"))
         fig.savefig(file_path + ".pdf")
         print("Saved figure %s" % (file_path + ".pdf"))
 
-
+        return s_data
 
 
 def mask_by_pids(subduction_data, subducting_pid_p, trench_pid_p=None):
@@ -1406,6 +1437,7 @@ def MaskBySubductionTrenchIds(subduction_data, subducting_pid, trench_pid, i_p):
     return (mask1 & mask2)
 
 
+# todo_gplate
 def crop_region_by_data(s_data, interval):
     """
     Determine the bounding region of a dataset (longitude–latitude) with optional longitude wrapping.
@@ -1598,6 +1630,7 @@ def plot_age_combined(s_data, plot_options, **kwargs):
 
     plot_index = kwargs.get("plot_index", False)
     plot_index_stepping = kwargs.get("plot_index_stepping", 1)
+    age_lim = kwargs.get("age_lim", (0.0, 200.0))
 
     # Example usage
     # Rule of thumbs:
@@ -1607,7 +1640,6 @@ def plot_age_combined(s_data, plot_options, **kwargs):
     font_scaling_multiplier = 2.0 # extra scaling multiplier for font
     legend_font_scaling_multiplier = 0.75
     line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
-    age_lim = (0.0, 200.0)
     Vtr_lim = (-12.0, 12.0)
     age_tick_interval = 50.0   # tick interval along x
     Vtr_tick_interval = 5.0  # tick interval along y
@@ -1641,12 +1673,14 @@ def plot_age_combined(s_data, plot_options, **kwargs):
             my_assert("marker" in plot_option, ValueError, "marker is missing in plot option (pids = " + str(sp_option) + " )")
             my_assert("markerfacecolor" in plot_option, ValueError, "markerfacecolor is missing in plot option (pids = " + str(sp_option) + " )")
 
-            _patch = ax0.plot(one_subduction_data.age, one_subduction_data.trench_velocity,\
+
+            mask_age = (one_subduction_data.age >= age_lim[0]) & (one_subduction_data.age <= age_lim[1])
+            _patch = ax0.plot(one_subduction_data.age[mask_age], one_subduction_data.trench_velocity[mask_age],\
                 marker=plot_option["marker"], markerfacecolor=plot_option["markerfacecolor"],\
                 markeredgecolor='black', markersize=10, linestyle='', label=plot_option["name"])[0]
             
             if plot_index:
-                for i, (x, y) in enumerate(zip(one_subduction_data.age, one_subduction_data.trench_velocity)):
+                for i, (x, y) in enumerate(zip(one_subduction_data.age[mask_age], one_subduction_data.trench_velocity[mask_age])):
                     if i % plot_index_stepping == 0:
                         ax0.text(x, y + 0.5, str(i), fontsize=8*scaling_factor*font_scaling_multiplier, color="black")
             
