@@ -11,6 +11,7 @@ from importlib import resources
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageFont, ImageDraw
 from copy import deepcopy
+from pyproj import Geod
 
 current_dir = os.path.dirname(__file__)
 JSON_FILE_DIR = os.path.join(current_dir, "..", "files")
@@ -1555,6 +1556,26 @@ def map_mid_point(lon1, lat1, lon2, lat2, frac):
     lat_mid_deg = math.degrees(lat_mid)
     
     return lon_mid_deg, lat_mid_deg
+
+# todo_gplate
+def geographic_distance(lon1, lat1, lon2, lat2):
+    """
+    Compute geodesic distance between two geographic points.
+
+    Parameters:
+        lon1 (float): Longitude of first point.
+        lat1 (float): Latitude of first point.
+        lon2 (float): Longitude of second point.
+        lat2 (float): Latitude of second point.
+
+    Returns:
+        float: Distance in meters.
+    """
+
+    g = Geod(ellps="WGS84")
+    _, _, d = g.inv(lon1, lat1, lon2, lat2)
+
+    return d
 
 
 def map_point_by_distance(lon0, lat0, theta, d, **kwargs):

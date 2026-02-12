@@ -1,11 +1,13 @@
 import numpy as np
 from pathlib import Path
+from copy import deepcopy
 from ...utils.exception_handler import my_assert
 from gdmate.aspect.config_engine import Rule, RuleConflictError
 from gdmate.aspect.table import DepthAverageTable
 from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
     parse_isosurfaces_entry, format_isosurfaces_entry
-from gdmate.aspect.prm_wb_utils import delete_composition_from_prm, duplicate_composition_from_prm, remove_composition_from_prm_recursive # todo_ct
+from gdmate.aspect.prm_wb_utils import delete_composition_from_prm, duplicate_composition_from_prm, remove_composition_from_prm_recursive,\
+    find_WB_feature_by_name
 
 # root of the package
 package_root = Path(__file__).resolve().parents[3]
@@ -42,7 +44,6 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if variables["prescribe_subducting_plate_velocity"]:
             case_name += "_PC%.1e" % variables["convergence_rate"]
     
-    # todo_ct
     # Continent
     if use_all or "add_continents" in use_keys:
         if variables["add_continents"] == "overriding":
@@ -107,13 +108,11 @@ class RemovePeridotiteRule(Rule):
         context["removed_peridotite_compositional_indexes"] = []
 
         if remove_peridotite:
-            # todo_ct
             # Remove the composition and record the removed indexes
             remove_idx = delete_composition_from_prm(prm_dict, "peridotite")
             context["removed_peridotite_compositional_indices"] = sorted([remove_idx])
 
             # Recursively manage other entries related to compositions
-            # remove_composition_from_prm_recursive(prm_dict, remove_compositions=["peridotite"])
             remove_composition_from_wb_recursive(wb_dict, context["removed_peridotite_compositional_indices"])
 
             # the peridotite mantle section is also removed
@@ -641,6 +640,10 @@ class SlabRule(Rule):
     Provided configuration parameters:
     - spreading_velocity (float)
       The speed of ridge spreading rate (half spreading rate geologically)
+    - plate_start_point:
+      Position of the ridge tied to the start of the subduction plate
+    - slab_hinge_point:
+      Position of the trench
     """
     
     requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point", "slab_hinge_point", "slab_age"]
@@ -649,9 +652,11 @@ class SlabRule(Rule):
                 "plate_start_point": 1000e3, "slab_hinge_point": 5000e3, "slab_age": 100e6}
     
     requires_comments = {"slab_layer_compositions": "Include these compositions for the slab",
-                         "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1"}
-    
-    provides = ["spreading_velocity", "slab_hinge_point"]
+                         "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1",
+                         "plate_start_point": "Position of the ridge tied to the start of the subduction plate",
+                         "slab_hinge_point": "Position of the trench"}
+    # todo_ct 
+    provides = ["spreading_velocity", "slab_hinge_point", "plate_start_point"]
     
     def apply(self, config, prm_dict, wb_dict, context):
         """
@@ -746,6 +751,7 @@ class SlabRule(Rule):
         # put the related parameters into context for later rules 
         context["spreading_velocity"] = spreading_velocity
         context["slab_hinge_point"] = slab_hinge_point
+        context["plate_start_point"] = plate_start_point
 
 # todo_slab
 class PrescribConditionRule(Rule):
@@ -1083,14 +1089,15 @@ class SolverRule(Rule):
         if skip_expensive_stokes:
             prm_dict["Solver parameters"]["Stokes solver parameters"]["Skip expensive stokes solver"] = "true"
 
-# todo_ct
 class ContinentRule(Rule): 
 
-    requires = ["add_continents"]
+    requires = ["add_continents", "continent_depth_levels", "subducting_continent_length"]
 
-    defaults = {"add_continents": "none"}
+    defaults = {"add_continents": "none", "continent_depth_levels": [20e3, 40e3], "subducting_continent_length": -1}
 
-    requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\""} 
+    requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\"",
+                         "continent_depth_levels": "Depth levels of the boundary between compositions (e.g. between upper and lower crust, lower crust and mantle)",
+                         "subducting_continent_length": "Length of the continent at the end of the subducting plate."} 
     
     provides = []
 
@@ -1101,4 +1108,92 @@ class ContinentRule(Rule):
             pass
             name_upper = "crust_upper"
             name_lower = "crust_lower"
+            N_continent = 2
+
+            continent_depth_levels = config["continent_depth_levels"]
+            assert(len(continent_depth_levels) == N_continent)
+
+            # First duplate the comositions
             duplicate_composition_from_prm(prm_dict, "gabbro", name_upper)
+            duplicate_composition_from_prm(prm_dict, "gabbro", name_lower)
+
+            # Then remove the overriding composition
+            remove_idx = delete_composition_from_prm(prm_dict, "overriding")
+
+            N_fields = int(prm_dict["Compositional fields"]["Number of fields"])
+
+            idx_upper = N_fields - 2
+            idx_lower = N_fields - 1
+
+            # Last modify the WB file
+            idx_feature, feature = find_WB_feature_by_name(wb_dict, "Overriding Plate")
+            assert(idx_feature is not None)
+
+            feature["composition models"] = [
+                {
+                    "model": "uniform",
+                    "compositions": [
+                        idx_upper
+                    ],
+                    "min depth": 0,
+                    "max depth": continent_depth_levels[0]
+                },
+                {
+                    "model": "uniform",
+                    "compositions": [
+                        idx_lower
+                    ],
+                    "min depth": continent_depth_levels[0],
+                    "max depth": continent_depth_levels[1]
+                },
+            ]
+
+        # handle the subducting plate
+        if config["add_continents"] == "both":
+            # todo_ct
+            # get the length of the continent and make sure it works
+            subducting_continent_length = config["subducting_continent_length"]
+            subducting_plate_length = context["slab_hinge_point"] - context["plate_start_point"]
+            if subducting_continent_length < 0:
+                raise ValueError("Option set to create both continents, but trivial value is assigned to subducting_continent_length")
+            if subducting_continent_length > subducting_plate_length:
+                raise ValueError("Assigned length of the continent ({subducting_continent_length}) cannot be longer than the assigned length of the plate ({subducting_plate_length})")
+            
+            continent_end_point = context["plate_start_point"] + subducting_continent_length # endpoint of the subducting continent
+
+            # add a new feature
+            # the start point is the old start point of the plate,
+            # and the end point is calculated by adding the length of the continent
+            idx_feature, feature = find_WB_feature_by_name(wb_dict, "Overriding Plate")
+            new_feature = deepcopy(feature)
+
+            new_feature["name"] = "Subducting Continent"
+            new_feature["coordinates"] = [
+                [
+                    "%.1f" % context["plate_start_point"],
+                    -100000.0
+                ],
+                [
+                    "%.1f" % context["plate_start_point"],
+                    100000.0
+                ],
+                [
+                    "%.1f" % continent_end_point,
+                    100000.0
+                ],
+                [
+                    "%.1f" % continent_end_point,
+                    -100000.0
+                ]
+            ]
+
+            wb_dict["features"].insert(idx_feature+1, new_feature)
+
+            # modify the subducting plate
+            # now the start point should be the end point of the continent
+            idx_feature, feature = find_WB_feature_by_name(wb_dict, "Subducting Plate")
+
+            feature["coordinates"][2][0] = "%.1f" % continent_end_point
+            feature["coordinates"][3][0] = "%.1f" % continent_end_point
+
+            

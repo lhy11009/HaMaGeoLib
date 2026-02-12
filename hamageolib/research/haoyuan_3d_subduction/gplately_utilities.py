@@ -14,6 +14,7 @@ from shutil import rmtree
 from hamageolib.research.haoyuan_2d_subduction.legacy_utilities import map_mid_point, remove_substrings
 from hamageolib.utils.exception_handler import my_assert
 from plate_model_manager import PlateModelManager
+from pyproj import Geod
 
 # Retrieve the default color cycle
 default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
@@ -256,7 +257,6 @@ class GPLATE_PROCESS():
         print("Saved file %s" % file_path)
 
 
-    # todo_gplate
     def region_from_resampled_data(self, subducting_pid):
         """
         Extract a geographic region corresponding to a specific subducting plate ID.
@@ -1437,7 +1437,6 @@ def MaskBySubductionTrenchIds(subduction_data, subducting_pid, trench_pid, i_p):
     return (mask1 & mask2)
 
 
-# todo_gplate
 def crop_region_by_data(s_data, interval):
     """
     Determine the bounding region of a dataset (longitude–latitude) with optional longitude wrapping.
@@ -1713,3 +1712,150 @@ def plot_age_combined(s_data, plot_options, **kwargs):
     return fig, [ax0, ax1]
     # Reset rcParams to defaults
     rcdefaults()
+
+
+# todo_gplate
+
+def find_nearest_indices_loop(sdata, threshold_meters=400e3):
+    """
+    For each point in the dataset, find the nearest neighboring point using
+    a simple loop-based search.
+
+    Distances are computed geodesically using the WGS84 ellipsoid. If the
+    nearest neighbor is farther than the specified threshold, None is returned
+    for that point.
+
+    Parameters:
+        sdata (pandas.DataFrame): DataFrame containing 'lon' and 'lat' columns.
+        threshold_meters (float): Maximum allowed distance in meters.
+
+    Returns:
+        list[int or None]: List of nearest neighbor indices or None if no
+        neighbor is within the threshold distance.
+    """
+
+    g = Geod(ellps="WGS84")
+
+    n = len(sdata)
+    nearest_indices = []
+
+    for i in range(n):
+        lon1 = sdata.lon.iloc[i]
+        lat1 = sdata.lat.iloc[i]
+
+        min_dist = None
+        min_index = None
+
+        for j in range(n):
+            if i == j:
+                continue
+
+            lon2 = sdata.lon.iloc[j]
+            lat2 = sdata.lat.iloc[j]
+
+            _, _, dist = g.inv(lon1, lat1, lon2, lat2)
+
+            if min_dist is None or dist < min_dist:
+                min_dist = dist
+                min_index = j
+
+        if min_dist is not None and min_dist <= threshold_meters:
+            nearest_indices.append(min_index)
+        else:
+            nearest_indices.append(None)
+
+    return nearest_indices
+
+
+def compute_perpendicular_sections(sdata, nearest_indices, section_length):
+    """
+    Construct perpendicular line sections at each point based on nearest neighbor direction.
+
+    For each point with a valid nearest neighbor, this function computes a line segment
+    perpendicular to the direction connecting the point to its nearest neighbor. The
+    segment is centered on the point itself.
+
+    Parameters:
+        sdata (pandas.DataFrame): DataFrame containing 'lon' and 'lat' columns.
+        nearest_indices (list[int or None]): List of nearest neighbor indices.
+        section_length (float): Total length of the perpendicular section in same
+                                units as coordinates (degrees or projected units).
+
+    Returns:
+        list[tuple[tuple[float, float], tuple[float, float]] or None]:
+            List containing start and end coordinates of the perpendicular section
+            for each point, or None if no valid nearest neighbor exists.
+    """
+
+    half = section_length / 2.0
+
+    sections = []
+
+    for i, j in enumerate(nearest_indices):
+
+        if j is None:
+            sections.append(None)
+            continue
+
+        lon_i = sdata.lon.iloc[i]
+        lat_i = sdata.lat.iloc[i]
+
+        lon_j = sdata.lon.iloc[j]
+        lat_j = sdata.lat.iloc[j]
+
+        dx = lon_j - lon_i
+        dy = lat_j - lat_i
+
+        length = np.hypot(dx, dy)
+
+        if length == 0:
+            sections.append(None)
+            continue
+
+        pdx = -dy / length
+        pdy = dx / length
+
+        start = (lon_i - half * pdx, lat_i - half * pdy)
+        end   = (lon_i + half * pdx, lat_i + half * pdy)
+
+        sections.append((start, end))
+
+    return sections
+
+
+def nearest_point_to_location(sdata, indices, lon0, lat0):
+    """
+    Find the nearest point within a subset of sdata to a given reference location.
+
+    This function computes geodesic distances from a specified point to each
+    point in a subset of the DataFrame and returns the index of the closest
+    point along with the corresponding distance.
+
+    Parameters:
+        sdata (pandas.DataFrame): DataFrame containing 'lon' and 'lat' columns.
+        indices (list[int]): List of positional indices defining the subset.
+        lon0 (float): Longitude of the reference point.
+        lat0 (float): Latitude of the reference point.
+
+    Returns:
+        tuple[int or None, float or None]:
+            Index of the nearest point in the original DataFrame and the
+            distance in meters. Returns (None, None) if the index list is empty.
+    """
+
+    g = Geod(ellps="WGS84")
+
+    min_dist = None
+    min_index = None
+
+    for i in indices:
+        lon = sdata.lon.iloc[i]
+        lat = sdata.lat.iloc[i]
+
+        _, _, dist = g.inv(lon0, lat0, lon, lat)
+
+        if min_dist is None or dist < min_dist:
+            min_dist = dist
+            min_index = i
+
+    return min_index, min_dist
