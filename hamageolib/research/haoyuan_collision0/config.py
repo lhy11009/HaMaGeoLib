@@ -5,7 +5,7 @@ from ...utils.exception_handler import my_assert
 from gdmate.aspect.config_engine import Rule, RuleConflictError
 from gdmate.aspect.table import DepthAverageTable
 from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
-    parse_isosurfaces_entry, format_isosurfaces_entry
+    parse_isosurfaces_entry, format_isosurfaces_entry, parse_parameters_to_dict
 from gdmate.aspect.prm_wb_utils import delete_composition_from_prm, duplicate_composition_from_prm, remove_composition_from_prm_recursive,\
     find_WB_feature_by_name
 
@@ -1170,19 +1170,19 @@ class ContinentRule(Rule):
             new_feature["name"] = "Subducting Continent"
             new_feature["coordinates"] = [
                 [
-                    "%.1f" % context["plate_start_point"],
+                    context["plate_start_point"],
                     -100000.0
                 ],
                 [
-                    "%.1f" % context["plate_start_point"],
+                    context["plate_start_point"],
                     100000.0
                 ],
                 [
-                    "%.1f" % continent_end_point,
+                    continent_end_point,
                     100000.0
                 ],
                 [
-                    "%.1f" % continent_end_point,
+                    continent_end_point,
                     -100000.0
                 ]
             ]
@@ -1193,7 +1193,140 @@ class ContinentRule(Rule):
             # now the start point should be the end point of the continent
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Subducting Plate")
 
-            feature["coordinates"][2][0] = "%.1f" % continent_end_point
-            feature["coordinates"][3][0] = "%.1f" % continent_end_point
+            feature["coordinates"][2][0] = continent_end_point
+            feature["coordinates"][3][0] = continent_end_point
+    
+        # Handle material properties: rheology and density
+        if config["add_continents"] == "both" or config["add_continents"] == "overriding":
 
+            # Parse in the continental_extension parameter file
+            prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/continental_extensiion/continental_extension.prm"
+            dislocation_aspect, friction_angle, cohesion  = parse_contiental_extension_rheology(prm_path)
+            density_aspect = parse_contiental_extension_density(prm_path)
+
+            # Read the rheologic and density variables
+            density_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Densities"])
+            disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
+            diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
+
+            try:
+                # This structure is needed because this variable is given a single value in the original prm file
+                disl_n_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"])
+            except ValueError:
+                disl_n_dict = deepcopy(disl_A_dict)
+                for key, value in disl_n_dict.items():
+                    disl_n_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"]) for i in range(len(value))]
+
+            try:
+                disl_E_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"])
+            except ValueError:
+                disl_E_dict = deepcopy(disl_A_dict)
+                for key, value in disl_E_dict.items():
+                    disl_E_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"]) for i in range(len(value))]
+
+            try:
+                disl_V_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"])
+            except ValueError:
+                disl_V_dict = deepcopy(disl_A_dict)
+                for key, value in disl_V_dict.items():
+                    disl_V_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"]) for i in range(len(value))]
+
+            try:
+                angle_friction_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"])
+            except ValueError:
+                angle_friction_dict = deepcopy(disl_A_dict)
+                for key, value in angle_friction_dict.items():
+                    angle_friction_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"]) for i in range(len(value))]
             
+            try:
+                cohesion_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Cohesions"])
+            except ValueError:
+                cohesion_dict = deepcopy(disl_A_dict)
+                for key, value in cohesion_dict.items():
+                    cohesion_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Cohesions"]) for i in range(len(value))]
+
+            # assign to continent compositions
+            density_dict["crust_upper"] = float(density_aspect["crust_upper"])
+            disl_A_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['A'])
+            disl_n_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['n'])
+            disl_E_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['E'])
+            disl_V_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['V'])
+            angle_friction_dict["crust_upper"][0] = friction_angle
+            cohesion_dict["crust_upper"][0] = cohesion
+            diff_A_dict["crust_upper"][0] = 1e-50  # set this to turn off diffusion creep
+            
+            density_dict["crust_lower"] = float(density_aspect["crust_lower"])
+            disl_A_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['A'])
+            disl_n_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['n'])
+            disl_E_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['E'])
+            disl_V_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['V'])
+            angle_friction_dict["crust_lower"][0] = friction_angle
+            cohesion_dict["crust_lower"][0] = cohesion
+            diff_A_dict["crust_lower"][0] = 1e-50  # set this to turn off diffusion creep
+
+            prm_dict["Material model"]["Visco Plastic"]["Densities"] = format_composition_entry(density_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"] = format_composition_entry(disl_A_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"] = format_composition_entry(disl_n_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"] = format_composition_entry(disl_E_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"] = format_composition_entry(disl_V_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"] = format_composition_entry(angle_friction_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Cohesions"] = format_composition_entry(cohesion_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"] = format_composition_entry(diff_A_dict)
+
+# todo_ct
+def parse_contiental_extension_density(prm_path):
+    
+    # Read the prm file from the original continental extension cookbook
+    # Run parser
+    assert prm_path.exists(), f"Test file not found: {prm_path}"
+
+    with open(prm_path, "r") as fin:
+        params_dict = parse_parameters_to_dict(fin)
+
+    density_dict = parse_composition_entry(params_dict["Material model"]["Visco Plastic"]["Densities"])
+
+    return density_dict
+
+
+def parse_contiental_extension_rheology(prm_path):
+    
+    # Read the prm file from the original continental extension cookbook
+    # Run parser
+    assert prm_path.exists(), f"Test file not found: {prm_path}"
+
+    with open(prm_path, "r") as fin:
+        params_dict = parse_parameters_to_dict(fin)
+
+    # Parse the compositions
+    compositional_field_names = parse_entry_as_list(params_dict["Compositional fields"]["Names of fields"])
+    compositional_field_types = parse_entry_as_list(params_dict["Compositional fields"]["Types of fields"])
+
+    chemical_composition_list = []
+    for i, type in enumerate(compositional_field_types):
+        if type == "chemical composition":
+            chemical_composition_list.append(compositional_field_names[i])
+
+    # Parse the rheological parameters
+    material_dict = params_dict["Material model"]["Visco Plastic"]
+
+    disl_A_dict = parse_composition_entry(material_dict["Prefactors for dislocation creep"])
+    disl_n_dict = parse_composition_entry(material_dict["Stress exponents for dislocation creep"])
+    disl_E_dict = parse_composition_entry(material_dict["Activation energies for dislocation creep"])
+    disl_V_dict = parse_composition_entry(material_dict["Activation volumes for dislocation creep"])
+
+    dislocation_aspect = {}
+    for composition in chemical_composition_list:
+        dislocation_aspect_comp = {
+            'A': float(disl_A_dict[composition]), 
+            'd': float(material_dict.get("Grain size", 1e-3)), 
+            'n': float(disl_n_dict[composition]), 
+            'm': 0.0, 
+            'E': float(disl_E_dict[composition]), 
+            'V': float(disl_V_dict[composition])
+        }
+        dislocation_aspect[composition] = dislocation_aspect_comp
+    
+    friction_angle = float(material_dict["Angles of internal friction"])
+    cohesion = float(material_dict["Cohesions"])
+
+    return dislocation_aspect, friction_angle, cohesion 

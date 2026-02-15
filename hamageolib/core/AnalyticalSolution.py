@@ -652,3 +652,92 @@ def plate_thickness_from_age(age):
         raise TypeError("depth must be a float or numpy.ndarray")
     
     return plate_thickness
+
+
+class ContinentalGeotherm:
+    """
+    Continental geotherm model based on Chapman (1986).
+
+    Three-layer crust + mantle conductive geotherm with internal heat production.
+
+    Parameters (default values from ASPECT prm):
+        h   : total lithosphere thickness (m)
+        z1  : upper crust thickness (m)
+        z2  : lower crust thickness (m)
+        ts1 : surface temperature upper crust (K)
+        ts2 : temperature at top of lower crust (K)
+        ts3 : temperature at top of mantle (K)
+        A1  : heat production upper crust (W/m^3)
+        A2  : heat production lower crust (W/m^3)
+        A3  : heat production mantle (W/m^3)
+        k1  : thermal conductivity upper crust (W/m/K)
+        k2  : thermal conductivity lower crust (W/m/K)
+        k3  : thermal conductivity mantle (W/m/K)
+        qs1 : surface heat flow upper crust (W/m^2)
+        qs2 : heat flow at top of lower crust (W/m^2)
+        qs3 : heat flow at top of mantle (W/m^2)
+    """
+
+    def __init__(self, *,
+                 h=100e3, z1=20e3, z2=20e3,
+                 ts1=273, ts2=633, ts3=893,
+                 A1=1.0e-6, A2=0.25e-6, A3=0.0,
+                 k1=2.5, k2=2.5, k3=2.5,
+                 qs1=0.055, qs2=0.035, qs3=0.030):
+
+        self.h = h
+        self.z1 = z1
+        self.z2 = z2
+
+        # Temperatures
+        self.ts1 = ts1
+        self.ts2 = ts2
+        self.ts3 = ts3
+
+        # Heat production
+        self.A1 = A1
+        self.A2 = A2
+        self.A3 = A3
+
+        # Thermal conductivity
+        self.k1 = k1
+        self.k2 = k2
+        self.k3 = k3
+
+        # Heat flow
+        self.qs1 = qs1
+        self.qs2 = qs2
+        self.qs3 = qs3
+
+    # -------------------------------------------------------------
+
+    def temperature(self, depth):
+        """
+        Compute temperature at given depth (m).
+        Depth is positive downward from surface.
+
+        Returns:
+            Temperature in Kelvin.
+        """
+
+        z = depth
+
+        if z <= self.z1:
+            # Upper crust
+            return (self.ts1 +
+                    (self.qs1 / self.k1) * z -
+                    (self.A1 * z * z) / (2.0 * self.k1))
+
+        elif z <= self.z2:
+            # Lower crust
+            z_rel = z - self.z1
+            return (self.ts2 +
+                    (self.qs2 / self.k2) * z_rel -
+                    (self.A2 * z_rel * z_rel) / (2.0 * self.k2))
+
+        else:
+            # Mantle
+            z_rel = z - self.z2
+            return (self.ts3 +
+                    (self.qs3 / self.k3) * z_rel -
+                    (self.A3 * z_rel * z_rel) / (2.0 * self.k3))

@@ -11,7 +11,6 @@ from importlib import resources
 from pathlib import Path
 from PIL import Image, ImageFilter, ImageFont, ImageDraw
 from copy import deepcopy
-from pyproj import Geod
 
 current_dir = os.path.dirname(__file__)
 JSON_FILE_DIR = os.path.join(current_dir, "..", "files")
@@ -1572,6 +1571,8 @@ def geographic_distance(lon1, lat1, lon2, lat2):
         float: Distance in meters.
     """
 
+    from pyproj import Geod
+    
     g = Geod(ellps="WGS84")
     _, _, d = g.inv(lon1, lat1, lon2, lat2)
 
@@ -2031,3 +2032,4 @@ wait
 
     # generate file
     SlurmOperator(slurm_file_path)
+

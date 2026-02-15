@@ -94,7 +94,7 @@ class GPLATE_PROCESS():
         self.all_columns_1 = self.all_columns + ['age']
 
 
-    def reconstruct(self, model_name, reconstruction_time, anchor_plate_id):
+    def reconstruct(self, model_name, reconstruction_time, anchor_plate_id, *, file_to_load=None):
         # Summary:
         # Load a plate model, build a PlateReconstruction with a chosen anchor plate, and
         # tessellate subduction zones at the requested reconstruction time. Stores a DataFrame
@@ -103,6 +103,7 @@ class GPLATE_PROCESS():
         # - model_name: str — key/name of the plate model available to PlateModelManager.
         # - reconstruction_time: int — time (in Ma) for reconstruction (validated to be int).
         # - anchor_plate_id: int — plate ID to use as the rotational anchor (e.g., 0 for Africa).
+        # - file_to_load: if this file exist, read this file instead of reconstruct new one
         # Returns:
         # - None
         # Side effects:
@@ -145,8 +146,12 @@ class GPLATE_PROCESS():
                                                             ignore_warnings=True)
 
 
-
-        self.subduction_data = pd.DataFrame(subduction_data_raw, columns=self.all_columns)
+        if file_to_load is not None and os.path.isfile(file_to_load):
+            print("reconstruct: load subduction zone file %s" % file_to_load)
+            self.subduction_data = pd.read_csv(file_to_load)
+        else:
+            print("reconstruct: record reconstructed subduction data.")
+            self.subduction_data = pd.DataFrame(subduction_data_raw, columns=self.all_columns)
 
         self.gPlotter = GPLOTTER(plate_model, model)
         self.gPlotter.set_time(self.reconstruction_time)
@@ -183,7 +188,7 @@ class GPLATE_PROCESS():
         self.subduction_data['age'] = self.age_grid_raster.interpolate(self.subduction_data.lon, self.subduction_data.lat, method="nearest")
         
     
-    def resample_subduction(self, arc_length_edge, arc_length_resample_section):
+    def resample_subduction(self, arc_length_edge, arc_length_resample_section, *, interpolation="linear"):
         # Summary:
         # Resample subduction-zone point sets for each unique subducting plate ID so that points are
         # spaced by a uniform arc-length step, trimming a margin at both ends. Stores results in
@@ -191,6 +196,7 @@ class GPLATE_PROCESS():
         # Parameters:
         # - arc_length_edge: float — arc-length margin (same units as 'arc_length') to exclude at each edge.
         # - arc_length_resample_section: float — resampling step in arc-length (uniform spacing).
+        # - interpolation - interpolation method to resample the subduction data
         # Returns:
         # - None (updates internal attributes; writes a CSV by calling export_csv()).
         # Preconditions:
@@ -206,8 +212,8 @@ class GPLATE_PROCESS():
         self.arc_length_edge, self.arc_length_resample_section = arc_length_edge, arc_length_resample_section
 
         # get all subducting id values
-        subducting_pids = subduction_data["subducting_pid"].unique()
-        trench_pids = subduction_data["trench_pid"].unique()
+        subducting_pids = sorted(subduction_data["subducting_pid"].unique())
+        trench_pids = sorted(subduction_data["trench_pid"].unique())
 
         print("Total subduction zones: ", len(subducting_pids))
         print("Total trenches: ", len(trench_pids))
@@ -219,7 +225,7 @@ class GPLATE_PROCESS():
             mask = subduction_data.subducting_pid == subducting_pid
             one_subduction_data = subduction_data[mask]
             try:
-                one_subduction_data_resampled = resample_subduction(one_subduction_data, arc_length_edge, arc_length_resample_section)
+                one_subduction_data_resampled = resample_subduction(one_subduction_data, arc_length_edge, arc_length_resample_section, interpolation=interpolation)
             except ValueError:
                 continue
             data_list.append(one_subduction_data_resampled)
@@ -236,7 +242,7 @@ class GPLATE_PROCESS():
 
         self.subduction_data_resampled = subduction_data_resampled
 
-        self.export_csv("subduction_data_resampled", "resampled_edge%.1f_section%.1f.csv" % (arc_length_edge, arc_length_resample_section))
+        self.export_csv("subduction_data_resampled", "resampled_%05dMa_edge%.1f_section%.1f.csv" % (self.reconstruction_time, arc_length_edge, arc_length_resample_section))
     
     def export_csv(self, _name, file_name):
         # Summary:
@@ -731,17 +737,18 @@ class GPLATE_PROCESS():
         return color_dict
 
 
-    def plot_age_combined(self, resample_dataset, plot_options=None, *,\
+    def plot_age_combined(self, dataset, plot_options=None, *,\
                           plot_individual=False,\
                            plot_pid=None,\
                          plot_index=False,\
-                          age_limit=(0.0, 200.0)):
+                          age_limit=(0.0, 200.0),
+                          velocity_limit=(-12.0, 12.0)):
         # Summary:
         # Generate and save age-vs-metrics figures for either the original or resampled subduction dataset.
         # For each selected subducting plate ID, saves an individual figure, and also saves an aggregate figure.
         # Parameters:
-        # - resample_dataset: bool — if True, use the resampled table (self.subduction_data_resampled) and
-        #   write to a directory labeled with resampling parameters; otherwise, use the original table.
+        # - resample_dataset: str — if "resampled", use the resampled table (self.subduction_data_resampled) and
+        #   write to a directory labeled with resampling parameters; if "default", use the original table; if "edited", use the edited dataset
         # - plot_options: Optional[List[Tuple[int, Dict[str, Any]]]] — per-subducting_pid plot settings.
         #   If None, a default configuration is constructed assigning marker shapes and colors.
         # Key words:
@@ -755,15 +762,24 @@ class GPLATE_PROCESS():
         # - GPLATE_PROCESS_WORKFLOW_ERROR if required upstream step was not executed.
         # - File/IO errors may propagate on directory/figure writes.
         
-        if resample_dataset:
+        if dataset == "resampled":
             local_img_dir = os.path.join(self.img_dir, "age_combined_resampled_edge%.1f_section%.1f" %\
                                         (self.arc_length_edge, self.arc_length_resample_section))
             my_assert(self.subduction_data_resampled is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"resample_subduction\" first.")
             s_data = self.subduction_data_resampled
-        else:
+        elif dataset == "default":
             local_img_dir = os.path.join(self.img_dir, "age_combined_t%.2fMa" % float(self.reconstruction_time))
             my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"reconstruct\" first.")
             s_data = self.subduction_data
+        elif dataset == "edited":
+            local_img_dir = os.path.join(self.img_dir, "age_combined_resampled_edge%.1f_section%.1f_edited" %\
+                                        (self.arc_length_edge, self.arc_length_resample_section))
+            edited_file = os.path.join(self.case_dir, "csv", "resampled_%05dMa_edge%.1f_section%.1f_edited.csv" %\
+                                       (self.reconstruction_time, self.arc_length_edge, self.arc_length_resample_section))
+            assert(os.path.isfile(edited_file))
+            s_data = pd.read_csv(edited_file)
+        else:
+            raise ValueError("dataset needs to be resampled, default or .")
 
         if os.path.isdir(local_img_dir):
             rmtree(local_img_dir)
@@ -781,7 +797,7 @@ class GPLATE_PROCESS():
             for sub_plot_options in plot_options:
                 print("sub_plot_options: ", sub_plot_options)
                 _name = sub_plot_options[1]["name"]
-                fig, axes = plot_age_combined(s_data, [sub_plot_options], plot_index=plot_index, age_limit=age_limit)
+                fig, axes = plot_age_combined(s_data, [sub_plot_options], plot_index=plot_index, age_limit=age_limit, velocity_limit=velocity_limit)
                 file_path = os.path.join(local_img_dir, "age_combined_%s" % _name)
                 fig.savefig(file_path + ".png")
                 print("Saved figure %s" % (file_path + ".png"))
@@ -795,7 +811,7 @@ class GPLATE_PROCESS():
                 if plot_pid == subducting_pid:
                     print("sub_plot_options: ", sub_plot_options)
                     _name = sub_plot_options[1]["name"]
-                    fig, axes = plot_age_combined(s_data, [sub_plot_options], plot_index=plot_index, age_limit=age_limit)
+                    fig, axes = plot_age_combined(s_data, [sub_plot_options], plot_index=plot_index, age_limit=age_limit, velocity_limit=velocity_limit)
                     file_path = os.path.join(local_img_dir, "age_combined_%s" % _name)
                     fig.savefig(file_path + ".png")
                     print("Saved figure %s" % (file_path + ".png"))
@@ -803,7 +819,7 @@ class GPLATE_PROCESS():
                     print("Saved figure %s" % (file_path + ".pdf"))
                     break
 
-        fig, _ = plot_age_combined(s_data, plot_options=plot_options, plot_index=False)
+        fig, _ = plot_age_combined(s_data, plot_options=plot_options, plot_index=False, velocity_limit=velocity_limit)
         file_path = os.path.join(local_img_dir, "age_combined")
         fig.savefig(file_path + ".png")
         print("Saved figure %s" % (file_path + ".png"))
@@ -1196,7 +1212,7 @@ class GPLOTTER():
         return color_dict
 
 
-def resample_subduction(one_subduction_data, arc_length_edge, arc_length_resample_section, **kwargs):
+def resample_subduction(one_subduction_data, arc_length_edge, arc_length_resample_section, *, interpolation="linear"):
     """
     Resamples data points from a dense subduction zone at specified intervals along its arc length.
     This helps simplify and extract key properties of the subduction zone for plotting and analysis.
@@ -1228,8 +1244,17 @@ def resample_subduction(one_subduction_data, arc_length_edge, arc_length_resampl
     one_subduction_data = one_subduction_data.astype(np.float64)
 
     # Determine columns to pick for nearest neighbors or to interpolate
-    pick_columns = ["trench_pid"]
-    interp_columns = [col for col in all_columns if col not in pick_columns]
+    # If method is linear, linearly intepolate every column except for "trench_pid"
+    # Else if it is nearest, do a near-neighbor interpolation instead.
+    pick_columns = []; interp_columns = []
+    if interpolation == "linear":
+        pick_columns = ["trench_pid"]
+        interp_columns = [col for col in all_columns if col not in pick_columns]
+    elif interpolation == "nearest":
+        pick_columns = [col for col in all_columns if col not in pick_columns]
+        interp_columns = []
+    else:
+        raise ValueError("interpolation has to be either linear or nearest")
     
     # Compute cumulative arc lengths
     arc_lengths = one_subduction_data.arc_length.to_numpy()
@@ -1630,6 +1655,7 @@ def plot_age_combined(s_data, plot_options, **kwargs):
     plot_index = kwargs.get("plot_index", False)
     plot_index_stepping = kwargs.get("plot_index_stepping", 1)
     age_lim = kwargs.get("age_lim", (0.0, 200.0))
+    velocity_lim = kwargs.get("velocity_limit", (-12.0, 12.0))
 
     # Example usage
     # Rule of thumbs:
@@ -1688,7 +1714,7 @@ def plot_age_combined(s_data, plot_options, **kwargs):
     ax0.set_ylabel("Trench Velocity (cm/yr)")
 
     ax0.set_xlim(age_lim)
-    ax0.set_ylim(Vtr_lim)
+    ax0.set_ylim(velocity_lim)
 
     ax0.xaxis.set_major_locator(MultipleLocator(age_tick_interval))
     ax0.xaxis.set_minor_locator(MultipleLocator(age_tick_interval/(n_minor_ticks+1)))
@@ -1859,3 +1885,133 @@ def nearest_point_to_location(sdata, indices, lon0, lat0):
             min_index = i
 
     return min_index, min_dist
+
+
+def plot_line_on_map(ax, lons, lats, **kwargs):
+    """
+    Plot a polyline on a map while safely handling dateline wrap-around.
+
+    Supports list, tuple, numpy array, or pandas Series inputs.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Target axis (typically cartopy GeoAxes).
+    lons : array-like
+        Sequence of longitudes (degrees).
+    lats : array-like
+        Sequence of latitudes (degrees).
+    **kwargs :
+        Additional keyword arguments passed to ax.plot().
+    """
+
+    # ------------------------------------------------------------------
+    # Convert inputs to NumPy arrays for consistent indexing behavior
+    # ------------------------------------------------------------------
+    lons = np.asarray(lons)
+    lats = np.asarray(lats)
+
+    # ------------------------------------------------------------------
+    # Basic validation
+    # ------------------------------------------------------------------
+    if lons.shape != lats.shape:
+        raise ValueError("Longitude and latitude arrays must have the same shape.")
+
+    if lons.ndim != 1:
+        raise ValueError("Longitude and latitude inputs must be 1D sequences.")
+
+    # ------------------------------------------------------------------
+    # Plot segment-by-segment using wrap-safe segment function
+    # ------------------------------------------------------------------
+    for i in range(len(lons) - 1):
+
+        plot_line_segment_on_map(
+            ax,
+            lons[i],
+            lons[i + 1],
+            lats[i],
+            lats[i + 1],
+            **kwargs
+        )
+
+
+def plot_line_segment_on_map(ax, lon1, lon2, lat1, lat2, **kwargs):
+    """
+    Plot a line segment on a map while safely handling longitude wrap-around
+    at the 0°/360° boundary.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        Target axis (typically cartopy GeoAxes).
+    lon1, lon2 : float
+        Longitudes of the two endpoints (degrees).
+    lat1, lat2 : float
+        Latitudes of the two endpoints (degrees).
+    **kwargs :
+        Additional keyword arguments passed directly to ax.plot()
+        (e.g., color, linewidth, linestyle, transform, zorder).
+    """
+
+    # ------------------------------------------------------------------
+    # Normalize longitudes to 0–360 range to ensure consistency
+    # This avoids ambiguity between -180–180 and 0–360 systems.
+    # ------------------------------------------------------------------
+    lon1_mod = lon1 % 360
+    lon2_mod = lon2 % 360
+
+    # ------------------------------------------------------------------
+    # Compute longitudinal separation in normalized space.
+    # If the separation exceeds 180°, the segment crosses the dateline.
+    # ------------------------------------------------------------------
+    dist = abs(lon2_mod - lon1_mod)
+
+    if dist > 180:
+        # --------------------------------------------------------------
+        # The segment crosses the 0°/360° boundary.
+        # We split it into two segments to prevent a long diagonal
+        # artifact across the map.
+        # --------------------------------------------------------------
+
+        # Determine which boundary is crossed (0 or 360)
+        if lon1_mod > lon2_mod:
+            boundary1, boundary2 = 360, 0
+        else:
+            boundary1, boundary2 = 0, 360
+
+        # --------------------------------------------------------------
+        # Compute interpolation factor t for linear interpolation
+        # along longitude to find latitude at boundary crossing.
+        # --------------------------------------------------------------
+        t = (boundary1 - lon1_mod) / (lon2_mod - lon1_mod)
+
+        # Interpolated latitude at boundary
+        lat_boundary = lat1 + t * (lat2 - lat1)
+
+        # --------------------------------------------------------------
+        # Plot first segment: point1 → boundary
+        # --------------------------------------------------------------
+        ax.plot(
+            [lon1_mod, boundary1],
+            [lat1, lat_boundary],
+            **kwargs
+        )
+
+        # --------------------------------------------------------------
+        # Plot second segment: boundary → point2
+        # --------------------------------------------------------------
+        ax.plot(
+            [boundary2, lon2_mod],
+            [lat_boundary, lat2],
+            **kwargs
+        )
+
+    else:
+        # --------------------------------------------------------------
+        # No wrap-around: plot directly
+        # --------------------------------------------------------------
+        ax.plot(
+            [lon1_mod, lon2_mod],
+            [lat1, lat2],
+            **kwargs
+        )
