@@ -2015,3 +2015,151 @@ def plot_line_segment_on_map(ax, lon1, lon2, lat1, lat2, **kwargs):
             [lat1, lat2],
             **kwargs
         )
+
+def mask_and_remove_points_from_json_configuration(
+    json_dict,
+    length,
+    *,
+    remove_continents=False,
+    remove_short=False
+):
+    """
+    Generate a boolean mask and list of removed indices from a JSON configuration.
+
+    Parameters
+    ----------
+    json_dict : dict
+        Dictionary describing subduction configuration. Expected structure:
+            {
+                "removed": [int, ...],
+                "paired": [
+                    {
+                        "match": [int, ...],
+                        "continent": 0 or 1 (optional)
+                    },
+                    ...
+                ]
+            }
+
+    length : int
+        Total number of data points in the dataset.
+
+    remove_continents : bool (keyword-only)
+        If True, points marked as continent in paired sections are also removed.
+    
+    remove_short : bool (keyword-only)
+        If True, points marked as short section in paired sections are also removed.
+
+    Returns
+    -------
+    mask1 : np.ndarray (bool)
+        Boolean mask of shape (length,) where True indicates a removed point.
+
+    removed : list[int]
+        List of all indices removed (including paired matches if applicable).
+    """
+
+    # Initialize mask and removed index list
+    mask1 = np.zeros(length, dtype=bool)
+    removed = []
+
+    # --------------------------------------------------
+    # 1. Mark explicitly removed indices
+    # --------------------------------------------------
+    if len(json_dict["removed"]) > 0:
+        mask1[np.array(json_dict["removed"])] = True
+
+    removed += json_dict["removed"]
+
+    # --------------------------------------------------
+    # 2. Optionally remove continent-matched indices
+    # --------------------------------------------------
+    if remove_continents:
+        for foo_dict in json_dict["paired"]:
+            is_continent = foo_dict.get("continent", False)
+            if is_continent:
+                mask1[np.array(foo_dict["match"])] = True
+                removed += foo_dict["match"]
+    
+    # --------------------------------------------------
+    # 3. Optionally remove short-section indices
+    # --------------------------------------------------
+    if remove_short:
+        for foo_dict in json_dict["paired"]:
+            is_short = foo_dict.get("short", False)
+            if is_short:
+                mask1[np.array(foo_dict["match"])] = True
+                removed += foo_dict["match"]
+
+    return mask1, removed
+
+
+def check_json_configuration(json_dict, length):
+    """
+    Validate consistency of JSON configuration indices.
+
+    Checks:
+        1. All indices in "removed" are within data bounds.
+        2. All indices in each "paired" section are within bounds.
+        3. Every index in range(length) appears exactly once
+           across removed + paired["match"] sections.
+
+    Parameters
+    ----------
+    json_dict : dict
+        Configuration dictionary with structure described above.
+
+    length : int
+        Total number of data points expected.
+
+    Raises
+    ------
+    ValueError
+        If:
+        - Any index is out of bounds (>= length),
+        - The total counted indices do not match expected length,
+        - Any index in range(length) is missing.
+    """
+
+    number_of_points = 0
+    points_indice = []
+
+    # --------------------------------------------------
+    # 1. Validate removed indices
+    # --------------------------------------------------
+    if len(json_dict["removed"]) > 0:
+        for idx in json_dict["removed"]:
+            if idx >= length:
+                raise ValueError(
+                    "Index (%d) in the removed section is bigger than "
+                    "length of data (%d)" % (idx, length)
+                )
+
+    number_of_points += len(json_dict["removed"])
+    points_indice += json_dict["removed"]
+
+    # --------------------------------------------------
+    # 2. Validate paired match indices
+    # --------------------------------------------------
+    for paired_dict in json_dict["paired"]:
+        for i, idx in enumerate(paired_dict["match"]):
+            if idx >= length:
+                raise ValueError(
+                    "Index (%d) in %d-th paired section is bigger than "
+                    "length of data (%d)" % (idx, i, length)
+                )
+
+        number_of_points += len(paired_dict["match"])
+        points_indice += paired_dict["match"]
+
+    # --------------------------------------------------
+    # 3. Ensure full coverage of index space
+    # --------------------------------------------------
+    if number_of_points != length:
+        for idx in range(length):
+            if idx not in points_indice:
+                raise ValueError(
+                    "Index (%d) is not present anywhere for a "
+                    "data length of (%d)" % (idx, length)
+                )
+
