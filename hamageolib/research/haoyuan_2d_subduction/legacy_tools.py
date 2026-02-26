@@ -10164,6 +10164,109 @@ def Convert2AspectInput(creep, **kwargs):
     aspect_creep['V'] = V
     return aspect_creep
 
+
+def ConvertFromAspectInput(aspect_creep, **kwargs):
+    """
+    Convert ASPECT creep parameters back to experimental (lab-style) form.
+
+    ASPECT inputs:
+        - Stress in Pa
+        - Grain size in m
+
+    Experimental outputs:
+        - Stress in MPa
+        - Grain size in um
+
+    Parameters
+    ----------
+    aspect_creep : dict
+        Must contain:
+            A : prefactor (ASPECT form)
+            d : grain size [m]
+            n : stress exponent
+            m : grain size exponent (p)
+            E : activation energy [J/mol]
+            V : activation volume [m^3/mol]
+
+    kwargs
+        r : water exponent (REQUIRED for exact inversion)
+        Coh : water content (default 1000.0)
+        use_effective_strain_rate : bool (default False)
+
+    Returns
+    -------
+    creep : dict
+        Experimental creep law parameters.
+    """
+
+    # ------------------------------------------------------------------
+    # Read ASPECT inputs
+    # ------------------------------------------------------------------
+
+    A_aspect = aspect_creep['A']
+    d_aspect = aspect_creep['d']
+    n = aspect_creep['n']
+    p = aspect_creep['m']
+    E = aspect_creep['E']
+    V = aspect_creep['V']
+
+    # ------------------------------------------------------------------
+    # Read required kwargs
+    # ------------------------------------------------------------------
+
+    r = kwargs['r']  # require explicit input
+    Coh = kwargs.get('Coh', 1000.0)
+    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
+
+    # ------------------------------------------------------------------
+    # Recompute F exactly as in forward function
+    # ------------------------------------------------------------------
+
+    if use_effective_strain_rate:
+        F = 1 / (2**((n-1)/n) * 3**((n+1)/(2*n))) * 2.0
+    else:
+        F = 1.0
+
+    # ------------------------------------------------------------------
+    # Invert prefactor transformation
+    #
+    # Forward:
+    # A_aspect = 1e6^(-p) * 1e6^(-n) * Coh^r * A_exp / F^n
+    #
+    # Inverse:
+    # A_exp = A_aspect * F^n * 1e6^(p+n) / Coh^r
+    # ------------------------------------------------------------------
+
+    A_exp = (
+        A_aspect
+        * F**n
+        * (1e6)**(p + n)
+        / (Coh**r)
+    )
+
+    # ------------------------------------------------------------------
+    # Convert grain size back to um
+    # ------------------------------------------------------------------
+
+    d_exp = d_aspect * 1e6
+
+    # ------------------------------------------------------------------
+    # Return experimental creep dictionary
+    # ------------------------------------------------------------------
+
+    creep = {
+        'A': A_exp,
+        'p': p,
+        'r': r,
+        'n': n,
+        'E': E,
+        'V': V,
+        'd': d_exp
+    }
+
+    return creep
+
+
 def CreepRheologyInAspectViscoPlastic(creep, strain_rate, P, T):
     """
     def CreepRheologyInAspectVisoPlastic(creep, strain_rate, P, T)
@@ -10220,6 +10323,40 @@ def LowerMantleV(E, Tmean, Pmean, grad_T, grad_P):
     '''    
     V = E * grad_T / (grad_P * Tmean - Pmean * grad_T)
     return V
+
+# todo_rheology
+def creep_nested_to_markdown_separated(creep, float_format=".6e"):
+    """
+    Output one Markdown table per creep mechanism.
+    """
+
+    sections = []
+
+    for mechanism, params in creep.items():
+
+        header = f"### {mechanism.capitalize()} Creep\n\n"
+        if params is None:
+            section = header + "None"
+        else:
+            table_header = (
+                "| Parameter | Value |\n"
+                "|-----------|-------|"
+            )
+
+            rows = []
+
+            for key, value in params.items():
+                if isinstance(value, float):
+                    formatted = format(value, float_format)
+                else:
+                    formatted = str(value)
+
+                rows.append(f"| {key} | {formatted} |")
+
+            section = header + "\n".join([table_header] + rows)
+        sections.append(section)
+
+    return "\n\n".join(sections)
 
 class RHEOLOGY_OPR():
     '''
@@ -12210,46 +12347,6 @@ class STRENGTH_PROFILE(RHEOLOGY_OPR):
         x_max = 1e24
         ax.set_xlim([x_min, x_max])
 
-def ConvertFromAspectInput(aspect_creep, **kwargs):
-    """
-    Viscosity is calculated by flow law in form of (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T)) * 1e6
-    while in aspect, flow law in form of 0.5 * A**(-1.0 / n) * d**(m / n) * (strain_rate)**(1.0 / n - 1) * np.exp((E + P * V) / (n * R * T)).
-    Here I convert backward from the flow law used in aspect
-    Original Units:
-     - P: Pa
-     - T: K
-     - d: mm
-     - Coh: H / 10^6 Si
-    Original Units:
-     - P: Pa
-     - T: K
-     - d: m
-    """
-    # read in initial value
-    A = aspect_creep['A']
-    m = aspect_creep['m']
-    n = aspect_creep['n']
-    E = aspect_creep['E']
-    V = aspect_creep['V']
-    d = aspect_creep['d']
-    # compute value of F(pre factor)
-    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
-    if use_effective_strain_rate:
-        F = 1 / (2**((n-1)/n)*3**((n+1)/2/n)) * 2.0
-    else:
-        F = 1.0
-    # prepare values for aspect
-    creep = {}
-    # stress in the original equation is in Mpa, grain size is in um
-    creep['A'] = 1e6**m * 1e6**n * A * F**n  # F term: use effective strain rate
-    creep['d'] = d * 1e6
-    creep['n'] = n
-    creep['p'] = m
-    creep['E'] = E
-    creep['V'] = V
-    creep['r'] = 0.0  # assume this is not dependent on Coh
-    creep['Coh'] = 1000.0
-    return creep
 
 def AssignAspectViscoPlasticPhaseRheology(visco_plastic_dict, key, idx, diffusion_creep, dislocation_creep, **kwargs):
     '''

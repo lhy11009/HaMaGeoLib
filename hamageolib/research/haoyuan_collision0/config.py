@@ -1099,7 +1099,7 @@ class ContinentRule(Rule):
                          "continent_depth_levels": "Depth levels of the boundary between compositions (e.g. between upper and lower crust, lower crust and mantle)",
                          "subducting_continent_length": "Length of the continent at the end of the subducting plate."} 
     
-    provides = []
+    provides = ["continent_rheology"]
 
     def apply(self, config, prm_dict, wb_dict, context):
 
@@ -1197,6 +1197,7 @@ class ContinentRule(Rule):
             feature["coordinates"][3][0] = continent_end_point
     
         # Handle material properties: rheology and density
+        rheology_continent_dict = None
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
 
             # Parse in the continental_extension parameter file
@@ -1274,6 +1275,24 @@ class ContinentRule(Rule):
             prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"] = format_composition_entry(diff_A_dict)
 
             # todo_rheology
+            # record the rheology used for the continent
+            rheology_continent_dict = {}
+            rheology_continent_dict["crust_upper"] = {"diffusion": None, "dislocation": None, "plastic": None}
+            rheology_continent_dict["crust_upper"]["dislocation"] = \
+            {
+                'A': disl_A_dict["crust_lower"][0],
+                'n': disl_n_dict["crust_lower"][0],
+                'E': disl_E_dict["crust_lower"][0],
+                'V': disl_V_dict["crust_lower"][0]
+            }
+            rheology_continent_dict["crust_upper"]["plastic"] = \
+            {
+                "angle": angle_friction_dict["crust_lower"][0],
+                "cohesion": cohesion_dict["crust_lower"][0]
+            }
+
+            context["continent_rheology"] = rheology_continent_dict
+
 
 # todo_ct
 def parse_contiental_extension_density(prm_path):
