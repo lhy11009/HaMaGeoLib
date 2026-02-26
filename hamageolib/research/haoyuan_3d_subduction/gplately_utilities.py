@@ -1734,13 +1734,76 @@ def plot_age_combined(s_data, plot_options, **kwargs):
     for spine in ax1.spines.values():
         # Hide the rectangular box (spines)
         spine.set_visible(False)
-
-    return fig, [ax0, ax1]
+    
     # Reset rcParams to defaults
     rcdefaults()
 
+    return fig, [ax0, ax1]
+
 
 # todo_gplate
+def plot_age_distance_combined(s_data,*,
+                               age_lim=(0.0, 200.0)
+                               ):
+    '''
+    Plot combined plots
+    Inputs:
+        s_data:
+            a pandas object of subduction zone observations
+    '''
+    from matplotlib import gridspec
+    from matplotlib import rcdefaults
+    import hamageolib.utils.plot_helper as plot_helper
+    import cmcrameri.cm as cm
+
+    # Example usage
+    # Rule of thumbs:
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 2. Set five major ticks for each axis
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 2.0 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.75
+    line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
+    Vtr_lim = (-12.0, 12.0)
+    age_tick_interval = 50.0   # tick interval along x
+    Vtr_tick_interval = 5.0  # tick interval along y
+    n_minor_ticks = 4  # number of minor ticks between two major ones
+
+    # scale the matplotlib params
+    plot_helper.scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
+    
+    fig = plt.figure(figsize=(15*scaling_factor, 5*scaling_factor), tight_layout=True)
+    gs = gridspec.GridSpec(1, 4)
+
+    ax0 = fig.add_subplot(gs[0, 0:3])
+
+    # Mask on the appropriate ages to plot
+    mask_age = (s_data.age >= age_lim[0]) & (s_data.age <= age_lim[1])
+    
+    # define the color scheme
+    _color = s_data[mask_age].trench_velocity
+    cmap = cm.roma
+   
+    _patch = ax0.scatter(s_data.age[mask_age], s_data.dist[mask_age],\
+                      marker=".", c=_color, cmap=cmap,\
+                      s=10)
+    
+    # Reset rcParams to defaults
+    rcdefaults()
+    
+
+    return fig, [ax0]
+
+
 
 def find_nearest_indices_loop(sdata, threshold_meters=400e3):
     """

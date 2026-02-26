@@ -489,9 +489,11 @@ def run_2d_subduction_visualization(local_dir, config):
     # Append paraview script
     paraview_script = os.path.join(local_dir, "paraview_scripts", "slab.py")
     assert os.path.isfile(paraview_script), f"Missing paraview script: {paraview_script}"
-    with open(py_temp_file, 'a') as fout:
-        fout.write("# Run paraview script\n")
-        fout.write("pvpython %s\n" % paraview_script)
+
+    if py_temp_file is not None:
+        with open(py_temp_file, 'a') as fout:
+            fout.write("# Run paraview script\n")
+            fout.write("pvpython %s\n" % paraview_script)
 
     return Visit_Options
 

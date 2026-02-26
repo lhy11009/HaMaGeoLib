@@ -68,6 +68,83 @@ def test_AspectViscoPlastic():
     check0 = CreepRheologyInAspectViscoPlastic(diffusion_creep, 1e-15, 10e9, 1300 + 273.15)
     assert(abs(check0 - check_result[0]) / check_result[0] < tolerance)
 
+# todo_rheology
+def test_Convert2AspectInput_effective_strain_rate():
+    """
+    Test Convert2AspectInput using Newtonian creep (n = 1)
+    with use_effective_strain_rate=True.
+
+    This verifies:
+    - Correct computation of F factor
+    - Correct scaling of prefactor by 1 / F^n
+    - Proper unit conversion (MPa → Pa, um → m)
+    """
+
+    # ------------------------------------------------------------------
+    # Define creep parameters (lab-style units)
+    # ------------------------------------------------------------------
+
+    creep = {
+        'A': 1_000_000.0,   # Prefactor in MPa^{-n} * um^{p} * s^{-1}
+        'p': 3.0,           # Grain size exponent
+        'r': 1.0,           # Water exponent
+        'n': 1.0,           # Newtonian
+        'E': 335_000.0,     # Activation energy [J/mol]
+        'V': 4e-06          # Activation volume [m^3/mol]
+    }
+
+    d_input = 1e4       # Grain size in um (1e4 um = 0.01 m)
+    Coh_input = 1000.0  # Water content
+
+    # ------------------------------------------------------------------
+    # Call function
+    # ------------------------------------------------------------------
+
+    aspect_creep = Convert2AspectInput(
+        creep,
+        d=d_input,
+        Coh=Coh_input,
+        use_effective_strain_rate=True
+    )
+
+    # ------------------------------------------------------------------
+    # Manual expected value computation
+    # ------------------------------------------------------------------
+
+    # Stress conversion: (1e6)^(-n)
+    stress_conversion = (1e6)**(-1.0)
+
+    # Grain size conversion: (1e6)^(-p)
+    grain_conversion = (1e6)**(-3.0)
+
+    # Coh scaling
+    coh_factor = Coh_input**(1.0)
+
+    # F factor when n = 1:
+    # F = 2/3
+    F = 2.0 / 3.0
+
+    expected_A = (
+        grain_conversion *
+        stress_conversion *
+        coh_factor *
+        creep['A'] /
+        F**(creep['n'])
+    )
+
+    expected_d = d_input / 1e6
+
+    # ------------------------------------------------------------------
+    # Assertions
+    # ------------------------------------------------------------------
+
+    assert aspect_creep['A'] == expected_A
+    assert aspect_creep['d'] == expected_d
+    assert aspect_creep['n'] == creep['n']
+    assert aspect_creep['m'] == creep['p']
+    assert aspect_creep['E'] == creep['E']
+    assert aspect_creep['V'] == creep['V']
+
 
 def test_CoulumbYielding():
     '''

@@ -1273,6 +1273,8 @@ class ContinentRule(Rule):
             prm_dict["Material model"]["Visco Plastic"]["Cohesions"] = format_composition_entry(cohesion_dict)
             prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"] = format_composition_entry(diff_A_dict)
 
+            # todo_rheology
+
 # todo_ct
 def parse_contiental_extension_density(prm_path):
     

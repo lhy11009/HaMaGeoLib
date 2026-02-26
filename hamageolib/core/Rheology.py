@@ -113,7 +113,8 @@ class RheologyModel:
             experiment_flag=0
         )
 
-        return trivial_rheology_params
+        return trivial_rheology_params 
+
     
     def select_rheology_parameters(self, model_name: str):
         """

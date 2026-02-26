@@ -10120,6 +10120,7 @@ def CreepComputeA(creep, strain_rate, P, T, eta, d=1e4, Coh=1e3, **kwargs):
     A = B * d**p * Coh**(-r)
     return A
 
+# todo_rheology
 def Convert2AspectInput(creep, **kwargs):
     """
     Viscosity is calculated by flow law in form of (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T)) * 1e6
