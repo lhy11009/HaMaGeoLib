@@ -1277,19 +1277,21 @@ class ContinentRule(Rule):
             # todo_rheology
             # record the rheology used for the continent
             rheology_continent_dict = {}
-            rheology_continent_dict["crust_upper"] = {"diffusion": None, "dislocation": None, "plastic": None}
-            rheology_continent_dict["crust_upper"]["dislocation"] = \
-            {
-                'A': disl_A_dict["crust_lower"][0],
-                'n': disl_n_dict["crust_lower"][0],
-                'E': disl_E_dict["crust_lower"][0],
-                'V': disl_V_dict["crust_lower"][0]
-            }
-            rheology_continent_dict["crust_upper"]["plastic"] = \
-            {
-                "angle": angle_friction_dict["crust_lower"][0],
-                "cohesion": cohesion_dict["crust_lower"][0]
-            }
+            for composition in ["crust_upper", "crust_lower"]:
+                rheology_continent_dict[composition] = {"diffusion": None, "dislocation": None, "plastic": None}
+                rheology_continent_dict[composition]["dislocation"] = \
+                {
+                    'A': disl_A_dict[composition][0],
+                    'n': disl_n_dict[composition][0],
+                    'E': disl_E_dict[composition][0],
+                    'V': disl_V_dict[composition][0],
+                    "m": 0.0
+                }
+                rheology_continent_dict[composition]["plastic"] = \
+                {
+                    "angle": angle_friction_dict[composition][0],
+                    "cohesion": cohesion_dict[composition][0]
+                }
 
             context["continent_rheology"] = rheology_continent_dict
 

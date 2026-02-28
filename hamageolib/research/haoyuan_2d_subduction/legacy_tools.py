@@ -10120,7 +10120,6 @@ def CreepComputeA(creep, strain_rate, P, T, eta, d=1e4, Coh=1e3, **kwargs):
     A = B * d**p * Coh**(-r)
     return A
 
-# todo_rheology
 def Convert2AspectInput(creep, **kwargs):
     """
     Viscosity is calculated by flow law in form of (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T)) * 1e6
@@ -10165,7 +10164,12 @@ def Convert2AspectInput(creep, **kwargs):
     return aspect_creep
 
 
-def ConvertFromAspectInput(aspect_creep, **kwargs):
+# todo_rheology
+def ConvertFromAspectInput(aspect_creep, *, 
+                            r=None, 
+                            Coh=None,
+                            fh2o=None,
+                            use_effective_strain_rate=False):
     """
     Convert ASPECT creep parameters back to experimental (lab-style) form.
 
@@ -10188,9 +10192,11 @@ def ConvertFromAspectInput(aspect_creep, **kwargs):
             E : activation energy [J/mol]
             V : activation volume [m^3/mol]
 
-    kwargs
-        r : water exponent (REQUIRED for exact inversion)
-        Coh : water content (default 1000.0)
+    Optional:
+        r : water exponent (default None), if this value is None, then we know
+            expereiment flow law doesn't include this term
+        Coh : water content (default None), unit is H/10^6 Si, be careful about the unit
+        fh2o : water fugacity (default None), unit is MPa, be careful about the unit
         use_effective_strain_rate : bool (default False)
 
     Returns
@@ -10204,19 +10210,10 @@ def ConvertFromAspectInput(aspect_creep, **kwargs):
     # ------------------------------------------------------------------
 
     A_aspect = aspect_creep['A']
-    d_aspect = aspect_creep['d']
     n = aspect_creep['n']
     p = aspect_creep['m']
     E = aspect_creep['E']
     V = aspect_creep['V']
-
-    # ------------------------------------------------------------------
-    # Read required kwargs
-    # ------------------------------------------------------------------
-
-    r = kwargs['r']  # require explicit input
-    Coh = kwargs.get('Coh', 1000.0)
-    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
 
     # ------------------------------------------------------------------
     # Recompute F exactly as in forward function
@@ -10228,7 +10225,10 @@ def ConvertFromAspectInput(aspect_creep, **kwargs):
         F = 1.0
 
     # ------------------------------------------------------------------
-    # Invert prefactor transformation
+    # Invert prefactor transformation, adding additional terms when requried
+    # (e.g. when Coh and r are given)
+    # Note for Coh, we use H/10^6 Si
+    # for fh2o, we use MPa
     #
     # Forward:
     # A_aspect = 1e6^(-p) * 1e6^(-n) * Coh^r * A_exp / F^n
@@ -10237,18 +10237,27 @@ def ConvertFromAspectInput(aspect_creep, **kwargs):
     # A_exp = A_aspect * F^n * 1e6^(p+n) / Coh^r
     # ------------------------------------------------------------------
 
+    coh_term = 1.0
+    if Coh is not None:
+        assert(r is not None)
+        coh_term = Coh**r
+    
+    fh2o_term = 1.0
+    if fh2o is not None:
+        assert(r is not None)
+        fh2o_term = fh2o**r
+
+    # todo_rheology
+    print("A_aspect = ", A_aspect)
+    print("F**n = ", F**n)
+    print("(1e6)**(p + n) = ", (1e6)**(p + n))
+
     A_exp = (
         A_aspect
         * F**n
         * (1e6)**(p + n)
-        / (Coh**r)
+        / coh_term / fh2o_term
     )
-
-    # ------------------------------------------------------------------
-    # Convert grain size back to um
-    # ------------------------------------------------------------------
-
-    d_exp = d_aspect * 1e6
 
     # ------------------------------------------------------------------
     # Return experimental creep dictionary
@@ -10261,7 +10270,6 @@ def ConvertFromAspectInput(aspect_creep, **kwargs):
         'n': n,
         'E': E,
         'V': V,
-        'd': d_exp
     }
 
     return creep
@@ -10324,23 +10332,58 @@ def LowerMantleV(E, Tmean, Pmean, grad_T, grad_P):
     V = E * grad_T / (grad_P * Tmean - Pmean * grad_T)
     return V
 
-# todo_rheology
-def creep_nested_to_markdown_separated(creep, float_format=".6e"):
+def creep_nested_to_markdown_separated(creep, *, 
+                                       flow_law_format="aspect", 
+                                       float_format=".6e",
+                                       wet_format=None):
     """
     Output one Markdown table per creep mechanism.
     """
+    # todo_rheology
+    # units of variables
+    # differ between aspect format and experiment format
+    units = None
+    if flow_law_format == "aspect":
+        units = {
+            "A": "(Pa^{-n} m^{m} s^{-1})",
+            "m": "–",
+            "n": "–",
+            "E": "J/mol",
+            "V": "m^3/mol"
+        }
+    elif flow_law_format == "experiment":
+        
+        unit_A = "(MPa^{-n} μm^{p} s^{-1})"
+        if wet_format == "coh":
+            unit_A = "(MPa^{-n} 10^{-6r} μm^{p} s^{-1})"
+        elif wet_format == "fh2o":
+            unit_A = "(MPa^{-n-r} μm^{p} s^{-1})"
+            
+        units = {
+            "A": unit_A,
+            "p": "–",
+            "r": "–",
+            "n": "–",
+            "E": "J/mol",
+            "V": "m^3/mol"
+        }
+    else:
+        raise "flow_law_format must be aspect or experiment"
+    
+    units["angle"] = "-"
+    units["cohesion"] = "Pa"
 
     sections = []
 
     for mechanism, params in creep.items():
 
-        header = f"### {mechanism.capitalize()} Creep\n\n"
+        header = f"### {mechanism.capitalize()} ({flow_law_format})\n\n"
         if params is None:
             section = header + "None"
         else:
             table_header = (
-                "| Parameter | Value |\n"
-                "|-----------|-------|"
+                "| Parameter | Value | Units |\n"
+                "|-----------|-------|-------|"
             )
 
             rows = []
@@ -10350,8 +10393,9 @@ def creep_nested_to_markdown_separated(creep, float_format=".6e"):
                     formatted = format(value, float_format)
                 else:
                     formatted = str(value)
-
-                rows.append(f"| {key} | {formatted} |")
+                
+                unit = units.get(key, "")
+                rows.append(f"| {key} | {formatted} | {unit} |")
 
             section = header + "\n".join([table_header] + rows)
         sections.append(section)

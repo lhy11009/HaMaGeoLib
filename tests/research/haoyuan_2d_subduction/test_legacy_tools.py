@@ -161,7 +161,6 @@ def test_ConvertFromAspectInput_effective_strain_rate():
     # ------------------------------------------------------------------
 
     expected_A = 1000_000.0
-    expected_d = 1e4
     expected_p = 3.0
     expected_n = 1.0
     expected_r = 1.0
@@ -173,7 +172,6 @@ def test_ConvertFromAspectInput_effective_strain_rate():
     # ------------------------------------------------------------------
 
     assert np.isclose(creep['A'], expected_A)
-    assert np.isclose(creep['d'], expected_d)
     assert np.isclose(creep['p'], expected_p)
     assert np.isclose(creep['n'], expected_n)
     assert np.isclose(creep['r'], expected_r)
