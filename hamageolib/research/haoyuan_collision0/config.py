@@ -38,6 +38,11 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_WLCG"
     if use_all or "weak_layer_viscosity" in use_keys:
         case_name += "_WLV%.1e" % int(variables["weak_layer_viscosity"])
+
+    # Kinematic-driven condition
+    if use_all or "kinematic_driven_condition" in use_keys:
+        if variables["kinematic_driven_condition"]:
+            case_name += "_KC%.1e" % variables["convergence_rate"]
     
     # Prescribe condition
     if use_all or "prescribe_subducting_plate_velocity" in use_keys:
@@ -454,6 +459,156 @@ class PostProcessorRule(Rule):
                 prm_dict["Postprocess"]["Depth average"]["Time between graphical output"] = "%de3" % int(time_between_output/1e3)
 
 
+# todo_slab
+class SlabRule(Rule):
+    """
+    Configures slab-layer geometry based on composition-specific depth intervals.
+
+    This rule assigns depth ranges to slab-related composition models in the
+    WorldBuilder dictionary. It interprets user-provided slab layering information
+    (compositions and corresponding depth boundaries) and applies these consistently
+    to the relevant composition models in the WorldBuilder features. The rule also
+    performs validation to ensure consistency with other rules and with the internal
+    model configuration.
+
+    Required configuration parameters:
+
+    - slab_layer_compositions (list[str]):
+      A list of composition names that define the ordered layers within the slab.
+      Each entry corresponds to one slab layer.
+      Default value: ["sediment", "MORB", "gabbro"].
+
+    - slab_layer_depths (list[float]):
+      A list of depth boundaries (in meters) defining the slab layering. This list
+      must contain exactly one more element than ``slab_layer_compositions``, since
+      each layer is bounded by a lower and upper depth.
+      Default value: [0.0, 4e3, 7.5e3, 11.5e3].
+    
+    - plate_start_point (float):
+      Position of the ridge tied to the start of the subduction plate
+      Default value: 1000e3
+
+    - slab_hinge_point:
+      Position of the trench
+      Default value: 5000e3
+
+    Provided configuration parameters:
+    - spreading_velocity (float)
+      The speed of ridge spreading rate (half spreading rate geologically)
+    - plate_start_point:
+      Position of the ridge tied to the start of the subduction plate
+    - slab_hinge_point:
+      Position of the trench
+    """
+    
+    requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point", "slab_hinge_point", "slab_age"]
+    
+    defaults = {"slab_layer_compositions": ["sediment", "MORB", "gabbro"], "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3],
+                "plate_start_point": 1000e3, "slab_hinge_point": 5000e3, "slab_age": 100e6}
+    
+    requires_comments = {"slab_layer_compositions": "Include these compositions for the slab",
+                         "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1",
+                         "plate_start_point": "Position of the ridge tied to the start of the subduction plate",
+                         "slab_hinge_point": "Position of the trench"}
+    # todo_ct 
+    provides = ["spreading_velocity", "slab_hinge_point", "plate_start_point"]
+    
+    def apply(self, config, prm_dict, wb_dict, context):
+        """
+        Apply the rule to modify model configuration dictionaries in-place.
+
+        Parameters
+        ----------
+        config : dict
+            A dictionary of resolved configuration values for the current model case.
+            This contains all parameters listed in ``requires`` and any additional
+            configuration provided by the broader rule system.
+
+        prm_dict : dict
+            A nested dictionary representation of the ASPECT parameter file that this
+            rule may modify in-place.
+
+        wb_dict : dict
+            A dictionary containing WorldBuilder-related configuration or data that
+            rules may read from or modify in-place.
+
+        context : dict
+            A dictionary for passing shared contextual information between rules during
+            execution (e.g., derived values, cached objects, or workflow state).
+
+        Returns
+        -------
+        None
+            This method always modifies the provided dictionaries in-place and does
+            not return a value.
+        """
+
+
+        # read the slab layer configurations
+        slab_layer_compositions = config["slab_layer_compositions"]
+        slab_layer_depths = config["slab_layer_depths"]
+        plate_start_point = config["plate_start_point"]
+        slab_hinge_point = config["slab_hinge_point"]
+        slab_age = config["slab_age"]
+
+
+        # compute the spreading rate based on the slab age, hinge point and starting point of the plate
+        spreading_velocity = (slab_hinge_point - plate_start_point) / slab_age
+
+        # assert that the layer depths has number of compositions + 1
+        my_assert(len(slab_layer_compositions) + 1 == len(slab_layer_depths), ValueError,
+                  "slab_layer_depths should be exactly one element longer than slab_layer_compositions.")
+
+        # check no confliction with other rules
+        if context["removed_peridotite_compositional_indexes"]:
+            my_assert("peridotie" not in slab_layer_compositions, RuleConflictError, "If peridotite is removed by other rules, it cannot be included here")
+
+        # get indices of the slab compositions
+        names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
+        slab_composition_indices = [names_of_fields.index(composition) for composition in slab_layer_compositions]
+
+        # loop features and apply the composition layer configurations for slab
+        for feature in wb_dict["features"]:
+            try:
+                composition_models = feature["composition models"]
+            except KeyError:
+                pass
+            else:
+                for composition_model in composition_models:
+                    try:
+                        index = slab_composition_indices.index(composition_model["compositions"][0])
+                    except ValueError:
+                        pass
+                    else:
+                        # Update depth bounds depending on whether the model uses absolute depth
+                        # or distance relative to slab top
+                        if "min depth" in composition_model and "max depth" in composition_model:
+                            composition_model["min depth"] = slab_layer_depths[index]
+                            composition_model["max depth"] = slab_layer_depths[index+1]
+                        elif "min distance slab top" in composition_model and "max distance slab top" in composition_model:
+                            composition_model["min distance slab top"] = slab_layer_depths[index]
+                            composition_model["max distance slab top"] = slab_layer_depths[index+1]
+                        else:
+                            raise NotImplementedError("This composition model is neither decribed by min/max depth nor described by min/max distance slab top")
+
+        # configure the start point of the plage, age of the slab and the spreading rate
+        for feature in wb_dict["features"]:
+            if feature["name"] == "Subducting Plate":
+                feature["coordinates"] = [[slab_hinge_point, -100e3], [slab_hinge_point, 100e3], [plate_start_point, 100e3], [plate_start_point, -100e3]]
+                feature["temperature models"][0]["ridge coordinates"] = [[[plate_start_point,-100e3],[plate_start_point,100e3]]]
+                feature["temperature models"][0]["spreading velocity"] = spreading_velocity
+
+            if feature["name"] == "Slab":
+                feature["coordinates"] = [[slab_hinge_point, -100e3],[slab_hinge_point, 100e3]]
+                feature["temperature models"][0]["ridge coordinates"] = [[[plate_start_point,-100e3],[plate_start_point,100e3]]]
+                feature["temperature models"][0]["subducting velocity"] = spreading_velocity
+                feature["temperature models"][0]["spreading velocity"] = spreading_velocity
+
+        # put the related parameters into context for later rules 
+        context["spreading_velocity"] = spreading_velocity
+        context["slab_hinge_point"] = slab_hinge_point
+        context["plate_start_point"] = plate_start_point
+
 class GeometryRule(Rule):
     """
     For this class, I vary the domain depth and figure out what would be the change
@@ -612,146 +767,135 @@ class GeometryRule(Rule):
 
         return T
 
-# todo_slab
-class SlabRule(Rule):
+# todo_bd
+class KinematicDrivenRule(Rule):
     """
-    Configures slab-layer geometry based on composition-specific depth intervals.
+    Configure a kinematically driven velocity condition at the side boundary.
 
-    This rule assigns depth ranges to slab-related composition models in the
-    WorldBuilder dictionary. It interprets user-provided slab layering information
-    (compositions and corresponding depth boundaries) and applies these consistently
-    to the relevant composition models in the WorldBuilder features. The rule also
-    performs validation to ensure consistency with other rules and with the internal
-    model configuration.
+    This rule enables and parameterizes a depth-dependent kinematic driving
+    condition applied to the side boundary of the model domain. When activated,
+    it modifies the boundary velocity model so that a prescribed inflow is
+    applied above a specified depth, transitions smoothly over a finite depth
+    interval, and is balanced by an outflow below to maintain mass conservation.
 
     Required configuration parameters:
 
-    - slab_layer_compositions (list[str]):
-      A list of composition names that define the ordered layers within the slab.
-      Each entry corresponds to one slab layer.
-      Default value: ["sediment", "MORB", "gabbro"].
+    kinematic_driven_condition (bool):
+        Whether to activate the kinematically driven boundary condition.
+        If True, the left boundary velocity is prescribed using a depth-
+        dependent function.
+        Default value: False
 
-    - slab_layer_depths (list[float]):
-      A list of depth boundaries (in meters) defining the slab layering. This list
-      must contain exactly one more element than ``slab_layer_compositions``, since
-      each layer is bounded by a lower and upper depth.
-      Default value: [0.0, 4e3, 7.5e3, 11.5e3].
+    convergence_rate (float):
+        Total convergence rate between the subducting and overriding plates.
+        This value defines the inflow velocity magnitude applied at the
+        shallow portion of the boundary.
+        Default value: 0.05
 
-    Provided configuration parameters:
-    - spreading_velocity (float)
-      The speed of ridge spreading rate (half spreading rate geologically)
-    - plate_start_point:
-      Position of the ridge tied to the start of the subduction plate
-    - slab_hinge_point:
-      Position of the trench
-    """
+    kinematic_driven_condition_depth (float):
+        Depth (in meters) down to which the kinematic inflow condition is
+        prescribed along the side boundary.
+        Default value: 100e3
+
+    kinematic_driven_condition_transition_depth (float):
+        Thickness (in meters) of the transition zone over which the boundary
+        condition smoothly changes from inflow to outflow.
+        Default value: 20e3
+    """ 
+
+    requires = ["kinematic_driven_condition", 
+                "convergence_rate",
+                "kinematic_driven_condition_depth",
+                "kinematic_driven_condition_transition_depth"]
+
+    defaults = {"kinematic_driven_condition": False, 
+                "convergence_rate": 0.05,
+                "kinematic_driven_condition_depth": 100e3,
+                "kinematic_driven_condition_transition_depth": 20e3}
+
+    requires_comments = {"kinematic_driven_condition": "Whether to add a kinematic driven condition to the model",
+                         "convergence_rate": "Total convergence rate between subducting and overriding plate",
+                         "kinematic_driven_condition_depth": "Depth to prescribe the kinematic driven condition on the side boundary",
+                         "kinematic_driven_condition_transition_depth": "Depth to transit from inflow to outflow condition"}
     
-    requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point", "slab_hinge_point", "slab_age"]
-    
-    defaults = {"slab_layer_compositions": ["sediment", "MORB", "gabbro"], "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3],
-                "plate_start_point": 1000e3, "slab_hinge_point": 5000e3, "slab_age": 100e6}
-    
-    requires_comments = {"slab_layer_compositions": "Include these compositions for the slab",
-                         "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1",
-                         "plate_start_point": "Position of the ridge tied to the start of the subduction plate",
-                         "slab_hinge_point": "Position of the trench"}
-    # todo_ct 
-    provides = ["spreading_velocity", "slab_hinge_point", "plate_start_point"]
-    
+    provides = ["kinematic_driven_condition"]
+
     def apply(self, config, prm_dict, wb_dict, context):
         """
-        Apply the rule to modify model configuration dictionaries in-place.
+        Apply this rule to modify model configuration dictionaries.
 
         Parameters
         ----------
         config : dict
-            A dictionary of resolved configuration values for the current model case.
-            This contains all parameters listed in ``requires`` and any additional
-            configuration provided by the broader rule system.
+            Dictionary containing resolved configuration parameters required
+            by this rule. All keys listed in `requires` are guaranteed to be
+            present, either explicitly provided by the user or filled from
+            `defaults`.
 
         prm_dict : dict
-            A nested dictionary representation of the ASPECT parameter file that this
-            rule may modify in-place.
+            Dictionary representing the ASPECT parameter file structure.
+            This rule may modify nested entries in-place to configure
+            boundary velocity conditions.
 
         wb_dict : dict
-            A dictionary containing WorldBuilder-related configuration or data that
-            rules may read from or modify in-place.
+            Dictionary representing the WorldBuilder configuration.
+            This rule may modify it in-place if needed.
 
         context : dict
-            A dictionary for passing shared contextual information between rules during
-            execution (e.g., derived values, cached objects, or workflow state).
+            Shared dictionary used to exchange global or derived quantities
+            between rules (e.g., domain geometry information). This rule
+            may read existing values and store new ones.
 
         Returns
         -------
         None
-            This method always modifies the provided dictionaries in-place and does
-            not return a value.
+            This method modifies `prm_dict`, `wb_dict`, and/or `context`
+            in-place and returns None.
         """
 
-        # read the slab layer configurations
-        slab_layer_compositions = config["slab_layer_compositions"]
-        slab_layer_depths = config["slab_layer_depths"]
-        plate_start_point = config["plate_start_point"]
-        slab_hinge_point = config["slab_hinge_point"]
-        slab_age = config["slab_age"]
+        # Parse configuration variables required for this rule
+        kinematic_driven_condition = config["kinematic_driven_condition"]
+        convergence_rate = config["convergence_rate"]
+        kinematic_driven_condition_depth = config["kinematic_driven_condition_depth"]
+        kinematic_driven_condition_transition_depth = config["kinematic_driven_condition_transition_depth"]
+
+        # Retrieve global domain depth from shared context
+        domain_depth = context["domain_depth"]
 
 
-        # compute the spreading rate based on the slab age, hinge point and starting point of the plate
-        spreading_velocity = (slab_hinge_point - plate_start_point) / slab_age
+        if kinematic_driven_condition:
 
-        # assert that the layer depths has number of compositions + 1
-        my_assert(len(slab_layer_compositions) + 1 == len(slab_layer_depths), ValueError,
-                  "slab_layer_depths should be exactly one element longer than slab_layer_compositions.")
+            # Modify velocity boundary indicators to prescribe a function on the left boundary
+            prm_dict["Boundary velocity model"]["Tangential velocity boundary indicators"] = "right, bottom"
+            prm_dict["Boundary velocity model"]["Prescribed velocity boundary indicators"] = "left x:function"
 
-        # check no confliction with other rules
-        if context["removed_peridotite_compositional_indexes"]:
-            my_assert("peridotie" not in slab_layer_compositions, RuleConflictError, "If peridotite is removed by other rules, it cannot be included here")
+            # Compute outflow rate to balance imposed inflow over the specified depth range
+            outflow_rate = -convergence_rate*kinematic_driven_condition_depth/\
+                (domain_depth-kinematic_driven_condition_depth-kinematic_driven_condition_transition_depth/2.0)
 
-        # get indices of the slab compositions
-        names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
-        slab_composition_indices = [names_of_fields.index(composition) for composition in slab_layer_compositions]
+            # Define constants used in the boundary function expression
+            constants_expr = "v0=%.4e, v1=%.4e, ymax=%.4e, h=%.4e, h1=%.4e" %\
+                (convergence_rate, outflow_rate, domain_depth, kinematic_driven_condition_depth, kinematic_driven_condition_transition_depth)
 
-        # loop features and apply the composition layer configurations for slab
-        for feature in wb_dict["features"]:
-            try:
-                composition_models = feature["composition models"]
-            except KeyError:
-                pass
-            else:
-                for composition_model in composition_models:
-                    try:
-                        index = slab_composition_indices.index(composition_model["compositions"][0])
-                    except ValueError:
-                        pass
-                    else:
-                        # Update depth bounds depending on whether the model uses absolute depth
-                        # or distance relative to slab top
-                        if "min depth" in composition_model and "max depth" in composition_model:
-                            composition_model["min depth"] = slab_layer_depths[index]
-                            composition_model["max depth"] = slab_layer_depths[index+1]
-                        elif "min distance slab top" in composition_model and "max distance slab top" in composition_model:
-                            composition_model["min distance slab top"] = slab_layer_depths[index]
-                            composition_model["max distance slab top"] = slab_layer_depths[index+1]
-                        else:
-                            raise NotImplementedError("This composition model is neither decribed by min/max depth nor described by min/max distance slab top")
+            # Construct a piecewise depth-dependent velocity function expression
+            func_expr = """\\
+%sif (y>(ymax-h), v0,\\
+%s(if (y>(ymax-h-h1), v0*(y-ymax+h+h1)/h1 -v1*(y-ymax+h)/h1,\\
+%sv1)));\\
+%s0.0
+""" % (12*" ", 14*" ", 16*" ", 12*" ")
 
-        # configure the start point of the plage, age of the slab and the spreading rate
-        for feature in wb_dict["features"]:
-            if feature["name"] == "Subducting Plate":
-                feature["coordinates"] = [[slab_hinge_point, -100e3], [slab_hinge_point, 100e3], [plate_start_point, 100e3], [plate_start_point, -100e3]]
-                feature["temperature models"][0]["ridge coordinates"] = [[[plate_start_point,-100e3],[plate_start_point,100e3]]]
-                feature["temperature models"][0]["spreading velocity"] = spreading_velocity
+            # Package function constants and expression into ASPECT function subsection
+            function_subsection = {
+                "Function constants": constants_expr,
+                "Function expression":func_expr
+            }
 
-            if feature["name"] == "Slab":
-                feature["coordinates"] = [[slab_hinge_point, -100e3],[slab_hinge_point, 100e3]]
-                feature["temperature models"][0]["ridge coordinates"] = [[[plate_start_point,-100e3],[plate_start_point,100e3]]]
-                feature["temperature models"][0]["subducting velocity"] = spreading_velocity
-                feature["temperature models"][0]["spreading velocity"] = spreading_velocity
-
-        # put the related parameters into context for later rules 
-        context["spreading_velocity"] = spreading_velocity
-        context["slab_hinge_point"] = slab_hinge_point
-        context["plate_start_point"] = plate_start_point
+            # Assign the constructed function to the boundary velocity model
+            prm_dict["Boundary velocity model"]["Function"] = function_subsection
+        
+        # Provide activation state to shared context for downstream rules
+        context["kinematic_driven_condition"] = kinematic_driven_condition
 
 # todo_slab
 class PrescribConditionRule(Rule):
@@ -764,7 +908,7 @@ class PrescribConditionRule(Rule):
                 "prescribe_subducting_plate_velocity_velocity_method":"spreading_velocity", "prescribe_subducting_plate_velocity_hinge_relative_distance": 1000e3,
                 "prescribe_subducting_plate_velocity_length": 500e3, "prescribe_subducting_plate_velocity_depth_range": [10e3, 30e3], "convergence_rate":0.05}
     
-    requires_comments = {"convergence_rate": "The overriding plate velocity is prescribed with the assigned subducting plate velocity to maintain this convergence rate."}
+    requires_comments = {"convergence_rate": "Total convergence rate between subducting and overriding plate"}
 
     provides = []
         
@@ -790,7 +934,9 @@ class PrescribConditionRule(Rule):
             raise RuleConflictError("SlabRule needs to be put before PrescribConditionRule so that there are slab parameters in the context")
         
         # prescribe the velocity
-        if prescribe_subducting_plate_velocity > 0:
+        if prescribe_subducting_plate_velocity:
+            my_assert(not context["kinematic_driven_condition"], RuleConflictError, 
+                      "The kinematic-driven condition and the prescribe condition cannot be used together")
             # figure out x1, x2, depth1 and depth2
             # note that depth1 should be deeper as it is the one has smaller y
             if prescribe_subducting_plate_velocity_region_method == "relative_to_hinge":
@@ -1401,3 +1547,4 @@ def parse_contiental_extension_rheology(prm_path):
     cohesion = float(material_dict["Cohesions"])
 
     return dislocation_aspect, friction_angle, cohesion 
+

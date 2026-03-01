@@ -10247,11 +10247,6 @@ def ConvertFromAspectInput(aspect_creep, *,
         assert(r is not None)
         fh2o_term = fh2o**r
 
-    # todo_rheology
-    print("A_aspect = ", A_aspect)
-    print("F**n = ", F**n)
-    print("(1e6)**(p + n) = ", (1e6)**(p + n))
-
     A_exp = (
         A_aspect
         * F**n

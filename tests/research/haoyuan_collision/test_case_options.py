@@ -7,7 +7,7 @@ from gdmate.aspect.config_engine import RuleEngine
 from gdmate.aspect.builtin_rules import CasePathRule
 from gdmate.aspect.io import parse_parameters_to_dict, save_parameters_from_dict
 from hamageolib.research.haoyuan_collision0.config import GeometryRule, PostProcessorRule, RemoveFluidRule, RemovePeridotiteRule,\
-    RheologyRule, WeakLayerRule, SlabRule, SolverRule, PrescribConditionRule, ContinentRule
+    RheologyRule, WeakLayerRule, SlabRule, SolverRule, PrescribConditionRule, ContinentRule, KinematicDrivenRule
 
 # Resolve the root of the pakage and set up
 # test directory
@@ -18,10 +18,10 @@ test_root.mkdir(exist_ok=True)
 test_dir = test_root/"research-haoyuan-case-options"
 test_dir.mkdir(exist_ok=True)
 
-
+# todo_bd
 rules = [PostProcessorRule(), CasePathRule(), RemoveFluidRule(), RemovePeridotiteRule(),
-         SlabRule(), GeometryRule(), RheologyRule(), WeakLayerRule(),
-         SolverRule(), PrescribConditionRule(), ContinentRule()]
+         SlabRule(), GeometryRule(),  RheologyRule(), WeakLayerRule(),
+         SolverRule(), KinematicDrivenRule(), PrescribConditionRule(), ContinentRule()]
 
 def test_default_options():
     """
