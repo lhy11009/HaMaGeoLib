@@ -1126,8 +1126,15 @@ class ContinentRule(Rule):
             idx_lower = N_fields - 1
 
             # Last modify the WB file
+            # Change version to newest version (1.1)
+            # Layers typically include both upper and lower crust
+            # And temperature model applies the chapman model.
+            wb_dict["version"] =  "1.1"
+
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Overriding Plate")
             assert(idx_feature is not None)
+
+            feature["model"] = "continental plate"
 
             feature["composition models"] = [
                 {
@@ -1147,6 +1154,47 @@ class ContinentRule(Rule):
                     "max depth": continent_depth_levels[1]
                 },
             ]
+
+            # todo_continent
+            temperature_models = []
+
+            upper_crust_temperature_model = {
+                "model":"chapman", 
+                "max depth":continent_depth_levels[0], 
+                "top temperature": 273.0, 
+                "top heat flux":0.055, 
+                "thermal conductivity":2.5, 
+                "heat generation per unit volume":1e-6
+                }
+
+            temperature_models.append(upper_crust_temperature_model)
+
+            lower_crust_temperature_model = {
+                "model":"chapman", 
+                "min depth":continent_depth_levels[0], 
+                "max depth":continent_depth_levels[1], 
+                "top temperature": 633.0, 
+                "top heat flux":0.035, 
+                "thermal conductivity":2.5, 
+                "heat generation per unit volume":0.25e-6
+            }
+            
+            temperature_models.append(lower_crust_temperature_model)
+            
+            mantle_temperature_model = {
+                "model":"chapman", 
+                "min depth":continent_depth_levels[1], 
+                "max depth":120e3, 
+                "top temperature": 893.0, 
+                "top heat flux":0.030, 
+                "thermal conductivity":4.0, 
+                "heat generation per unit volume":0.0
+            }
+
+            temperature_models.append(mantle_temperature_model)
+
+            feature["temperature models"] = temperature_models
+
 
         # handle the subducting plate
         if config["add_continents"] == "both":
