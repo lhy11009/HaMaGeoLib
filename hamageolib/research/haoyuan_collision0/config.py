@@ -483,36 +483,51 @@ class SlabRule(Rule):
       each layer is bounded by a lower and upper depth.
       Default value: [0.0, 4e3, 7.5e3, 11.5e3].
     
-    - plate_start_point (float):
+    - plate_start_point_pre_modification (float):
       Position of the ridge tied to the start of the subduction plate
       Default value: 1000e3
 
-    - slab_hinge_point:
+    - slab_hinge_point_pre_modification:
       Position of the trench
       Default value: 5000e3
+
+    - plate_end_point_pre_modification:
+      Position of the end of the overriding plate
+      Default value: 7500e3
 
     Provided configuration parameters:
     - spreading_velocity (float)
       The speed of ridge spreading rate (half spreading rate geologically)
-    - plate_start_point:
+    - plate_start_point_pre_modification:
       Position of the ridge tied to the start of the subduction plate
-    - slab_hinge_point:
+    - slab_hinge_point_pre_modification:
       Position of the trench
     """
     
-    requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point", "slab_hinge_point", "slab_age",
-                "kinematic_driven_condition", "kinematic_driven_condition_domain_modification"]
+    requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point_pre_modification", "slab_hinge_point_pre_modification",
+                "plate_end_point_pre_modification",
+                "slab_age", "kinematic_driven_condition", "kinematic_driven_condition_domain_modification"]
     
     defaults = {"slab_layer_compositions": ["sediment", "MORB", "gabbro"], "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3],
-                "plate_start_point": 1000e3, "slab_hinge_point": 5000e3, "slab_age": 100e6, 
-                "kinematic_driven_condition": False, "kinematic_driven_condition_domain_modification": [1000e3, 1000e3]}
+                "plate_start_point_pre_modification": 1000e3,
+                "slab_hinge_point_pre_modification": 5000e3, 
+                "plate_end_point_pre_modification": 7500e3, 
+                "slab_age": 100e6, 
+                "kinematic_driven_condition": False,
+                "kinematic_driven_condition_domain_modification": [1000e3, 1000e3]}
     
     requires_comments = {"slab_layer_compositions": "Include these compositions for the slab",
                          "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1",
-                         "plate_start_point": "Position of the ridge tied to the start of the subduction plate",
-                         "slab_hinge_point": "Position of the trench"}
-    # todo_ct 
+                         "slab_age": "Age of the subducting plate at the trench",
+                         "plate_start_point_pre_modification": "Start point of subducting plate before modificaton",
+                         "slab_hinge_point_pre_modification": "Position of the trench"}
     provides = ["spreading_velocity", "slab_hinge_point", "plate_start_point"]
+
+    # todo_comments
+    provides_comments = {
+            "plate_start_point": "Start point of subducting plate",
+            "slab_hinge_point": "Hinge point of the trench",
+    }
     
     def apply(self, config, prm_dict, wb_dict, context):
         """
@@ -548,13 +563,35 @@ class SlabRule(Rule):
         # read the slab layer configurations
         slab_layer_compositions = config["slab_layer_compositions"]
         slab_layer_depths = config["slab_layer_depths"]
-        plate_start_point = config["plate_start_point"]
-        slab_hinge_point = config["slab_hinge_point"]
+        plate_start_point_pre_modification = config["plate_start_point_pre_modification"]
+        slab_hinge_point_pre_modification = config["slab_hinge_point_pre_modification"]
+        plate_end_point_pre_modification = config["plate_end_point_pre_modification"]
         slab_age = config["slab_age"]
         kinematic_driven_condition = config["kinematic_driven_condition"]
         kinematic_driven_condition_domain_modification = config["kinematic_driven_condition_domain_modification"]
 
         domain_length = context["domain_length"]
+
+        # apply the migration requried by the kinematic driven condition
+        #   The idea is to match start and end point of plates to the migrated boundary
+        #   The two sides are slightly different, the left side should be migrated by left migration and compared with 0
+        #   while the right side should be migrated by left migration and compared to the right boundary migrated by right migration
+        #   The ridge should follow the plate start point, with the execption that the ridge point could be virtual (i.e. x < 0)
+        # todo_bd
+        if kinematic_driven_condition:
+            plate_start_point  = max(plate_start_point_pre_modification - kinematic_driven_condition_domain_modification[0], 0.0)
+
+            slab_hinge_point  = slab_hinge_point_pre_modification - kinematic_driven_condition_domain_modification[0]
+            assert(slab_hinge_point > 0.0)
+
+            plate_end_point = min(plate_end_point_pre_modification - kinematic_driven_condition_domain_modification[0], domain_length)
+            
+            ridge_point = plate_start_point_pre_modification - kinematic_driven_condition_domain_modification[0]
+        else:
+            plate_start_point = plate_start_point_pre_modification
+            slab_hinge_point = slab_hinge_point_pre_modification
+            plate_end_point = plate_end_point_pre_modification
+            ridge_point = plate_start_point
 
 
         # compute the spreading rate based on the slab age, hinge point and starting point of the plate
@@ -597,41 +634,29 @@ class SlabRule(Rule):
                             raise NotImplementedError("This composition model is neither decribed by min/max depth nor described by min/max distance slab top")
 
         # configure the start point of the plage, age of the slab and the spreading rate
-        # apply the migration requried by the kinematic driven condition
-        #   The idea is to match start and end point of plates to the migrated boundary
-        #   The two sides are slightly different, the left side should be migrated by left migration and compared with 0
-        #   while the right side should be migrated by left migration and compared to the right boundary migrated by right migration
-        # todo_bd
-        x0 = plate_start_point
-        x1 = slab_hinge_point
-        x2 = 7500e3
-        if kinematic_driven_condition:
-            x0 -= kinematic_driven_condition_domain_modification[0]
-            x1 -= kinematic_driven_condition_domain_modification[0]
-            x2 -= kinematic_driven_condition_domain_modification[0]
+ 
 
-        x0 = max(x0, 0.0) 
-        x2 = min(x2, domain_length)
             
         for feature in wb_dict["features"]:
             if feature["name"] == "Subducting Plate":
-                feature["coordinates"] = [[x1, -100e3], [x1, 100e3], [x0, 100e3], [x0, -100e3]]
-                feature["temperature models"][0]["ridge coordinates"] = [[[x0,-100e3],[x0,100e3]]]
+                feature["coordinates"] = [[slab_hinge_point, -100e3], [slab_hinge_point, 100e3], [plate_start_point, 100e3], [plate_start_point, -100e3]]
+                feature["temperature models"][0]["ridge coordinates"] = [[[ridge_point,-100e3],[ridge_point,100e3]]]
                 feature["temperature models"][0]["spreading velocity"] = spreading_velocity
 
             if feature["name"] == "Slab":
-                feature["coordinates"] = [[x1, -100e3],[x1, 100e3]]
-                feature["temperature models"][0]["ridge coordinates"] = [[[x0,-100e3],[x0,100e3]]]
+                feature["coordinates"] = [[slab_hinge_point, -100e3],[slab_hinge_point, 100e3]]
+                feature["temperature models"][0]["ridge coordinates"] = [[[ridge_point,-100e3],[ridge_point,100e3]]]
                 feature["temperature models"][0]["subducting velocity"] = spreading_velocity
                 feature["temperature models"][0]["spreading velocity"] = spreading_velocity
 
             if feature["name"] == "Overriding Plate":
-                feature["coordinates"] = [[x1, -100e3], [x1, 100e3], [x2, 100e3], [x2, -100e3]]
+                feature["coordinates"] = [[slab_hinge_point, -100e3], [slab_hinge_point, 100e3], [plate_end_point, 100e3], [plate_end_point, -100e3]]
 
         # put the related parameters into context for later rules 
         context["spreading_velocity"] = spreading_velocity
         context["slab_hinge_point"] = slab_hinge_point
-        context["plate_start_point"] = max(plate_start_point, 0.0)
+        context["plate_start_point"] = plate_start_point
+        context["plate_end_point"] = plate_end_point
 
 class GeometryRule(Rule):
     """
@@ -689,12 +714,17 @@ class GeometryRule(Rule):
     }
 
     requires_comments = {
-        "domain_length_pre_modification": "Length of the domain, also modifies the global refinement to maintain the cell size.",
+        "domain_length_pre_modification": "Length of the domain before modification",
         "global_refinement": "Global refinement before modified for the domain size change to maintain the cell size.",
         "use_isosurfaces": "Whether to replace composition threshold with isosurfaces."
         }
 
     provides = ["use_isosurfaces", "domain_depth", "domain_length"]
+
+    # todo_comments
+    provides_comments = {
+        "domain_length": "Length of the domain."
+    }
 
     def apply(self, config, prm_dict, wb_dict, context):
 
