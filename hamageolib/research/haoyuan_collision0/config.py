@@ -459,7 +459,6 @@ class PostProcessorRule(Rule):
                 prm_dict["Postprocess"]["Depth average"]["Time between graphical output"] = "%de3" % int(time_between_output/1e3)
 
 
-# todo_slab
 class SlabRule(Rule):
     """
     Configures slab-layer geometry based on composition-specific depth intervals.
@@ -501,10 +500,12 @@ class SlabRule(Rule):
       Position of the trench
     """
     
-    requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point", "slab_hinge_point", "slab_age"]
+    requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point", "slab_hinge_point", "slab_age",
+                "kinematic_driven_condition", "kinematic_driven_condition_domain_modification"]
     
     defaults = {"slab_layer_compositions": ["sediment", "MORB", "gabbro"], "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3],
-                "plate_start_point": 1000e3, "slab_hinge_point": 5000e3, "slab_age": 100e6}
+                "plate_start_point": 1000e3, "slab_hinge_point": 5000e3, "slab_age": 100e6, 
+                "kinematic_driven_condition": False, "kinematic_driven_condition_domain_modification": [1000e3, 1000e3]}
     
     requires_comments = {"slab_layer_compositions": "Include these compositions for the slab",
                          "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1",
@@ -550,6 +551,10 @@ class SlabRule(Rule):
         plate_start_point = config["plate_start_point"]
         slab_hinge_point = config["slab_hinge_point"]
         slab_age = config["slab_age"]
+        kinematic_driven_condition = config["kinematic_driven_condition"]
+        kinematic_driven_condition_domain_modification = config["kinematic_driven_condition_domain_modification"]
+
+        domain_length = context["domain_length"]
 
 
         # compute the spreading rate based on the slab age, hinge point and starting point of the plate
@@ -592,22 +597,41 @@ class SlabRule(Rule):
                             raise NotImplementedError("This composition model is neither decribed by min/max depth nor described by min/max distance slab top")
 
         # configure the start point of the plage, age of the slab and the spreading rate
+        # apply the migration requried by the kinematic driven condition
+        #   The idea is to match start and end point of plates to the migrated boundary
+        #   The two sides are slightly different, the left side should be migrated by left migration and compared with 0
+        #   while the right side should be migrated by left migration and compared to the right boundary migrated by right migration
+        # todo_bd
+        x0 = plate_start_point
+        x1 = slab_hinge_point
+        x2 = 7500e3
+        if kinematic_driven_condition:
+            x0 -= kinematic_driven_condition_domain_modification[0]
+            x1 -= kinematic_driven_condition_domain_modification[0]
+            x2 -= kinematic_driven_condition_domain_modification[0]
+
+        x0 = max(x0, 0.0) 
+        x2 = min(x2, domain_length)
+            
         for feature in wb_dict["features"]:
             if feature["name"] == "Subducting Plate":
-                feature["coordinates"] = [[slab_hinge_point, -100e3], [slab_hinge_point, 100e3], [plate_start_point, 100e3], [plate_start_point, -100e3]]
-                feature["temperature models"][0]["ridge coordinates"] = [[[plate_start_point,-100e3],[plate_start_point,100e3]]]
+                feature["coordinates"] = [[x1, -100e3], [x1, 100e3], [x0, 100e3], [x0, -100e3]]
+                feature["temperature models"][0]["ridge coordinates"] = [[[x0,-100e3],[x0,100e3]]]
                 feature["temperature models"][0]["spreading velocity"] = spreading_velocity
 
             if feature["name"] == "Slab":
-                feature["coordinates"] = [[slab_hinge_point, -100e3],[slab_hinge_point, 100e3]]
-                feature["temperature models"][0]["ridge coordinates"] = [[[plate_start_point,-100e3],[plate_start_point,100e3]]]
+                feature["coordinates"] = [[x1, -100e3],[x1, 100e3]]
+                feature["temperature models"][0]["ridge coordinates"] = [[[x0,-100e3],[x0,100e3]]]
                 feature["temperature models"][0]["subducting velocity"] = spreading_velocity
                 feature["temperature models"][0]["spreading velocity"] = spreading_velocity
+
+            if feature["name"] == "Overriding Plate":
+                feature["coordinates"] = [[x1, -100e3], [x1, 100e3], [x2, 100e3], [x2, -100e3]]
 
         # put the related parameters into context for later rules 
         context["spreading_velocity"] = spreading_velocity
         context["slab_hinge_point"] = slab_hinge_point
-        context["plate_start_point"] = plate_start_point
+        context["plate_start_point"] = max(plate_start_point, 0.0)
 
 class GeometryRule(Rule):
     """
@@ -617,7 +641,7 @@ class GeometryRule(Rule):
     variable with the domain size.
 
     Required configuration parameters:
-    - domain_length (float):
+    - domain_length_pre_modification (float):
       The horizontal length of the model domain in meters.
       Default value: 8700e3.
 
@@ -650,19 +674,22 @@ class GeometryRule(Rule):
       Default value: False.
     """
 
-    requires = ["domain_length", "domain_depth", "global_refinement", "adaptive_refinement", "repetition_length", "use_isosurfaces"]
+    requires = ["domain_length_pre_modification", "domain_depth", "global_refinement", "adaptive_refinement", "repetition_length", "use_isosurfaces",
+                "kinematic_driven_condition", "kinematic_driven_condition_domain_modification"]
     
     defaults = {
-        "domain_length": 8700e3,
+        "domain_length_pre_modification": 8700e3,
         "domain_depth": 2900e3,
         "repetition_length": 1450e3,
         "global_refinement": 6,
         "adaptive_refinement": 4,
-        "use_isosurfaces": False
+        "use_isosurfaces": False,
+        "kinematic_driven_condition": False,
+        "kinematic_driven_condition_domain_modification": [1000e3, 1000e3]
     }
 
     requires_comments = {
-        "domain_length": "Length of the domain, also modifies the global refinement to maintain the cell size.",
+        "domain_length_pre_modification": "Length of the domain, also modifies the global refinement to maintain the cell size.",
         "global_refinement": "Global refinement before modified for the domain size change to maintain the cell size.",
         "use_isosurfaces": "Whether to replace composition threshold with isosurfaces."
         }
@@ -673,10 +700,20 @@ class GeometryRule(Rule):
 
         # Get values of configurations
         domain_depth = config["domain_depth"]
-        domain_length = config["domain_length"]
+        domain_length_pre_modification = config["domain_length_pre_modification"]
         repetition_length = config["repetition_length"]
         use_isosurfaces = config["use_isosurfaces"]
+        kinematic_driven_condition = config["kinematic_driven_condition"]
+        kinematic_driven_condition_domain_modification = config["kinematic_driven_condition_domain_modification"]
         default_repetition_length = self.defaults["repetition_length"]
+
+        # apply modification based on the kinematic driven condition
+        # the idea is to subtract modification on both sides
+        if kinematic_driven_condition:
+            domain_length = domain_length_pre_modification -  kinematic_driven_condition_domain_modification[0] - kinematic_driven_condition_domain_modification[1]
+        else:
+            domain_length = domain_length_pre_modification
+        
 
         # Derive the number of repetition using the length of repetition
         n_repetition_x = int(np.round(domain_length/repetition_length))
@@ -697,6 +734,7 @@ class GeometryRule(Rule):
         bottom_T = self.calculate_bottom_T(domain_depth)
 
         # Apply to parameter setup
+        prm_dict["Geometry model"]["Box"]["X extent"] = "%de3" % int(domain_length/1e3)
         prm_dict["Geometry model"]["Box"]["Y extent"] = "%de3" % int(domain_depth/1e3)
         prm_dict["Geometry model"]["Box"]["X repetitions"] = str(n_repetition_x)
         prm_dict["Geometry model"]["Box"]["Y repetitions"] = str(n_repetition_y)
@@ -801,22 +839,31 @@ class KinematicDrivenRule(Rule):
         Thickness (in meters) of the transition zone over which the boundary
         condition smoothly changes from inflow to outflow.
         Default value: 20e3
+
+    kinematic_driven_condition_domain_modification (list of 2):
+        Migrate the two side boundary to accomodate the new kinematic driven condition
+        Default value: [1000e3, 1000e3]
     """ 
 
     requires = ["kinematic_driven_condition", 
                 "convergence_rate",
                 "kinematic_driven_condition_depth",
-                "kinematic_driven_condition_transition_depth"]
+                "kinematic_driven_condition_transition_depth",
+                "kinematic_driven_condition_domain_modification",
+                "use_isosurfaces"]
 
     defaults = {"kinematic_driven_condition": False, 
                 "convergence_rate": 0.05,
                 "kinematic_driven_condition_depth": 100e3,
-                "kinematic_driven_condition_transition_depth": 20e3}
+                "kinematic_driven_condition_transition_depth": 20e3,
+                "kinematic_driven_condition_domain_modification": [1000e3, 1000e3]}
 
     requires_comments = {"kinematic_driven_condition": "Whether to add a kinematic driven condition to the model",
                          "convergence_rate": "Total convergence rate between subducting and overriding plate",
                          "kinematic_driven_condition_depth": "Depth to prescribe the kinematic driven condition on the side boundary",
-                         "kinematic_driven_condition_transition_depth": "Depth to transit from inflow to outflow condition"}
+                         "kinematic_driven_condition_transition_depth": "Depth to transit from inflow to outflow condition",
+                         "kinematic_driven_condition_domain_modification": "Migrate the two side boundary to accomodate the new kinematic driven condition\
+                            The idea is we always first set up the plates in a long model domain, and then migrate the side boundaries to make it short."}
     
     provides = ["kinematic_driven_condition"]
 
@@ -858,6 +905,10 @@ class KinematicDrivenRule(Rule):
         convergence_rate = config["convergence_rate"]
         kinematic_driven_condition_depth = config["kinematic_driven_condition_depth"]
         kinematic_driven_condition_transition_depth = config["kinematic_driven_condition_transition_depth"]
+        kinematic_driven_condition_domain_modification = config["kinematic_driven_condition_domain_modification"]
+
+        # Assert configuration
+        assert(len(kinematic_driven_condition_domain_modification) == 2)
 
         # Retrieve global domain depth from shared context
         domain_depth = context["domain_depth"]
@@ -1115,10 +1166,16 @@ class WeakLayerRule(Rule):
       Default value: False.
     """
     
-    requires = ["weak_layer_compositions", "weak_layer_viscosity", "weak_layer_cutoff_depth", "weak_layer_transition_width", "force_weak_layer_max_refinement"]
+    requires = ["weak_layer_compositions", "weak_layer_viscosity", "weak_layer_cutoff_depth", "weak_layer_transition_width", "force_weak_layer_max_refinement",
+                "use_isosurfaces"]
     
-    defaults = {"weak_layer_compositions": ["MORB", "sediment"], "weak_layer_viscosity": 2.5e19, "weak_layer_cutoff_depth": 125e3, 
-                "weak_layer_transition_width":10e3, "force_weak_layer_max_refinement": False}
+    defaults = {"weak_layer_compositions": ["MORB", "sediment"], 
+                "weak_layer_viscosity": 2.5e19, 
+                "weak_layer_cutoff_depth": 125e3, 
+                "weak_layer_transition_width":10e3, 
+                "force_weak_layer_max_refinement": False,
+                "use_isosurfaces": False
+                }
     
     requires_comments = {"weak_layer_compositions": "The weak layer is expand to these compositions. Phase transitions of them are set up consistently.",
                          "force_weak_layer_max_refinement": "Force all weak layer composition with the maximum refinement level with the isosurfaces."}
@@ -1161,6 +1218,7 @@ class WeakLayerRule(Rule):
         weak_layer_cutoff_depth = config["weak_layer_cutoff_depth"]
         weak_layer_transition_width = config["weak_layer_transition_width"]
         force_weak_layer_max_refinement = config["force_weak_layer_max_refinement"]
+        use_isosurfaces = config["use_isosurfaces"]
 
         # Expand and make a new phase if compositions are not from "MORB" or "sediment"
         for composition in weak_layer_compositions:
@@ -1181,7 +1239,7 @@ class WeakLayerRule(Rule):
 
         # Make sure the refinement is set to max level for the weak layer compositions
         if force_weak_layer_max_refinement:
-            if context["use_isosurfaces"]:
+            if use_isosurfaces:
                 isosurfaces = parse_isosurfaces_entry(prm_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"])
                 for isosurface in isosurfaces:
                     if isosurface["composition"] in weak_layer_compositions:
@@ -1236,6 +1294,8 @@ class SolverRule(Rule):
             prm_dict["Solver parameters"]["Stokes solver parameters"]["Skip expensive stokes solver"] = "true"
 
 class ContinentRule(Rule): 
+
+    # todo_bd
 
     requires = ["add_continents", "continent_depth_levels", "subducting_continent_length"]
 

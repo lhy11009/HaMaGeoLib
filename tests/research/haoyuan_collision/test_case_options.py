@@ -20,7 +20,7 @@ test_dir.mkdir(exist_ok=True)
 
 # todo_bd
 rules = [PostProcessorRule(), CasePathRule(), RemoveFluidRule(), RemovePeridotiteRule(),
-         SlabRule(), GeometryRule(),  RheologyRule(), WeakLayerRule(),
+         GeometryRule(), SlabRule(),   RheologyRule(), WeakLayerRule(),
          SolverRule(), KinematicDrivenRule(), PrescribConditionRule(), ContinentRule()]
 
 def test_default_options():
