@@ -577,7 +577,6 @@ class SlabRule(Rule):
         #   The two sides are slightly different, the left side should be migrated by left migration and compared with 0
         #   while the right side should be migrated by left migration and compared to the right boundary migrated by right migration
         #   The ridge should follow the plate start point, with the execption that the ridge point could be virtual (i.e. x < 0)
-        # todo_bd
         if kinematic_driven_condition:
             plate_start_point  = max(plate_start_point_pre_modification - kinematic_driven_condition_domain_modification[0], 0.0)
 
@@ -778,8 +777,6 @@ class GeometryRule(Rule):
             rf"""if( x<=xmax && x>=xmin && y>=(ymax - 660e3), {total_refinement}, {total_refinement-2})"""
         prm_dict["Boundary temperature model"]["Constant"]["Boundary indicator to temperature mappings"] = f"bottom:{bottom_T}, top:273"
 
-        context["domain_depth"] = domain_depth
-        context["domain_length"] = domain_length
 
         # Change composition threshold to isosurfaces if requried.
         # At this, record this option in the context
@@ -805,7 +802,10 @@ class GeometryRule(Rule):
             prm_dict["Mesh refinement"]["Strategy"] = format_list_as_entry(mesh_refinement_strategies)
             prm_dict["Mesh refinement"]["Isosurfaces"] = isosurfaces_dict
 
+        # Add to context
         context["use_isosurfaces"] = use_isosurfaces
+        context["domain_depth"] = domain_depth
+        context["domain_length"] = domain_length
 
     def calculate_bottom_T(self, depth):
         """
@@ -835,7 +835,7 @@ class GeometryRule(Rule):
 
         return T
 
-# todo_bd
+
 class KinematicDrivenRule(Rule):
     """
     Configure a kinematically driven velocity condition at the side boundary.
@@ -947,18 +947,17 @@ class KinematicDrivenRule(Rule):
         if kinematic_driven_condition:
 
             # Modify velocity boundary indicators to prescribe a function on the left boundary
+            # Compute outflow rate to balance imposed inflow over the specified depth range and then
+            # construct a piecewise depth-dependent velocity function expression
             prm_dict["Boundary velocity model"]["Tangential velocity boundary indicators"] = "right, bottom"
             prm_dict["Boundary velocity model"]["Prescribed velocity boundary indicators"] = "left x:function"
 
-            # Compute outflow rate to balance imposed inflow over the specified depth range
             outflow_rate = -convergence_rate*kinematic_driven_condition_depth/\
                 (domain_depth-kinematic_driven_condition_depth-kinematic_driven_condition_transition_depth/2.0)
 
-            # Define constants used in the boundary function expression
             constants_expr = "v0=%.4e, v1=%.4e, ymax=%.4e, h=%.4e, h1=%.4e" %\
                 (convergence_rate, outflow_rate, domain_depth, kinematic_driven_condition_depth, kinematic_driven_condition_transition_depth)
 
-            # Construct a piecewise depth-dependent velocity function expression
             func_expr = """\\
 %sif (y>(ymax-h), v0,\\
 %s(if (y>(ymax-h-h1), v0*(y-ymax+h+h1)/h1 -v1*(y-ymax+h)/h1,\\
@@ -966,14 +965,18 @@ class KinematicDrivenRule(Rule):
 %s0.0
 """ % (12*" ", 14*" ", 16*" ", 12*" ")
 
-            # Package function constants and expression into ASPECT function subsection
             function_subsection = {
                 "Function constants": constants_expr,
                 "Function expression":func_expr
             }
 
-            # Assign the constructed function to the boundary velocity model
             prm_dict["Boundary velocity model"]["Function"] = function_subsection
+
+            # Modify the composition boundary condition
+            # Here we assume that both continents start from / end at the side boundary
+            prm_dict["Boundary composition model"] = {
+                "List of model names": "initial composition"
+                }
         
         # Provide activation state to shared context for downstream rules
         context["kinematic_driven_condition"] = kinematic_driven_condition
@@ -1323,9 +1326,36 @@ class SolverRule(Rule):
         if skip_expensive_stokes:
             prm_dict["Solver parameters"]["Stokes solver parameters"]["Skip expensive stokes solver"] = "true"
 
-class ContinentRule(Rule): 
 
-    # todo_bd
+class ContinentRule(Rule): 
+    """
+    Configure continental structures in the model domain.
+
+    This rule optionally adds continental lithosphere to the overriding plate,
+    the subducting plate, or both. It modifies compositional fields, updates
+    WorldBuilder features, and assigns rheological and density properties
+    consistent with a continental extension reference model. The rule also
+    records the resulting continental rheology in the shared context for
+    downstream use.
+
+    Required configuration parameters:
+
+    add_continents (str):
+        Controls whether continents are added to the model.
+        Allowed values: "none", "overriding", "subducting", "both".
+        Default value: "none"
+
+    continent_depth_levels (list of float):
+        Depth levels (in meters) defining boundaries between continental
+        compositional layers (e.g., upper crust–lower crust and lower crust–mantle).
+        The list length must match the number of continental layers defined.
+        Default value: [20e3, 40e3]
+
+    subducting_continent_length (float):
+        Horizontal length (in meters) of the continental portion attached
+        to the subducting plate. Only used when add_continents is "both".
+        Default value: -1
+    """
 
     requires = ["add_continents", "continent_depth_levels", "subducting_continent_length"]
 
@@ -1338,10 +1368,42 @@ class ContinentRule(Rule):
     provides = ["continent_rheology"]
 
     def apply(self, config, prm_dict, wb_dict, context):
+        """
+        Apply this rule to modify model configuration dictionaries.
+
+        Parameters
+        ----------
+        config : dict
+            Dictionary containing resolved configuration parameters required
+            by this rule. All keys listed in `requires` are guaranteed to be
+            present, either provided explicitly or filled from `defaults`.
+
+        prm_dict : dict
+            Dictionary representing the ASPECT parameter file structure.
+            This rule may modify compositional fields and material model
+            properties in-place.
+
+        wb_dict : dict
+            Dictionary representing the WorldBuilder configuration.
+            This rule may modify features and thermal structures in-place.
+
+        context : dict
+            Shared dictionary used to exchange global or derived quantities
+            between rules (e.g., plate geometry or domain parameters).
+            This rule reads geometry information and may store derived
+            rheological information.
+
+        Returns
+        -------
+        None
+            This method modifies `prm_dict`, `wb_dict`, and/or `context`
+            in-place and returns None.
+        """
 
         # handle the overriding plate
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
             pass
+            # Define names for new continental compositional fields
             name_upper = "crust_upper"
             name_lower = "crust_lower"
             N_continent = 2
@@ -1349,29 +1411,30 @@ class ContinentRule(Rule):
             continent_depth_levels = config["continent_depth_levels"]
             assert(len(continent_depth_levels) == N_continent)
 
-            # First duplate the comositions
+            # Duplicate an existing crustal composition to create upper and lower crust
             duplicate_composition_from_prm(prm_dict, "gabbro", name_upper)
             duplicate_composition_from_prm(prm_dict, "gabbro", name_lower)
 
-            # Then remove the overriding composition
+            # Remove the overriding composition to replace it with continental layers
             remove_idx = delete_composition_from_prm(prm_dict, "overriding")
 
             N_fields = int(prm_dict["Compositional fields"]["Number of fields"])
 
+            # Identify indices of newly added compositional fields
             idx_upper = N_fields - 2
             idx_lower = N_fields - 1
 
-            # Last modify the WB file
-            # Change version to newest version (1.1)
-            # Layers typically include both upper and lower crust
-            # And temperature model applies the chapman model.
+            # Update WorldBuilder version to ensure compatibility with features used below
             wb_dict["version"] =  "1.1"
 
+            # Locate overriding plate feature for modification
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Overriding Plate")
             assert(idx_feature is not None)
 
+            # Convert overriding plate model to a continental plate
             feature["model"] = "continental plate"
 
+            # Assign layered compositional structure to continental plate
             feature["composition models"] = [
                 {
                     "model": "uniform",
@@ -1391,7 +1454,7 @@ class ContinentRule(Rule):
                 },
             ]
 
-            # todo_continent
+            # Define depth-dependent thermal structure for continental layers
             temperature_models = []
 
             upper_crust_temperature_model = {
@@ -1434,20 +1497,20 @@ class ContinentRule(Rule):
 
         # handle the subducting plate
         if config["add_continents"] == "both":
-            # todo_ct
-            # get the length of the continent and make sure it works
+            # Retrieve geometric parameters for constructing subducting continent
             subducting_continent_length = config["subducting_continent_length"]
             subducting_plate_length = context["slab_hinge_point"] - context["plate_start_point"]
+
+            # Validate provided continental length
             if subducting_continent_length < 0:
                 raise ValueError("Option set to create both continents, but trivial value is assigned to subducting_continent_length")
             if subducting_continent_length > subducting_plate_length:
                 raise ValueError("Assigned length of the continent ({subducting_continent_length}) cannot be longer than the assigned length of the plate ({subducting_plate_length})")
             
-            continent_end_point = context["plate_start_point"] + subducting_continent_length # endpoint of the subducting continent
+            # Compute endpoint of subducting continental block
+            continent_end_point = context["plate_start_point"] + subducting_continent_length
 
-            # add a new feature
-            # the start point is the old start point of the plate,
-            # and the end point is calculated by adding the length of the continent
+            # Duplicate overriding plate feature to construct subducting continent
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Overriding Plate")
             new_feature = deepcopy(feature)
 
@@ -1471,10 +1534,10 @@ class ContinentRule(Rule):
                 ]
             ]
 
+            # Insert new continental feature immediately after overriding plate
             wb_dict["features"].insert(idx_feature+1, new_feature)
 
-            # modify the subducting plate
-            # now the start point should be the end point of the continent
+            # Modify original subducting plate geometry to exclude continental segment
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Subducting Plate")
 
             feature["coordinates"][2][0] = continent_end_point
@@ -1484,18 +1547,18 @@ class ContinentRule(Rule):
         rheology_continent_dict = None
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
 
-            # Parse in the continental_extension parameter file
+            # Parse continental rheology reference parameter file
             prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/continental_extensiion/continental_extension.prm"
             dislocation_aspect, friction_angle, cohesion  = parse_contiental_extension_rheology(prm_path)
             density_aspect = parse_contiental_extension_density(prm_path)
 
-            # Read the rheologic and density variables
+            # Read and parse existing material model entries
             density_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Densities"])
             disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
             diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
 
+            # Ensure dislocation creep parameters are stored per-composition
             try:
-                # This structure is needed because this variable is given a single value in the original prm file
                 disl_n_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"])
             except ValueError:
                 disl_n_dict = deepcopy(disl_A_dict)
@@ -1530,7 +1593,7 @@ class ContinentRule(Rule):
                 for key, value in cohesion_dict.items():
                     cohesion_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Cohesions"]) for i in range(len(value))]
 
-            # assign to continent compositions
+            # Assign rheological and density properties to continental compositions
             density_dict["crust_upper"] = float(density_aspect["crust_upper"])
             disl_A_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['A'])
             disl_n_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['n'])
@@ -1538,7 +1601,7 @@ class ContinentRule(Rule):
             disl_V_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['V'])
             angle_friction_dict["crust_upper"][0] = friction_angle
             cohesion_dict["crust_upper"][0] = cohesion
-            diff_A_dict["crust_upper"][0] = 1e-50  # set this to turn off diffusion creep
+            diff_A_dict["crust_upper"][0] = 1e-50
             
             density_dict["crust_lower"] = float(density_aspect["crust_lower"])
             disl_A_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['A'])
@@ -1547,8 +1610,9 @@ class ContinentRule(Rule):
             disl_V_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['V'])
             angle_friction_dict["crust_lower"][0] = friction_angle
             cohesion_dict["crust_lower"][0] = cohesion
-            diff_A_dict["crust_lower"][0] = 1e-50  # set this to turn off diffusion creep
+            diff_A_dict["crust_lower"][0] = 1e-50
 
+            # Write updated material properties back into prm_dict
             prm_dict["Material model"]["Visco Plastic"]["Densities"] = format_composition_entry(density_dict)
             prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"] = format_composition_entry(disl_A_dict)
             prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"] = format_composition_entry(disl_n_dict)
@@ -1558,8 +1622,7 @@ class ContinentRule(Rule):
             prm_dict["Material model"]["Visco Plastic"]["Cohesions"] = format_composition_entry(cohesion_dict)
             prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"] = format_composition_entry(diff_A_dict)
 
-            # todo_rheology
-            # record the rheology used for the continent
+            # Record continental rheology in structured dictionary for downstream usage
             rheology_continent_dict = {}
             for composition in ["crust_upper", "crust_lower"]:
                 rheology_continent_dict[composition] = {"diffusion": None, "dislocation": None, "plastic": None}
@@ -1577,19 +1640,42 @@ class ContinentRule(Rule):
                     "cohesion": cohesion_dict[composition][0]
                 }
 
+            # Store rheology information in shared context
             context["continent_rheology"] = rheology_continent_dict
 
 
-# todo_ct
 def parse_contiental_extension_density(prm_path):
+    """
+    Parse density values from the continental extension reference parameter file.
+
+    This helper function reads an ASPECT parameter file associated with the
+    continental extension cookbook and extracts density values defined in the
+    Visco Plastic material model section. The densities are returned as a
+    composition-indexed dictionary consistent with the internal parsing
+    convention used elsewhere in the framework.
+
+    Parameters
+    ----------
+    prm_path : pathlib.Path
+        Path to the ASPECT parameter (.prm) file containing the reference
+        continental extension setup. The file must exist.
+
+    Returns
+    -------
+    dict
+        Dictionary mapping composition names to their corresponding density
+        values as parsed from the parameter file.
+    """
     
     # Read the prm file from the original continental extension cookbook
-    # Run parser
+    # Ensure the provided parameter file exists before parsing
     assert prm_path.exists(), f"Test file not found: {prm_path}"
 
+    # Parse the parameter file into a nested dictionary structure
     with open(prm_path, "r") as fin:
         params_dict = parse_parameters_to_dict(fin)
 
+    # Extract and parse the density entries from the Visco Plastic material model
     density_dict = parse_composition_entry(params_dict["Material model"]["Visco Plastic"]["Densities"])
 
     return density_dict

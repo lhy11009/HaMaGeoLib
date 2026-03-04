@@ -324,7 +324,179 @@ def add_glyph(_source, field, scalefactor, nsample, **kwargs):
     renderView1.Update()
 
 
-    
+def add_glyph_with_label(source_name, field, ScaleFactor, *,
+               registrationName="Glyph1",
+               MaximumNumberOfSamplePoints=20000,
+               LineWidth=2.0,
+               Color=[1.0, 1.0, 1.0],
+               LabelPosition=[0.0, 0.0, 0.0],
+               LabelValue=0.05,
+               LabelColor=[0.0, 0.0, 0.0],
+               HideAll=True
+               ):
+    """
+    Add a glyph visualization and a labeled reference arrow to a ParaView render view.
+
+    This function creates glyphs representing a vector field from a specified data
+    source and adds a reference arrow with an accompanying text label indicating
+    the magnitude represented by the glyph scale. It is typically used to visualize
+    velocity vectors or other vector quantities while also providing a scale legend
+    within the rendered scene.
+
+    Parameters
+    ----------
+    source_name : str
+        Name of the ParaView pipeline source from which the glyphs will be generated.
+
+    field : str
+        Name of the vector field used to orient and scale the glyphs.
+
+    ScaleFactor : float
+        Global scaling factor applied to glyph sizes.
+
+    registrationName : str, optional
+        Registration name used when creating ParaView pipeline objects associated
+        with this glyph visualization.
+        Default value: "Glyph1"
+
+    MaximumNumberOfSamplePoints : int, optional
+        Maximum number of sampled points used to generate glyphs from the source.
+        Default value: 20000
+
+    LineWidth : float, optional
+        Line width used when rendering the glyph arrows.
+        Default value: 2.0
+
+    Color : list of float, optional
+        RGB color used for the glyph arrows.
+        Default value: [1.0, 1.0, 1.0]
+
+    LabelPosition : list of float, optional
+        3D coordinates specifying the location where the reference arrow will be placed.
+        Default value: [0.0, 0.0, 0.0]
+
+    LabelValue : float, optional
+        Reference vector magnitude represented by the label arrow.
+        Default value: 0.05
+
+    LabelColor : list of float, optional
+        RGB color used for the reference arrow and label text.
+        Default value: [0.0, 0.0, 0.0]
+
+    HideAll : bool, optional
+        If True, all generated pipeline objects are hidden after creation.
+        Default value: True
+
+    Returns
+    -------
+    None
+        This function modifies the ParaView visualization pipeline in-place
+        and returns None.
+    """
+    '''
+    add glyph in plots
+    Inputs:
+        scale_factor: scale of arrows
+    '''
+
+    # get active source and renderview
+    # Retrieve the pipeline source from which glyphs will be generated
+    pvd = FindSource(source_name)
+
+    # Get or create the active render view where glyphs will be displayed
+    renderView1 = GetActiveViewOrCreate('RenderView')
+
+    # add glyph
+    # adjust orientation and scale
+    # Create glyph representation of the vector field
+    glyph1 = Glyph(registrationName=registrationName, Input=pvd, GlyphType='2D Glyph')
+
+    # Use the specified field for glyph orientation and scaling
+    glyph1.OrientationArray = ['POINTS', field]
+    glyph1.ScaleArray = ['POINTS', field]
+
+    # Set scaling factor and sampling density
+    glyph1.ScaleFactor = ScaleFactor
+    glyph1.MaximumNumberOfSamplePoints = MaximumNumberOfSamplePoints
+
+    # set solid color
+    # Display the glyphs in the render view
+    glyph1Display = Show(glyph1, renderView1, 'GeometryRepresentation')
+
+    # Set visual appearance of glyph arrows
+    glyph1Display.LineWidth = LineWidth # line width
+    glyph1Display.AmbientColor = Color # color scheme, in rgb
+    glyph1Display.DiffuseColor = Color
+
+    # turn off color bar
+    # Disable scalar bar since glyphs are rendered with a uniform color
+    glyph1Display.SetScalarBarVisibility(renderView1, False)
+
+    # add a label vector
+    # Create a point source to place a reference arrow in the scene
+    pointName = "PointSource_" + registrationName
+    pointSource1 = PointSource(registrationName=pointName)
+
+    # Position the reference point
+    pointSource1.Center = LabelPosition
+
+    pointSource1Display = Show(pointSource1, renderView1, 'GeometryRepresentation')
+
+    # add a calculator
+    # Generate a constant vector field at the reference point
+    calculatorName="Calculator_" + registrationName
+    calculator1 = Calculator(registrationName=calculatorName, Input=pointSource1)
+
+    calculator1.ResultArrayName = 'constant_velocity'
+
+    # Define a constant vector magnitude used to generate the label glyph
+    calculator1.Function = '%.4e*iHat' % (ScaleFactor*LabelValue)
+
+    calculator1Display = Show(calculator1, renderView1, 'GeometryRepresentation')
+
+    # add label glyph
+    # Create glyph representing the reference vector magnitude
+    glyph2Name = "Label_" + registrationName
+    glyph2 = Glyph(registrationName=glyph2Name, Input=calculator1, GlyphType='2D Glyph')
+
+    # Use the calculated constant vector for orientation and scale
+    glyph2.OrientationArray = ['POINTS', 'constant_velocity'] # adjust orientation and scale
+    glyph2.ScaleArray = ['POINTS', 'constant_velocity']
+    glyph2.ScaleFactor = 1.0
+
+    glyph2Display = Show(glyph2, renderView1, 'GeometryRepresentation')
+
+    # Set visual appearance of reference glyph
+    glyph2Display.AmbientColor = LabelColor
+    glyph2Display.DiffuseColor = LabelColor
+    glyph2Display.LineWidth = LineWidth
+
+    # Hide scalar bar for the reference glyph
+    glyph2Display.SetScalarBarVisibility(renderView1, False) # hide color bar/color legend
+
+    # add text
+    # Create a text annotation describing the reference vector magnitude
+    textName = "Text_" + registrationName
+    text1 = Text(registrationName=textName)
+
+    text1.Text = 'Label is %.1f cm / yr' % (LabelValue*100.0)
+
+    text1Display = Show(text1, renderView1, 'TextSourceRepresentation')
+
+    # Place text at a fixed window location
+    text1Display.WindowLocation = 'Upper Center'
+    text1Display.Color = LabelColor
+
+    # hide all sources
+    # Optionally hide all created pipeline objects to keep the pipeline clean
+    if HideAll:
+        Hide(glyph1, renderView1)
+        Hide(pointSource1, renderView1)
+        Hide(calculator1)
+        Hide(glyph2, renderView1)
+        Hide(text1)
+
+
 def adjust_slice_color(slice1Display, field, renderView):
     '''
     adjust the color scheme of a slice filter

@@ -286,3 +286,8 @@ subsection Postprocess
     end
 end
 
+
+subsection Boundary composition model
+    set List of model names = initial composition
+end
+

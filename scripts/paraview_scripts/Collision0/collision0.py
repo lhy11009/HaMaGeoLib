@@ -11,7 +11,8 @@ def set_viscosity_plot(sourceDisplay, eta_min, eta_max):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.MapControlPointsToLogSpace()
     fieldLUT.UseLogScale = 1
-    fieldLUT.ApplyPreset("bilbao", True)
+    fieldLUT.ApplyPreset("Viridis", True)
+    fieldLUT.InvertTransferFunction()
     return field, fieldLUT
 
 def set_viscosity_colorbar(renderView, fieldLUT):
@@ -68,7 +69,7 @@ def set_density_plot(sourceDisplay):
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, 3000.0, 4000.0)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("batlow", True)
+    fieldLUT.ApplyPreset("bilbao", True)
     return field, fieldLUT
 
 
@@ -95,21 +96,20 @@ def set_data_axes_grid(renderView1):
     '''
     renderView1.AxesGrid.Visibility = 1
 
-    if (pv_major > 5) or (pv_major == 5 and pv_minor >= 11):
-        # ParaView ≥ 5.11: axis scaling is supported
-        renderView1.AxesGrid.XAxisScale = 1.0e-3
-        renderView1.AxesGrid.YAxisScale = 1.0e-3
-        renderView1.AxesGrid.ZAxisScale = 1.0e-3
+    # if (pv_major > 5) or (pv_major == 5 and pv_minor >= 11):
+    #     # ParaView ≥ 5.11: axis scaling is supported
+    #     renderView1.AxesGrid.XAxisScale = 1.0e-3
+    #     renderView1.AxesGrid.YAxisScale = 1.0e-3
+    #     renderView1.AxesGrid.ZAxisScale = 1.0e-3
 
-        renderView1.AxesGrid.XTitle = 'X [km]'
-        renderView1.AxesGrid.YTitle = 'Y [km]'
-        renderView1.AxesGrid.ZTitle = 'Z [km]'
-    else:
-        # ParaView 5.10 and older: no axis scaling support
-        # Keep units honest
-        renderView1.AxesGrid.XTitle = 'X [m]'
-        renderView1.AxesGrid.YTitle = 'Y [m]'
-        renderView1.AxesGrid.ZTitle = 'Z [m]'
+    #     renderView1.AxesGrid.XTitle = 'X [km]'
+    #     renderView1.AxesGrid.YTitle = 'Y [km]'
+    #     renderView1.AxesGrid.ZTitle = 'Z [km]'
+    # ParaView 5.10 and older: no axis scaling support
+    # Keep units honest
+    renderView1.AxesGrid.XTitle = 'X [m]'
+    renderView1.AxesGrid.YTitle = 'Y [m]'
+    renderView1.AxesGrid.ZTitle = 'Z [m]'
 
 
 def twod_workflow(pv_output_dir, data_output_dir, steps, times):
@@ -141,25 +141,37 @@ def plot_full_domain(source_name, _time, pv_output_dir):
     _source = FindSource(source_name)
     sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
 
-    # todo_collision
+    # add glyph of velocity
+    add_glyph_with_label(source_name, "velocity", 2e6,
+                         registrationName="glyph1",
+                         MaximumNumberOfSamplePoints=250,
+                         LabelPosition=[RIGHT/2.0, TOP*1.2, 0.0])
+    glyph1 = FindSource("glyph1")
+    glyph1Display = Show(glyph1, renderView1, 'GeometryRepresentation')
+    label_glyph1 = FindSource("Label_glyph1")
+    label_glyph1Display = Show(label_glyph1, renderView1, 'GeometryRepresentation')
+    text_glyph1 = FindSource("Text_glyph1")
+    text_glyph1Display = Show(text_glyph1, renderView1, 'GeometryRepresentation')
+
     # plot viscosity    
     layout_resolution = (1350, 704)
 
     field, fieldLUT = set_viscosity_plot(sourceDisplay, 1e18, 1e24)
     scalarBar = set_viscosity_colorbar(renderView1, fieldLUT)
-    if ANIMATION:
-        # sourceDisplay.DataAxesGrid.GridAxesVisibility = 1 # set axes grid to visible
-        set_data_axes_grid(renderView1)
 
+    if ANIMATION:
+        # turn on axis grid when making animation
+        sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
 
     layout1 = GetLayout()
     layout1.SetSize((layout_resolution[0], layout_resolution[1]))
 
     # adjust camera setup
+    # Camera position is adjusted relative to the position of the right and top boundary
     renderView1.InteractionMode = '2D'
-    renderView1.CameraPosition = [4254403.917056384, 715564.0158183385, 17717371.391353175]
-    renderView1.CameraFocalPoint = [4254403.917056384, 715564.0158183385, 0.0]
-    renderView1.CameraParallelScale = 2588447.7843194483
+    renderView1.CameraPosition = [RIGHT/2.0, TOP/2.0, 17717371.391353175]
+    renderView1.CameraFocalPoint = [RIGHT/2.0, TOP/2.0, 0.0]
+    renderView1.CameraParallelScale = 2588447.7843194483 * RIGHT / 8700e3  # scale to the length
 
     fig_path = os.path.join(pv_output_dir, "full_domain_viscosity_t%.4e.pdf" % _time)
     fig_png_path = os.path.join(pv_output_dir, "full_domain_viscosity_t%.4e.png" % _time)
@@ -173,9 +185,10 @@ def plot_full_domain(source_name, _time, pv_output_dir):
     field, fieldLUT = set_temperature_plot(sourceDisplay)
     HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
     scalarBar = set_temperature_colorbar(renderView1, fieldLUT)
+
     if ANIMATION:
-        # sourceDisplay.DataAxesGrid.GridAxesVisibility = 1 # set axes grid to visible
-        set_data_axes_grid(renderView1)
+        # turn on axis grid when making animation
+        sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
     
     fig_path = os.path.join(pv_output_dir, "full_domain_temperature_t%.4e.pdf" % _time)
     fig_png_path = os.path.join(pv_output_dir, "full_domain_temperature_t%.4e.png" % _time)
@@ -190,8 +203,8 @@ def plot_full_domain(source_name, _time, pv_output_dir):
     HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
     scalarBar = set_density_colorbar(renderView1, fieldLUT)
     if ANIMATION:
-        # sourceDisplay.DataAxesGrid.GridAxesVisibility = 1 # set axes grid to visible
-        set_data_axes_grid(renderView1)
+        # turn on axis grid when making animation
+        sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
 
     fig_path = os.path.join(pv_output_dir, "full_domain_density_t%.4e.pdf" % _time)
     fig_png_path = os.path.join(pv_output_dir, "full_domain_density_t%.4e.png" % _time)

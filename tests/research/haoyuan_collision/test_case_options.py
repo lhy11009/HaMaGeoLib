@@ -18,7 +18,6 @@ test_root.mkdir(exist_ok=True)
 test_dir = test_root/"research-haoyuan-case-options"
 test_dir.mkdir(exist_ok=True)
 
-# todo_bd
 rules = [PostProcessorRule(), CasePathRule(), RemoveFluidRule(), RemovePeridotiteRule(),
          GeometryRule(), SlabRule(), RheologyRule(), WeakLayerRule(),
          SolverRule(), KinematicDrivenRule(), PrescribConditionRule(), ContinentRule()]
@@ -395,7 +394,7 @@ def test_slab_layers_setup():
 
 def test_kinematic_driven_continent_setup():
     """
-    Test configurations of slab layers
+    Test configurations of continents with kinetic driven conditions
     """
     # set up tests
     # case_dir - directory of the test case. Remove the old ones if existing previously
