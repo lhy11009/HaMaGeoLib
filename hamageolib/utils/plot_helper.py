@@ -413,7 +413,8 @@ def plot_statistic_generic(
     # Check that all y_col values exist in the DataFrame
     missing_y_cols = [col for col in y_col if col not in data.columns]
     if missing_y_cols:
-        raise KeyError(f"y_col(s) {missing_y_cols} not found in the DataFrame. Available columns: {list(data.columns)}")
+        return # end this function
+        # raise KeyError(f"y_col(s) {missing_y_cols} not found in the DataFrame. Available columns: {list(data.columns)}")
 
     # Retrieve optional arguments
     annotate_column = kwargs.get("annotate_column", None)
