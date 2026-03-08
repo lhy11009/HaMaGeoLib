@@ -270,7 +270,7 @@
                             ]
                         ]
                     ],
-                    "spreading velocity": 0.02,
+                    "spreading velocity": 0.04,
                     "min depth": 0,
                     "max depth": 300000.0,
                     "bottom temperature": -1
@@ -402,8 +402,8 @@
                     "density": 3300,
                     "thermal conductivity": 3.3,
                     "adiabatic heating": true,
-                    "subducting velocity": 0.02,
-                    "spreading velocity": 0.02,
+                    "subducting velocity": 0.04,
+                    "spreading velocity": 0.04,
                     "ridge coordinates": [
                         [
                             [

@@ -42,6 +42,17 @@ alias sj='scontrol show job'
 alias sc='sacct -u $USER --format=JobID,JobName%30,Elapsed,State,ExitCode'
 alias se='scontrol show node'
 
+
+# -----------------------------
+# Customized Aliases
+# -----------------------------
+alias all_case_info="Lib_parse_case all_case_info"
+alias all_case_info_in_dir="Lib_parse_case case_info_in_dir ."
+alias check_restart_dir=" Lib_parse_case  check_time_restart_directory . 59e6 p-billen"
+alias check_no_restart_dir=" Lib_parse_case  check_time_restart_directory . 600e6 0"
+alias check_restartr=" Lib_parse_case  check_time_restart . 59e6 p-billen"
+alias check_no_restartr=" Lib_parse_case  check_time_restart . 59e6 0"
+
 # -----------------------------
 # Module System Setup
 # -----------------------------
@@ -53,13 +64,6 @@ alias se='scontrol show node'
     # module load dealii
     # module load aspect
 #fi
-
-# -----------------------------
-# Source .bash_profile if present
-# -----------------------------
-if [ -f ~/.bash_profile ]; then
-    source ~/.bash_profile
-fi
 
 # -----------------------------
 # Custom Prompt
@@ -86,5 +90,38 @@ source /quobyte/billengrp/lochy/Software/aspectLib/enable.sh
 # -----------------------------
 export WALTZ='/nfs/peloton/waltz/billenlab/lochy'
 alias waltz='cd $WALTZ'
+export BILLENGRP_SOFTWARE="/quobyte/billengrp/Software"
+export WORK='/quobyte/billengrp/lochy'
+alias work='cd $WORK'
 
+# -----------------------------
+# ASPECT
+# -----------------------------
+export ASPECT_SOURCE_DIR='/quobyte/billengrp/lochy/Software/aspect'
+alias aspect='cd $ASPECT_SOURCE_DIR'
 
+# -----------------------------
+# HaMaGeoLib
+# -----------------------------
+export HaMaGeoLib_DIR='/quobyte/billengrp/lochy/Software/HaMaGeoLib'
+alias hama='cd $HaMaGeoLib_DIR'
+
+# -----------------------------
+# Project mow
+# -----------------------------
+export MOW="$WORK/MOW"
+alias mow='cd $MOW'
+alias newjob_mow="cp ${HaMaGeoLib_DIR}/scripts/server/hive/job_hive_mow_2d.slurm ./"
+
+# -----------------------------
+# Project collision
+# -----------------------------
+export COLLISION="$WORK/Collision0"
+alias collision="cd $COLLISION"
+alias newjob_collision="cp ${HaMaGeoLib_DIR}/scripts/server/hive/job_hive_collision_2d.slurm ./"
+alias compile_collision='cd ${ASPECT_SOURCE_DIR} && \
+git checkout main_collision && git reset --hard lhy11009/main_collision && \
+cd ${COLLISION} && mkdir -p "compile_ASPECT" && \
+cd "compile_ASPECT" && export compile_ASPECT_DIR_BASE="$(date +%Y-%m-%d-%H-%M)" && mkdir -p "${compile_ASPECT_DIR_BASE}"  && \
+cd "${compile_ASPECT_DIR_BASE}" && cp ${HaMaGeoLib_DIR}/scripts/server/hive/compile_aspect_collision_2d.slurm . && \
+sbatch compile_aspect_collision_2d.slurm'

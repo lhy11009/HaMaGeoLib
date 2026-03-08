@@ -55,6 +55,13 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_CTover"
         if variables["add_continents"] == "both":
             case_name += "_CTboth"
+    
+    # Corner
+    # todo_visc
+    if use_all or "customize_corner" in use_keys:
+        if variables["customize_corner"]:
+            case_name += "_Cn"
+
 
     return case_name
 
@@ -594,7 +601,7 @@ class SlabRule(Rule):
 
 
         # compute the spreading rate based on the slab age, hinge point and starting point of the plate
-        spreading_velocity = (slab_hinge_point - plate_start_point) / slab_age
+        spreading_velocity = (slab_hinge_point - ridge_point) / slab_age
 
         # assert that the layer depths has number of compositions + 1
         my_assert(len(slab_layer_compositions) + 1 == len(slab_layer_depths), ValueError,
@@ -880,20 +887,23 @@ class KinematicDrivenRule(Rule):
                 "kinematic_driven_condition_depth",
                 "kinematic_driven_condition_transition_depth",
                 "kinematic_driven_condition_domain_modification",
-                "use_isosurfaces"]
+                "use_isosurfaces",
+                "kinematic_driven_condition_assign_velocity_component"]
 
     defaults = {"kinematic_driven_condition": False, 
                 "convergence_rate": 0.05,
                 "kinematic_driven_condition_depth": 100e3,
                 "kinematic_driven_condition_transition_depth": 20e3,
-                "kinematic_driven_condition_domain_modification": [1000e3, 1000e3]}
+                "kinematic_driven_condition_domain_modification": [1000e3, 1000e3],
+                "kinematic_driven_condition_assign_velocity_component": "x"}
 
     requires_comments = {"kinematic_driven_condition": "Whether to add a kinematic driven condition to the model",
                          "convergence_rate": "Total convergence rate between subducting and overriding plate",
                          "kinematic_driven_condition_depth": "Depth to prescribe the kinematic driven condition on the side boundary",
                          "kinematic_driven_condition_transition_depth": "Depth to transit from inflow to outflow condition",
                          "kinematic_driven_condition_domain_modification": "Migrate the two side boundary to accomodate the new kinematic driven condition\
-                            The idea is we always first set up the plates in a long model domain, and then migrate the side boundaries to make it short."}
+                            The idea is we always first set up the plates in a long model domain, and then migrate the side boundaries to make it short.",
+                         "kinematic_driven_condition_assign_velocity_component": "Either assign all components or only the x component."}
     
     provides = ["kinematic_driven_condition"]
 
@@ -936,6 +946,7 @@ class KinematicDrivenRule(Rule):
         kinematic_driven_condition_depth = config["kinematic_driven_condition_depth"]
         kinematic_driven_condition_transition_depth = config["kinematic_driven_condition_transition_depth"]
         kinematic_driven_condition_domain_modification = config["kinematic_driven_condition_domain_modification"]
+        kinematic_driven_condition_assign_velocity_component = config["kinematic_driven_condition_assign_velocity_component"]
 
         # Assert configuration
         assert(len(kinematic_driven_condition_domain_modification) == 2)
@@ -950,7 +961,13 @@ class KinematicDrivenRule(Rule):
             # Compute outflow rate to balance imposed inflow over the specified depth range and then
             # construct a piecewise depth-dependent velocity function expression
             prm_dict["Boundary velocity model"]["Tangential velocity boundary indicators"] = "right, bottom"
-            prm_dict["Boundary velocity model"]["Prescribed velocity boundary indicators"] = "left x:function"
+
+            if kinematic_driven_condition_assign_velocity_component == "x":
+                prm_dict["Boundary velocity model"]["Prescribed velocity boundary indicators"] = "left x:function"
+            elif kinematic_driven_condition_assign_velocity_component == "all":
+                prm_dict["Boundary velocity model"]["Prescribed velocity boundary indicators"] = "left:function"
+            else:
+                raise ValueError("kinematic_driven_condition_assign_velocity_component must be x or all.")
 
             outflow_rate = -convergence_rate*kinematic_driven_condition_depth/\
                 (domain_depth-kinematic_driven_condition_depth-kinematic_driven_condition_transition_depth/2.0)
@@ -1505,7 +1522,7 @@ class ContinentRule(Rule):
             if subducting_continent_length < 0:
                 raise ValueError("Option set to create both continents, but trivial value is assigned to subducting_continent_length")
             if subducting_continent_length > subducting_plate_length:
-                raise ValueError("Assigned length of the continent ({subducting_continent_length}) cannot be longer than the assigned length of the plate ({subducting_plate_length})")
+                raise ValueError("Assigned length of the continent (%.2e) cannot be longer than the assigned length of the plate (%.2e)" % (subducting_continent_length, subducting_plate_length))
             
             # Compute endpoint of subducting continental block
             continent_end_point = context["plate_start_point"] + subducting_continent_length
@@ -1724,3 +1741,82 @@ def parse_contiental_extension_rheology(prm_path):
 
     return dislocation_aspect, friction_angle, cohesion 
 
+
+# todo_visc
+class CornerRule(Rule):
+    """
+    This rule customizes model corner configuration
+
+    Required configuration parameters:
+
+    Provided configuration parameters:
+
+    """
+    requires = ["customize_corner", "customize_corner_width", "customize_corner_depth", "customize_corner_viscosity",
+                "customize_corner_temperature"]
+    
+    defaults = {"customize_corner": False, 
+                "customize_corner_width": 600e3, 
+                "customize_corner_depth": 100e3,
+                "customize_corner_viscosity": -1.0,
+                "customize_corner_temperature": False}
+
+    requires_comments = {"customize_corner": "Allow user to customize corner property from prescribed conditions",
+                         "customize_corner_width": "Width of the corner region",
+                         "customize_corner_depth": "Depth of the corner region",
+                         "customize_corner_viscosity": "Viscosity of the corner region. If a positive value is given, \
+viscosity is being prescribed in the region",
+                         "customize_corner_temperature": "Whether to customize the corner temperature"}
+    
+    provides = []
+
+    def apply(self, config, prm_dict, wb_dict, context):
+
+        # Read variables from the configuration
+        customize_corner = config["customize_corner"]
+        customize_corner_width = config["customize_corner_width"]
+        customize_corner_depth = config["customize_corner_depth"]
+        customize_corner_viscosity = config["customize_corner_viscosity"]
+        customize_corner_temperature = config["customize_corner_temperature"]
+
+        # Read variables from the context
+        domain_length = context["domain_length"]
+        domain_depth = context["domain_depth"]
+
+        if customize_corner:
+            
+            # customize viscosity
+            if customize_corner_viscosity > 0.0:
+                prm_dict["Material model"]["Visco Plastic"]["Reset viscosity"] = "true"
+
+                viscosity_function = {
+                    "Coordinate system": "cartesian",
+                    "Variable names": "x, y",
+                    "Function constants": "cwidth = %de3, cdepth = %de3, cvisc = %.2e, ymax = %de3, xmax = %de3" % \
+                        (customize_corner_width/1e3, customize_corner_depth/1e3, customize_corner_viscosity, domain_depth/1e3, domain_length/1e3),
+                    "Function expression": "(((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? cvisc: -1.0)"
+                }
+
+                prm_dict["Material model"]["Visco Plastic"]["Reset viscosity function"] = viscosity_function
+
+            # customize temperature from prescribed conditions
+            if customize_corner_temperature:
+                indicator_function = {
+                    "Variable names": "x, y",
+                    "Function constants": "cwidth = %de3, cdepth = %de3, ymax = %de3, xmax = %de3" % \
+                        (customize_corner_width/1e3, customize_corner_depth/1e3, domain_depth/1e3, domain_length/1e3),
+                    "Function expression": "(((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? 1.0: 0.0)"
+                }
+
+                prm_dict["Prescribed solution"] = {
+                    "List of model names": "temperature from initial",
+                    "Temperature from initial":{
+                        "Indicator function": indicator_function
+                    }
+                }
+
+            # Modify the composition boundary condition
+            # Here we assume that both continents start from / end at the side boundary
+            prm_dict["Boundary composition model"] = {
+                "List of model names": "initial composition"
+                }
