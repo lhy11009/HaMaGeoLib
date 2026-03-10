@@ -654,7 +654,7 @@ def plate_thickness_from_age(age):
     return plate_thickness
 
 
-class ContinentalGeotherm:
+class ContinentalThermChapman:
     """
     Continental geotherm model based on Chapman (1986).
 
@@ -741,3 +741,96 @@ class ContinentalGeotherm:
             return (self.ts3 +
                     (self.qs3 / self.k3) * z_rel -
                     (self.A3 * z_rel * z_rel) / (2.0 * self.k3))
+        
+
+class ContinentalThermChapmanPartition(ContinentalThermChapman):
+    """
+    Continental geotherm using the Chapman partition model
+    (Hasterok & Chapman 2011).
+
+    This class derives layer heat production and heat flux
+    from surface heat flow and partition coefficient, then
+    passes them to ContinentalThermChapman.
+    """
+
+    def __init__(self,
+                 surface_heat_flux,
+                 partition_coefficient,
+                 *,
+                 upper_crust_thickness=16e3,
+                 lower_crust_thickness=20e3,
+                 lithosphere_thickness=200e3,
+                 surface_temperature=273.15,
+                 heat_production_lower_crust=4e-7,
+                 heat_production_mantle=2e-8,
+                 conductivity=3.0):
+
+        # layer boundaries
+        z1 = upper_crust_thickness
+        z2 = upper_crust_thickness + lower_crust_thickness
+        h = lithosphere_thickness
+
+        # heat production
+        A1 = (1.0 - partition_coefficient) * surface_heat_flux / z1
+        A2 = heat_production_lower_crust
+        A3 = heat_production_mantle
+
+        # conductivity
+        k1 = conductivity
+        k2 = conductivity
+        k3 = conductivity
+
+        # heat flux
+        qs1 = surface_heat_flux
+        qs2 = qs1 - A1 * z1
+        qs3 = qs2 - A2 * (z2 - z1)
+
+        # interface temperatures
+        ts1 = surface_temperature
+
+        ts2 = (
+            ts1 +
+            (qs1 / k1) * z1 -
+            (A1 * z1 * z1) / (2.0 * k1)
+        )
+
+        dz = z2 - z1
+
+        ts3 = (
+            ts2 +
+            (qs2 / k2) * dz -
+            (A2 * dz * dz) / (2.0 * k2)
+        )
+
+        # store derived parameters
+        self._derived = dict(
+            h=h,
+            z1=z1,
+            z2=z2,
+            ts1=ts1,
+            ts2=ts2,
+            ts3=ts3,
+            A1=A1,
+            A2=A2,
+            A3=A3,
+            k1=k1,
+            k2=k2,
+            k3=k3,
+            qs1=qs1,
+            qs2=qs2,
+            qs3=qs3
+        )
+
+        # call base class
+        super().__init__(**self._derived)
+
+    def derived_parameters(self):
+        """
+        Return all parameters used by the base Chapman model.
+
+        Returns
+        -------
+        dict
+            Dictionary containing all derived variables.
+        """
+        return self._derived.copy()

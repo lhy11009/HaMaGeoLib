@@ -2,6 +2,7 @@ import numpy as np
 from pathlib import Path
 from copy import deepcopy
 from ...utils.exception_handler import my_assert
+from ...core.AnalyticalSolution import ContinentalThermChapmanPartition
 from gdmate.aspect.config_engine import Rule, RuleConflictError
 from gdmate.aspect.table import DepthAverageTable
 from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
@@ -44,6 +45,14 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if variables["kinematic_driven_condition"]:
             case_name += "_KC%.1e" % variables["convergence_rate"]
     
+    if use_all or "kinematic_driven_condition_depth" in use_keys:
+        if variables["kinematic_driven_condition"]:
+            case_name += "_KD%d" % int(variables["kinematic_driven_condition_depth"]/1e3)
+
+    if use_all or "kinematic_driven_condition_transition_depth" in use_keys:
+        if variables["kinematic_driven_condition"]:
+            case_name += "_KT%d" % int(variables["kinematic_driven_condition_transition_depth"]/1e3)
+    
     # Prescribe condition
     if use_all or "prescribe_subducting_plate_velocity" in use_keys:
         if variables["prescribe_subducting_plate_velocity"]:
@@ -57,7 +66,6 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_CTboth"
     
     # Corner
-    # todo_visc
     if use_all or "customize_corner" in use_keys:
         if variables["customize_corner"]:
             case_name += "_Cn"
@@ -1374,13 +1382,22 @@ class ContinentRule(Rule):
         Default value: -1
     """
 
-    requires = ["add_continents", "continent_depth_levels", "subducting_continent_length"]
+    requires = ["add_continents", "continent_depth_levels", "subducting_continent_length", "chapman_model_type",
+                "chapman_model_surface_heatflux"]
 
-    defaults = {"add_continents": "none", "continent_depth_levels": [20e3, 40e3], "subducting_continent_length": -1}
+    defaults = {"add_continents": "none",\
+                "continent_depth_levels": [20e3, 40e3],\
+                    "subducting_continent_length": -1,
+                    "chapman_model_type": "default",
+                    "chapman_model_surface_heatflux": 0.055}
 
     requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\"",
                          "continent_depth_levels": "Depth levels of the boundary between compositions (e.g. between upper and lower crust, lower crust and mantle)",
-                         "subducting_continent_length": "Length of the continent at the end of the subducting plate."} 
+                         "subducting_continent_length": "Length of the continent at the end of the subducting plate.",
+                         "chapman_model_type": "Type of Chapman model configuration, the default approach prescribes layer HPE, temperature and heat flux.\
+                            the partition coefficent approach would first compute layer parameters by assigning a partition coefficent as defined in the \
+                            Hasterok and Chapman, 2011 paper",
+                         "chapman_model_surface_heatflux": "Surface heat flux value used in the Chapman model"} 
     
     provides = ["continent_rheology"]
 
@@ -1417,6 +1434,9 @@ class ContinentRule(Rule):
             in-place and returns None.
         """
 
+        chapman_model_type = config["chapman_model_type"]
+        chapman_model_surface_heatflux = config["chapman_model_surface_heatflux"]
+
         # handle the overriding plate
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
             pass
@@ -1451,6 +1471,8 @@ class ContinentRule(Rule):
             # Convert overriding plate model to a continental plate
             feature["model"] = "continental plate"
 
+            feature["max depth"] = 200e3
+
             # Assign layered compositional structure to continental plate
             feature["composition models"] = [
                 {
@@ -1474,37 +1496,86 @@ class ContinentRule(Rule):
             # Define depth-dependent thermal structure for continental layers
             temperature_models = []
 
+            if chapman_model_type == "default":
+
+                if not np.isclose(chapman_model_surface_heatflux, 0.055):
+                    raise ValueError("For the default type of Chapman model, the surface heat flux must be 0.055 W/m^2")
+
+                p_dict = {
+                    'h': 120e3, 
+                    'z1': continent_depth_levels[0], 
+                    'z2': continent_depth_levels[1], 
+                    'ts1': 273.0, 
+                    'ts2': 633.0, 
+                    'ts3': 893.0, 
+                    'A1': 1e-6, 
+                    'A2': 0.25e-6, 
+                    'A3': 0.0, 
+                    'k1': 2.5, 
+                    'k2': 2.5, 
+                    'k3': 4.0, 
+                    'qs1': chapman_model_surface_heatflux, 
+                    'qs2': 0.035, 
+                    'qs3': 0.030
+                    }
+            
+            elif chapman_model_type == "partition coefficient":
+
+                partition_coefficient = 0.74
+
+                conductivity = None, 
+                if np.isclose(chapman_model_surface_heatflux, 0.04):
+                    conductivity = 3.2
+
+                elif np.isclose(chapman_model_surface_heatflux, 0.08):
+                    conductivity = 2.5
+                
+                else:
+                    raise NotImplementedError("The required surface heat flux value is not implemented yet by \
+                                              the partition coefficent approach.")
+
+                geotherm = ContinentalThermChapmanPartition(chapman_model_surface_heatflux, partition_coefficient,
+                                                            conductivity=conductivity,
+                                                            upper_crust_thickness=20e3,
+                                                            lower_crust_thickness=20e3,
+                                                            surface_temperature=273.0)
+            
+                p_dict = geotherm.derived_parameters()
+            
+            else:
+                raise ValueError("The chapman_model_type must be either default or partition coefficient")
+            
             upper_crust_temperature_model = {
                 "model":"chapman", 
-                "max depth":continent_depth_levels[0], 
-                "top temperature": 273.0, 
-                "top heat flux":0.055, 
-                "thermal conductivity":2.5, 
-                "heat generation per unit volume":1e-6
+                "max depth":p_dict["z1"], 
+                "top temperature": p_dict["ts1"], 
+                "top heat flux":p_dict["qs1"], 
+                "thermal conductivity":p_dict["k1"], 
+                "heat generation per unit volume":p_dict["A1"]
                 }
 
             temperature_models.append(upper_crust_temperature_model)
 
             lower_crust_temperature_model = {
                 "model":"chapman", 
-                "min depth":continent_depth_levels[0], 
-                "max depth":continent_depth_levels[1], 
-                "top temperature": 633.0, 
-                "top heat flux":0.035, 
-                "thermal conductivity":2.5, 
-                "heat generation per unit volume":0.25e-6
+                "min depth":p_dict["z1"], 
+                "max depth":p_dict["z2"], 
+                "top temperature": p_dict["ts2"], 
+                "top heat flux": p_dict["qs2"], 
+                "thermal conductivity":p_dict["k2"], 
+                "heat generation per unit volume":p_dict["A2"]
             }
             
             temperature_models.append(lower_crust_temperature_model)
             
             mantle_temperature_model = {
                 "model":"chapman", 
-                "min depth":continent_depth_levels[1], 
-                "max depth":120e3, 
-                "top temperature": 893.0, 
-                "top heat flux":0.030, 
-                "thermal conductivity":4.0, 
-                "heat generation per unit volume":0.0
+                "min depth":p_dict["z2"], 
+                "max depth":p_dict["h"], 
+                "top temperature": p_dict["ts3"], 
+                "top heat flux": p_dict["qs3"], 
+                "thermal conductivity": p_dict["k3"], 
+                "heat generation per unit volume":p_dict["A3"]
             }
 
             temperature_models.append(mantle_temperature_model)
@@ -1742,7 +1813,6 @@ def parse_contiental_extension_rheology(prm_path):
     return dislocation_aspect, friction_angle, cohesion 
 
 
-# todo_visc
 class CornerRule(Rule):
     """
     This rule customizes model corner configuration
