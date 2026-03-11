@@ -317,7 +317,6 @@ class GPLATE_PROCESS():
         gPlotter.set_region(region)
 
         if projection_type  == "plate_carree":
-            # todo_plate
             projection = ccrs.PlateCarree()
                     # central_longitude=gPlotter.get_central_longitude()
                 # )

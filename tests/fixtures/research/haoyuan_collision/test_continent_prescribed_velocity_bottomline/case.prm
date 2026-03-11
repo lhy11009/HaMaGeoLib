@@ -3,8 +3,8 @@ set Adiabatic surface temperature = 1573
 set Nonlinear solver scheme = iterated Advection and Stokes
 set Nonlinear solver failure strategy = cut timestep size
 set Output directory = output
-set Max nonlinear iterations = 70
-set Nonlinear solver tolerance = 5.0e-03
+set Max nonlinear iterations = 40
+set Nonlinear solver tolerance = 5.0e-04
 set Dimension = 2
 set End time = 100e6
 set CFL number = 0.5
@@ -17,12 +17,13 @@ set Resume computation = auto
 
 subsection Solver parameters
     subsection Stokes solver parameters
-        set Stokes solver type = block AMG
-        set GMRES solver restart length = 1000
-        set Number of cheap Stokes solver steps = 20000
+        set Stokes solver type = block GMG
+        set GMRES solver restart length = 100
+        set Number of cheap Stokes solver steps = 60
         set Use full A block as preconditioner = true
-        set Linear solver tolerance = 5.0e-05
+        set Linear solver tolerance = 5.0e-04
         set Maximum number of expensive Stokes solver steps = 0
+        set Skip expensive stokes solver = true
     end
     subsection Operator splitting parameters
         set Reaction solver type = fixed step
@@ -54,9 +55,9 @@ end
 
 subsection Compositional fields
     set Number of fields = 7
-    set Names of fields = porosity, bound_fluid, peridotite, gabbro, MORB, sediment, overriding
+    set Names of fields = porosity, bound_fluid, gabbro, MORB, sediment, crust_upper, crust_lower
     set Compositional field methods = field, field, particles, particles, particles, particles, particles
-    set Mapped particle properties = peridotite: initial peridotite, gabbro: initial gabbro, MORB: initial MORB, sediment: initial sediment, overriding: initial overriding
+    set Mapped particle properties = gabbro: initial gabbro, MORB: initial MORB, sediment: initial sediment, crust_upper: initial crust_upper, crust_lower: initial crust_lower
 end
 
 
@@ -68,7 +69,7 @@ end
 subsection Initial composition model
     set List of model names = world builder
     subsection World builder
-        set List of relevant compositions = porosity, bound_fluid, peridotite, gabbro, MORB, sediment, overriding
+        set List of relevant compositions = porosity, bound_fluid, gabbro, MORB, sediment, crust_upper, crust_lower
     end
 end
 
@@ -105,9 +106,9 @@ end
 subsection Geometry model
     set Model name = box
     subsection Box
-        set X extent = 8700e3
+        set X extent = 5000e3
         set Y extent = 1000e3
-        set X repetitions = 17
+        set X repetitions = 10
         set Y repetitions = 2
         set Box origin X coordinate = 0
         set Box origin Y coordinate = 0
@@ -139,7 +140,7 @@ subsection Boundary temperature model
     set List of model names = constant
     set Fixed temperature boundary indicators = top, bottom
     subsection Constant
-        set Boundary indicator to temperature mappings = bottom:1990.5153448275862, top:273
+        set Boundary indicator to temperature mappings = bottom: 1990.5153448275862, top: 273.0
     end
 end
 
@@ -154,7 +155,7 @@ subsection Material model
     set Material averaging = geometric average only viscosity
     subsection Multicomponent compressible
         set Reference temperatures = 1600
-        set Reference densities = background: 3300, porosity: 3300, bound_fluid: 3300, peridotite: 3300, gabbro: 3175, MORB: 3175, sediment: 3175, overriding: 3175
+        set Reference densities = background: 3300.0, porosity: 3300.0, bound_fluid: 3300.0, gabbro: 3175.0, MORB: 3175.0, sediment: 3175.0, crust_upper: 3175.0, crust_lower: 3175.0
         set Reference isothermal compressibilities = 4e-12
         set Isothermal bulk modulus pressure derivatives = 4
         set Reference thermal expansivities = 2.e-5
@@ -168,33 +169,42 @@ subsection Material model
         set Plastic damper viscosity = 1e20
         set Viscosity prefactor scheme = HK04 olivine hydration
         set Minimum strain rate = 1e-20
-        set Reference strain rate = 1e-20
-        set Phase transition depths = background: 660000.0, porosity: 660000.0, bound_fluid: 660000.0, peridotite: 660000.0, gabbro: 660000.0, MORB: 125000.0|660000.0, sediment: 125000.0|660000.0, overriding: 660000.0
-        set Phase transition widths = background: 20000.0, porosity: 20000.0, bound_fluid: 20000.0, peridotite: 20000.0, gabbro: 20000.0, MORB: 10000.0|20000.0, sediment: 10000.0|20000.0, overriding: 20000.0
-        set Phase transition temperatures = background: 1573, porosity: 1573, bound_fluid: 1573, peridotite: 1573, gabbro: 1573, MORB: 1573|1573, sediment: 1573|1573, overriding: 1573
-        set Phase transition Clapeyron slopes = background: 0, porosity: 0, bound_fluid: 0, peridotite: 0, gabbro: 0, MORB: 0|0, sediment: 0|0, overriding: 0
-        set Densities = background: 3300, porosity: 3300, bound_fluid: 3300, peridotite: 3300, gabbro: 3300, MORB: 3300, sediment: 3300, overriding: 3300
-        set Minimum viscosity = background: 2.5e+18|2.5e+18, porosity: 2.5e+18|2.5e+18, bound_fluid: 2.5e+18|2.5e+18, peridotite: 2.5e+18|2.5e+18, gabbro: 2.5e+18|2.5e+18, MORB: 2.499e+19|2.5e+18|2.5e+18, sediment: 2.499e+19|2.5e+18|2.5e+18, overriding: 2.5e+18|2.5e+18
-        set Maximum viscosity = background: 2.5e+23|2.5e+23, porosity: 2.5e+23|2.5e+23, bound_fluid: 2.5e+23|2.5e+23, peridotite: 2.5e+23|2.5e+23, gabbro: 2.5e+23|2.5e+23, MORB: 2.501e+19|2.5e+23|2.5e+23, sediment: 2.501e+19|2.5e+23|2.5e+23, overriding: 2.5e+23|2.5e+23
-        set Prefactors for diffusion creep = background: 1.577e-22|8.0e-25, porosity: 1.577e-22|8.0e-25, bound_fluid: 1.577e-22|8.0e-25, peridotite: 1.577e-22|8.0e-25, gabbro: 1.577e-22|8.0e-25, MORB: 1.577e-22|1.577e-22|8.0e-25, sediment: 1.577e-22|1.577e-22|8.0e-25, overriding: 1.577e-22|8.0e-25
+        set Reference strain rate = 1e-15
+        set Phase transition depths = background: 660000.0, porosity: 660000.0, bound_fluid: 660000.0, gabbro: 660000.0, MORB: 125000.0|660000.0, sediment: 125000.0|660000.0, crust_upper: 660000.0, crust_lower: 660000.0
+        set Phase transition widths = background: 20000.0, porosity: 20000.0, bound_fluid: 20000.0, gabbro: 20000.0, MORB: 10000.0|20000.0, sediment: 10000.0|20000.0, crust_upper: 20000.0, crust_lower: 20000.0
+        set Phase transition temperatures = background: 1573.0, porosity: 1573.0, bound_fluid: 1573.0, gabbro: 1573.0, MORB: 1573.0|1573.0, sediment: 1573.0|1573.0, crust_upper: 1573.0, crust_lower: 1573.0
+        set Phase transition Clapeyron slopes = background: 0.0, porosity: 0.0, bound_fluid: 0.0, gabbro: 0.0, MORB: 0.0|0.0, sediment: 0.0|0.0, crust_upper: 0.0, crust_lower: 0.0
+        set Densities = background: 3300.0, porosity: 3300.0, bound_fluid: 3300.0, gabbro: 3300.0, MORB: 3300.0, sediment: 3300.0, crust_upper: 2700.0, crust_lower: 2900.0
+        set Minimum viscosity = background: 2.5e+19|2.5e+19, porosity: 2.5e+19|2.5e+19, bound_fluid: 2.5e+19|2.5e+19, gabbro: 2.5e+19|2.5e+19, MORB: 2.499e+19|2.5e+19|2.5e+19, sediment: 2.499e+19|2.5e+19|2.5e+19, crust_upper: 2.5e+19|2.5e+19, crust_lower: 2.5e+19|2.5e+19
+        set Maximum viscosity = background: 2.5e+23|2.5e+23, porosity: 2.5e+23|2.5e+23, bound_fluid: 2.5e+23|2.5e+23, gabbro: 2.5e+23|2.5e+23, MORB: 2.501e+19|2.5e+23|2.5e+23, sediment: 2.501e+19|2.5e+23|2.5e+23, crust_upper: 2.5e+23|2.5e+23, crust_lower: 2.5e+23|2.5e+23
+        set Prefactors for diffusion creep = background: 1.577e-22|8e-25, porosity: 1.577e-22|8e-25, bound_fluid: 1.577e-22|8e-25, gabbro: 1.577e-22|8e-25, MORB: 1.577e-22|1.577e-22|8e-25, sediment: 1.577e-22|1.577e-22|8e-25, crust_upper: 1e-50|8e-25, crust_lower: 1e-50|8e-25
         set Water fugacity exponents for diffusion creep = 0.7
         set Stress exponents for diffusion creep = 1.0
         set Grain size exponents for diffusion creep = 3
-        set Activation volumes for diffusion creep = background: 11.3e-6|9.8e-6, porosity: 11.3e-6|9.8e-6, bound_fluid: 11.3e-6|9.8e-6, peridotite: 11.3e-6|9.8e-6, gabbro: 11.3e-6|9.8e-6, MORB: 11.3e-6|11.3e-6|9.8e-6, sediment: 11.3e-6|11.3e-6|9.8e-6, overriding: 11.3e-6|10e-6
+        set Activation volumes for diffusion creep = background: 1.13e-05|9.8e-06, porosity: 1.13e-05|9.8e-06, bound_fluid: 1.13e-05|9.8e-06, gabbro: 1.13e-05|9.8e-06, MORB: 1.13e-05|1.13e-05|9.8e-06, sediment: 1.13e-05|1.13e-05|9.8e-06, crust_upper: 1.13e-05|9.8e-06, crust_lower: 1.13e-05|9.8e-06
         set Grain size = 1e-3
         set Activation energies for diffusion creep = 375e3
-        set Prefactors for dislocation creep = background: 2.75e-26|1e-50, porosity: 2.75e-26|1e-50, bound_fluid: 2.75e-26|1e-50, peridotite: 2.75e-26|1e-50, gabbro: 2.75e-26|1e-50, MORB: 2.75e-26|2.75e-26|1e-50, sediment: 2.75e-26|2.75e-26|1e-50, overriding: 2.75e-26|1e-50
+        set Prefactors for dislocation creep = background: 2.75e-26|1e-50, porosity: 2.75e-26|1e-50, bound_fluid: 2.75e-26|1e-50, gabbro: 2.75e-26|1e-50, MORB: 2.75e-26|2.75e-26|1e-50, sediment: 2.75e-26|2.75e-26|1e-50, crust_upper: 1.37e-26|1e-50, crust_lower: 5.71e-23|1e-50
         set Water fugacity exponents for dislocation creep = 0.34285714285714286
-        set Stress exponents for dislocation creep = 3.5
-        set Activation volumes for dislocation creep = 22e-6
-        set Activation energies for dislocation creep = 520e3
-        set Angles of internal friction = 30
-        set Cohesions = 60e6
+        set Stress exponents for dislocation creep = background: 3.5|3.5, porosity: 3.5|3.5, bound_fluid: 3.5|3.5, gabbro: 3.5|3.5, MORB: 3.5|3.5|3.5, sediment: 3.5|3.5|3.5, crust_upper: 4.0|3.5, crust_lower: 3.0|3.5
+        set Activation volumes for dislocation creep = background: 2.2e-05|2.2e-05, porosity: 2.2e-05|2.2e-05, bound_fluid: 2.2e-05|2.2e-05, gabbro: 2.2e-05|2.2e-05, MORB: 2.2e-05|2.2e-05|2.2e-05, sediment: 2.2e-05|2.2e-05|2.2e-05, crust_upper: 0.0|2.2e-05, crust_lower: 0.0|2.2e-05
+        set Activation energies for dislocation creep = background: 520000.0|520000.0, porosity: 520000.0|520000.0, bound_fluid: 520000.0|520000.0, gabbro: 520000.0|520000.0, MORB: 520000.0|520000.0|520000.0, sediment: 520000.0|520000.0|520000.0, crust_upper: 223000.0|520000.0, crust_lower: 345000.0|520000.0
+        set Angles of internal friction = background: 30.0|30.0, porosity: 30.0|30.0, bound_fluid: 30.0|30.0, gabbro: 30.0|30.0, MORB: 30.0|30.0|30.0, sediment: 30.0|30.0|30.0, crust_upper: 30.0|30.0, crust_lower: 30.0|30.0
+        set Cohesions = background: 60000000.0|60000000.0, porosity: 60000000.0|60000000.0, bound_fluid: 60000000.0|60000000.0, gabbro: 60000000.0|60000000.0, MORB: 60000000.0|60000000.0|60000000.0, sediment: 60000000.0|60000000.0|60000000.0, crust_upper: 20000000.0|60000000.0, crust_lower: 20000000.0|60000000.0
         set Maximum yield stress = 500e6
         set Use adiabatic pressure in plasticity = true
         set Thermal expansivities = 3.0e-5
         set Thermal diffusivities = 1e-6
         set Heat capacities = 750
+        set Use adiabatic pressure in creep viscosity = true
+        set Minimum temperature for viscosity = 273.15
+        set Reset viscosity = true
+        subsection Reset viscosity function
+            set Coordinate system = cartesian
+            set Variable names = x, y
+            set Function constants = cwidth = 1000e3, cdepth = 200e3, cvisc = 1.00e+20, ymax = 1000e3, xmax = 5000e3
+            set Function expression = (((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? cvisc: -1.0)
+        end
     end
     subsection Compositing
         set Viscosity = visco plastic
@@ -215,7 +225,7 @@ subsection Mesh refinement
     set Refinement fraction = 0.5
     set Initial adaptive refinement = 4
     set Initial global refinement = 4
-    set Strategy = viscosity, composition threshold, minimum refinement function, maximum refinement function
+    set Strategy = viscosity, minimum refinement function, maximum refinement function, isosurfaces
     set Time steps between mesh refinement = 2
     set Refinement criteria scaling factors = 2, 2, 1, 1
     set Refinement criteria merge operation = max
@@ -234,8 +244,8 @@ subsection Mesh refinement
         set Variable names = x, y
         set Function expression = if( x<=xmax && x>=xmin && y>=(ymax - 660e3), 8, 6)
     end
-    subsection Composition threshold
-        set Compositional field thresholds = 1e-6, 0.005, 10.0, 10.0, 0.5, 0.5, 10.0
+    subsection Isosurfaces
+        set Isosurfaces = max, max, porosity: 0.5 | 1.0; max, max, bound_fluid: 0.5 | 1.0; max, max, sediment: 0.5 | 1.0; max-1, max, gabbro: 0.5 | 1.0; max, max, MORB: 0.5 | 1.0; max-1, max, crust_upper: 0.5 | 1.0; max-1, max, crust_lower: 0.5 | 1.0
     end
 end
 
@@ -271,5 +281,34 @@ subsection Postprocess
         set Output format = txt
         set Time between graphical output = 100e3
     end
+end
+
+
+subsection Prescribed solution
+    set List of model names = velocity function, temperature from initial
+    subsection Velocity function
+        subsection Indicator function
+            set Variable names = x, y
+            set Function constants = x1=1500e3, x2=2000e3, x3=4000e3, x4=4500e3, y1=960e3, y2=980e3
+            set Function expression = ((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2)) ? 1: 0; ((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2)) ? 1:0
+        end
+        subsection Function
+            set Variable names = x, y
+            set Function constants = x1=1500e3, x2=2000e3, x3=4000e3, x4=4500e3, y1=960e3, y2=980e3, vx=0.05, vy=0.0, vx_ov=0.00, vy_ov=0.0
+            set Function expression = (x>x1)&&(x<x2)? vx: vx_ov; (x>x1)&&(x<x2)? vy:vy_ov
+        end
+    end
+    subsection Temperature from initial
+        subsection Indicator function
+            set Variable names = x, y
+            set Function constants = cwidth = 1000e3, cdepth = 200e3, ymax = 1000e3, xmax = 5000e3
+            set Function expression = (((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? 1.0: 0.0)
+        end
+    end
+end
+
+
+subsection Boundary composition model
+    set List of model names = initial composition
 end
 

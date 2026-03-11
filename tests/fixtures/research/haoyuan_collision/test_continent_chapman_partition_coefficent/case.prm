@@ -4,7 +4,7 @@ set Nonlinear solver scheme = iterated Advection and Stokes
 set Nonlinear solver failure strategy = cut timestep size
 set Output directory = output
 set Max nonlinear iterations = 40
-set Nonlinear solver tolerance = 5e-3
+set Nonlinear solver tolerance = 5.0e-03
 set Dimension = 2
 set End time = 100e6
 set CFL number = 0.5
@@ -21,7 +21,7 @@ subsection Solver parameters
         set GMRES solver restart length = 100
         set Number of cheap Stokes solver steps = 60
         set Use full A block as preconditioner = true
-        set Linear solver tolerance = 1e-04
+        set Linear solver tolerance = 1.0e-04
         set Maximum number of expensive Stokes solver steps = 0
         set Skip expensive stokes solver = true
     end

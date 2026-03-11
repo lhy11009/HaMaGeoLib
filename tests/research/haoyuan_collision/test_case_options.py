@@ -537,3 +537,54 @@ def test_continent_chapman_partition_coefficent():
     # Compare with the standard outputs
     assert(filecmp.cmp(case_prm, case_prm_standard))
     assert(filecmp.cmp(case_wb, case_wb_standard))
+
+
+def test_continent_prescribed_velocity_bottomline():
+    """
+    Test bottom-line configurations of continents with prescribed conditions
+    """
+    # set up tests
+    # case_dir - directory of the test case. Remove the old ones if existing previously
+    # template_prm and template_wb - templates to use for the prm and wb file
+    # case_prm and case_wb - the prm and wb files generated
+    # case_prm_standard and case_wb_standard - the standand output file to compare with
+    case_dir = test_dir/"test_continent_prescribed_velocity_bottomline"
+    fixture_dir = fixture_root/"test_continent_prescribed_velocity_bottomline"
+
+    if case_dir.is_dir():
+        shutil.rmtree(case_dir)
+    case_dir.mkdir(exist_ok=False)
+
+    template_prm = package_root/"hamageolib/research/haoyuan_collision0/files/01112026/post_compressible_test.prm"
+    template_wb = package_root/"hamageolib/research/haoyuan_collision0/files/01112026/original.wb"
+    template_json = fixture_dir/"current.json"
+
+    case_prm = case_dir/"case.prm"
+    case_wb = case_dir/"case.wb"
+
+    case_prm_standard = fixture_dir/"case.prm"
+    case_wb_standard = fixture_dir/"case.wb"
+
+    # Import files to dict objects
+    assert(template_prm.is_file())
+    with template_prm.open('r') as fin:
+        prm_dict = parse_parameters_to_dict(fin, format_entry=True)
+    assert(template_wb.is_file())
+    with template_wb.open('r') as fin:
+        wb_dict = json.load(fin)
+
+    # Apply the rules
+    ruleEngine = RuleEngine(rules)
+    with template_json.open("r") as fin:
+        config = json.load(fin)
+    contexts = ruleEngine.apply_all(config, prm_dict, wb_dict)
+
+    # Write case prm file
+    with case_prm.open('w') as fout:
+        save_parameters_from_dict(fout, prm_dict)
+    with case_wb.open('w') as fout:
+        json.dump(wb_dict, fout, indent=4)
+
+    # Compare with the standard outputs
+    assert(filecmp.cmp(case_prm, case_prm_standard))
+    assert(filecmp.cmp(case_wb, case_wb_standard))

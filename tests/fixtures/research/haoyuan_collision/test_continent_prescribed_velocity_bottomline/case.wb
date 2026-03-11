@@ -24,19 +24,19 @@
             "name": "Overriding Plate",
             "coordinates": [
                 [
-                    2000000.0,
+                    3000000.0,
                     -100000.0
                 ],
                 [
-                    2000000.0,
+                    3000000.0,
                     100000.0
                 ],
                 [
-                    3500000.0,
+                    5000000.0,
                     100000.0
                 ],
                 [
-                    3500000.0,
+                    5000000.0,
                     -100000.0
                 ]
             ],
@@ -65,27 +65,27 @@
                     "model": "chapman",
                     "max depth": 20000.0,
                     "top temperature": 273.0,
-                    "top heat flux": 0.04,
-                    "thermal conductivity": 3.2,
-                    "heat generation per unit volume": 5.200000000000001e-07
+                    "top heat flux": 0.055,
+                    "thermal conductivity": 2.5,
+                    "heat generation per unit volume": 1e-06
                 },
                 {
                     "model": "chapman",
                     "min depth": 20000.0,
                     "max depth": 40000.0,
-                    "top temperature": 490.5,
-                    "top heat flux": 0.0296,
-                    "thermal conductivity": 3.2,
-                    "heat generation per unit volume": 4e-07
+                    "top temperature": 633.0,
+                    "top heat flux": 0.035,
+                    "thermal conductivity": 2.5,
+                    "heat generation per unit volume": 2.5e-07
                 },
                 {
                     "model": "chapman",
                     "min depth": 40000.0,
-                    "max depth": 200000.0,
-                    "top temperature": 650.5,
-                    "top heat flux": 0.0216,
-                    "thermal conductivity": 3.2,
-                    "heat generation per unit volume": 2e-08
+                    "max depth": 120000.0,
+                    "top temperature": 893.0,
+                    "top heat flux": 0.03,
+                    "thermal conductivity": 4.0,
+                    "heat generation per unit volume": 0.0
                 }
             ]
         },
@@ -94,19 +94,19 @@
             "name": "Subducting Continent",
             "coordinates": [
                 [
-                    0.0,
+                    0,
                     -100000.0
                 ],
                 [
-                    0.0,
+                    0,
                     100000.0
                 ],
                 [
-                    1000000.0,
+                    2000000.0,
                     100000.0
                 ],
                 [
-                    1000000.0,
+                    2000000.0,
                     -100000.0
                 ]
             ],
@@ -135,27 +135,27 @@
                     "model": "chapman",
                     "max depth": 20000.0,
                     "top temperature": 273.0,
-                    "top heat flux": 0.04,
-                    "thermal conductivity": 3.2,
-                    "heat generation per unit volume": 5.200000000000001e-07
+                    "top heat flux": 0.055,
+                    "thermal conductivity": 2.5,
+                    "heat generation per unit volume": 1e-06
                 },
                 {
                     "model": "chapman",
                     "min depth": 20000.0,
                     "max depth": 40000.0,
-                    "top temperature": 490.5,
-                    "top heat flux": 0.0296,
-                    "thermal conductivity": 3.2,
-                    "heat generation per unit volume": 4e-07
+                    "top temperature": 633.0,
+                    "top heat flux": 0.035,
+                    "thermal conductivity": 2.5,
+                    "heat generation per unit volume": 2.5e-07
                 },
                 {
                     "model": "chapman",
                     "min depth": 40000.0,
-                    "max depth": 200000.0,
-                    "top temperature": 650.5,
-                    "top heat flux": 0.0216,
-                    "thermal conductivity": 3.2,
-                    "heat generation per unit volume": 2e-08
+                    "max depth": 120000.0,
+                    "top temperature": 893.0,
+                    "top heat flux": 0.03,
+                    "thermal conductivity": 4.0,
+                    "heat generation per unit volume": 0.0
                 }
             ]
         },
@@ -164,19 +164,19 @@
             "name": "Subducting Plate",
             "coordinates": [
                 [
-                    2000000.0,
+                    3000000.0,
                     -100000.0
                 ],
                 [
+                    3000000.0,
+                    100000.0
+                ],
+                [
                     2000000.0,
                     100000.0
                 ],
                 [
-                    1000000.0,
-                    100000.0
-                ],
-                [
-                    1000000.0,
+                    2000000.0,
                     -100000.0
                 ]
             ],
@@ -261,11 +261,11 @@
                     "ridge coordinates": [
                         [
                             [
-                                -3000000.0,
+                                -2000000.0,
                                 -100000.0
                             ],
                             [
-                                -3000000.0,
+                                -2000000.0,
                                 100000.0
                             ]
                         ]
@@ -282,11 +282,11 @@
             "name": "Slab",
             "coordinates": [
                 [
-                    2000000.0,
+                    3000000.0,
                     -100000.0
                 ],
                 [
-                    2000000.0,
+                    3000000.0,
                     100000.0
                 ]
             ],
@@ -407,11 +407,11 @@
                     "ridge coordinates": [
                         [
                             [
-                                -3000000.0,
+                                -2000000.0,
                                 -100000.0
                             ],
                             [
-                                -3000000.0,
+                                -2000000.0,
                                 100000.0
                             ]
                         ]

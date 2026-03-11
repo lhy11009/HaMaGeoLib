@@ -57,7 +57,7 @@
   "weak_layer_cutoff_depth": 125000.0,
   "weak_layer_transition_width": 10000.0,
   "weak_layer_viscosity": 2.5e+19,
-  "kinematic_driven_condition_transition_depth": 20000.0,
+  "kinematic_driven_condition_transition_depth": 100000.0,
   "prescribe_subducting_plate_velocity_depth_range": [
     10000.0,
     30000.0

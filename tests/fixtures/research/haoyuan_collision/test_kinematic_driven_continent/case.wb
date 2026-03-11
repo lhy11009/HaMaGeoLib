@@ -41,7 +41,7 @@
                 ]
             ],
             "min depth": 0,
-            "max depth": 80000.0,
+            "max depth": 200000.0,
             "composition models": [
                 {
                     "model": "uniform",
@@ -111,7 +111,7 @@
                 ]
             ],
             "min depth": 0,
-            "max depth": 80000.0,
+            "max depth": 200000.0,
             "composition models": [
                 {
                     "model": "uniform",

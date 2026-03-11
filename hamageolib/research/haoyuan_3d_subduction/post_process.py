@@ -1202,7 +1202,6 @@ class PYVISTA_PROCESS_THD():
         return trench_points
     
     def extract_sp_velocity(self):
-        # todo_plate
         from hamageolib.utils.geometry_utilities import rotate_vec_cart_to_sph
 
         my_assert(self.sp_lower_KDTree is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR\

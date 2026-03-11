@@ -518,10 +518,9 @@ class SlabRule(Rule):
     - slab_hinge_point_pre_modification:
       Position of the trench
     """
-    
     requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point_pre_modification", "slab_hinge_point_pre_modification",
-                "plate_end_point_pre_modification",
-                "slab_age", "kinematic_driven_condition", "kinematic_driven_condition_domain_modification"]
+                "plate_end_point_pre_modification", "slab_age", "kinematic_driven_condition", "kinematic_driven_condition_domain_modification",
+                "use_convergence_rate_for_ridge_position", "convergence_rate"]
     
     defaults = {"slab_layer_compositions": ["sediment", "MORB", "gabbro"], "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3],
                 "plate_start_point_pre_modification": 1000e3,
@@ -529,13 +528,17 @@ class SlabRule(Rule):
                 "plate_end_point_pre_modification": 7500e3, 
                 "slab_age": 100e6, 
                 "kinematic_driven_condition": False,
-                "kinematic_driven_condition_domain_modification": [1000e3, 1000e3]}
+                "kinematic_driven_condition_domain_modification": [1000e3, 1000e3],
+                "use_convergence_rate_for_ridge_position": False,
+                "convergence_rate": 0.05,
+                }
     
     requires_comments = {"slab_layer_compositions": "Include these compositions for the slab",
                          "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1",
                          "slab_age": "Age of the subducting plate at the trench",
                          "plate_start_point_pre_modification": "Start point of subducting plate before modificaton",
-                         "slab_hinge_point_pre_modification": "Position of the trench"}
+                         "slab_hinge_point_pre_modification": "Position of the trench",
+                         "use_convergence_rate_for_ridge_position": "Whether to use convergence rate to inform ridge position"}
     provides = ["spreading_velocity", "slab_hinge_point", "plate_start_point"]
 
     # todo_comments
@@ -584,6 +587,8 @@ class SlabRule(Rule):
         slab_age = config["slab_age"]
         kinematic_driven_condition = config["kinematic_driven_condition"]
         kinematic_driven_condition_domain_modification = config["kinematic_driven_condition_domain_modification"]
+        use_convergence_rate_for_ridge_position = config["use_convergence_rate_for_ridge_position"]
+        convergence_rate = config["convergence_rate"]
 
         domain_length = context["domain_length"]
 
@@ -599,13 +604,25 @@ class SlabRule(Rule):
             assert(slab_hinge_point > 0.0)
 
             plate_end_point = min(plate_end_point_pre_modification - kinematic_driven_condition_domain_modification[0], domain_length)
-            
-            ridge_point = plate_start_point_pre_modification - kinematic_driven_condition_domain_modification[0]
+
+            ridge_point = None
+            if use_convergence_rate_for_ridge_position:
+                raise NotImplementedError("use_convergence_rate_for_ridge_position is not implemented for the kinematic-driven model") 
+            else:
+                ridge_point = plate_start_point_pre_modification - kinematic_driven_condition_domain_modification[0]
         else:
             plate_start_point = plate_start_point_pre_modification
             slab_hinge_point = slab_hinge_point_pre_modification
             plate_end_point = plate_end_point_pre_modification
-            ridge_point = plate_start_point
+
+            ridge_point = None
+            if use_convergence_rate_for_ridge_position:
+                ridge_point = slab_hinge_point - convergence_rate*slab_age
+                if ridge_point > plate_start_point:
+                    raise ValueError("ridge point must have smaller X than plate_start_point. The issue is typically triggered because \
+                                     the convergence_rate is smaller compared value of plate length/slab age")
+            else:
+                ridge_point = plate_start_point
 
 
         # compute the spreading rate based on the slab age, hinge point and starting point of the plate
@@ -896,14 +913,16 @@ class KinematicDrivenRule(Rule):
                 "kinematic_driven_condition_transition_depth",
                 "kinematic_driven_condition_domain_modification",
                 "use_isosurfaces",
-                "kinematic_driven_condition_assign_velocity_component"]
+                "kinematic_driven_condition_assign_velocity_component",
+                "kinematic_driven_condition_fix_initial_bd_temperature"]
 
     defaults = {"kinematic_driven_condition": False, 
                 "convergence_rate": 0.05,
                 "kinematic_driven_condition_depth": 100e3,
                 "kinematic_driven_condition_transition_depth": 20e3,
                 "kinematic_driven_condition_domain_modification": [1000e3, 1000e3],
-                "kinematic_driven_condition_assign_velocity_component": "x"}
+                "kinematic_driven_condition_assign_velocity_component": "x",
+                "kinematic_driven_condition_fix_initial_bd_temperature": False}
 
     requires_comments = {"kinematic_driven_condition": "Whether to add a kinematic driven condition to the model",
                          "convergence_rate": "Total convergence rate between subducting and overriding plate",
@@ -911,7 +930,9 @@ class KinematicDrivenRule(Rule):
                          "kinematic_driven_condition_transition_depth": "Depth to transit from inflow to outflow condition",
                          "kinematic_driven_condition_domain_modification": "Migrate the two side boundary to accomodate the new kinematic driven condition\
                             The idea is we always first set up the plates in a long model domain, and then migrate the side boundaries to make it short.",
-                         "kinematic_driven_condition_assign_velocity_component": "Either assign all components or only the x component."}
+                         "kinematic_driven_condition_assign_velocity_component": "Either assign all components or only the x component.",
+                         "kinematic_driven_condition_fix_initial_bd_temperature": "This fixes the boundary temperature on initial condition\
+                              while also excluding the out-flow region"}
     
     provides = ["kinematic_driven_condition"]
 
@@ -955,6 +976,7 @@ class KinematicDrivenRule(Rule):
         kinematic_driven_condition_transition_depth = config["kinematic_driven_condition_transition_depth"]
         kinematic_driven_condition_domain_modification = config["kinematic_driven_condition_domain_modification"]
         kinematic_driven_condition_assign_velocity_component = config["kinematic_driven_condition_assign_velocity_component"]
+        kinematic_driven_condition_fix_initial_bd_temperature = config["kinematic_driven_condition_fix_initial_bd_temperature"]
 
         # Assert configuration
         assert(len(kinematic_driven_condition_domain_modification) == 2)
@@ -1001,6 +1023,13 @@ class KinematicDrivenRule(Rule):
             # Here we assume that both continents start from / end at the side boundary
             prm_dict["Boundary composition model"] = {
                 "List of model names": "initial composition"
+                }
+            
+            if kinematic_driven_condition_fix_initial_bd_temperature:
+                prm_dict["Boundary temperature model"] = {
+                    "List of model names": "initial temperature",
+                    "Fixed temperature boundary indicators": "top, bottom, left, right",
+                    "Allow fixed temperature on outflow boundaries": "false"
                 }
         
         # Provide activation state to shared context for downstream rules
@@ -1321,10 +1350,10 @@ class WeakLayerRule(Rule):
 class SolverRule(Rule):
     
     requires = ["stokes_solver_type", "skip_expensive_stokes", "max_nonlinear_iterations", "linear_solver_tolerance", "number_of_cheap_Stokes_solver_steps",
-                "GMRES_solver_restart_length"]
+                "GMRES_solver_restart_length", "nonlinear_solver_tolerance"]
     
     defaults = {"stokes_solver_type": "block AMG", "skip_expensive_stokes": False, "max_nonlinear_iterations": 70, "linear_solver_tolerance":5e-5,
-                "number_of_cheap_Stokes_solver_steps":20000, "GMRES_solver_restart_length": 1000}
+                "number_of_cheap_Stokes_solver_steps":20000, "GMRES_solver_restart_length": 1000, "nonlinear_solver_tolerance": 5e-3}
     
     requires_comments = {"skip_expensive_stokes": "Within a nonlinear solver, Skip the expensive stokes iteration even the cheap one fails and continue next linear iteration."}
 
@@ -1337,13 +1366,15 @@ class SolverRule(Rule):
         number_of_cheap_Stokes_solver_steps = config["number_of_cheap_Stokes_solver_steps"]
         GMRES_solver_restart_length = config["GMRES_solver_restart_length"]
         stokes_solver_type = config["stokes_solver_type"]
+        nonlinear_solver_tolerance = config["nonlinear_solver_tolerance"]
 
         # configure max nonlinear interations
         prm_dict["Max nonlinear iterations"] = "%d" % max_nonlinear_iterations
+        prm_dict["Nonlinear solver tolerance"] = "%.1e" % nonlinear_solver_tolerance
 
         # configure linear solver scheme
         prm_dict["Solver parameters"]["Stokes solver parameters"]["Stokes solver type"] = stokes_solver_type
-        prm_dict["Solver parameters"]["Stokes solver parameters"]["Linear solver tolerance"] = "%.0e" % linear_solver_tolerance
+        prm_dict["Solver parameters"]["Stokes solver parameters"]["Linear solver tolerance"] = "%.1e" % linear_solver_tolerance
         prm_dict["Solver parameters"]["Stokes solver parameters"]["Number of cheap Stokes solver steps"] = "%d" % number_of_cheap_Stokes_solver_steps
         prm_dict["Solver parameters"]["Stokes solver parameters"]["GMRES solver restart length"] = "%d" % GMRES_solver_restart_length
 
@@ -1878,12 +1909,20 @@ viscosity is being prescribed in the region",
                     "Function expression": "(((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? 1.0: 0.0)"
                 }
 
-                prm_dict["Prescribed solution"] = {
-                    "List of model names": "temperature from initial",
-                    "Temperature from initial":{
-                        "Indicator function": indicator_function
+                try:
+                    prescribed_solution = prm_dict["Prescribed solution"]
+                except KeyError:
+                    prm_dict["Prescribed solution"] = {
+                        "List of model names": "temperature from initial",
+                        "Temperature from initial":{
+                            "Indicator function": indicator_function
+                        }
                     }
-                }
+                else:
+                    prescribed_solution["List of model names"] += ", temperature from initial"
+                    prescribed_solution["Temperature from initial"] = {
+                            "Indicator function": indicator_function
+                    }
 
             # Modify the composition boundary condition
             # Here we assume that both continents start from / end at the side boundary
