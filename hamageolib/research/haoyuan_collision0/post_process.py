@@ -1,8 +1,94 @@
 import os
+import numpy as np
+import pyvista as pv
+from scipy.spatial import cKDTree
+from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
 
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
-def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
+
+# todo_plot
+class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
+
+    def __init__(self, data_dir, options, *,
+                 pyvista_outdir=None):
+
+        PYVISTA_PROCESS.__init__(self, data_dir, 
+                            pyvista_outdir=pyvista_outdir)
+        
+        self.Min0 = options["BOTTOM"]
+        self.Max0 = options["TOP"]
+        self.Min2 = options["LEFT"]
+        self.Max2 = options["RIGHT"]
+
+    def read(self, pvtu_step):
+
+        # read dataset
+        self.pvtu_step = pvtu_step
+        PYVISTA_PROCESS.read(self, pvtu_step)
+
+        # total slab composition
+        self.grid["sp_total"] = self.grid["gabbro"] + self.grid["MORB"] + self.grid["sediment"]
+
+    def extract_slab(self, *,
+                     threshold=0.5,
+                     d0=5e3,
+                     dr=0.001,
+                     output_surfuce=False):
+
+        self.slab_grid = self.grid.threshold(value=threshold, scalars="sp_total", invert=False)
+
+        slab_points = self.slab_grid.points
+        slab_point_data = self.slab_grid.point_data
+
+        # Extract slab surface points
+        # First construct a KDTree from data
+        # Then figure out the max phi value
+        # Record the trench position, slab depth and save slab surface points
+        # Here I inherited the structure with the 3D case to delineate dimensions
+        # into 0, 1, 2.
+        vals0 = np.arange(self.Min0, self.Max0, d0)
+        vals1 = np.pi/2.0
+        vals2 = np.full(vals0.size, np.nan)
+
+        rt_upper = np.vstack([slab_points[:, 1]/self.Max0]).T
+        v2_u = slab_points[:, 0]
+        rt_tree = cKDTree(rt_upper)
+
+        for i, v0 in enumerate(vals0):
+            query_pt = np.array([v0/self.Max0])
+            idxs = rt_tree.query_ball_point(query_pt, r=dr)
+
+            if not idxs:
+                continue
+
+            v2s = v2_u[idxs]
+            max_v2 = np.max(v2s)
+
+            vals2[i] = max_v2
+        
+        mask = ~np.isnan(vals2)
+
+        v0_surf = vals0[mask]
+        v2_surf = vals2[mask]
+
+        x = v2_surf
+        y = v0_surf
+        z = np.zeros(v0_surf.shape)
+
+        slab_surface_points = np.vstack([x, y, z]).T
+
+        if output_surfuce:
+            point_cloud = pv.PolyData(slab_surface_points)
+            filename = "slab_surface_%05d.vtp" % self.pvtu_step
+            filepath = os.path.join(self.pyvista_outdir, filename)
+            point_cloud.save(filepath)
+            print("Save file %s" % filepath)
+
+
+
+def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
+                           pyvista_outdir=None):
     '''
     Process with pyvsita for a single step
     Inputs:
@@ -12,15 +98,33 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
         kwargs
             threshold_lower - threshold for lower slab composition
     '''
-    # options
-    geometry = Case_Options.options["GEOMETRY"]
-
     # time step and index
     idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
     try:
       _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
     except IndexError:
         raise IndexError("The pvtu_step %d doesn't seem to exist in this case" % pvtu_step)
+    
+    # output directory
+    if pyvista_outdir is None:
+        if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
+            os.mkdir(os.path.join(case_path, "pyvista_outputs"))
+        pyvista_outdir = os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)
+
+    if not os.path.isdir(pyvista_outdir):
+        os.mkdir(pyvista_outdir)
+
+    # initiate the processing class
+    ProcessCollision = PYVISTA_PROCESS_COLLISION(os.path.join(case_path, "output", "solution"), Case_Options.options,
+                                                 pyvista_outdir=pyvista_outdir)
+
+    # read file
+    ProcessCollision.read(pvtu_step)
+
+    # extract slab
+    ProcessCollision.extract_slab(output_surfuce=True)
+
+    # Read data
     
     # dictionary for simple outputs 
     outputs = {}

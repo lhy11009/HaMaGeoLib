@@ -322,7 +322,7 @@ class CASE_OPTIONS(CODESUB):
         self.options['INITIAL_ADAPTIVE_REFINEMENT'] = self.idict['Mesh refinement'].get('Initial adaptive refinement', '0')
 
         # whether postprocessers are run on initial refinement
-        self.options["PP_INITIAL_REFINEMENT"] = str_to_bool_int(self.idict["Mesh refinement"].get("Run postprocessors on initial refinement", 'true'))
+        self.options["PP_INITIAL_REFINEMENT"] = str_to_bool_int(self.idict["Mesh refinement"].get("Run postprocessors on initial refinement", 'false'))
 
         # get the graphical steps
         # first make sure a summary is generated

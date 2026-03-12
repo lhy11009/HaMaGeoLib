@@ -133,10 +133,10 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
 
         XMLPartitionedUnstructuredGridReader(registrationName='solution_%05d' % snapshot, FileName=[filein])
 
-        plot_full_domain("solution-%05d" % snapshot, _time, pv_output_dir)
+        plot_twod_basic("solution-%05d" % snapshot, _time, pv_output_dir)
 
-
-def plot_full_domain(source_name, _time, pv_output_dir):
+# todo_plot
+def plot_twod_basic(source_name, _time, pv_output_dir):
         
     _source = FindSource(source_name)
     sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
@@ -153,25 +153,30 @@ def plot_full_domain(source_name, _time, pv_output_dir):
     text_glyph1 = FindSource("Text_glyph1")
     text_glyph1Display = Show(text_glyph1, renderView1, 'GeometryRepresentation')
 
-    # plot viscosity    
-    layout_resolution = (1350, 704)
+    if "PLOT_TYPE" == "full_domain":
+        # plot viscosity    
+        layout_resolution = (1350, 704)
 
+        if ANIMATION:
+            # turn on axis grid when making animation
+            sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
+
+        layout1 = GetLayout()
+        layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+
+        # adjust camera setup
+        # Camera position is adjusted relative to the position of the right and top boundary
+        renderView1.InteractionMode = '2D'
+        renderView1.CameraPosition = [RIGHT/2.0, TOP/2.0, 17717371.391353175]
+        renderView1.CameraFocalPoint = [RIGHT/2.0, TOP/2.0, 0.0]
+        renderView1.CameraParallelScale = 2588447.7843194483 * RIGHT / 8700e3  # scale to the length
+    elif "PLOT_TYPE" == "trench_centered":
+        pass
+    else:
+        raise NotImplementedError("plot_type PLOT_TYPE is not implemented")
+    
     field, fieldLUT = set_viscosity_plot(sourceDisplay, 1e18, 1e24)
     scalarBar = set_viscosity_colorbar(renderView1, fieldLUT)
-
-    if ANIMATION:
-        # turn on axis grid when making animation
-        sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
-
-    layout1 = GetLayout()
-    layout1.SetSize((layout_resolution[0], layout_resolution[1]))
-
-    # adjust camera setup
-    # Camera position is adjusted relative to the position of the right and top boundary
-    renderView1.InteractionMode = '2D'
-    renderView1.CameraPosition = [RIGHT/2.0, TOP/2.0, 17717371.391353175]
-    renderView1.CameraFocalPoint = [RIGHT/2.0, TOP/2.0, 0.0]
-    renderView1.CameraParallelScale = 2588447.7843194483 * RIGHT / 8700e3  # scale to the length
 
     fig_path = os.path.join(pv_output_dir, "full_domain_viscosity_t%.4e.pdf" % _time)
     fig_png_path = os.path.join(pv_output_dir, "full_domain_viscosity_t%.4e.png" % _time)

@@ -1124,7 +1124,6 @@ class GPLOTTER():
 
         return ax
 
-    # todo_plot
     def plot_subduction_pts(self, ax, subduction_data, plot_by="subducting_pid", **kwargs):
         '''
         Plot points in a subduction dataset
