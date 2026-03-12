@@ -153,7 +153,6 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
             - Computes the radius for each point and adds it as a new scalar field.
             - Stores the grid and file metadata in instance variables.
         """
-        start = time.time()
 
         PYVISTA_PROCESS.read(self, pvtu_step,
                              piece=kwargs.get("piece", None))
@@ -177,8 +176,6 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
             else:
                 self.grid = clip_grid_by_xyz_range(self.grid, x_range=self.clip[2], y_range=self.clip[1], z_range=self.clip[0])
 
-        end = time.time()
-        print("\ttakes %.1f s" % (end - start))
 
     def process_piecewise(self, func_name, keys, **kwargs):
         '''
