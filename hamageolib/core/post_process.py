@@ -5,9 +5,9 @@ import psutil
 from pathlib import Path
 import pyvista as pv
 import numpy as np
-from scipy.spatial import cKDTree
-from scipy.interpolate import NearestNDInterpolator
 from vtk import VTK_QUAD
+from hamageolib.utils.handy_shortcuts_haoyuan import func_name
+from hamageolib.utils.exception_handler import my_assert
 
 
 # todo_pyv
@@ -37,3 +37,28 @@ class PYVISTA_PROCESS():
         # Initialize global variables 
         self.pvtu_step = None
         self.grid = None
+
+    def read(self, pvtu_step, *,
+             piece=None):
+        
+        start = time.time()
+
+        self.pvtu_step = pvtu_step
+        # check path of data
+        if piece is None:
+            filepath = os.path.join(self.data_dir, "solution-%05d.pvtu" % self.pvtu_step)
+            my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
+        else:
+            filepath = os.path.join(self.data_dir, "solution-%05d.%04d.vtu" % (self.pvtu_step, piece))
+            my_assert(isinstance(piece, int) and piece >= 0, TypeError, "piece must be non-negative integar.")
+            my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
+        
+        end = time.time()
+        print("PYVISTA_PROCESS:\n\tRead file %s" % (filepath))
+        print("\ttakes %.1f s" % (end - start))
+
+        # read data
+        self.grid = pv.read(filepath)
+
+class PYVISTA_PROCESS_WORKFLOW_ERROR(Exception):
+    pass

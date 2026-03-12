@@ -8,7 +8,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 from scipy.interpolate import NearestNDInterpolator
 from vtk import VTK_QUAD
-from hamageolib.core.post_process import PYVISTA_PROCESS
+from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
 from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian, cartesian_to_spherical_2d, PUnified
 from hamageolib.utils.vtk_utilities import get_pyvista_extension
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
@@ -20,10 +20,7 @@ from hamageolib.utils.plot_helper import convert_eps_to_pdf, extract_image_by_si
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
 
-class PYVISTA_PROCESS_THD_WORKFLOW_ERROR(Exception):
-    pass
 
-# todo_pyv
 class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
 
     """
@@ -142,6 +139,7 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
         self.threshold_metastable = None
 
 
+    # todo_pyv
     def read(self, pvtu_step, **kwargs):
         """
         Read a .pvtu file and initialize the PyVista grid object.
@@ -156,21 +154,9 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
             - Stores the grid and file metadata in instance variables.
         """
         start = time.time()
-        self.pvtu_step = pvtu_step
-        piece = kwargs.get("piece", None)
 
-        # check path of data
-        if piece is None:
-            filepath = os.path.join(self.data_dir, "solution-%05d.pvtu" % self.pvtu_step)
-            my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
-        else:
-            filepath = os.path.join(self.data_dir, "solution-%05d.%04d.vtu" % (self.pvtu_step, piece))
-            my_assert(isinstance(piece, int) and piece >= 0, TypeError, "piece must be non-negative integar.")
-            my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
-        print("PYVISTA_PROCESS_THD:\n\tRead file %s" % (filepath))
-
-        # read data
-        self.grid = pv.read(filepath)
+        PYVISTA_PROCESS.read(self, pvtu_step,
+                             piece=kwargs.get("piece", None))
 
         # append a "radius" field 
         points = self.grid.points
@@ -770,11 +756,11 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
 
         # checking
         if field_name == "sp_upper":
-            my_assert(self.iso_volume_upper is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR, "Needs to run extract_iso_volume_upper first")
+            my_assert(self.iso_volume_upper is not None, PYVISTA_PROCESS_WORKFLOW_ERROR, "Needs to run extract_iso_volume_upper first")
             source = self.iso_volume_upper
 
         elif field_name == "sp_lower":
-            my_assert(self.iso_volume_lower_filtered_pe is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR, "Needs to run filter_slab_lower_points first")
+            my_assert(self.iso_volume_lower_filtered_pe is not None, PYVISTA_PROCESS_WORKFLOW_ERROR, "Needs to run filter_slab_lower_points first")
             source = self.iso_volume_lower_filtered_pe 
         else:
             raise NotImplementedError()
@@ -1059,7 +1045,7 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
         print("Save file %s" % filepath)
 
     def extract_slab_dip_angle_by_depth(self, v0_0, v1_0, v0_1, v1_1):
-        my_assert(self.slab_moho_interp_func is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR,\
+        my_assert(self.slab_moho_interp_func is not None, PYVISTA_PROCESS_WORKFLOW_ERROR,\
                   "Needs to run extract_slab_interface for slab moho first")
         my_assert(v0_0 > v0_1, ValueError, "To extract dip angle, depth1 must be bigger than depth0")
 
@@ -1201,7 +1187,7 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
     def extract_sp_velocity(self):
         from hamageolib.utils.geometry_utilities import rotate_vec_cart_to_sph
 
-        my_assert(self.sp_lower_KDTree is not None, PYVISTA_PROCESS_THD_WORKFLOW_ERROR\
+        my_assert(self.sp_lower_KDTree is not None, PYVISTA_PROCESS_WORKFLOW_ERROR\
                   , "Needs to run extract_slab_interface for sp_lower first")
         
         start = time.time()
