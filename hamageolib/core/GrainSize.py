@@ -1,7 +1,6 @@
 from typing import NamedTuple, Optional
 import numpy as np
 
-# todo_ggrowth
 class GrainGrowthParams(NamedTuple):
     grain_growth_rate_constant: float
     m: float

@@ -8,6 +8,7 @@ import numpy as np
 from scipy.spatial import cKDTree
 from scipy.interpolate import NearestNDInterpolator
 from vtk import VTK_QUAD
+from hamageolib.core.post_process import PYVISTA_PROCESS
 from hamageolib.utils.geometry_utilities import cartesian_to_spherical, spherical_to_cartesian, cartesian_to_spherical_2d, PUnified
 from hamageolib.utils.vtk_utilities import get_pyvista_extension
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
@@ -22,7 +23,8 @@ SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../.."
 class PYVISTA_PROCESS_THD_WORKFLOW_ERROR(Exception):
     pass
 
-class PYVISTA_PROCESS_THD():
+# todo_pyv
+class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
 
     """
     Class for post-processing spherical shell data from geodynamic simulations using PyVista.
@@ -66,8 +68,9 @@ class PYVISTA_PROCESS_THD():
         pass
 
     def __init__(self, data_dir, config, **kwargs):
-        # data_directory
-        self.data_dir = data_dir
+
+        PYVISTA_PROCESS.__init__(self, data_dir, 
+                        pyvista_outdir=kwargs.get("pyvista_outdir", None))
 
         # Required settings and geometry assumption
         self.geometry = config["geometry"]
@@ -99,17 +102,11 @@ class PYVISTA_PROCESS_THD():
             self.scale2 = self.scale0
         
         # additional settings
-        self.pyvista_outdir = kwargs.get("pyvista_outdir", os.path.join(self.data_dir, "..", "pyvista_outputs"))
-        if not os.path.isdir(self.pyvista_outdir):
-            os.mkdir(self.pyvista_outdir)
         self.clip = kwargs.get("clip", None)
         self.n_pieces = kwargs.get("n_pieces", None)
         if self.n_pieces is not None:
             my_assert(isinstance(self.n_pieces, int) and self.n_pieces > 0, TypeError, "n_pieces must be positive integar")
         
-        # Initialize global variables 
-        self.pvtu_step = None
-        self.grid = None
 
         # Initialize runtime variables
         # We use the "combined" dict to append piecewise outputs into lists

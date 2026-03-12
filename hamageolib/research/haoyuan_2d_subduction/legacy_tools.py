@@ -732,7 +732,6 @@ class VISIT_OPTIONS_TWOD(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         self.options["PLOT_P_TRANS_CONTOUR_LEVELS"] = kwargs.get("plot_P_trans_contour_levels", np.arange(1.5e9, 2.6e9, 0.1e9).tolist())
         self.options["PLOT_CRUST_CONTOUR_LEVEL"] = kwargs.get("plot_crust_contour_level", 0.8)
         self.options["PLOT_NON_ADIABATIC_PRESSURE_RANGE"] = kwargs.get("plot_non_adiabatic_pressure_range", [-200e6, 200e6])
-        # todo_thin
         
 
         # additional inputs
@@ -10164,7 +10163,6 @@ def Convert2AspectInput(creep, **kwargs):
     return aspect_creep
 
 
-# todo_rheology
 def ConvertFromAspectInput(aspect_creep, *, 
                             r=None, 
                             Coh=None,
@@ -10334,7 +10332,6 @@ def creep_nested_to_markdown_separated(creep, *,
     """
     Output one Markdown table per creep mechanism.
     """
-    # todo_rheology
     # units of variables
     # differ between aspect format and experiment format
     units = None

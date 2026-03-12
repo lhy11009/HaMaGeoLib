@@ -1556,7 +1556,6 @@ def map_mid_point(lon1, lat1, lon2, lat2, frac):
     
     return lon_mid_deg, lat_mid_deg
 
-# todo_gplate
 def geographic_distance(lon1, lat1, lon2, lat2):
     """
     Compute geodesic distance between two geographic points.
