@@ -52,3 +52,17 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
         eta_max_inputs =\
             COMPOSITION(self.idict['Material model']['Visco Plastic']['Maximum viscosity']) 
         self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
+
+    def SummaryCaseVtuStep(self, ifile=None):
+        '''
+        Summary case result
+        ofile (str): if this provided, import old results
+        '''
+        CASE_OPTIONS_BASE.SummaryCaseVtuStep(self, ifile)
+
+        # Add new columns you want to add
+        new_columns = ["slab_depth", "dip_100", "dip_300", "trench_center", "trench_center_50"]
+
+        for col in new_columns:
+            if col not in self.summary_df.columns:
+                self.summary_df[col] = np.nan    

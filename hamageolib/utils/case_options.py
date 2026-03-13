@@ -248,7 +248,7 @@ class CASE_OPTIONS(CODESUB):
         index = index_list[0]
 
         # assign value
-        my_assert(field_name in self.summary_df.columns, ValueError, "Given field_name is not an entry of summary")
+        my_assert(field_name in self.summary_df.columns, ValueError, "Given %s is not an entry of summary" % field_name)
         self.summary_df.at[index, field_name] = value
     
     

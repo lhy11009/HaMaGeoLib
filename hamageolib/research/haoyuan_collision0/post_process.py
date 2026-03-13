@@ -7,7 +7,6 @@ from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFL
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
 
-# todo_plot
 class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
     def __init__(self, data_dir, options, *,
@@ -20,6 +19,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         self.Max0 = options["TOP"]
         self.Min2 = options["LEFT"]
         self.Max2 = options["RIGHT"]
+
+        # placeholder for class variables
+        self.slab_surface_points = None
 
     def read(self, pvtu_step):
 
@@ -76,15 +78,55 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         y = v0_surf
         z = np.zeros(v0_surf.shape)
 
-        slab_surface_points = np.vstack([x, y, z]).T
+        self.slab_surface_points = np.vstack([x, y, z]).T
 
         if output_surfuce:
-            point_cloud = pv.PolyData(slab_surface_points)
+            point_cloud = pv.PolyData(self.slab_surface_points)
             filename = "slab_surface_%05d.vtp" % self.pvtu_step
             filepath = os.path.join(self.pyvista_outdir, filename)
             point_cloud.save(filepath)
             print("Save file %s" % filepath)
 
+    def analyze_slab(self):
+
+        if self.slab_surface_points is None:
+            raise PYVISTA_PROCESS_WORKFLOW_ERROR("Needs to run extract_slab first.")
+
+        # extract the x, y coordinates
+        l0 = self.slab_surface_points[:, 1] 
+        l2 = self.slab_surface_points[:, 0]
+        
+        # slab depth 
+        slab_depth = self.Max0 - np.min(l0)
+
+        # shallowest point
+        i0 = np.argmax(l0) 
+        depth0 = self.Max0 - l0[i0] 
+        l2_0 = l2[i0]
+        
+        # dip angle - 100 km
+        depth1 = 100e3
+        l2_1 = np.interp(self.Max0 - depth1, l0, l2)
+        dip_angle_100 = np.arctan2(depth1 - depth0, l2_1 - l2_0)
+
+        # dip angle - 300 km
+        depth1 = 300e3
+        l2_1 = np.interp(self.Max0 - depth1, l0, l2)
+        dip_angle_300 = np.arctan2(depth1 - depth0, l2_1 - l2_0)
+
+        # trench position
+        trench_center = l2[i0]
+        trench_center_50km = np.interp(self.Max0 - 50e3, l0, l2)
+
+        # record results of slab depth, dip angle, trench position, etc
+        outputs = {} 
+        outputs["slab_depth"] = slab_depth
+        outputs["dip_100"] = dip_angle_100
+        outputs["dip_300"] = dip_angle_300
+        outputs["trench_center"] = trench_center
+        outputs["trench_center_50"] = trench_center_50km
+
+        return outputs
 
 
 def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
@@ -113,6 +155,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
 
     if not os.path.isdir(pyvista_outdir):
         os.mkdir(pyvista_outdir)
+    
+    # dict for saving outputs 
+    outputs = {}
 
     # initiate the processing class
     ProcessCollision = PYVISTA_PROCESS_COLLISION(os.path.join(case_path, "output", "solution"), Case_Options.options,
@@ -124,10 +169,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     # extract slab
     ProcessCollision.extract_slab(output_surfuce=True)
 
-    # Read data
-    
-    # dictionary for simple outputs 
-    outputs = {}
+    # analyze slab
+    outputs1 = ProcessCollision.analyze_slab()
+    outputs.update(**outputs1)
 
     return outputs
 

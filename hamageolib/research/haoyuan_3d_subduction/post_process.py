@@ -1904,7 +1904,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         clip = None
     boundary_range=[[clip_l0_min, clip_l0_max] , [clip_l1_min, clip_l1_max], [clip_l2_min, clip_l2_max]]
 
-    # todo_plot 
     # initiate PYVISTA_PROCESS_THD class
     config = {"geometry": geometry, "Max0": Max0, "Min0": Min0, "Max1": Max1, "Max2": Max2, "time": _time}
     kwargs = {"clip": clip, "pyvista_outdir": os.path.join(odir, "%05d" % pvtu_step)}
@@ -2178,7 +2177,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
     grid = pv.read(pvtu_filepath)
 
-    # todo_plot
     points = grid.points
     if geometry == "chunk":
         radius = np.linalg.norm(points, axis=1)

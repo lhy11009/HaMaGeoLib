@@ -135,7 +135,6 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
 
         plot_twod_basic("solution-%05d" % snapshot, _time, pv_output_dir)
 
-# todo_plot
 def plot_twod_basic(source_name, _time, pv_output_dir):
         
     _source = FindSource(source_name)

@@ -3,6 +3,7 @@ import os
 import filecmp
 from shutil import rmtree
 from pathlib import Path
+import numpy as np
 
 from hamageolib.research.haoyuan_collision0.post_process import ProcessVtuFileTwoDStep
 from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
@@ -17,7 +18,6 @@ test_root.mkdir(exist_ok=True)
 test_dir = test_root/"research-haoyuan-post-process"
 test_dir.mkdir(exist_ok=True)
 
-# todo_plot
 @pytest.mark.big_test
 def test_extract_slab_2d():
 
@@ -34,12 +34,20 @@ def test_extract_slab_2d():
     Case_Options_2d.SummaryCaseVtuStep(os.path.join(test_case_path, "summary.csv"))
     
     # run the PyVista workflow
-    output_dict = ProcessVtuFileTwoDStep(source_case_path, 0, Case_Options_2d,
+    outputs = ProcessVtuFileTwoDStep(source_case_path, 0, Case_Options_2d,
                                          pyvista_outdir=test_case_path/"pyvista_outputs")
-    
+
+    # compare file outputs 
     slab_surface_filepath = test_case_path/"pyvista_outputs"/"slab_surface_00000.vtp"
     slab_surface_std_filepath = source_case_path/"pyvista_outputs"/"slab_surface_00000.vtp"
     assert(slab_surface_filepath.is_file())
     assert(filecmp.cmp(slab_surface_filepath, slab_surface_std_filepath))
+
+    # assert slab characteristics
+    assert(np.isclose(outputs["slab_depth"], 165000.0))
+    assert(np.isclose(outputs["dip_100"], 0.5931085755109071))
+    assert(np.isclose(outputs["dip_300"], 1.050753540782733))
+    assert(np.isclose(outputs["trench_center"], 5057674.5))
+    assert(np.isclose(outputs["trench_center_50"], 5151631.5))
 
 
