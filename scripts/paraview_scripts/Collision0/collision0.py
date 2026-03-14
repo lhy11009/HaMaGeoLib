@@ -141,7 +141,14 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
 
     # add glyph of velocity
-    add_glyph_with_label(source_name, "velocity", 2e6,
+    ScaleFactor = None
+    if "PLOT_TYPE" == "full_domain":
+        ScaleFactor = 2e6
+    elif "PLOT_TYPE" == "trench_centered":
+        ScaleFactor = 1e6
+    else:
+        raise NotImplementedError()
+    add_glyph_with_label(source_name, "velocity", ScaleFactor,
                          registrationName="glyph1",
                          MaximumNumberOfSamplePoints=250,
                          LabelPosition=[RIGHT/2.0, TOP*1.2, 0.0])
@@ -153,7 +160,6 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     text_glyph1Display = Show(text_glyph1, renderView1, 'GeometryRepresentation')
 
     if "PLOT_TYPE" == "full_domain":
-        # plot viscosity    
         layout_resolution = (1350, 704)
 
         if ANIMATION:
@@ -170,15 +176,34 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         renderView1.CameraFocalPoint = [RIGHT/2.0, TOP/2.0, 0.0]
         renderView1.CameraParallelScale = 2588447.7843194483 * RIGHT / 8700e3  # scale to the length
     elif "PLOT_TYPE" == "trench_centered":
-        pass
+        layout_resolution = (1350, 704)
+
+        if ANIMATION:
+            # turn on axis grid when making animation
+            sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
+
+        layout1 = GetLayout()
+        layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+
+        # adjust camera setup
+        # Camera position is adjusted relative to the position of the right and top boundary
+        renderView1.InteractionMode = '2D'
+        renderView1.CameraPosition = [TRENCH_CENTER, 720847.6940307743, 17717371.391353175]
+        renderView1.CameraFocalPoint = [TRENCH_CENTER, 720847.6940307743, 0.0]
+        renderView1.CameraParallelScale = 563321.6543393662  # scale to a 2000 km domain
+        
     else:
         raise NotImplementedError("plot_type PLOT_TYPE is not implemented")
     
     field, fieldLUT = set_viscosity_plot(sourceDisplay, 1e18, 1e24)
     scalarBar = set_viscosity_colorbar(renderView1, fieldLUT)
+    if "PLOT_TYPE" == "trench_centered":
+        # for this specific plot type, we want to add color bars later
+        # hide colorbar
+        sourceDisplay.SetScalarBarVisibility(renderView1, False)
 
-    fig_path = os.path.join(pv_output_dir, "full_domain_viscosity_t%.4e.pdf" % _time)
-    fig_png_path = os.path.join(pv_output_dir, "full_domain_viscosity_t%.4e.png" % _time)
+    fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_viscosity_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_viscosity_t%.4e.png" % _time)
     SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)
@@ -194,8 +219,13 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         # turn on axis grid when making animation
         sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
     
-    fig_path = os.path.join(pv_output_dir, "full_domain_temperature_t%.4e.pdf" % _time)
-    fig_png_path = os.path.join(pv_output_dir, "full_domain_temperature_t%.4e.png" % _time)
+    if "PLOT_TYPE" == "trench_centered":
+        # for this specific plot type, we want to add color bars later
+        # hide colorbar
+        sourceDisplay.SetScalarBarVisibility(renderView1, False)
+    
+    fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_temperature_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_temperature_t%.4e.png" % _time)
     SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)
@@ -209,9 +239,14 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     if ANIMATION:
         # turn on axis grid when making animation
         sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
+    
+    if "PLOT_TYPE" == "trench_centered":
+        # for this specific plot type, we want to add color bars later
+        # hide colorbar
+        sourceDisplay.SetScalarBarVisibility(renderView1, False)
 
-    fig_path = os.path.join(pv_output_dir, "full_domain_density_t%.4e.pdf" % _time)
-    fig_png_path = os.path.join(pv_output_dir, "full_domain_density_t%.4e.png" % _time)
+    fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_density_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_density_t%.4e.png" % _time)
     SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)

@@ -247,7 +247,7 @@ subsection Boundary velocity model
     set Tangential velocity boundary indicators = right, bottom
     set Prescribed velocity boundary indicators = left: function
     subsection Function
-        set Function constants = v0=5.0000e-02, v1=-5.6180e-03, ymax=1.0000e+06, h=1.0000e+05, h1=2.0000e+04
+        set Function constants = v0=5.0000e-02, v1=-6.1798e-03, ymax=1.0000e+06, h=1.0000e+05, h1=2.0000e+04
         set Function expression = \
             if (y>(ymax-h), v0,\
               (if (y>(ymax-h-h1), v0*(y-ymax+h+h1)/h1 -v1*(y-ymax+h)/h1,\

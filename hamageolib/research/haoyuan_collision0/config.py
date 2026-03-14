@@ -999,7 +999,7 @@ class KinematicDrivenRule(Rule):
             else:
                 raise ValueError("kinematic_driven_condition_assign_velocity_component must be x or all.")
 
-            outflow_rate = -convergence_rate*kinematic_driven_condition_depth/\
+            outflow_rate = -convergence_rate*(kinematic_driven_condition_depth+kinematic_driven_condition_transition_depth/2.0)/\
                 (domain_depth-kinematic_driven_condition_depth-kinematic_driven_condition_transition_depth/2.0)
 
             constants_expr = "v0=%.4e, v1=%.4e, ymax=%.4e, h=%.4e, h1=%.4e" %\
@@ -1350,10 +1350,16 @@ class WeakLayerRule(Rule):
 class SolverRule(Rule):
     
     requires = ["stokes_solver_type", "skip_expensive_stokes", "max_nonlinear_iterations", "linear_solver_tolerance", "number_of_cheap_Stokes_solver_steps",
-                "GMRES_solver_restart_length", "nonlinear_solver_tolerance"]
+                "GMRES_solver_restart_length", "nonlinear_solver_tolerance", "nonlinear_solver_failure_strategy"]
     
-    defaults = {"stokes_solver_type": "block AMG", "skip_expensive_stokes": False, "max_nonlinear_iterations": 70, "linear_solver_tolerance":5e-5,
-                "number_of_cheap_Stokes_solver_steps":20000, "GMRES_solver_restart_length": 1000, "nonlinear_solver_tolerance": 5e-3}
+    defaults = {"stokes_solver_type": "block AMG", 
+                "skip_expensive_stokes": False, 
+                "max_nonlinear_iterations": 70, 
+                "linear_solver_tolerance":5e-5,
+                "number_of_cheap_Stokes_solver_steps":20000, 
+                "GMRES_solver_restart_length": 1000, 
+                "nonlinear_solver_tolerance": 5e-3,
+                "nonlinear_solver_failure_strategy": "cut timestep size"}
     
     requires_comments = {"skip_expensive_stokes": "Within a nonlinear solver, Skip the expensive stokes iteration even the cheap one fails and continue next linear iteration."}
 
@@ -1367,10 +1373,12 @@ class SolverRule(Rule):
         GMRES_solver_restart_length = config["GMRES_solver_restart_length"]
         stokes_solver_type = config["stokes_solver_type"]
         nonlinear_solver_tolerance = config["nonlinear_solver_tolerance"]
+        nonlinear_solver_failure_strategy = config["nonlinear_solver_failure_strategy"]
 
         # configure max nonlinear interations
         prm_dict["Max nonlinear iterations"] = "%d" % max_nonlinear_iterations
         prm_dict["Nonlinear solver tolerance"] = "%.1e" % nonlinear_solver_tolerance
+        prm_dict["Nonlinear solver failure strategy"] = nonlinear_solver_failure_strategy
 
         # configure linear solver scheme
         prm_dict["Solver parameters"]["Stokes solver parameters"]["Stokes solver type"] = stokes_solver_type
