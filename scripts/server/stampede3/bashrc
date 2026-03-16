@@ -1,0 +1,124 @@
+# =============================
+# === User Bash RC Setup =====
+# =============================
+
+# If not running interactively, exit early
+[[ $- != *i* ]] && return
+
+# -----------------------------
+# General Environment Settings
+# -----------------------------
+export EDITOR=vim
+export PAGER=less
+export HISTCONTROL=ignoredups:erasedups
+export HISTSIZE=10000
+export HISTFILESIZE=20000
+shopt -s histappend
+umask 002
+
+# -----------------------------
+# Conda or Virtualenv Setup (optional)
+# -----------------------------
+#if [ -f "$HOME/miniconda3/etc/profile.d/conda.sh" ]; then
+#    source "$HOME/miniconda3/etc/profile.d/conda.sh"
+#    conda activate base
+#fi
+
+# -----------------------------
+# Useful Aliases
+# -----------------------------
+alias ll='ls -lh --color=auto'
+alias la='ls -A --color=auto'
+alias lsmore='ls -alth --color=auto | more'
+alias gs='git status'
+alias gb='git branch'
+alias gd='git diff'
+
+# -----------------------------
+# Slurm Aliases & Defaults
+# -----------------------------
+alias sq='squeue -u $USER'
+alias sj='scontrol show job'
+alias sc='sacct -u $USER --format=JobID,JobName%30,Elapsed,State,ExitCode'
+alias se='scontrol show node'
+
+
+# -----------------------------
+# Customized Aliases
+# -----------------------------
+alias all_case_info="Lib_parse_case all_case_info"
+alias all_case_info_in_dir="Lib_parse_case case_info_in_dir ."
+alias check_restart_dir=" Lib_parse_case  check_time_restart_directory . 59e6 p-billen"
+alias check_no_restart_dir=" Lib_parse_case  check_time_restart_directory . 600e6 0"
+alias check_restartr=" Lib_parse_case  check_time_restart . 59e6 p-billen"
+alias check_no_restartr=" Lib_parse_case  check_time_restart . 59e6 0"
+
+# -----------------------------
+# Module System Setup
+# -----------------------------
+#if command -v module &> /dev/null; then
+    #module purge
+    #module load gcc
+    #module load openmpi
+    # Add your default modules here if needed
+    # module load dealii
+    # module load aspect
+#fi
+
+# -----------------------------
+# Custom Prompt
+# -----------------------------
+PS1='[\u@\h \W]\$ '
+
+# -----------------------------
+# Project-specific PATHs (Optional)
+# -----------------------------
+# export PATH=$HOME/projects/mycode/bin:$PATH
+
+# -----------------------------
+# Template Job Script Alias (Optional)
+# -----------------------------
+#alias newjob='cp $HOME/templates/slurm_template.sh ./'
+
+# -----------------------------
+# AspectLib
+# -----------------------------
+source /work2/06806/hyli/stampede3/Softwares/aspectLib/enable.sh
+
+# -----------------------------
+# File locations
+# -----------------------------
+alias work='cd $WORK'
+
+# -----------------------------
+# ASPECT
+# -----------------------------
+export ASPECT_SOURCE_DIR='/work2/06806/hyli/stampede3/Softwares/aspect'
+alias aspect='cd $ASPECT_SOURCE_DIR'
+
+# -----------------------------
+# HaMaGeoLib
+# -----------------------------
+export HaMaGeoLib_DIR='/work2/06806/hyli/stampede3/Softwares/HaMaGeoLib'
+alias hama='cd $HaMaGeoLib_DIR'
+
+# -----------------------------
+# Project mow
+# -----------------------------
+export MOW="$SCRATCH/MOW"
+alias mow='cd $MOW'
+alias newjob_mow="cp ${HaMaGeoLib_DIR}/scripts/server/stampede3/job_hive_mow_3d.slurm ./"
+alias newjob_mow_2d="cp ${HaMaGeoLib_DIR}/scripts/server/stampede3/job_hive_mow_2d.slurm ./"
+
+# -----------------------------
+# Project collision
+# -----------------------------
+#export COLLISION="$WORK/Collision0"
+#alias collision="cd $COLLISION"
+#alias newjob_collision="cp ${HaMaGeoLib_DIR}/scripts/server/hive/job_hive_collision_2d.slurm ./"
+#alias compile_collision='cd ${ASPECT_SOURCE_DIR} && \
+#git checkout main_collision && git reset --hard lhy11009/main_collision && \
+#cd ${COLLISION} && mkdir -p "compile_ASPECT" && \
+#cd "compile_ASPECT" && export compile_ASPECT_DIR_BASE="$(date +%Y-%m-%d-%H-%M)" && mkdir -p "${compile_ASPECT_DIR_BASE}"  && \
+#cd "${compile_ASPECT_DIR_BASE}" && cp ${HaMaGeoLib_DIR}/scripts/server/hive/compile_aspect_collision_2d.slurm . && \
+#sbatch compile_aspect_collision_2d.slurm'
