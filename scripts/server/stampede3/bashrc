@@ -107,8 +107,8 @@ alias hama='cd $HaMaGeoLib_DIR'
 # -----------------------------
 export MOW="$SCRATCH/MOW"
 alias mow='cd $MOW'
-alias newjob_mow="cp ${HaMaGeoLib_DIR}/scripts/server/stampede3/job_hive_mow_3d.slurm ./"
-alias newjob_mow_2d="cp ${HaMaGeoLib_DIR}/scripts/server/stampede3/job_hive_mow_2d.slurm ./"
+alias newjob_mow="cp ${HaMaGeoLib_DIR}/scripts/server/stampede3/job_stampede3_3d.slurm ./"
+alias newjob_mow_2d="cp ${HaMaGeoLib_DIR}/scripts/server/stampede3/job_stampede3_2d.slurm ./"
 
 # -----------------------------
 # Project collision
