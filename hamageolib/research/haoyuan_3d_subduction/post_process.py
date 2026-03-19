@@ -2639,7 +2639,6 @@ def PlotSlabMorphology(local_dir, local_dir_2d, **kwargs):
     rcdefaults()
 
 
-# todo_clip
 def finalize_visualization_2d_07222025_box(local_dir, file_name, _time, frame_png_file_with_ticks, **kwargs):
 
     # Options

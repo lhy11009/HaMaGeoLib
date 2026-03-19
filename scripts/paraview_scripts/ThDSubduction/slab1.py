@@ -69,7 +69,7 @@ def set_metastable_plot(sourceDisplay):
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, 0.0, 1.0)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+    fieldLUT.ApplyPreset("Viridis", True)
 
 
 def set_meta_x0_plot(sourceDisplay):
@@ -85,7 +85,7 @@ def set_meta_x0_plot(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.MapControlPointsToLogSpace()
     fieldLUT.UseLogScale = 1
-    fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+    fieldLUT.ApplyPreset("Viridis", True)
 
 
 def set_meta_grain_size_plot(sourceDisplay):
@@ -102,7 +102,7 @@ def set_meta_grain_size_plot(sourceDisplay):
     fieldLUT.MapControlPointsToLogSpace()
     fieldLUT.UseLogScale = 1
     fieldLUT.ApplyPreset("devon", True)
-    # fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+    # fieldLUT.ApplyPreset("Viridis", True)
 
 
 def set_density_plot(sourceDisplay):
@@ -544,12 +544,10 @@ output.PointData.append(da_ref_diff, "nonadiabatic_pressure_ref_diff")
     programmableFilter1.PythonPath = ''
 
 
-def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **kwargs):
+def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
+                                has_metastable_region=False,
+                                has_metastable_region_slab=False):
     
-    # addtional_options
-    has_metastable_region = kwargs.get("has_metastable_region", False)
-    has_metastable_region_slab = kwargs.get("has_metastable_region_slab", False)
-
     # Get the active view 
     renderView1 = GetActiveViewOrCreate('RenderView')
 
@@ -597,7 +595,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
         ColorBy(contourT_blockDisplay,"T")
         rescale_transfer_function_combined('T', 273.0, 1673.0)
         fieldLUT = GetColorTransferFunction("T")
-        fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+        fieldLUT.ApplyPreset("Viridis", True)
         contourT_blockDisplay.LineWidth = 2.0
         contourT_blockDisplay.Ambient = 1.0
 
@@ -636,10 +634,12 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, **k
     # Adjust glyph property
     # for 2d, use 3 times the sample points because I plotted the whole domain
     # In Box geometry, used a different scale_factor because we first need to maintain the scale of length
+    scale_factor = None
     if int("DIMENSION") == 3:
         n_sample_points = 1000
     else:
         n_sample_points = 3000
+
     if "GEOMETRY" == "chunk":
         point_source_center = [0, 6.4e6, 0]
         scale_factor = 2.8e6
@@ -905,7 +905,7 @@ def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwarg
         ColorBy(contourT_blockDisplay,"T")
         rescale_transfer_function_combined('T', 273.0, 1673.0)
         fieldLUT = GetColorTransferFunction("T")
-        fieldLUT.ApplyPreset("Viridis (matplotlib)", True)
+        fieldLUT.ApplyPreset("Viridis", True)
         contourT_blockDisplay.LineWidth = 2.0
         contourT_blockDisplay.Ambient = 1.0
 

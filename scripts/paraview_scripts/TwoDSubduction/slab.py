@@ -67,7 +67,7 @@ class SLAB(PARAVIEW_PLOT):
         add_plot("Transform1", "density", lim=[self.density_min, self.density_max], color="batlow")
 
         if INCLUDE_METASTABLE:
-            add_plot("Transform1", "metastable", lim=[0.0, 1.0], color="Viridis (matplotlib)")
+            add_plot("Transform1", "metastable", lim=[0.0, 1.0], color="Viridis")
 
         # add glyph
         add_glyph1("Transform1", "velocity", 1e6, registrationName="Glyph1")
@@ -1442,7 +1442,7 @@ class SLAB(PARAVIEW_PLOT):
             contourP1Display.LineWidth = 2.0
             contourP1Display.Ambient = 1.0
             fieldPLUT = GetColorTransferFunction("p")
-            fieldPLUT.ApplyPreset("Viridis (matplotlib)", True)
+            fieldPLUT.ApplyPreset("Viridis", True)
             fieldPLUT.InvertTransferFunction()
             ColorBy(contourP1Display, ('POINTS', 'p'))
             p_trans_contours_levels = PLOT_P_TRANS_CONTOUR_LEVELS
@@ -1776,7 +1776,7 @@ class SLAB(PARAVIEW_PLOT):
         # convert to log space
         strain_rate_min = 1e-16
         strain_rate_max = 1e-14
-        field4LUT.ApplyPreset("Viridis (matplotlib)", True)
+        field4LUT.ApplyPreset("Viridis", True)
         field4LUT = GetColorTransferFunction(field4)
         field4PWF = GetOpacityTransferFunction(field4)
         field4LUT.RescaleTransferFunction(strain_rate_min, strain_rate_max)

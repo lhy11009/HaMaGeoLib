@@ -446,7 +446,7 @@ class SLAB(PARAVIEW_PLOT):
             fieldVPWF = GetOpacityTransferFunction("velocity")
     
             # reset color 
-            fieldVLUT.ApplyPreset('Viridis (matplotlib)', True)
+            fieldVLUT.ApplyPreset('Viridis', True)
     
             # set opacity 
             sourceSlDisplay.Opacity = 0.5
@@ -757,7 +757,7 @@ class SLAB(PARAVIEW_PLOT):
         fieldVPWF = GetOpacityTransferFunction("velocity")
 
         # reset color 
-        fieldVLUT.ApplyPreset('Viridis (matplotlib)', True)
+        fieldVLUT.ApplyPreset('Viridis', True)
 
         # set opacity 
         sourceSl1Display.Opacity = 0.3
@@ -785,7 +785,7 @@ class SLAB(PARAVIEW_PLOT):
         fieldVPWF = GetOpacityTransferFunction("velocity")
 
         # reset color 
-        fieldVLUT.ApplyPreset('Viridis (matplotlib)', True)
+        fieldVLUT.ApplyPreset('Viridis', True)
 
         # set opacity 
         # sourceSl2Display.Opacity = 0.5
