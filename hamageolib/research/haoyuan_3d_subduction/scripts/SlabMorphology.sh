@@ -2,7 +2,7 @@
 
 # todo_mow
 # path to
-case_dir="/mnt/lochy/ASPECT_DATA/MOW/mow3_00/C_mow_h2890.0_M_gr3_ar4_rf_gz"
+case_dir="/mnt/lochy/ASPECT_DATA/ThDSubduction/EBA_2d_consistent_8_6/eba3d_width80_c22_AR4_yd300"
 
 # steps to run (vtu_step)
 min_vtu_step=0
