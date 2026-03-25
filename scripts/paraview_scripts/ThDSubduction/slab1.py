@@ -97,12 +97,12 @@ def set_meta_grain_size_plot(sourceDisplay):
     '''
     field = "meta_grain_size"
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
-    rescale_transfer_function_combined(field, 1e-10, 1)
+    rescale_transfer_function_combined(field, 1e-8, 1e-2)
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.MapControlPointsToLogSpace()
     fieldLUT.UseLogScale = 1
-    fieldLUT.ApplyPreset("devon", True)
-    # fieldLUT.ApplyPreset("Viridis", True)
+    fieldLUT.ApplyPreset("batlow", True)
+    fieldLUT.InvertTransferFunction()
 
 
 def set_density_plot(sourceDisplay):
