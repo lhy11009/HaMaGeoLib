@@ -49,7 +49,7 @@ class CASE_OPTIONS(CASE_OPTIONS_BASE):
         # Add new columns you want to add
         # Mow area - metastable area
         # Mow area code - metastable area in cold slab
-        new_columns = ["Mow area center", "Mow area cold center", "MOW volume", "MOW volume cold", "MOW slab depth", "Sp velocity"]
+        new_columns = ["Mow area center", "Mow area cold center", "MOW volume", "MOW volume cold", "MOW slab depth"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:

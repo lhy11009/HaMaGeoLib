@@ -1,0 +1,56 @@
+------- Option 1: Q="True"
+
+/Users/billen/Box-Sync/Mybin/Slab2WorldBuilder/test_slab2.py:23: SyntaxWarning: Short-form parameter (Q) is not recommended. Use long-form parameter 'nan_transparent' instead.
+  fig.grdimage(grid=grdfile,Q="True",cmap=cptfile)
+grdimage [ERROR]: Colorname True not recognized!
+grdimage [ERROR]: Option -Q parsing failure.  Correct syntax:
+
+-Q<color>
+Specify <color> as one of:
+• <gray> or <red>/<green>/<blue>, all in range 0-255;
+• <cyan>/<magenta>/<yellow>/<black> in range 0-100%;
+• <hue>-<saturation>-<value> in ranges 0-360, 0-1, 0-1;
+• Any valid color name.
+For PDF fill transparency, append @<transparency> in the range 0-100% [0 = opaque].
+Traceback (most recent call last):
+  File "/Users/billen/Box-Sync/Mybin/Slab2WorldBuilder/test_slab2.py", line 23, in <module>
+    fig.grdimage(grid=grdfile,Q="True",cmap=cptfile)
+  File "/opt/miniconda3/lib/python3.9/site-packages/pygmt/helpers/decorators.py", line 585, in new_module
+    return module_func(*args, **kwargs)
+  File "/opt/miniconda3/lib/python3.9/site-packages/pygmt/helpers/decorators.py", line 725, in new_module
+    return module_func(*args, **kwargs)
+  File "/opt/miniconda3/lib/python3.9/site-packages/pygmt/src/grdimage.py", line 174, in grdimage
+    lib.call_module("grdimage", build_arg_string(kwargs, infile=fname))
+  File "/opt/miniconda3/lib/python3.9/site-packages/pygmt/clib/session.py", line 502, in call_module
+    raise GMTCLibError(
+pygmt.exceptions.GMTCLibError: Module 'grdimage' failed with status code 72:
+grdimage [ERROR]: Colorname True not recognized!
+grdimage [ERROR]: Option -Q parsing failure.  Correct syntax:
+(base) /Users/billen/Box-Sync/Mybin/Slab2WorldBuilder % 
+
+--------Option 2: nan_transparent="True" -----------------------------------
+(base) /Users/billen/Box-Sync/Mybin/Slab2WorldBuilder % test_slab2.py                                                            
+grdimage [ERROR]: Colorname True not recognized!
+grdimage [ERROR]: Option -Q parsing failure.  Correct syntax:
+
+-Q<color>
+Specify <color> as one of:
+• <gray> or <red>/<green>/<blue>, all in range 0-255;
+• <cyan>/<magenta>/<yellow>/<black> in range 0-100%;
+• <hue>-<saturation>-<value> in ranges 0-360, 0-1, 0-1;
+• Any valid color name.
+For PDF fill transparency, append @<transparency> in the range 0-100% [0 = opaque].
+Traceback (most recent call last):
+  File "/Users/billen/Box-Sync/Mybin/Slab2WorldBuilder/test_slab2.py", line 24, in <module>
+    fig.grdimage(grid=grdfile,nan_transparent="True",cmap=cptfile)
+  File "/opt/miniconda3/lib/python3.9/site-packages/pygmt/helpers/decorators.py", line 585, in new_module
+    return module_func(*args, **kwargs)
+  File "/opt/miniconda3/lib/python3.9/site-packages/pygmt/helpers/decorators.py", line 725, in new_module
+    return module_func(*args, **kwargs)
+  File "/opt/miniconda3/lib/python3.9/site-packages/pygmt/src/grdimage.py", line 174, in grdimage
+    lib.call_module("grdimage", build_arg_string(kwargs, infile=fname))
+  File "/opt/miniconda3/lib/python3.9/site-packages/pygmt/clib/session.py", line 502, in call_module
+    raise GMTCLibError(
+pygmt.exceptions.GMTCLibError: Module 'grdimage' failed with status code 72:
+grdimage [ERROR]: Colorname True not recognized!
+grdimage [ERROR]: Option -Q parsing failure.  Correct syntax:

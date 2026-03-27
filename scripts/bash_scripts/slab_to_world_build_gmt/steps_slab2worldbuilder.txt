@@ -1,0 +1,57 @@
+Uses two data sets
+1. Slab 2.0 grd files for location of the slab and dip (for 3D could also get strike)
+
+2. Bird 2001 Plate boundary location data for location of trenches. 
+
+Preparation Steps:
+1. From Bird's data extract (by hand) points that define the section of trench.
+- This has already been done for some of the major subduction zones, but not all of them.
+- Only need to do this once.
+
+
+
+# Current Steps Using Scripts I already have.
+
+1. run_trench_profs.sh -> Runs get_trench_perp_data.gmt
+- Uses the extracted trench data from Bird's plate boundaries.
+- interpolate trench onto regular grid
+- create trench-perpendicular profiles at fixed spacing.
+- These profiles are great circle paths perpendicular to trench.
+- creates a plot that shows the profiles on top of earthquakes
+
+** WORKS, removed plotting of earthquakes
+** TO-DO Modify to plot on top of Slab2.0 contours
+
+2. run_slab2_profs.sh  --> Runs get_slab2profs.sh outputs profile lon, lat, distance, depth, dip
+For each profile, uses grdproject to extract:
+	- distance-along-profile (longitude, phi; this is zero at the trench)
+	- depth from surface (km or m, positive down)
+	- dip of the slab (degrees or radians)
+
+** WORKS  
+** Use as is.
+
+3. Create Script to read in one of the profile files (by number)
+- Use profile information to write out worldbuilder segment data for a single profile.
+- Loop over each point in file following steps below.
+
+# Steps to convert from Slab 2.0 data and provide as Input to WorldBuilder.
+
+Starting at the surface have two points at i (surface) and i+1 (surface + dy contour)
+	a. Calculate radius at point i (Re) and point i+1 (Re-depth)
+		r(i), r(i+1)
+		dist-angle = d/Re
+	b. Convert to cartesian coordinates
+		 x(i) = r(i)*sin(dist-angle)
+		 y(i) = r(i)*cos(dist-angle)
+		 repeat for i+1
+	c. Calculate the chord length from point i to point i+1 
+		C = sqrt( (x(i+1)- x(i))^2 + (y(i+1)- y(i))^2
+	d. Calculate the dip angle between point i and i+1 --> opening angle for arc
+		theta = phi(i+1) - phi(i)
+	e. Calculate radius of circle connecting both points
+		R  = C/(2*sin(theta/2))
+	f. Calculate arc length from point i to point i+1
+		S = R*theta
+5. For each segment output dip(i), dip(i+1), arc-length in world-builder format.
+

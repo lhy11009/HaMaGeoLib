@@ -193,13 +193,13 @@ def main():
                 print("\t trench_center_50km = ", outputs["trench_center_50km"])
                 print("\t slab_depth = ", outputs["slab_depth"])
                 print("\t dip_100_center = ", outputs["dip_100_center"])
+                print("\t Sp velocity = ", outputs["Sp velocity"])
 
                 if Case_Options.options["MODEL_TYPE"] == "mow":
                     print("\t Mow volume = ", outputs["Mow volume"])
                     print("\t Mow volume cold = ", outputs["Mow volume slab"])
                     print("\t Mow area center = ", outputs["Mow area center"])
                     print("\t Mow area cold center = ", outputs["Mow area slab center"])
-                    print("\t Sp velocity = ", outputs["Sp velocity"])
                 
                 
                 Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, True)
@@ -208,13 +208,13 @@ def main():
                 Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, outputs["trench_center"])
                 Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center 50km)", step, outputs["trench_center_50km"])
                 Case_Options.SummaryCaseVtuStepUpdateValue("Dip 100 (center)", step, outputs["dip_100_center"])
+                Case_Options.SummaryCaseVtuStepUpdateValue("Sp velocity", step, outputs["Sp velocity"])
                 if Case_Options.options["MODEL_TYPE"] == "mow":
                     Case_Options.SummaryCaseVtuStepUpdateValue("MOW volume", step, outputs["Mow volume"])
                     Case_Options.SummaryCaseVtuStepUpdateValue("MOW volume cold", step, outputs["Mow volume slab"])
                     Case_Options.SummaryCaseVtuStepUpdateValue("Mow area center", step, outputs["Mow area center"])
                     Case_Options.SummaryCaseVtuStepUpdateValue("Mow area cold center", step, outputs["Mow area slab center"])
                     Case_Options.SummaryCaseVtuStepUpdateValue("MOW slab depth", step, outputs["MOW slab depth"])
-                    Case_Options.SummaryCaseVtuStepUpdateValue("Sp velocity", step, outputs["Sp velocity"])
         
         # break # debug
 

@@ -1,0 +1,17 @@
+#!/bin/csh 
+
+set ddir = /Users/billen/Box-Sync/SZ-Earthquake-Profiles/SZ_EQ_DataFiles
+set trfile = {$ddir}/{$2}.txt
+
+
+# Find Distance and azimuth along trench, -Af is the azimuth to the forward point.
+# -Gk gives cumulative distance (km) along profile.
+gmt mapproject $trfile -Gk >! tmp0
+# Resample at equal distance along the trench
+set dd = 50  # km
+gmt sample1d tmp0 -I{$dd}k -Ar -T2 > tmp1
+# lon lat dist azimuth but roughly evenly sampled in distances
+gmt mapproject tmp1 -Af > tmp2
+# Want azimuth of perpendicular to profile so add 90 degrees and need azimuths between 180 and 360.
+awk '{print $1, $2, $3,($4<180?$4+180:$4)}' tmp2 | awk '{print $1, $2, $3,($4>360?$4-180:$4)}' | awk '{print $1, $2, $3, ($4>=270? $4-90:$4+90)}' >!  tmp3
+

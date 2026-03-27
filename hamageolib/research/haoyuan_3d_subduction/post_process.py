@@ -2065,7 +2065,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
     assert(PprocessThD.dip_100_center is not None)
     outputs["dip_100_center"] = PprocessThD.dip_100_center
+    
     assert(PprocessThD.sp_velocity is not None)
+    outputs["Sp velocity"] = PprocessThD.sp_velocity
+
     if Case_Options.options["MODEL_TYPE"] == "mow":
         assert(PprocessThD.metastable_volume is not None)
         outputs["Mow volume"] = PprocessThD.metastable_volume
@@ -2077,7 +2080,6 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
         outputs["Mow area slab center"] = PprocessThD.metastable_area_cold_center
         outputs["MOW slab depth"] = PprocessThD.metastable_max_depth
         
-        outputs["Sp velocity"] = PprocessThD.sp_velocity
 
     return PprocessThD, outputs
 

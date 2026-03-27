@@ -1,0 +1,162 @@
+#!/bin/bash
+
+# Check arguments
+if [ "$#" -eq 0 ]; then
+   echo " "
+   echo "Usage: get_trench_perp_data.gmt region trfile flip dst lmax dxp dxm dyp dym magmin"
+   echo "Input: region chooses which region to process"
+   echo "       trfile: is the file with the trench lon-lat values"
+   echo "       flip: direction of profile wrt trench"
+   echo "       lmax, dxp, dxm, dyp, dym are used to create the plot bounds"
+   echo "       magmin chooses which earthquake file to use"
+   echo "Output: figure with map of earthquakes and profiles plotted"
+   echo "        region_profs.dat: data file with profile points"
+   echo "get_trench_perp_data.gmt Kuriles PA-OKnorth 0 200 900 0.5 8.0 0.5 0.5 5"
+   exit 1
+fi
+
+# GMT Parameters
+gmt gmtset FONT_LABEL 10p,Helvetica,black FONT_TITLE 10p,Helvetica,black
+gmt gmtset FONT_ANNOT_PRIMARY 10p,Helvetica,black
+gmt gmtset FONT_ANNOT_SECONDARY 10p,Helvetica,black
+gmt gmtset MAP_FRAME_TYPE plain MAP_TICK_LENGTH_PRIMARY 0.05i
+gmt gmtset PS_MEDIA letter MAP_TITLE_OFFSET 2p MAP_ANNOT_OFFSET_PRIMARY 2p
+gmt gmtset PROJ_LENGTH_UNIT INCH MAP_LABEL_OFFSET 2p
+gmt gmtset MAP_GRID_PEN_PRIMARY 0.5p,GRAY74
+gmt gmtset FORMAT_GEO_MAP +D
+
+# Input/Output
+ddir="/home/lochy/ASPECT_PROJECT/HaMaGeoLib/dtemp/Slab2WorldBuilder/Slab2WorldBuilder/LocationProfsTrench"
+region="$1"
+trfile="${ddir}/${2}.txt"
+flip="$3"
+dst="$4"
+lmax="$5"
+dxp="$6"
+dxm="$7"
+dyp="$8"
+dym="$9"
+
+trdata="${ddir}/${region}_profs.dat"
+epsfile="${ddir}/${region}_mapprofs.eps"
+pdffile="${ddir}/${region}_mapprofs.pdf"
+
+lmin=0
+mindep=0
+maxdep=700
+ddep=100
+
+gmt makecpt -T${mindep}/${maxdep}/${ddep} -Cjet -I -D > eqdepth.cpt
+
+# Bounds
+gmt gmtinfo -C "$trfile" > trminmax
+
+minlat=$(gmt gmtmath trminmax -C2 -o2 FLOOR "$dym" SUB =)
+maxlat=$(gmt gmtmath trminmax -C3 -o3 CEIL "$dyp" ADD =)
+minlon=$(gmt gmtmath trminmax -C0 -o0 FLOOR "$dxm" SUB =)
+maxlon=$(gmt gmtmath trminmax -C1 -o1 CEIL "$dxp" ADD =)
+
+echo "$minlat $maxlat $minlon $maxlon"
+
+nl=5
+dlon=$(gmt gmtmath -Q "$maxlon" "$minlon" SUB "$nl" DIV FLOOR =)
+dlat=$(gmt gmtmath -Q "$maxlat" "$minlat" SUB "$nl" DIV FLOOR =)
+
+# Trench processing
+gmt mapproject "$trfile" -Gk > tmp0
+
+dd=50
+gmt sample1d tmp0 -I${dd}k -Ar -T2 > tmp1
+gmt mapproject tmp1 -Af > tmp2
+
+awk '{print $1, $2, $3,($4<180?$4+180:$4)}' tmp2 | \
+awk '{print $1, $2, $3,($4>360?$4-180:$4)}' | \
+awk '{print $1, $2, $3, ($4>=270? $4-90:$4+90)}' > tmp3
+
+# Flip direction
+if [ "$flip" -eq 1 ]; then
+    awk '{print $1, $2, $3, ($4-180)}' tmp3 > tmp3a
+    mv tmp3a tmp3
+fi
+
+# Profiles
+maxdist=$(tail -1 tmp3 | awk '{printf "%d",$3+1}')
+nprof=$(gmt gmtmath -Q "$maxdist" "$dst" DIV 1 SUB CEIL =)
+
+echo "$nprof $maxdist"
+
+i=1
+n=$(gmt gmtmath -Q "$dst" "$dd" DIV =)
+p=$(gmt gmtmath -Q "$n" 1 ADD =)
+p1=$(gmt gmtmath -Q "$p" "$n" 2 MUL SUB =)
+p2=$(gmt gmtmath -Q "$p" "$n" 2 MUL ADD =)
+
+echo "$p $p1 $p2"
+
+awk -v p1="$p1" -v p2="$p2" '(NR >= p1 && NR <= p2)' tmp3 > tmp4
+azm=$(gmt gmtmath -C3 -o3 -Sf tmp4 MEAN =)
+
+awk -v azm="$azm" -v p="$p" '(NR==p) {print $1, $2, $3, azm}' tmp3 > "$trdata"
+
+((i++))
+
+while [ "$i" -le "$nprof" ]; do
+    p=$(gmt gmtmath -Q "$n" "$i" MUL 1 ADD =)
+    p1=$(gmt gmtmath -Q "$p" "$n" 2 MUL SUB =)
+    p2=$(gmt gmtmath -Q "$p" "$n" 2 MUL ADD =)
+
+    echo "$p $p1 $p2"
+
+    awk -v p1="$p1" -v p2="$p2" '(NR >= p1 && NR <= p2)' tmp3 > tmp4
+    azm=$(gmt gmtmath -C3 -o3 -Sf tmp4 MEAN =)
+
+    awk -v azm="$azm" -v p="$p" '(NR==p) {print $1, $2, $3, azm}' tmp3 >> "$trdata"
+
+    ((i++))
+done
+
+# Plotting
+bounds="-R${minlon}/${maxlon}/${minlat}/${maxlat}"
+proj="-JM3.0"
+origin="-X1 -Y1"
+misc="-K -P"
+
+gmt psbasemap $bounds $proj -Ba${dlon}/a${dlat}WeSn $origin $misc > "$epsfile"
+
+misc="-K -O -P"
+gmt pscoast $bounds $proj $misc -Di -Wthin,black -Glightgray -N1 -Slightblue >> "$epsfile"
+gmt psxy "$trfile" $bounds $proj $misc -Wthick,black >> "$epsfile"
+
+mdist=100
+i=1
+
+while [ "$i" -le "$nprof" ]; do
+    clon=$(awk -v i="$i" 'NR==i {print $1}' "$trdata")
+    clat=$(awk -v i="$i" 'NR==i {print $2}' "$trdata")
+    azm=$(awk -v i="$i" 'NR==i {print $4}' "$trdata")
+
+    echo "profile $i of $nprof $clon $clat $azm"
+
+    gmt project -C${clon}/${clat} -A${azm} -G${mdist} -L${lmin}/${lmax} -Q > projline1
+    gmt psxy projline1 $bounds $proj $misc -Wthick,black >> "$epsfile"
+
+    gmt pstext $bounds $proj $misc -F+f+a+j -N << EOF >> "$epsfile"
+$clon $clat 12p,Helvetica,black 0 LB $i
+EOF
+
+    ((i++))
+done
+
+gmt psxy "$trdata" $bounds $proj -Sc0.05 -Gwhite -Wblack $misc >> "$epsfile"
+
+misc="-O -P"
+reglat=$(gmt gmtmath -Q "$dlat" 2 DIV "$maxlat" ADD =)
+
+gmt pstext $bounds $proj $misc -F+f+a+j -N << EOF >> "$epsfile"
+$minlon $reglat 12p,Helvetica,black 0 LB $region
+EOF
+
+gmt ps2raster -Tf "$epsfile"
+open "$pdffile"
+
+rm tmp0 tmp1 tmp2 tmp3 tmp4 projline1 "$epsfile"
