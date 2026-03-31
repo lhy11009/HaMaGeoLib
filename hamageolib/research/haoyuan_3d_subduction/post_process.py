@@ -911,6 +911,8 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
         extract slab dip angle
         '''
         self.dip_100_center = self.extract_slab_dip_angle_by_depth(self.Max0-15e3, 0.0, self.Max0-100e3, 0.0)
+        # todo_400
+        self.dip_400_center = self.extract_slab_dip_angle_by_depth(self.Max0-15e3, 0.0, self.Max0-400e3, 0.0)
         
 
     def extract_slab_dip_angle_deprecated_0(self):
@@ -1129,10 +1131,16 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
         assert(self.grid_metastable_slab is not None)
         grid_metastable_slab = self.grid_metastable_slab
         points = grid_metastable_slab.points
-        deepest_id = np.argmin(points[:, 2])
-        min_z = points[deepest_id, 2]
-        self.metastable_max_depth = self.Max0 - min_z
-        deepest_points =  grid_metastable_slab.extract_points([deepest_id], adjacent_cells=False)
+
+        # initiate with nan value
+        self.metastable_max_depth = np.nan
+        deepest_points = np.array([np.nan, np.nan, np.nan])
+        if points.shape[0] > 0:
+            # if metastable area has point, update the deepest point and the metastable depth
+            deepest_id = np.argmin(points[:, 2])
+            min_z = points[deepest_id, 2]
+            self.metastable_max_depth = self.Max0 - min_z
+            deepest_points =  grid_metastable_slab.extract_points([deepest_id], adjacent_cells=False)
         return deepest_points
 
     def extract_slice_ref_da_profile(self, **kwargs):
@@ -2065,6 +2073,10 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
     assert(PprocessThD.dip_100_center is not None)
     outputs["dip_100_center"] = PprocessThD.dip_100_center
+
+    # todo_400 
+    assert(PprocessThD.dip_400_center is not None)
+    outputs["dip_400_center"] = PprocessThD.dip_400_center
     
     assert(PprocessThD.sp_velocity is not None)
     outputs["Sp velocity"] = PprocessThD.sp_velocity

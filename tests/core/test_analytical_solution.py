@@ -97,3 +97,81 @@ def test_array_input_mixed():
     expected = np.minimum(expected, 125e3)
     result = plate_thickness_from_age(ages_s)
     assert np.allclose(result, expected, rtol=1e-5)
+
+
+def test_ContinentalThermChapman_values():
+    """
+    Test that the temperature function returns expected values
+    at specific depths using default parameters.
+
+    Depths tested:
+        - 10 km (upper crust)
+        - 20 km (boundary upper/lower crust)
+        - 30 km (lower crust)
+
+    The test asserts numerical consistency with analytical expressions.
+    """
+
+    model = ContinentalThermChapman()
+
+    # ---- Depth 10 km (upper crust) ----
+    z = 10e3
+    expected_10km = 473.15
+
+    T_10km = model.temperature(z)
+    assert np.isclose(T_10km, expected_10km, rtol=1e-6)
+
+    # ---- Depth 20 km (boundary) ----
+    z = 20e3
+    expected_20km = 633.15
+
+    T_20km = model.temperature(z)
+    assert np.isclose(T_20km, expected_20km, rtol=1e-6)
+
+    # ---- Depth 30 km (lower crust) ----
+    z = 30e3
+    z_rel = z - model.z1
+    expected_30km = 768.0
+
+    T_30km = model.temperature(z)
+    assert np.isclose(T_30km, expected_30km, rtol=1e-6)
+
+
+def test_ContinentalThermChapmanPartition_values():
+    """
+    Test that the temperature function returns expected values
+    at specific depths using default parameters.
+
+    Depths tested:
+        - 10 km (upper crust)
+        - 20 km (boundary upper/lower crust)
+        - 30 km (lower crust)
+
+    The test asserts numerical consistency with analytical expressions.
+    """
+    surface_HF = 0.055 # surface heat flux w / m^2
+    partition_coefficient = 0.74
+
+    model = ContinentalThermChapmanPartition(surface_HF, partition_coefficient)
+
+    # ---- Depth 10 km (upper crust) ----
+    z = 10e3
+    expected_10km = 478.84999999999997
+
+    T_10km = model.temperature(z)
+    assert np.isclose(T_10km, expected_10km, rtol=1e-6)
+
+    # ---- Depth 20 km (boundary) ----
+    z = 20e3
+    expected_20km = 655.9499999999999
+
+    T_20km = model.temperature(z)
+    assert np.isclose(T_20km, expected_20km, rtol=1e-6)
+
+    # ---- Depth 30 km (lower crust) ----
+    z = 30e3
+    z_rel = z - model.z1
+    expected_30km = 810.7499999999999
+
+    T_30km = model.temperature(z)
+    assert np.isclose(T_30km, expected_30km, rtol=1e-6)

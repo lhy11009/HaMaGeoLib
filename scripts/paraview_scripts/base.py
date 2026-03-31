@@ -263,6 +263,7 @@ def add_isovolume(solutionpvd, field, thresholds, **kwargs):
     # show data in view
     isoVolume1Display = Show(isoVolume1, renderView1, 'GeometryRepresentation')
     renderView1.Update()
+    Hide(isoVolume1, renderView1)
     return isoVolume1, isoVolume1Display, renderView1
 
 

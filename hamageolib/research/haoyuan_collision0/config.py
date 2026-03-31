@@ -1723,6 +1723,7 @@ class ContinentRule(Rule):
             # Assign rheological and density properties to continental compositions
             density_dict["crust_upper"] = float(density_aspect["crust_upper"])
             disl_A_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['A'])
+            # todo_factor
             disl_n_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['n'])
             disl_E_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['E'])
             disl_V_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['V'])

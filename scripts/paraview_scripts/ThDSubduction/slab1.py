@@ -514,9 +514,9 @@ p_eq = (T - 1780.0)*2e6 + 1.34829e+10
 eq_trans = (p-p_eq)
 output.PointData.append(eq_trans, 'eq_trans')
 """
-    programmableFilter1.RequestInformationScript = ''
-    programmableFilter1.RequestUpdateExtentScript = ''
-    programmableFilter1.PythonPath = ''
+    # programmableFilter1.RequestInformationScript = ''
+    # programmableFilter1.RequestUpdateExtentScript = ''
+    # programmableFilter1.PythonPath = ''
 
 def add_da_ref_profile(source, file_path):
     programmableFilter1 = ProgrammableFilter(registrationName="programmable_da_ref", Input=source)
@@ -1225,6 +1225,39 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     print("Figure saved: %s" % fig_path)
     print("Figure saved: %s" % fig_pdf_path)
 
+
+    # second figure: show the MOW isovolume
+    if "MODEL_TYPE" == "mow":
+        # Hide from the previous plot
+        Hide(transform_slab, renderView1)
+        Hide(sourceV1, renderView1)
+        Hide(sourceV2, renderView1)
+        Hide(source_slice_200km, renderView1)
+        Hide(sourceTr1, renderView1)
+
+        # Setup metastable plots
+        source_isoVolume_metastable = FindSource("isoVolume_metastable")
+        source_isoVolume_metastableDisplay = Show(source_isoVolume_metastable, renderView1, 'GeometryRepresentation')
+        ColorBy(source_isoVolume_metastableDisplay, None)
+        source_isoVolume_metastableDisplay.Set(AmbientColor=[0.0, 0.0, 0.4980], DiffuseColor=[0.0, 0.0, 0.4980])
+
+        contourEq = FindSource("contour_eq_trans")
+        contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
+        ColorBy(contourEqDisplay, None)
+        contourEqDisplay.Set(AmbientColor=[0.3333333432674408, 0.0, 0.49803921580314636], DiffuseColor=[0.3333333432674408, 0.0, 0.49803921580314636])
+        contourEqDisplay.LineWidth = 2.0
+        contourEqDisplay.Ambient = 1.0
+
+        # save figure
+        fig_name = "3d_metastable_%.4e" % (float(_time))
+        fig_path = os.path.join(pv_output_dir, "%s.png" % (fig_name))
+        fig_pdf_path = os.path.join(pv_output_dir, "%s.pdf" % (fig_name))
+        SaveScreenshot(fig_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_pdf_path, view=renderView1)
+        print("Figure saved: %s" % fig_path)
+        print("Figure saved: %s" % fig_pdf_path)
+
+
     
     # hide objects
     if ANIMATION:
@@ -1286,6 +1319,19 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
 
         # load subducting plate 
         load_pyvista_source(data_output_dir, "sp_lower_above_0.80_filtered_pe", snapshot, file_type="vtu", assign_field=True)
+        if "MODEL_TYPE" == "mow":
+            # add a isovolume of metastable
+            sp_lower = FindSource("sp_lower_above_0.80_filtered_pe_%05d" % snapshot)
+            add_isovolume(sp_lower, "metastable", [0, 0.5], name="metastable")
+            # add a plot of equilibrium condition
+            slice_center_source = FindSource("slice_center_%05d" % snapshot)
+            add_eq_410_condition(slice_center_source)
+            source_eq_trans = FindSource("programmable_eq")
+            contourEq = Contour(registrationName='contour_eq_trans', Input=source_eq_trans)
+            contourEq.ContourBy = ['POINTS', 'eq_trans']
+            contourEq.Isosurfaces = [0.0]
+
+            Hide(contourEq, renderView1)
         
         # load slab surfaces
         load_pyvista_source(data_output_dir, "sp_upper_surface", snapshot, file_type="vtp", assign_field=True)

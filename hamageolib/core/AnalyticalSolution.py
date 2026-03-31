@@ -681,8 +681,8 @@ class ContinentalThermChapman:
     def __init__(self, *,
                  h=100e3, z1=20e3, z2=40e3,
                  ts1=273.15, ts2=633, ts3=893,
-                 A1=1.0e-6, A2=0.25e-6, A3=0.0,
-                 k1=2.5, k2=2.5, k3=2.5,
+                 A1=1.0e-6, A2=0.25e-6, A3=2e-8,
+                 k1=2.5, k2=2.5, k3=3.3,
                  qs1=0.055, qs2=0.035, qs3=0.030):
 
         self.h = h
@@ -757,13 +757,13 @@ class ContinentalThermChapmanPartition(ContinentalThermChapman):
                  surface_heat_flux,
                  partition_coefficient,
                  *,
-                 upper_crust_thickness=16e3,
+                 upper_crust_thickness=20e3,
                  lower_crust_thickness=20e3,
                  lithosphere_thickness=200e3,
                  surface_temperature=273.15,
                  heat_production_lower_crust=4e-7,
                  heat_production_mantle=2e-8,
-                 conductivity=3.0):
+                 conductivity=[2.5, 2.5, 3.3]):
 
         # layer boundaries
         z1 = upper_crust_thickness
@@ -776,9 +776,9 @@ class ContinentalThermChapmanPartition(ContinentalThermChapman):
         A3 = heat_production_mantle
 
         # conductivity
-        k1 = conductivity
-        k2 = conductivity
-        k3 = conductivity
+        k1 = conductivity[0]
+        k2 = conductivity[1]
+        k3 = conductivity[2]
 
         # heat flux
         qs1 = surface_heat_flux
@@ -834,3 +834,58 @@ class ContinentalThermChapmanPartition(ContinentalThermChapman):
             Dictionary containing all derived variables.
         """
         return self._derived.copy()
+
+
+class MantleAdiabat:
+    """
+    A class to compute mantle adiabatic temperature as a function of depth.
+
+    Parameters
+    ----------
+    T0 : float
+        Reference temperature at surface (K)
+    alpha : float, optional
+        Thermal expansivity (1/K), default = 3e-5
+    g : float, optional
+        Gravitational acceleration (m/s^2), default = 9.81
+    cp : float, optional
+        Heat capacity at constant pressure (J/kg/K), default = 1250
+
+    Attributes
+    ----------
+    T0 : float
+        Surface temperature (K)
+    alpha : float
+        Thermal expansivity (1/K)
+    g : float
+        Gravitational acceleration (m/s^2)
+    cp : float
+        Heat capacity (J/kg/K)
+    gamma : float
+        Adiabatic gradient coefficient (1/m)
+    """
+
+    def __init__(self, T0, *, alpha=3e-5, g=9.81, cp=1250):
+        self.T0 = T0
+        self.alpha = alpha
+        self.g = g
+        self.cp = cp
+
+        # Precompute coefficient for efficiency
+        self.gamma = (self.alpha * self.g) / self.cp
+
+    def temperature(self, depth):
+        """
+        Compute adiabatic temperature at a given depth.
+
+        Parameters
+        ----------
+        depth : float or ndarray
+            Depth in meters
+
+        Returns
+        -------
+        T : float or ndarray
+            Temperature in Kelvin
+        """
+        return self.T0 * np.exp(self.gamma * depth)
