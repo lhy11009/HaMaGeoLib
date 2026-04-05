@@ -2,10 +2,9 @@
 
 # todo_mow
 # path to
-case_dir="/mnt/lochy/ASPECT_DATA/MOW/mow3_00/C_mow_h2890.0_M_gr3_ar4_rf_gz"
-
+case_dir="/mnt/lochy/ASPECT_DATA/MOW/mow3_00/C_mow_h2890.0_M_gr3_ar4_rf"
 # steps to run (vtu_step)
-min_vtu_step=0
+min_vtu_step=120
 max_vtu_step=300 # 184
 inter_vtu_step=10
 

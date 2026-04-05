@@ -240,7 +240,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
 
         # Add new columns you want to add
         new_columns = ["Slab depth", "Trench (center)", "Trench (center 50km)", "Dip 100 (center)",
-                       "Dip 400 (center)", "Sp velocity"]
+                       "Dip 400 (center)", "Dip 100 400 (center)", "Sp velocity"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:
@@ -429,7 +429,7 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         CASE_OPTIONS_BASE.SummaryCaseVtuStep(self, ifile)
 
         # Add new columns you want to add
-        new_columns = ["Slab depth", "Trench", "Dip 100", "Trench (50 km)"]
+        new_columns = ["Slab depth", "Trench", "Dip 100", "Dip 400", "Dip 100 400", "Trench (50 km)"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:

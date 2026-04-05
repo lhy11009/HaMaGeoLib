@@ -190,6 +190,7 @@ def main():
                 print("\t slab_depth = ", outputs["slab_depth"])
                 print("\t dip_100_center = ", outputs["dip_100_center"])
                 print("\t dip_400_center = ", outputs["dip_400_center"])
+                print("\t dip_100_400_center = ", outputs["dip_100_400_center"])
                 print("\t Sp velocity = ", outputs["Sp velocity"])
 
                 if Case_Options.options["MODEL_TYPE"] == "mow":
@@ -205,8 +206,8 @@ def main():
                 Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, outputs["trench_center"])
                 Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center 50km)", step, outputs["trench_center_50km"])
                 Case_Options.SummaryCaseVtuStepUpdateValue("Dip 100 (center)", step, outputs["dip_100_center"])
-                # todo_400
                 Case_Options.SummaryCaseVtuStepUpdateValue("Dip 400 (center)", step, outputs["dip_400_center"])
+                Case_Options.SummaryCaseVtuStepUpdateValue("Dip 100 400 (center)", step, outputs["dip_100_400_center"])
                 Case_Options.SummaryCaseVtuStepUpdateValue("Sp velocity", step, outputs["Sp velocity"])
                 if Case_Options.options["MODEL_TYPE"] == "mow":
                     Case_Options.SummaryCaseVtuStepUpdateValue("MOW volume", step, outputs["Mow volume"])

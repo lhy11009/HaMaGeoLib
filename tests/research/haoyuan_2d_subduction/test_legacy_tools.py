@@ -199,6 +199,240 @@ def test_CoulumbYielding():
     tau = CoulumbYielding(P, cohesion, friction, _lambda)
     assert(abs(tau - tau_std)/tau_std < 1e-6)
 
+def get_diff_HK_params(water,mod,Edev,Vdev):
+    p = 3 
+    
+    if water == 'dry':
+        r = 0
+        if mod == 'orig':
+            A = 1.5e9/(1e6)**p # MPa^(-n-r) * m^p * s^-1 (converted from microns to meters)
+            E = 375e3      # J/mol 
+            V = 6e-6       # m^3/mol, Mid value form range in Table 1 of HK 03.
+            dE = 50e3      # error on activation energy
+            dV = 4e-6      # error on activation volume 
+        else: 
+            A = 10**(-10.40) #MPa^(-n-r) * m^p * s^-1  Hansen et al (2011), Table A2 logAdif=7.6 MPa, microns, K; grain size difference; convert microns to meters 
+            E = 375e3       # J/mol     
+            V = 8.2e-6      # m^3/mol       Nishihara et al. (2014) for forsterite   8.2 +/- 0.9 cm^3.mol
+            dE = 50e3          # error on activation energy from HK03
+            dV = 0.9e-6      # error on activation volume from Nishihara         
+    elif water == 'wet':      # HK03 wet diffusion, (NOT constant COH)
+        r = 1
+        if mod == 'orig':
+            A = 10**(-10.6) # MPa^(-n-r) * m^p * s^-1 # HK03: 2.5e7 converted from microns to meters        
+            E = 375e3         # J/mol                                    
+            V = 10e-6          # m^/mol, from HK03   
+            dE = 75          # error on activation energy, from HK03
+            dV = 10e-6      # error on activation volume, from HK03  
+        else: 
+            A = (10**(-10.6))/3.5 #MPa^(-n-r) * m^p * s^-1 # 2.5e7 converted from microns to meters; bell03 water correction        
+            E = 375e3  # J/mol                                    
+            V = 23e-6  # m^/mol, Ohuchi et al. (2012)   
+            dE = 75e3    # error on activation energy from HK03
+            dV = 4.5e-6  # Ohuchi et al, 2012
+    elif water == 'con': 
+        print('Using Diffusion Constant-COH')     
+        r = 1        
+        A = 1.0e6/(1e6)**p # Pa^(-n-r) * m^p * s^-1 (converted from microns to meters)      
+        E = 335e3         # J/mol                                    
+        V = 4e-6          # m^/mol, from HK03   
+        dE = 75e3          # error on activation energy, from HK03
+        dV = 4e-6          # use error for from HK03  
+        if mod != 'orig':
+            print("Error no modified versions for Constant-COH HK03, using originals")
+    else:
+        print("water must be dry, wet or con")
+                    
+    if Edev == 'min':  
+        E = E - dE  
+    elif Edev == 'max':
+        E = E + dE  
+
+    if Vdev == 'min':  
+        V = V - dV  
+    elif Vdev == 'max':
+        V = V + dV
+        
+    return(A,E,V,p,r)
+
+
+# Olivine diffusion creep: viscosity  
+# Note that A in this case needs to be convert from MPa to Pa to give visc in Pa-s
+# instead of MPa-s 
+def visc_diff_HK(T,P,d,coh,water,mod,Edev,Vdev):   
+
+    A, E, V, p, r = get_diff_HK_params(water,mod,Edev,Vdev)
+    dm = d/1e6  # convert from microns to meters
+    Am = A/1e6  # convert from MPa^-1 to Pa^-1
+        
+    if water == 'con': # use constant COH equation/values from HK03        
+        visc = 0.5*(dm)**p/(Am*coh**r)*np.exp((E + P*V)/(R*T)) # Pa s
+    else:     
+        fh2o = convert_OH_fugacity_Billen(T,P,coh)    # Convert coh to water fugacity
+        visc = 0.5*(dm)**p/(Am*fh2o**r)*np.exp((E + P*V)/(R*T)) # Pa s
+
+    return visc
+
+def test_CreepStress_CreepRheology_legacy_CreepStrainRate_ComputeComposite():
+    """
+    test the implementation of equations from Hirth & Kohlstedt, 2003(filename='Hirth_Kohlstedt.json')
+    Tolerence set to be 1%
+    Asserts:
+        1. values of stress
+        2. values computed from the rheology
+        3. values of strain rate
+        4. composite rheology
+    """
+    # read parameters
+    RheologyPrm = RHEOLOGY_PRM()
+    diffusion_creep = RheologyPrm.HK03_diff
+    diffusion_creep_f = RheologyPrm.HK03_f_diff
+    dislocation_creep = RheologyPrm.HK03_disl
+    dislocation_creep_f = RheologyPrm.HK03_f_disl
+    
+    # check for stress
+    tolerance = 0.01
+    check0 = CreepStress(diffusion_creep, 7.8e-15, 1e9, 1400 + 273.15, 1e4, 1000.0)
+    assert(abs(check0 - 0.2991) / 0.2991 < tolerance)
+    # using the second invariant
+    # here the stress is converted to the 2nd invariant
+    check0_ii_std = CreepStress(diffusion_creep, 7.8e-15, 1e9, 1400 + 273.15, 1e4, 1000.0) / 3**0.5 
+    # here the strain rate in converted to 2nd invariant as input
+    check0_ii = CreepStress(diffusion_creep, 7.8e-15/(2.0/3**0.5), 1e9,\
+                            1400 + 273.15, 1e4, 1000.0, use_effective_strain_rate=True)
+    assert(abs(check0_ii - check0_ii_std)/check0_ii_std < 1e-6)
+    
+    check1 = CreepStress(dislocation_creep, 2.5e-12, 1e9, 1400 + 273.15, 1e4, 1000.0)
+    assert(abs((check1 - 0.3006) / 0.3006) < tolerance)
+    # using the second invariant
+    # here the stress is converted to the 2nd invariant
+    check1_ii_std = CreepStress(dislocation_creep, 2.5e-12, 1e9, 1400 + 273.15, 1e4, 1000.0) / 3**0.5
+    check1_ii = CreepStress(dislocation_creep, 2.5e-12/(2.0/3**0.5),\
+                            1e9, 1400 + 273.15, 1e4, 1000.0, use_effective_strain_rate=True)
+    assert(abs(check1_ii - check1_ii_std)/check1_ii_std < 1e-6)
+    
+    # check for viscosity
+    check2 = CreepRheology_legacy(diffusion_creep, 7.8e-15, 1e9, 1400 + 273.15, 1e4, 1000.0)
+    check2_std = 1.917382525013947e+19
+    assert(abs((check2 - check2_std) / check2_std) < tolerance)
+    
+    check2_mg = visc_diff_HK(1400 + 273.15,1e9,1e4,1000.0,'con','orig','mid','mid')
+    
+    check3_std = 6.0119447368476904e+16
+    check3 = CreepRheology_legacy(dislocation_creep, 2.5e-12, 1e9, 1400 + 273.15, 1e4, 1000.0)
+    assert(abs((check3 - check3_std) / check3) < tolerance)
+    
+    # check for viscosity, using fH2O instead of COH
+    # note this doesn't produce the exact value with the matching Coh approach,
+    # but the value is very close (1/3 differences)
+    constant_Coh = 1000.0
+    T = 1400 + 273.15
+    P = 1e9
+    strain_rate = 7.8e-15
+    fH2O = convert_OH_fugacity_Billen(T,P,constant_Coh)
+    check2_fH2O = CreepRheology(diffusion_creep_f, strain_rate, P, T,
+                  use_fH2O=True,
+                  fH2O=fH2O)
+    check2_f_std = 2.356118036514688e+19
+    
+    assert(np.isclose(check2_fH2O, check2_f_std))
+    assert(np.isclose(check2_fH2O, check2_std, rtol=0.25))
+
+
+    strain_rate = 2.5e-12
+    check3_fH2O = CreepRheology(dislocation_creep_f, strain_rate, P, T,
+                  use_fH2O=True,
+                  fH2O=fH2O)
+    check3_f_std = 7.841840076863104e+16
+    
+    assert(np.isclose(check3_fH2O, check3_f_std))
+    assert(np.isclose(check3_fH2O, check3_std, rtol=0.33))
+
+
+    # use second invariant strain rate, then compute viscosity, second invariant stress and differential stress
+    # accordingly, this checks the "use_effective_strain_rate" option is correctly implemented
+    strain_rate_second_invariant = 2.5e-12 / (2.0/3**0.5)
+    check3_1_std = 2 * 6.0119447368476904e+16 * 2.5e-12
+    check3_1 = 2.0 * strain_rate_second_invariant *\
+            CreepRheology_legacy(dislocation_creep, strain_rate_second_invariant, 1e9, 1400 + 273.15, 1e4, 1000.0, use_effective_strain_rate=True)\
+            * 3**0.5
+    assert(abs((check3_1 - check3_1_std)/check3_1_std)<1e-4)
+
+    # check for strain rate
+    check4 = CreepStrainRate(diffusion_creep, 0.2991, 1e9, 1400 + 273.15, 1e4, 1000.0)
+    assert(abs(check4 - 7.8e-15) / 7.8e-15 < tolerance)
+    # use the second order invariant
+    check4_ii_std = CreepStrainRate(diffusion_creep, 0.2991, 1e9, 1400 + 273.15, 1e4, 1000.0) * 3**0.5 / 2.0
+    check4_ii = CreepStrainRate(diffusion_creep, 0.2991/3**0.5, 1e9,\
+                                1400 + 273.15, 1e4, 1000.0, use_effective_strain_rate=True)
+    assert(abs(check4_ii - check4_ii_std)/check4_ii_std < 1e-6)
+    
+    check5 = CreepStrainRate(dislocation_creep, 0.3006, 1e9, 1400 + 273.15, 1e4, 1000.0)
+    assert(abs(check5 - 2.5e-12) / 2.5e-12 < tolerance)
+    # use the second order invariant
+    check5_ii_std = CreepStrainRate(dislocation_creep, 0.3006, 1e9, 1400 + 273.15, 1e4, 1000.0) * 3**0.5/2.0
+    check5_ii = CreepStrainRate(dislocation_creep, 0.3006/3**0.5, 1e9,\
+                               1400 + 273.15, 1e4, 1000.0, use_effective_strain_rate=True)
+
+    # check for the composite rheology
+    check6_i = ComputeComposite(check2, None, None) # None inputs, should return the 1st value
+    assert(abs(check6_i - check2)/check2 < 1e-6) 
+    check6_ii_std = 5.99315e16
+    check6_ii = ComputeComposite(check2, check3)  # returns the composite value
+    assert(abs(check6_ii - check6_ii_std)/check6_ii_std < 1e-6)
+
+    # fit new rheology: correction from variable differences
+    stress_ref = 50.0 # MPa
+    P_ref = 100.0e6 # Pa
+    T_ref = 1250.0 + 273.15 # K
+    Coh_ref = 1000.0 # H / 10^6 Si
+    d_ref = 15.0 # mu m
+    # test 1: trivial case: no correction 
+    creep_correction = {'A': 1.0, 'p': 0.0, 'r': 0.0, 'n': 0.0, 'E': 0.0, 'V': 0.0}
+    strain_rate_correction = CreepStrainRate(creep_correction, stress_ref, P_ref, T_ref, d_ref, Coh_ref)
+    assert(abs(strain_rate_correction - 1.0)/1.0 < 1e-6)
+
+
+# todo_mr
+def test_convert_water_content_fugacity_ASPECT():
+    """
+    Test the conversion from water content to fugacity.
+
+    This test checks:
+    - Function runs without error
+    - Output is finite and positive
+    - Matches a placeholder expected value (to be updated)
+    """
+
+    # Input parameters
+    T = 1573.15  # K
+    P = 10e9   # Pa
+    water_content = 1000/16.25 * 1e-6 # wt %
+
+    # Run function, this is the same parameters with the 
+    # function of convert_OH_fugacity_Billen
+    fH2O = convert_water_content_fugacity_ASPECT(T, P, water_content,
+                                                 A_H2O=8.775e-5,
+                                                 activation_energy_H2O=50e3,
+                                                 activation_volume_H2O=10.6e-6,
+                                                 double_H_in_H2O=True)
+
+    expected = 1.732322e+12  # Pa
+
+    # Assertions
+    assert fH2O > 0, "Fugacity should be positive"
+    np.testing.assert_allclose(fH2O, expected, rtol=1e-6)
+    
+    # # Run function, this is the default values defined in ASPECT
+    fH2O = convert_water_content_fugacity_ASPECT(T, P, water_content)
+
+    expected = 8.601843e+11  # Pa
+
+    # Assertions
+    assert fH2O > 0, "Fugacity should be positive"
+    np.testing.assert_allclose(fH2O, expected, rtol=1e-6)
+
+
 
 def test_MantleRheology_middle_lower_mantle():
     '''
@@ -342,7 +576,7 @@ def test_MK10_peierls():
     T = 671.0 # K
     P = 0 # not dependent on P (V = 0)
     eta_std = 6.8757953e13
-    eta = PeierlsCreepRheology(creep, strain_rate, P, T)
+    eta = PeierlsCreepRheology_legacy(creep, strain_rate, P, T)
     assert(abs(np.log(eta_std/eta)) < 0.05)  # a bigger tolerance, check the log value
     # assert 3.2: viscosity, a realistic scenario
     # 1e-13
@@ -350,14 +584,14 @@ def test_MK10_peierls():
     T = 800.0 + 273.15 # K
     P = 0 # not dependent on P (V = 0)
     eta_std = 2.125142090914006e+21
-    eta = PeierlsCreepRheology(creep, strain_rate, P, T)
+    eta = PeierlsCreepRheology_legacy(creep, strain_rate, P, T)
     assert(abs(np.log(eta_std/eta)) < 0.05)  # a bigger tolerance, check the log value
     # 1e-15
     strain_rate = 1e-15
     T = 800.0 + 273.15 # K
     P = 0 # not dependent on P (V = 0)
     eta_std = 9.893654111645399e+22
-    eta = PeierlsCreepRheology(creep, strain_rate, P, T)
+    eta = PeierlsCreepRheology_legacy(creep, strain_rate, P, T)
     assert(abs(np.log(eta_std/eta)) < 0.05)  # a bigger tolerance, check the log value
 
 # ---------------------------------------------------------------------

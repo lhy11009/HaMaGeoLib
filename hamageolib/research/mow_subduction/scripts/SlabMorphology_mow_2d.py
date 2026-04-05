@@ -8,7 +8,7 @@ from hamageolib.research.mow_subduction.case_options import CASE_OPTIONS_TWOD
 from hamageolib.research.haoyuan_3d_subduction.post_process import PlotCaseRunTwoD1, ProcessVtuFileTwoDStep
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_subduction_visualization
 
-local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow01/C_mow_h2890.0_gr3_ar4"
+local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow01/C_mow_h2890.0_M_gr3_ar4_gz_2"
 
 
 assert(local_dir_2d is not None)
@@ -35,7 +35,10 @@ for step in graphical_steps:
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab depth", step, output_dict["slab_depth"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Trench", step, output_dict["trench_center"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Trench (50 km)", step, output_dict["trench_center_50km"])
+    # todo_400
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Dip 100", step, output_dict["dip_100"])
+    Case_Options_2d.SummaryCaseVtuStepUpdateValue("Dip 400", step, output_dict["dip_400"])
+    Case_Options_2d.SummaryCaseVtuStepUpdateValue("Dip 100 400", step, output_dict["dip_100_400"])
     Case_Options_2d.SummaryCaseVtuStepUpdateValue("Sp velocity", step, output_dict["sp_velocity"])
     if Case_Options_2d.options["MODEL_TYPE"] == "mow":
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area", step, output_dict["metastable_area"])

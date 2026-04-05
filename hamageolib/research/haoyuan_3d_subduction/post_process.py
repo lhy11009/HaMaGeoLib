@@ -911,8 +911,8 @@ class PYVISTA_PROCESS_THD(PYVISTA_PROCESS):
         extract slab dip angle
         '''
         self.dip_100_center = self.extract_slab_dip_angle_by_depth(self.Max0-15e3, 0.0, self.Max0-100e3, 0.0)
-        # todo_400
         self.dip_400_center = self.extract_slab_dip_angle_by_depth(self.Max0-15e3, 0.0, self.Max0-400e3, 0.0)
+        self.dip_100_400_center = self.extract_slab_dip_angle_by_depth(self.Max0-100e3, 0.0, self.Max0-400e3, 0.0)
         
 
     def extract_slab_dip_angle_deprecated_0(self):
@@ -2074,9 +2074,11 @@ def ProcessVtuFileThDStep(case_path, pvtu_step, Case_Options, **kwargs):
     assert(PprocessThD.dip_100_center is not None)
     outputs["dip_100_center"] = PprocessThD.dip_100_center
 
-    # todo_400 
     assert(PprocessThD.dip_400_center is not None)
     outputs["dip_400_center"] = PprocessThD.dip_400_center
+    
+    assert(PprocessThD.dip_100_400_center is not None)
+    outputs["dip_100_400_center"] = PprocessThD.dip_100_400_center
     
     assert(PprocessThD.sp_velocity is not None)
     outputs["Sp velocity"] = PprocessThD.sp_velocity
@@ -2274,12 +2276,15 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
 
     # derive trench center, slab depth and dip angle
-    depth0 = 0.0; depth1 = 100e3
+    depth0 = 0.0; depth1 = 100e3; depth400 = 400e3
     if geometry == "chunk": 
         l0_mean = Max0 - (depth0 + depth1)/2.0
+        l400_mean = Max0 - (depth0 + depth400)/2.0
+        l100_400_mean = Max0 - (depth1 + depth400)/2.0
         l0, l2 = cartesian_to_spherical_2d(slab_surface_points[:, 0], slab_surface_points[:, 1])
         l2_1 = np.interp(Max0 - depth1, l0, l2)
         l2_0 = np.interp(Max0 - depth0, l0, l2)
+        l2_400 = np.interp(Max0 - depth400, l0, l2)
         trench_center = l2[-1]
         trench_center_50km = np.interp(Max0 - 50e3, l0, l2)
         slab_depth = Max0 - np.min(l0)
@@ -2287,20 +2292,28 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
         mask0 = ((np.abs((Max0 - l0) - depth0) < d0))
         l2_mean_0 = np.average(l2[mask0])
         dip_angle = np.arctan2(depth1 - depth0, l0_mean * (l2_1 - l2_0))
+        dip_angle_400 = np.arctan2(depth400 - depth0, l400_mean * (l2_400 - l2_0))
+        dip_angle_100_400 = np.arctan2(depth400 - depth1, l100_400_mean * (l2_400 - l2_1))
     else:
         slab_depth = Max0 - np.min(slab_surface_points[:, 1])
         # dip angle
         l0 = slab_surface_points[:, 1]; l2 = slab_surface_points[:, 0]
         l2_1 = np.interp(Max0 - depth1, l0, l2)
         l2_0 = np.interp(Max0 - depth0, l0, l2)
+        l2_400 = np.interp(Max0 - depth400, l0, l2)
         trench_center = slab_surface_points[-1, 0]
         trench_center_50km = np.interp(Max0 - 50e3, l0, l2)
         dip_angle = np.arctan2(depth1 - depth0, l2_1 - l2_0)
-    
+        dip_angle_400 = np.arctan2(depth400 - depth0, l2_400 - l2_0)
+        dip_angle_100_400 = np.arctan2(depth400 - depth1, l2_400 - l2_1)
+
+    # todo_400 
     output_dict["trench_center"] = trench_center
     output_dict["trench_center_50km"] = trench_center_50km
     output_dict["slab_depth"] = slab_depth
     output_dict["dip_100"] = dip_angle
+    output_dict["dip_400"] = dip_angle_400
+    output_dict["dip_100_400"] = dip_angle_100_400
 
     point_cloud = pv.PolyData(slab_surface_points)
     filename = "spcrust_surface_%05d.vtp" % pvtu_step

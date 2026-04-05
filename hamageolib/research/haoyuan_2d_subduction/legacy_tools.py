@@ -9996,6 +9996,51 @@ def GetPeierlsRheology(rheology):
     peierls_creep = getattr(RheologyPrm, rheology + "_peierls")
     return peierls_creep
 
+
+# Most flow laws require the water fugacity rather than the water content, but we usually
+# define water as C_OH, so need to convert this to pass to flow-laws.
+# ** Exception is the original HK03 "Constant C_OH" flow laws which already did this conversion.
+def convert_OH_fugacity_Billen(T,P,coh):
+
+    # T [K]             Temperature
+    # P [MPa]            Pressure
+    # coh [ppm-H/si]    OH content (note can convert C_h2o = Coh/16.25, confirmed by Ohuchi)
+    
+    # Per e-mail from Ohuchi, use data from the table in Keppler & Bolfan-Casanova, 2006
+    # to related C_H2O to f_H2O, checked against Kohlstedt et al 1996 data. 
+    # I used Kohlstedt et al., 1996 data to show that CH2O = COH/16.25
+    # substituting this leads to multiply Ah2o by 16.25Then change units
+    # bars to MPa... the resulting value (87.75 ppm-H/Si/MPAa) is very close to the 
+    # Ah2o in Zhao (90 # ppm-H/Si/MPa +/- 10) but we ignore the iron content dependence.  
+       
+    Ah2o = 0.54*(10)*16.25             # (ppm/bar)*(MPa/bar)*COH/CH2O
+    Eh2o = 50e3                     # J/mol +/-2e3
+    Vh2o = 10.6e-6                     # m^3/mol+/-1
+    fH2O = coh/(Ah2o*np.exp(-(Eh2o + P*Vh2o)/(R*T)))       #MPa
+    
+    return fH2O
+
+# todo_mr
+def convert_water_content_fugacity_ASPECT(T,P,water_content,*,
+                                      molar_mass_H2O=0.01801528, # kg/mol
+                                      molar_mass_olivine=0.1470027, # kg/mol
+                                      A_H2O=2.6e-5, # Pa^-1
+                                      activation_energy_H2O=40e3, # J/mol/K
+                                      activation_volume_H2O=10e-6, # m^3/mol
+                                      double_H_in_H2O=False
+                                      ):
+    '''
+    conversion between water content and fugacity implemented in ASPECT
+    '''
+    # Whether this should be multiplied by two: yes, one H2O has 2 H, but no, it only has 1 OH
+    # and then, the unit is in H/10^6 Si
+    COH = (water_content/molar_mass_H2O) / ((1-water_content)/molar_mass_olivine) * 1e6  # H / 10^6 Si
+    if double_H_in_H2O:
+        COH *= 2.0
+
+    fH2O = COH / A_H2O * np.exp((activation_energy_H2O + P*activation_volume_H2O)/(R * T)) # Pa
+    return fH2O
+
 def CreepStrainRate(creep, stress, P, T, d, Coh, **kwargs):
     """
     Calculate strain rate by flow law in form of 
@@ -10030,7 +10075,45 @@ def CreepStrainRate(creep, stress, P, T, d, Coh, **kwargs):
     B = A * d**(-p) * Coh**r
     return F * B *stress**n * np.exp(-(E + P * V) / (R * T))
 
-def CreepRheology(creep, strain_rate, P, T, d=1e4, Coh=1e3, **kwargs):
+def CreepStress(creep, strain_rate, P, T, d, Coh, **kwargs):
+    """
+    def DislocationCreep(strain_rate, P, T, d, Coh)
+
+    Calculate stress by flow law in form of (strain_rate / B)^(1.0 / n) * exp((E + P * V) / (n * R * T))
+    Units:
+     - P: Pa
+     - T: K
+     - d: mu m
+     - Coh: H / 10^6 Si
+     - Return value: Mpa
+    kwargs:
+        use_effective_strain_rate - use the second invariant as input
+    Pay attention to pass in the right value, this custom is inherited
+    """
+    A = creep['A']
+    p = creep['p']
+    r = creep['r']
+    n = creep['n']
+    E = creep['E']
+    V = creep['V']
+    # compute F
+    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
+    if use_effective_strain_rate:
+        F = 2**(1/n)/3**((n+1)/2/n)
+    else:
+        F = 1.0
+    # calculate B
+    B = A * d**(-p) * Coh**r
+    return F * (strain_rate / B)**(1.0 / n) * np.exp((E + P * V) / (n * R * T))
+
+def CreepRheology(creep, strain_rate, P, T, *, 
+                d=1e4, 
+                Coh=1e3, # H/10^6 Si
+                use_fH2O=False,
+                fH2O=1.0, # MPa
+                use_effective_strain_rate=False,
+                f_by_factor=False,
+                F=1.0):
     """
     Calculate viscosity by flow law in form of (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T))
     Previously, there is a typo in the F factor
@@ -10049,19 +10132,34 @@ def CreepRheology(creep, strain_rate, P, T, d=1e4, Coh=1e3, **kwargs):
     E = creep['E']
     V = creep['V']
     # compute value of F(pre factor)
-    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
-    f_by_factor = kwargs.get('f_by_factor', False)
     if use_effective_strain_rate:
-        F = 1 / (2**((n-1)/n)*3**((n+1)/2/n)) * 2.0
+        F_factor = 1 / (2**((n-1)/n)*3**((n+1)/2/n)) * 2.0
     elif f_by_factor:
-        F = kwargs['F']
+        F_factor = F
     else:
-        F = 1.0
+        F_factor = 1.0
     # calculate B
-    B = A * d**(-p) * Coh**r
-    eta = 1/2.0 * F * (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T)) * 1e6
+    W = np.nan
+    if use_fH2O:
+        W = fH2O**r
+    else:
+        W = Coh**r
+
+    B = A * d**(-p) * W
+    eta = 1/2.0 * F_factor * (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T)) * 1e6
 
     return eta
+
+def CreepRheology_legacy(creep, strain_rate, P, T, d=1e4, Coh=1e3, **kwargs):
+    """
+    for legacy usage
+    """
+    return CreepRheology(creep, strain_rate, P, T, 
+                         d=d, 
+                         Coh=Coh,
+                         use_effective_strain_rate=kwargs.get("use_effective_strain_rate", False),
+                         f_by_factor=kwargs.get("f_by_factor", False),
+                         F=kwargs.get("F", 1.0))
 
 def ComputeComposite(*Args):
     '''
@@ -10119,7 +10217,12 @@ def CreepComputeA(creep, strain_rate, P, T, eta, d=1e4, Coh=1e3, **kwargs):
     A = B * d**p * Coh**(-r)
     return A
 
-def Convert2AspectInput(creep, **kwargs):
+# todo_mr
+def Convert2AspectInput(creep, *, 
+                        d=1e4,
+                        Coh=1000.0,
+                        prefactor_scheme=None,
+                        use_effective_strain_rate=False):
     """
     Viscosity is calculated by flow law in form of (strain_rate)**(1.0 / n - 1) * (B)**(-1.0 / n) * np.exp((E + P * V) / (n * R * T)) * 1e6
     while in aspect, flow law in form of 0.5 * A**(-1.0 / n) * d**(m / n) * (strain_rate)**(1.0 / n - 1) * np.exp((E + P * V) / (n * R * T))
@@ -10143,18 +10246,29 @@ def Convert2AspectInput(creep, **kwargs):
     n = creep['n']
     E = creep['E']
     V = creep['V']
-    d = kwargs.get('d', 1e4)
-    Coh = kwargs.get('Coh', 1000.0)
+
     # compute value of F(pre factor)
-    use_effective_strain_rate = kwargs.get('use_effective_strain_rate', False)
     if use_effective_strain_rate:
         F = 1 / (2**((n-1)/n)*3**((n+1)/2/n)) * 2.0
     else:
         F = 1.0
+    
     # prepare values for aspect
     aspect_creep = {}
+
     # stress in the original equation is in Mpa, grain size is in um
-    aspect_creep['A'] = 1e6**(-p) * (1e6)**(-n) * Coh**r * A / F**n  # F term: use effective strain rate
+    # The unit conversion is included in the prefactor
+    # F term: use effective strain rate
+    # Coh term, if the hydration scheme is used, then this will be handled in ASPECT
+    # otherwise, use a constant value and combine to the prefactor
+    if prefactor_scheme == "hydration":
+        aspect_creep['A'] = 1e6**(-p) * (1e6)**(-n) * A / F**n  
+        aspect_creep['r'] = r / n
+    elif prefactor_scheme is None:
+        aspect_creep['A'] = 1e6**(-p) * (1e6)**(-n) * Coh**r * A / F**n 
+    else:
+        raise ValueError("prefactor_scheme should be hydration or None")
+
     aspect_creep['d'] = d / 1e6
     aspect_creep['n'] = n
     aspect_creep['m'] = p
@@ -10267,10 +10381,13 @@ def ConvertFromAspectInput(aspect_creep, *,
 
     return creep
 
-
-def CreepRheologyInAspectViscoPlastic(creep, strain_rate, P, T):
+# todo_mr
+def CreepRheologyInAspectViscoPlastic(creep, strain_rate, P, T, *,
+                                      prefactor_scheme=None,
+                                      water_content=0.0,
+                                      ):
     """
-    def CreepRheologyInAspectVisoPlastic(creep, strain_rate, P, T)
+    def CreepRheology_legacyInAspectVisoPlastic(creep, strain_rate, P, T)
 
     Calculate viscosity by way of Visco Plastic module in aspect
     flow law in form of 0.5 * A**(-1.0 / n) * d**(m / n) * (strain_rate)**(1.0 / n - 1) * np.exp((E + P * V) / (n * R * T))
@@ -10287,7 +10404,15 @@ def CreepRheologyInAspectViscoPlastic(creep, strain_rate, P, T):
     V = creep['V']
     d = creep['d']
     # calculate B
-    return 0.5 * A**(-1.0 / n) * d**(m / n) * (strain_rate)**(1.0 / n - 1) * np.exp((E + P * V) / (n * R * T))
+    if prefactor_scheme=="hydration":
+        # use the same format in ASPECT
+        r = creep['r']
+        hydration_term = 1.0
+        fH2O = convert_water_content_fugacity_ASPECT(T,P,water_content) # convert from water_content to fugacity
+        hydration_term = fH2O**(-r)
+    else:
+        hydration_term = 1.0
+    return 0.5 * A**(-1.0 / n) * d**(m / n) * (strain_rate)**(1.0 / n - 1) * np.exp((E + P * V) / (n * R * T)) * hydration_term
 
 def CreepComputeV(creep, strain_rate, P, T, eta, d=1e4, Coh=1e3, **kwargs):
     """
@@ -10622,15 +10747,15 @@ class RHEOLOGY_OPR():
         depth_up = 410e3
         depth_low = 660e3
         mask_up = (self.depths < depth_up)
-        eta_diff[mask_up] = CreepRheology(diffusion_creep, strain_rate, self.pressures[mask_up],\
+        eta_diff[mask_up] = CreepRheology_legacy(diffusion_creep, strain_rate, self.pressures[mask_up],\
                                           self.temperatures[mask_up], d=1e4, Coh=Coh,\
                                             use_effective_strain_rate=use_effective_strain_rate)\
                                         * eta_diff_correction
-        eta_disl[mask_up] = CreepRheology(dislocation_creep, strain_rate, self.pressures[mask_up],\
+        eta_disl[mask_up] = CreepRheology_legacy(dislocation_creep, strain_rate, self.pressures[mask_up],\
                                            self.temperatures[mask_up], d=1e4, Coh=Coh,\
                                               use_effective_strain_rate=use_effective_strain_rate)\
                                         * eta_disl_correction
-        eta_disl13[mask_up] = CreepRheology(dislocation_creep, 1e-13, self.pressures[mask_up],\
+        eta_disl13[mask_up] = CreepRheology_legacy(dislocation_creep, 1e-13, self.pressures[mask_up],\
                                             self.temperatures[mask_up], d=1e4, Coh=Coh,\
                                                 use_effective_strain_rate=use_effective_strain_rate)\
                                         * eta_disl_correction
@@ -10644,15 +10769,15 @@ class RHEOLOGY_OPR():
         mask_mtz = (self.depths > depth_up) & (self.depths < depth_low)
         if True:
             # MTZ from olivine rheology
-            eta_diff[mask_mtz] = CreepRheology(diffusion_creep, strain_rate, self.pressures[mask_mtz],\
+            eta_diff[mask_mtz] = CreepRheology_legacy(diffusion_creep, strain_rate, self.pressures[mask_mtz],\
                                                self.temperatures[mask_mtz], d=1e4, Coh=Coh,\
                                                 use_effective_strain_rate=use_effective_strain_rate)\
                                             * eta_diff_correction
-            eta_disl[mask_mtz] = CreepRheology(dislocation_creep, strain_rate, self.pressures[mask_mtz],\
+            eta_disl[mask_mtz] = CreepRheology_legacy(dislocation_creep, strain_rate, self.pressures[mask_mtz],\
                                                 self.temperatures[mask_mtz], d=1e4, Coh=Coh,\
                                                     use_effective_strain_rate=use_effective_strain_rate)\
                                             * eta_disl_correction
-            eta_disl13[mask_mtz] = CreepRheology(dislocation_creep, 1e-13, self.pressures[mask_mtz],\
+            eta_disl13[mask_mtz] = CreepRheology_legacy(dislocation_creep, 1e-13, self.pressures[mask_mtz],\
                                                  self.temperatures[mask_mtz], d=1e4, Coh=Coh,\
                                                     use_effective_strain_rate=use_effective_strain_rate)\
                                             * eta_disl_correction
@@ -10669,11 +10794,11 @@ class RHEOLOGY_OPR():
         depth_max = self.depths[-1] - 10e3
         T660 = T_func(depth_lm)
         P660 = P_func(depth_lm)
-        eta_diff660 = CreepRheology(diffusion_creep, strain_rate, P660, T660, d=1e4, Coh=Coh,\
+        eta_diff660 = CreepRheology_legacy(diffusion_creep, strain_rate, P660, T660, d=1e4, Coh=Coh,\
                                     use_effective_strain_rate=use_effective_strain_rate)\
                                 * eta_diff_correction
         # dislocation creep
-        eta_disl660 = CreepRheology(dislocation_creep, strain_rate, P660, T660, d=1e4, Coh=Coh,\
+        eta_disl660 = CreepRheology_legacy(dislocation_creep, strain_rate, P660, T660, d=1e4, Coh=Coh,\
                                     use_effective_strain_rate=use_effective_strain_rate)\
                                 * eta_disl_correction
         eta660 = ComputeComposite(eta_diff660, eta_disl660)
@@ -10685,7 +10810,7 @@ class RHEOLOGY_OPR():
         diff_lm['V'] = Vdiff_lm  # assign a value
         diff_lm['A'] = CreepComputeA(diff_lm, strain_rate, P660, T660, eta660*jump_lower_mantle, d=1e4, Coh=Coh, use_effective_strain_rate=use_effective_strain_rate)
 
-        eta660_lm = CreepRheology(diff_lm, strain_rate, P660, T660, d=1e4, Coh=Coh,\
+        eta660_lm = CreepRheology_legacy(diff_lm, strain_rate, P660, T660, d=1e4, Coh=Coh,\
                                     use_effective_strain_rate=use_effective_strain_rate)
 
         # additional step: another layer at ~1000 km
@@ -10693,7 +10818,7 @@ class RHEOLOGY_OPR():
             mask_low_middle = (self.depths > depth_lm_middle)
             T_lm_middle = T_func(depth_lm_middle)
             P_lm_middle = P_func(depth_lm_middle)
-            eta_lm_middle = CreepRheology(diff_lm, strain_rate, P_lm_middle, T_lm_middle, d=1e4, Coh=Coh,\
+            eta_lm_middle = CreepRheology_legacy(diff_lm, strain_rate, P_lm_middle, T_lm_middle, d=1e4, Coh=Coh,\
                                     use_effective_strain_rate=use_effective_strain_rate)
             diff_lm_middle = diff_lm.copy()
             diff_lm_middle['V'] = Vdiff_lm_middle
@@ -10944,9 +11069,9 @@ class RHEOLOGY_OPR():
             # diffusion creep
             T660 = T_func(depth_lm)
             P660 = P_func(depth_lm)
-            eta_diff660 = CreepRheology(diffusion_creep, strain_rate, P660, T660)
+            eta_diff660 = CreepRheology_legacy(diffusion_creep, strain_rate, P660, T660)
             # dislocation creep
-            eta_disl660 = CreepRheology(dislocation_creep, strain_rate, P660, T660, use_effective_strain_rate=True)
+            eta_disl660 = CreepRheology_legacy(dislocation_creep, strain_rate, P660, T660, use_effective_strain_rate=True)
             eta660 = ComputeComposite(eta_diff660, eta_disl660)
             
             # other constraints
@@ -10954,9 +11079,9 @@ class RHEOLOGY_OPR():
             Ttemp = T_func(depth2)
             Ptemp = P_func(depth2)
             # diffusion creep
-            eta_diff300 = CreepRheology(diffusion_creep, strain_rate, Ptemp, Ttemp)
+            eta_diff300 = CreepRheology_legacy(diffusion_creep, strain_rate, Ptemp, Ttemp)
             # dislocation creep
-            eta_disl300 = CreepRheology(dislocation_creep, strain_rate, Ptemp, Ttemp, use_effective_strain_rate=True)
+            eta_disl300 = CreepRheology_legacy(dislocation_creep, strain_rate, Ptemp, Ttemp, use_effective_strain_rate=True)
 
             if include_lower_mantle is not None:
                 # lower mantle rheology
@@ -10966,8 +11091,8 @@ class RHEOLOGY_OPR():
 
             
             # 1000km integral
-            eta_diff = CreepRheology(diffusion_creep, strain_rate, self.pressures, self.temperatures)
-            eta_disl = CreepRheology(dislocation_creep, strain_rate, self.pressures, self.temperatures, use_effective_strain_rate=True)
+            eta_diff = CreepRheology_legacy(diffusion_creep, strain_rate, self.pressures, self.temperatures)
+            eta_disl = CreepRheology_legacy(dislocation_creep, strain_rate, self.pressures, self.temperatures, use_effective_strain_rate=True)
             eta = ComputeComposite(eta_diff, eta_disl)
             lith_depth = 100e3
             integral_depth = 1400e3
@@ -10980,7 +11105,7 @@ class RHEOLOGY_OPR():
             integral_lm = 0.0
             if include_lower_mantle is not None:
                 mask_lm_integral = (mask_lm & mask_integral)
-                eta_diff_lm = CreepRheology(diff_lm, strain_rate, self.pressures, self.temperatures)
+                eta_diff_lm = CreepRheology_legacy(diff_lm, strain_rate, self.pressures, self.temperatures)
                 integral_lm = np.trapz(eta_diff_lm[mask_lm_integral] * integral_cores[mask_lm_integral], self.depths[mask_lm_integral])
             else:
                 integral_lm = 4.0 / 3 * np.pi * ((radius - depth_lm)**3.0 - (radius - integral_depth)**3.0) * eta660 * 30.0 # assume 30 times jump
@@ -11042,8 +11167,8 @@ class RHEOLOGY_OPR():
                 print("[%d / %d], New json: %s" % (i, len(constrained_rheologies), json_path))
             #  save profile
             if save_profile == 1:
-                eta_diff = CreepRheology(constrained_rheology['diff'], strain_rate, self.pressures, self.temperatures)
-                eta_disl = CreepRheology(constrained_rheology['disl'], strain_rate, self.pressures, self.temperatures, use_effective_strain_rate=True)
+                eta_diff = CreepRheology_legacy(constrained_rheology['diff'], strain_rate, self.pressures, self.temperatures)
+                eta_disl = CreepRheology_legacy(constrained_rheology['disl'], strain_rate, self.pressures, self.temperatures, use_effective_strain_rate=True)
                 eta = ComputeComposite(eta_diff, eta_disl)
                 # plots
                 fig, axs = plt.subplots(1, 2, figsize=(10, 5))
@@ -11077,7 +11202,7 @@ class RHEOLOGY_OPR():
                 if include_lower_mantle:
                     # include lower mantle info as title:
                     diff_lm = constrained_rheology['diff_lm']
-                    eta_diff_lm = CreepRheology(constrained_rheology['diff_lm'], strain_rate, self.pressures, self.temperatures)
+                    eta_diff_lm = CreepRheology_legacy(constrained_rheology['diff_lm'], strain_rate, self.pressures, self.temperatures)
                     axs[1].semilogx(eta_diff_lm[mask_lm], self.depths[mask_lm]/1e3, 'c')
                     title_str = "lm_jump%.2d_Vlm%.4e_avg%.4e" % (include_lower_mantle, diff_lm['V'], constrained_rheology['average_upper_region'])
                     axs[1].set_title(title_str)
@@ -12294,17 +12419,17 @@ class STRENGTH_PROFILE(RHEOLOGY_OPR):
         etas_disl = None
         etas_peierls = None
         if self.diff_type is not None:
-            etas_diff = CreepRheology(self.diff, strain_rate, Ps, Ts,\
+            etas_diff = CreepRheology_legacy(self.diff, strain_rate, Ps, Ts,\
                                           1e4, 1000.0, use_effective_strain_rate=compute_second_invariant)
         if self.disl_type is not None:
-            etas_disl = CreepRheology(self.disl, strain_rate, Ps, Ts,\
+            etas_disl = CreepRheology_legacy(self.disl, strain_rate, Ps, Ts,\
                                           1e4, 1000.0, use_effective_strain_rate=compute_second_invariant)
         if self.peierls_type is not None:
             self.etas_peierls = np.zeros(Ts.size)
             for i in range(Ts.size):
                 P = Ps[i]
                 T = Ts[i]
-                self.etas_peierls[i] = PeierlsCreepRheology(self.peierls, strain_rate, P, T)
+                self.etas_peierls[i] = PeierlsCreepRheology_legacy(self.peierls, strain_rate, P, T)
             self.Sigs_peierls = 2.0 * strain_rate * self.etas_peierls
         self.etas_viscous = ComputeComposite(etas_diff, etas_disl)
         self.Sigs_viscous = 2.0 * strain_rate * self.etas_viscous
@@ -17655,7 +17780,7 @@ def PeierlsCreepStress(creep, strain_rate, P, T, **kwargs):
     return stress
 
 
-def PeierlsCreepRheology(creep, strain_rate, P, T, **kwargs):
+def PeierlsCreepRheology_legacy(creep, strain_rate, P, T, **kwargs):
     """
     Calculate stress by inverting the flow law in form of 
         Ap * sigma^n * exp( - (E) / (R * T) * (1 - (sigma / sigmap)^p)^q)
