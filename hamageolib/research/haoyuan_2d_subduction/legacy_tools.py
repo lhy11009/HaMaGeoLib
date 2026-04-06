@@ -9564,6 +9564,26 @@ class RHEOLOGY_PRM():
                 "wet" : 1.0
             }
         
+        self.WH23_disl =\
+            {
+                "A": 20,
+                "p": 0.0,
+                "r": 1.2,
+                "n": 3.5,
+                "E": 480e3,
+                "V": 11e-6
+            }
+        
+        self.WH23_diff = \
+            {
+                "A" : 2.9e5,
+                "p" : 3.0,
+                "r" : 1.0,
+                "n" : 1.0,
+                "E" : 335e3,
+                "V" : 1.9e-6
+            }
+        
         self.WarrenHansen23_disl =\
             {
                 "A": 20,
@@ -10020,7 +10040,6 @@ def convert_OH_fugacity_Billen(T,P,coh):
     
     return fH2O
 
-# todo_mr
 def convert_water_content_fugacity_ASPECT(T,P,water_content,*,
                                       molar_mass_H2O=0.01801528, # kg/mol
                                       molar_mass_olivine=0.1470027, # kg/mol
@@ -10217,7 +10236,6 @@ def CreepComputeA(creep, strain_rate, P, T, eta, d=1e4, Coh=1e3, **kwargs):
     A = B * d**p * Coh**(-r)
     return A
 
-# todo_mr
 def Convert2AspectInput(creep, *, 
                         d=1e4,
                         Coh=1000.0,
@@ -10381,7 +10399,7 @@ def ConvertFromAspectInput(aspect_creep, *,
 
     return creep
 
-# todo_mr
+# 
 def CreepRheologyInAspectViscoPlastic(creep, strain_rate, P, T, *,
                                       prefactor_scheme=None,
                                       water_content=0.0,

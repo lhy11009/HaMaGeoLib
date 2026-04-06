@@ -66,25 +66,25 @@
                     "max depth": 20000.0,
                     "top temperature": 273.0,
                     "top heat flux": 0.04,
-                    "thermal conductivity": 3.2,
+                    "thermal conductivity": 2.5,
                     "heat generation per unit volume": 5.200000000000001e-07
                 },
                 {
                     "model": "chapman",
                     "min depth": 20000.0,
                     "max depth": 40000.0,
-                    "top temperature": 490.5,
+                    "top temperature": 551.4,
                     "top heat flux": 0.0296,
-                    "thermal conductivity": 3.2,
+                    "thermal conductivity": 2.5,
                     "heat generation per unit volume": 4e-07
                 },
                 {
                     "model": "chapman",
                     "min depth": 40000.0,
                     "max depth": 200000.0,
-                    "top temperature": 650.5,
+                    "top temperature": 756.1999999999999,
                     "top heat flux": 0.0216,
-                    "thermal conductivity": 3.2,
+                    "thermal conductivity": 3.3,
                     "heat generation per unit volume": 2e-08
                 }
             ]
@@ -136,25 +136,25 @@
                     "max depth": 20000.0,
                     "top temperature": 273.0,
                     "top heat flux": 0.04,
-                    "thermal conductivity": 3.2,
+                    "thermal conductivity": 2.5,
                     "heat generation per unit volume": 5.200000000000001e-07
                 },
                 {
                     "model": "chapman",
                     "min depth": 20000.0,
                     "max depth": 40000.0,
-                    "top temperature": 490.5,
+                    "top temperature": 551.4,
                     "top heat flux": 0.0296,
-                    "thermal conductivity": 3.2,
+                    "thermal conductivity": 2.5,
                     "heat generation per unit volume": 4e-07
                 },
                 {
                     "model": "chapman",
                     "min depth": 40000.0,
                     "max depth": 200000.0,
-                    "top temperature": 650.5,
+                    "top temperature": 756.1999999999999,
                     "top heat flux": 0.0216,
-                    "thermal conductivity": 3.2,
+                    "thermal conductivity": 3.3,
                     "heat generation per unit volume": 2e-08
                 }
             ]

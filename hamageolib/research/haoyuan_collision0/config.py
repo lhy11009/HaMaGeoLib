@@ -1146,9 +1146,15 @@ class RheologyRule(Rule):
       The range of viscosity in the model.
       Default value: [2.5e18, 2.5e23]
     """
-    requires = ["use_my_setup_of_rheology", "viscosity_range", "use_safer_options"]
+    # todo_mr
+    requires = ["use_my_setup_of_rheology", "viscosity_range", "use_safer_options", "mantle_rheology_scheme",\
+                "mantle_rheology_name"]
     
-    defaults = {"use_my_setup_of_rheology": False, "viscosity_range": [2.5e18, 2.5e23], "use_safer_options": False}
+    defaults = {"use_my_setup_of_rheology": False, 
+                "viscosity_range": [2.5e18, 2.5e23], 
+                "use_safer_options": False,
+                "mantle_rheology_scheme": "use_fluid",
+                "mantle_rheology_name": "HK03"}
 
     requires_comments = {"use_my_setup_of_rheology": "Set reference strain rate to 1e-15.", "viscosity_range": "Range of viscosity in the model",
                          "use_safer_options": "Use adiabatic pressure in rheology and also cutoff unrealistic temperatures"}
@@ -1564,7 +1570,7 @@ class ContinentRule(Rule):
 
                 conductivity = None, 
                 if np.isclose(chapman_model_surface_heatflux, 0.04):
-                    conductivity = 3.2
+                    conductivity = [3.2, 3.2, 3.2]
 
                 elif np.isclose(chapman_model_surface_heatflux, 0.08):
                     conductivity = 2.5
@@ -1574,7 +1580,7 @@ class ContinentRule(Rule):
                                               the partition coefficent approach.")
 
                 geotherm = ContinentalThermChapmanPartition(chapman_model_surface_heatflux, partition_coefficient,
-                                                            conductivity=conductivity,
+                                                            # conductivity=conductivity,
                                                             upper_crust_thickness=20e3,
                                                             lower_crust_thickness=20e3,
                                                             surface_temperature=273.0)

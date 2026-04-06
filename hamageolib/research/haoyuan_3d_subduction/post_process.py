@@ -2307,7 +2307,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
         dip_angle_400 = np.arctan2(depth400 - depth0, l2_400 - l2_0)
         dip_angle_100_400 = np.arctan2(depth400 - depth1, l2_400 - l2_1)
 
-    # todo_400 
     output_dict["trench_center"] = trench_center
     output_dict["trench_center_50km"] = trench_center_50km
     output_dict["slab_depth"] = slab_depth
