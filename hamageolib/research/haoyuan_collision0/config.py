@@ -1149,7 +1149,6 @@ class RheologyRule(Rule):
       The range of viscosity in the model.
       Default value: [2.5e18, 2.5e23]
     """
-    # todo_mr
     requires = ["use_my_setup_of_rheology", "viscosity_range", "use_safer_options", "mantle_rheology_scheme",\
                 "mantle_rheology_name", "mantle_coh", "ref_strain_rate", "jump_lower_mantle",\
                     "activation_volume_lower_mantle"]
@@ -1251,7 +1250,6 @@ class RheologyRule(Rule):
             rheology_prm_dict = RHEOLOGY_PRM()
             Operator = RHEOLOGY_OPR()
 
-            # todo_mr
             # import a depth average profile
             LEGACY_FILE_DIR = os.path.join(package_root, "hamageolib/research/haoyuan_2d_subduction/legacy_files")
             da_file = os.path.join(LEGACY_FILE_DIR, 'reference_TwoD', "depth_average.txt")
@@ -1832,7 +1830,6 @@ class ContinentRule(Rule):
             density_aspect = parse_contiental_extension_density(prm_path)
 
             # Read and parse existing material model entries
-            # todo_mr
             density_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Densities"])
             disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
             diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
@@ -2084,7 +2081,7 @@ viscosity is being prescribed in the region",
                     foo_list = parse_entry_as_list(prescribed_solution["List of model names"])
                     if "temperature from initial" not in foo_list:
                         prescribed_solution["List of model names"] += ", temperature from initial"
-                        
+
                     prescribed_solution["Temperature from initial"] = {
                             "Indicator function": indicator_function
                     }

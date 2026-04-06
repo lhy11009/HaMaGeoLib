@@ -393,7 +393,6 @@ def test_CreepStress_CreepRheology_legacy_CreepStrainRate_ComputeComposite():
     assert(abs(strain_rate_correction - 1.0)/1.0 < 1e-6)
 
 
-# todo_mr
 def test_convert_water_content_fugacity_ASPECT():
     """
     Test the conversion from water content to fugacity.

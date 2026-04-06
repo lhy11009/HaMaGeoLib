@@ -589,7 +589,6 @@ def test_continent_prescribed_velocity_bottomline():
     assert(filecmp.cmp(case_prm, case_prm_standard))
     assert(filecmp.cmp(case_wb, case_wb_standard))
 
-# todo_mr
 
 def test_fix_mantle_rheology():
     """
