@@ -1148,13 +1148,18 @@ class RheologyRule(Rule):
     """
     # todo_mr
     requires = ["use_my_setup_of_rheology", "viscosity_range", "use_safer_options", "mantle_rheology_scheme",\
-                "mantle_rheology_name"]
+                "mantle_rheology_name", "mantle_coh", "ref_strain_rate", "jump_lower_mantle",\
+                    "activation_volume_lower_mantle"]
     
     defaults = {"use_my_setup_of_rheology": False, 
                 "viscosity_range": [2.5e18, 2.5e23], 
                 "use_safer_options": False,
                 "mantle_rheology_scheme": "use_fluid",
-                "mantle_rheology_name": "HK03"}
+                "mantle_rheology_name": "HK03",
+                "mantle_coh": 100.0,
+                "ref_strain_rate": 1e-15,
+                "jump_lower_mantle": 30.0,
+                "activation_volume_lower_mantle": 3e-6}
 
     requires_comments = {"use_my_setup_of_rheology": "Set reference strain rate to 1e-15.", "viscosity_range": "Range of viscosity in the model",
                          "use_safer_options": "Use adiabatic pressure in rheology and also cutoff unrealistic temperatures"}
@@ -1193,6 +1198,12 @@ class RheologyRule(Rule):
 
         # Get values of configurations
         use_my_setup_of_rheology = config["use_my_setup_of_rheology"]
+        mantle_rheology_scheme = config["mantle_rheology_scheme"]
+        mantle_rheology_name = config["mantle_rheology_name"]
+        mantle_coh = config["mantle_coh"]
+        ref_strain_rate = config["ref_strain_rate"]
+        jump_lower_mantle = config["jump_lower_mantle"]
+        activation_volume_lower_mantle = config["activation_volume_lower_mantle"]
 
         # In my setup, I use a reference strain rate of 1e-15 to start the model
         if use_my_setup_of_rheology:
@@ -1219,6 +1230,11 @@ class RheologyRule(Rule):
         if use_safer_options:
             prm_dict["Material model"]["Visco Plastic"]["Use adiabatic pressure in creep viscosity"] = "true"
             prm_dict["Material model"]["Visco Plastic"]["Minimum temperature for viscosity"] = "273.15"
+
+        # apply different scheme
+        # use fluid would apply the original values I received
+        if mantle_rheology_scheme == "use_fluid":
+            pass
 
 
 class WeakLayerRule(Rule):
