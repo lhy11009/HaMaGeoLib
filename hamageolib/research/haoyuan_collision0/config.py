@@ -1,8 +1,11 @@
+import os
 import numpy as np
 from pathlib import Path
 from copy import deepcopy
 from ...utils.exception_handler import my_assert
 from ...core.AnalyticalSolution import ContinentalThermChapmanPartition
+from ...research.haoyuan_2d_subduction.legacy_tools import RHEOLOGY_PRM, RHEOLOGY_OPR,\
+    RefitRheology
 from gdmate.aspect.config_engine import Rule, RuleConflictError
 from gdmate.aspect.table import DepthAverageTable
 from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
@@ -1207,7 +1210,7 @@ class RheologyRule(Rule):
 
         # In my setup, I use a reference strain rate of 1e-15 to start the model
         if use_my_setup_of_rheology:
-            prm_dict["Material model"]["Visco Plastic"]["Reference strain rate"] = "1e-15"
+            prm_dict["Material model"]["Visco Plastic"]["Reference strain rate"] = "%.1e" % ref_strain_rate
 
         # Prescribe maximum and minimum viscosity
         # Here, just assign every phase to min and max values.
@@ -1235,6 +1238,133 @@ class RheologyRule(Rule):
         # use fluid would apply the original values I received
         if mantle_rheology_scheme == "use_fluid":
             pass
+        elif mantle_rheology_scheme == "combine_prefactor":
+            # Assume no correction to flow law
+            diff_correction = {'A': 1.0, 'p': 0.0, 'r': 0.0, 'n': 0.0, 'E': 0.0, 'V': 0.0}
+            disl_correction = {'A': 1.0, 'p': 0.0, 'r': 0.0, 'n': 0.0, 'E': 0.0, 'V': 0.0}
+
+            # Parse rheology parameters
+            max_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"])
+            min_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"])
+
+            # initiate operators
+            rheology_prm_dict = RHEOLOGY_PRM()
+            Operator = RHEOLOGY_OPR()
+
+            # todo_mr
+            # import a depth average profile
+            LEGACY_FILE_DIR = os.path.join(package_root, "hamageolib/research/haoyuan_2d_subduction/legacy_files")
+            da_file = os.path.join(LEGACY_FILE_DIR, 'reference_TwoD', "depth_average.txt")
+            Operator.ReadProfile(da_file)
+            depths, pressures, temperatures = Operator.depths, Operator.pressures, Operator.temperatures
+
+            # initial rheologic parameters
+            diffusion_creep_ori = getattr(rheology_prm_dict, mantle_rheology_name + "_diff")
+            dislocation_creep_ori = getattr(rheology_prm_dict, mantle_rheology_name + "_disl")
+            rheology_dict = {'diffusion': diffusion_creep_ori, 'dislocation': dislocation_creep_ori}
+            
+            # prescribe the reference state
+            ref_state = {}
+            ref_state["Coh"] = mantle_coh # H / 10^6 Si
+            ref_state["stress"] = 50.0 # MPa
+            ref_state["P"] = 100.0e6 # Pa
+            ref_state["T"] = 1250.0 + 273.15 # K
+            ref_state["d"] = 15.0 # mu m
+
+
+            # refit rheology
+            rheology_dict_refit = RefitRheology(rheology_dict, diff_correction, disl_correction, ref_state)
+
+            # derive mantle rheology
+            rheology, viscosity_profile = Operator.MantleRheology(assign_rheology=True, diffusion_creep=rheology_dict_refit['diffusion'],\
+                                                        dislocation_creep=rheology_dict_refit['dislocation'], save_profile=0,\
+                                                        use_effective_strain_rate=True, save_json=1, Coh=mantle_coh,\
+                                                        jump_lower_mantle=jump_lower_mantle, Vdiff_lm=activation_volume_lower_mantle)
+
+            # extract the rheology components
+            diff_um = rheology["diffusion_creep"]
+            disl_um = rheology["dislocation_creep"]
+            diff_lm = rheology["diffusion_lm"]
+
+            # assign the default grain size
+            prm_dict["Material model"]["Visco Plastic"]["Grain size"] = ("%.4e" % diff_um["d"])
+
+            # parse the rheology configuration
+            diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
+            disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
+
+            try: 
+                diff_E_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"])
+            except ValueError:
+                diff_E_dict = deepcopy(diff_A_dict)
+                for key, value in diff_E_dict.items():
+                    diff_E_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"]) for i in range(len(value))]
+            
+            try: 
+                diff_V_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"])
+            except ValueError:
+                diff_V_dict = deepcopy(diff_A_dict)
+                for key, value in diff_V_dict.items():
+                    diff_V_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"]) for i in range(len(value))]
+            
+            try: 
+                disl_E_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"])
+            except ValueError:
+                disl_E_dict = deepcopy(disl_A_dict)
+                for key, value in disl_E_dict.items():
+                    disl_E_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"]) for i in range(len(value))]
+            
+            try: 
+                disl_V_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"])
+            except ValueError:
+                disl_V_dict = deepcopy(disl_A_dict)
+                for key, value in disl_V_dict.items():
+                    disl_V_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"]) for i in range(len(value))]
+
+            # assign value from the selected rheology scheme
+            names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"]) + ["background"]
+            upper_mantle_phases = {"background": [0], 
+                                   "gabbro": [0],
+                                   "MORB": [0, 1],
+                                   "sediment": [0, 1],
+                                   "crust_upper": [0],
+                                   "crust_lower": [0],
+                                   "overriding":[]
+                                   }
+            lower_mantle_phases = {"background": [1], 
+                                   "gabbro": [1],
+                                   "MORB": [2],
+                                   "sediment": [0, 2],
+                                   "crust_upper": [1],
+                                   "crust_lower": [1],
+                                   "overriding":[]
+                                   }
+            
+            for composition in names_of_fields:
+                for i in upper_mantle_phases[composition]:
+                    diff_A_dict[composition][i] = float(diff_um['A'])
+                    diff_V_dict[composition][i] = float(diff_um['V'])
+                    diff_E_dict[composition][i] = float(diff_um['E'])
+                    disl_A_dict[composition][i] = float(disl_um['A'])
+                    disl_V_dict[composition][i] = float(disl_um['V'])
+                    disl_E_dict[composition][i] = float(disl_um['E'])
+                for i in lower_mantle_phases[composition]:
+                    diff_A_dict[composition][i] = float(diff_lm['A'])
+                    diff_V_dict[composition][i] = float(diff_lm['V'])
+                    diff_E_dict[composition][i] = float(diff_lm['E'])
+                    disl_A_dict[composition][i] = 1e-32  # set a big value in dislocation creep to turn it off
+                    disl_V_dict[composition][i] = 0.0
+                    disl_E_dict[composition][i] = 0.0
+            
+            prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"] = format_composition_entry(diff_A_dict, "%.4e")
+            prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"] = format_composition_entry(diff_V_dict, "%.4e")
+            prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"] = format_composition_entry(diff_E_dict, "%.4e")
+            prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"] = format_composition_entry(disl_A_dict, "%.4e")
+            prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"] = format_composition_entry(disl_V_dict, "%.4e")
+            prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"] = format_composition_entry(disl_E_dict, "%.4e")
+        
+        else:
+            raise ValueError("mantle_rheology_scheme needs to be either use_fluid or combine_prefactor")
 
 
 class WeakLayerRule(Rule):
@@ -1702,6 +1832,7 @@ class ContinentRule(Rule):
             density_aspect = parse_contiental_extension_density(prm_path)
 
             # Read and parse existing material model entries
+            # todo_mr
             density_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Densities"])
             disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
             diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
@@ -1950,7 +2081,10 @@ viscosity is being prescribed in the region",
                         }
                     }
                 else:
-                    prescribed_solution["List of model names"] += ", temperature from initial"
+                    foo_list = parse_entry_as_list(prescribed_solution["List of model names"])
+                    if "temperature from initial" not in foo_list:
+                        prescribed_solution["List of model names"] += ", temperature from initial"
+                        
                     prescribed_solution["Temperature from initial"] = {
                             "Indicator function": indicator_function
                     }

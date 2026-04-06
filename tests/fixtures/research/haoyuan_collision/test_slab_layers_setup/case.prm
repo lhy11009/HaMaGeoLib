@@ -168,7 +168,7 @@ subsection Material model
         set Plastic damper viscosity = 1e20
         set Viscosity prefactor scheme = none
         set Minimum strain rate = 1e-20
-        set Reference strain rate = 1e-15
+        set Reference strain rate = 1.0e-15
         set Phase transition depths = background: 660000.0, gabbro: 125000.0|660000.0, MORB: 125000.0|660000.0, sediment: 125000.0|660000.0, overriding: 660000.0
         set Phase transition widths = background: 20000.0, gabbro: 10000.0|20000.0, MORB: 10000.0|20000.0, sediment: 10000.0|20000.0, overriding: 20000.0
         set Phase transition temperatures = background: 1573.0, gabbro: 1573.0|1573.0, MORB: 1573.0|1573.0, sediment: 1573.0|1573.0, overriding: 1573.0
