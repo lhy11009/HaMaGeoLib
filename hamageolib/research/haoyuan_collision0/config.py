@@ -1583,13 +1583,14 @@ class ContinentRule(Rule):
     """
 
     requires = ["add_continents", "continent_depth_levels", "subducting_continent_length", "chapman_model_type",
-                "chapman_model_surface_heatflux"]
+                "chapman_model_surface_heatflux", "fix_continent_rheology_prefactor"]
 
     defaults = {"add_continents": "none",\
                 "continent_depth_levels": [20e3, 40e3],\
                     "subducting_continent_length": -1,
                     "chapman_model_type": "default",
-                    "chapman_model_surface_heatflux": 0.055}
+                    "chapman_model_surface_heatflux": 0.055,
+                    "fix_continent_rheology_prefactor": False}
 
     requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\"",
                          "continent_depth_levels": "Depth levels of the boundary between compositions (e.g. between upper and lower crust, lower crust and mantle)",
@@ -1636,6 +1637,7 @@ class ContinentRule(Rule):
 
         chapman_model_type = config["chapman_model_type"]
         chapman_model_surface_heatflux = config["chapman_model_surface_heatflux"]
+        fix_continent_rheology_prefactor = config["fix_continent_rheology_prefactor"]
 
         # handle the overriding plate
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
@@ -1883,7 +1885,10 @@ class ContinentRule(Rule):
 
             # Assign rheological and density properties to continental compositions
             density_dict["crust_upper"] = float(density_aspect["crust_upper"])
-            disl_A_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['A'])
+            if fix_continent_rheology_prefactor:
+                disl_A_dict["crust_upper"][0] = 8.57e-28 
+            else:
+                disl_A_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['A'])
             # todo_factor
             disl_n_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['n'])
             disl_E_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['E'])
@@ -1893,7 +1898,10 @@ class ContinentRule(Rule):
             diff_A_dict["crust_upper"][0] = 1e-50
             
             density_dict["crust_lower"] = float(density_aspect["crust_lower"])
-            disl_A_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['A'])
+            if fix_continent_rheology_prefactor:
+                disl_A_dict["crust_lower"][0] = 7.13e-18
+            else:
+                disl_A_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['A'])
             disl_n_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['n'])
             disl_E_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['E'])
             disl_V_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['V'])
