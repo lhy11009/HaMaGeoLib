@@ -9,7 +9,7 @@ from ...research.haoyuan_2d_subduction.legacy_tools import RHEOLOGY_PRM, RHEOLOG
 from gdmate.aspect.config_engine import Rule, RuleConflictError
 from gdmate.aspect.table import DepthAverageTable
 from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
-    parse_isosurfaces_entry, format_isosurfaces_entry, parse_parameters_to_dict
+    parse_isosurfaces_entry, format_isosurfaces_entry, parse_parameters_to_dict, parse_composition_entry_with_phases
 from gdmate.aspect.prm_wb_utils import delete_composition_from_prm, duplicate_composition_from_prm, remove_composition_from_prm_recursive,\
     find_WB_feature_by_name
 
@@ -1291,40 +1291,22 @@ class RheologyRule(Rule):
             diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
             disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
 
-            try: 
-                diff_E_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"])
-            except ValueError:
-                diff_E_dict = deepcopy(diff_A_dict)
-                for key, value in diff_E_dict.items():
-                    diff_E_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"]) for i in range(len(value))]
             
-            try: 
-                diff_V_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"])
-            except ValueError:
-                diff_V_dict = deepcopy(diff_A_dict)
-                for key, value in diff_V_dict.items():
-                    diff_V_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"]) for i in range(len(value))]
+            diff_E_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"],
+                                                              instance=disl_A_dict)
             
-            try: 
-                disl_E_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"])
-            except ValueError:
-                disl_E_dict = deepcopy(disl_A_dict)
-                for key, value in disl_E_dict.items():
-                    disl_E_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"]) for i in range(len(value))]
+            diff_V_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"],
+                                                              instance=disl_A_dict)
             
-            try: 
-                disl_V_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"])
-            except ValueError:
-                disl_V_dict = deepcopy(disl_A_dict)
-                for key, value in disl_V_dict.items():
-                    disl_V_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"]) for i in range(len(value))]
+            disl_E_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"],
+                                                              instance=disl_A_dict)
             
-            try: 
-                disl_n_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"])
-            except ValueError:
-                disl_n_dict = deepcopy(disl_A_dict)
-                for key, value in disl_V_dict.items():
-                    disl_n_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"]) for i in range(len(value))]
+            disl_V_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"],
+                                                              instance=disl_A_dict)
+            
+            disl_n_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"],
+                                                              instance=disl_A_dict)
+            
 
             # assign value from the selected rheology scheme
             names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"]) + ["background"]
@@ -1415,14 +1397,16 @@ class WeakLayerRule(Rule):
     """
     
     requires = ["weak_layer_compositions", "weak_layer_viscosity", "weak_layer_cutoff_depth", "weak_layer_transition_width", "force_weak_layer_max_refinement",
-                "use_isosurfaces"]
+                "use_isosurfaces", "weak_layer_rheology_scheme", "weak_layer_friction"]
     
-    defaults = {"weak_layer_compositions": ["MORB", "sediment"], 
+    defaults = {"weak_layer_compositions": ["MORB", "sediment"],
+                "weak_layer_rheology_scheme": "constant viscosity",
                 "weak_layer_viscosity": 2.5e19, 
                 "weak_layer_cutoff_depth": 125e3, 
                 "weak_layer_transition_width":10e3, 
                 "force_weak_layer_max_refinement": False,
-                "use_isosurfaces": False
+                "use_isosurfaces": False,
+                "weak_layer_friction": 0.01
                 }
     
     requires_comments = {"weak_layer_compositions": "The weak layer is expand to these compositions. Phase transitions of them are set up consistently.",
@@ -1467,6 +1451,8 @@ class WeakLayerRule(Rule):
         weak_layer_transition_width = config["weak_layer_transition_width"]
         force_weak_layer_max_refinement = config["force_weak_layer_max_refinement"]
         use_isosurfaces = config["use_isosurfaces"]
+        weak_layer_rheology_scheme = config["weak_layer_rheology_scheme"]
+        weak_layer_friction = config["weak_layer_friction"]
 
         # Expand and make a new phase if compositions are not from "MORB" or "sediment"
         for composition in weak_layer_compositions:
@@ -1499,13 +1485,28 @@ class WeakLayerRule(Rule):
 
         # Maximum viscosity is slightly larger than the assigned weak layer viscosity (by 0.4%)
         # Minimum viscosity is slightly smaller than the assigned weak layer viscosity (by 0.4%)
-        max_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"])
-        min_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"])
-        for composition in weak_layer_compositions:
-            max_viscosity_dict[composition][0] = "%.3e" % (weak_layer_viscosity * 1.0004)
-            min_viscosity_dict[composition][0] = "%.3e" % (weak_layer_viscosity * 0.9996)
-        prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"] = format_composition_entry(max_viscosity_dict)
-        prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"] = format_composition_entry(min_viscosity_dict)
+        if weak_layer_rheology_scheme == "constant viscosity":
+            max_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"])
+            min_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"])
+            for composition in weak_layer_compositions:
+                max_viscosity_dict[composition][0] = "%.3e" % (weak_layer_viscosity * 1.0004)
+                min_viscosity_dict[composition][0] = "%.3e" % (weak_layer_viscosity * 0.9996)
+            prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"] = format_composition_entry(max_viscosity_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"] = format_composition_entry(min_viscosity_dict)
+        elif weak_layer_rheology_scheme == "low friction":
+            # parse in the angle of friction as phase options
+            disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
+            angle_friction_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"],
+                                                                      instance=disl_A_dict)
+
+            # Ensure dislocation creep parameters are stored per-composition
+            
+            for composition in weak_layer_compositions:
+                angle_friction_dict[composition][0] = "%.3e" % (180.0/np.pi*np.arctan(weak_layer_friction))
+            
+            prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"] = format_composition_entry(angle_friction_dict)
+
+        # todo_wl
 
 
 class SolverRule(Rule):
@@ -1848,40 +1849,20 @@ class ContinentRule(Rule):
             diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
 
             # Ensure dislocation creep parameters are stored per-composition
-            try:
-                disl_n_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"])
-            except ValueError:
-                disl_n_dict = deepcopy(disl_A_dict)
-                for key, value in disl_n_dict.items():
-                    disl_n_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"]) for i in range(len(value))]
-
-            try:
-                disl_E_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"])
-            except ValueError:
-                disl_E_dict = deepcopy(disl_A_dict)
-                for key, value in disl_E_dict.items():
-                    disl_E_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"]) for i in range(len(value))]
-
-            try:
-                disl_V_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"])
-            except ValueError:
-                disl_V_dict = deepcopy(disl_A_dict)
-                for key, value in disl_V_dict.items():
-                    disl_V_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"]) for i in range(len(value))]
-
-            try:
-                angle_friction_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"])
-            except ValueError:
-                angle_friction_dict = deepcopy(disl_A_dict)
-                for key, value in angle_friction_dict.items():
-                    angle_friction_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"]) for i in range(len(value))]
+            disl_n_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"],
+                                                              instance=disl_A_dict)
             
-            try:
-                cohesion_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Cohesions"])
-            except ValueError:
-                cohesion_dict = deepcopy(disl_A_dict)
-                for key, value in cohesion_dict.items():
-                    cohesion_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Cohesions"]) for i in range(len(value))]
+            disl_E_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"],
+                                                              instance=disl_A_dict)
+            
+            disl_V_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"],
+                                                              instance=disl_A_dict)
+            
+            angle_friction_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"],
+                                                              instance=disl_A_dict)
+
+            cohesion_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Cohesions"],
+                                                                instance=disl_A_dict)
 
             # Assign rheological and density properties to continental compositions
             density_dict["crust_upper"] = float(density_aspect["crust_upper"])
