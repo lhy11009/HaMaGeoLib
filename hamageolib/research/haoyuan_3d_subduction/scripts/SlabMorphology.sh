@@ -4,8 +4,8 @@
 # path to
 case_dir="/mnt/lochy/ASPECT_DATA/MOW/mow3_00/C_mow_h2890.0_M_gr3_ar4_rf"
 # steps to run (vtu_step)
-min_vtu_step=120
-max_vtu_step=300 # 184
+min_vtu_step=190
+max_vtu_step=190 # 184
 inter_vtu_step=10
 
 # total number of pieces

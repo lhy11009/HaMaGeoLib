@@ -1318,6 +1318,13 @@ class RheologyRule(Rule):
                 disl_V_dict = deepcopy(disl_A_dict)
                 for key, value in disl_V_dict.items():
                     disl_V_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"]) for i in range(len(value))]
+            
+            try: 
+                disl_n_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"])
+            except ValueError:
+                disl_n_dict = deepcopy(disl_A_dict)
+                for key, value in disl_V_dict.items():
+                    disl_n_dict[key] = [float(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"]) for i in range(len(value))]
 
             # assign value from the selected rheology scheme
             names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"]) + ["background"]
@@ -1346,13 +1353,16 @@ class RheologyRule(Rule):
                     disl_A_dict[composition][i] = float(disl_um['A'])
                     disl_V_dict[composition][i] = float(disl_um['V'])
                     disl_E_dict[composition][i] = float(disl_um['E'])
+                    disl_n_dict[composition][i] = float(disl_um['n'])
                 for i in lower_mantle_phases[composition]:
                     diff_A_dict[composition][i] = float(diff_lm['A'])
                     diff_V_dict[composition][i] = float(diff_lm['V'])
                     diff_E_dict[composition][i] = float(diff_lm['E'])
                     disl_A_dict[composition][i] = 1e-32  # set a big value in dislocation creep to turn it off
+                    disl_n_dict[composition][i] = 1.0
                     disl_V_dict[composition][i] = 0.0
                     disl_E_dict[composition][i] = 0.0
+
             
             prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"] = format_composition_entry(diff_A_dict, "%.4e")
             prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"] = format_composition_entry(diff_V_dict, "%.4e")
@@ -1360,6 +1370,7 @@ class RheologyRule(Rule):
             prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"] = format_composition_entry(disl_A_dict, "%.4e")
             prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"] = format_composition_entry(disl_V_dict, "%.4e")
             prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"] = format_composition_entry(disl_E_dict, "%.4e")
+            prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"] = format_composition_entry(disl_n_dict, "%.2f")
         
         else:
             raise ValueError("mantle_rheology_scheme needs to be either use_fluid or combine_prefactor")
