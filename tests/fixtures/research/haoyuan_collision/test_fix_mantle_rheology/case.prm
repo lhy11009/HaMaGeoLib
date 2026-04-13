@@ -179,11 +179,11 @@ subsection Material model
         set Maximum viscosity = background: 2.5e+23|2.5e+23, gabbro: 2.5e+23|2.5e+23, MORB: 2.501e+19|2.5e+23|2.5e+23, sediment: 2.501e+19|2.5e+23|2.5e+23, crust_upper: 2.5e+23|2.5e+23, crust_lower: 2.5e+23|2.5e+23
         set Prefactors for diffusion creep = background: 4.35e-17|5.2637e-18, gabbro: 4.35e-17|5.2637e-18, MORB: 4.35e-17|4.35e-17|5.2637e-18, sediment: 5.2637e-18|4.35e-17|5.2637e-18, crust_upper: 1e-50|5.2637e-18, crust_lower: 1e-50|5.2637e-18
         set Stress exponents for diffusion creep = 1.0
-        set Grain size exponents for diffusion creep = 3
-        set Activation volumes for diffusion creep = background: 1.9e-06|3e-06, gabbro: 1.9e-06|3e-06, MORB: 1.9e-06|1.9e-06|3e-06, sediment: 3e-06|1.9e-06|3e-06, crust_upper: 1.9e-06|3e-06, crust_lower: 1.9e-06|3e-06
+        set Grain size exponents for diffusion creep = background: 3.0|3.0, gabbro: 3.0|3.0, MORB: 3.0|3.0|3.0, sediment: 3.0|3.0|3.0, crust_upper: 0.0|3.0, crust_lower: 0.0|3.0
+        set Activation volumes for diffusion creep = background: 1.9e-06|3e-06, gabbro: 1.9e-06|3e-06, MORB: 1.9e-06|1.9e-06|3e-06, sediment: 3e-06|1.9e-06|3e-06, crust_upper: 0.0|3e-06, crust_lower: 0.0|3e-06
         set Grain size = 1.0000e-02
-        set Activation energies for diffusion creep = background: 335000.0|335000.0, gabbro: 335000.0|335000.0, MORB: 335000.0|335000.0|335000.0, sediment: 335000.0|335000.0|335000.0, crust_upper: 335000.0|335000.0, crust_lower: 335000.0|335000.0
-        set Prefactors for dislocation creep = background: 2.9752e-17|1e-32, gabbro: 2.9752e-17|1e-32, MORB: 2.9752e-17|2.9752e-17|1e-32, sediment: 1e-32|2.9752e-17|1e-32, crust_upper: 1.37e-26|1e-32, crust_lower: 5.71e-23|1e-32
+        set Activation energies for diffusion creep = background: 335000.0|335000.0, gabbro: 335000.0|335000.0, MORB: 335000.0|335000.0|335000.0, sediment: 335000.0|335000.0|335000.0, crust_upper: 0.0|335000.0, crust_lower: 0.0|335000.0
+        set Prefactors for dislocation creep = background: 2.9752e-17|1e-50, gabbro: 2.9752e-17|1e-50, MORB: 2.9752e-17|2.9752e-17|1e-50, sediment: 1e-50|2.9752e-17|1e-50, crust_upper: 1.37e-26|1e-50, crust_lower: 5.71e-23|1e-50
         set Stress exponents for dislocation creep = background: 3.5|1.0, gabbro: 3.5|1.0, MORB: 3.5|3.5|1.0, sediment: 1.0|3.5|1.0, crust_upper: 4.0|1.0, crust_lower: 3.0|1.0
         set Activation volumes for dislocation creep = background: 1.1e-05|0.0, gabbro: 1.1e-05|0.0, MORB: 1.1e-05|1.1e-05|0.0, sediment: 0.0|1.1e-05|0.0, crust_upper: 0.0|0.0, crust_lower: 0.0|0.0
         set Activation energies for dislocation creep = background: 480000.0|0.0, gabbro: 480000.0|0.0, MORB: 480000.0|480000.0|0.0, sediment: 0.0|480000.0|0.0, crust_upper: 223000.0|0.0, crust_lower: 345000.0|0.0

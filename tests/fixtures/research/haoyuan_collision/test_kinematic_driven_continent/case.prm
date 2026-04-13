@@ -180,10 +180,10 @@ subsection Material model
         set Prefactors for diffusion creep = background: 1.577e-22|8e-25, porosity: 1.577e-22|8e-25, bound_fluid: 1.577e-22|8e-25, gabbro: 1.577e-22|8e-25, MORB: 1.577e-22|1.577e-22|8e-25, sediment: 1.577e-22|1.577e-22|8e-25, crust_upper: 1e-50|8e-25, crust_lower: 1e-50|8e-25
         set Water fugacity exponents for diffusion creep = 0.7
         set Stress exponents for diffusion creep = 1.0
-        set Grain size exponents for diffusion creep = 3
-        set Activation volumes for diffusion creep = background: 1.13e-05|9.8e-06, porosity: 1.13e-05|9.8e-06, bound_fluid: 1.13e-05|9.8e-06, gabbro: 1.13e-05|9.8e-06, MORB: 1.13e-05|1.13e-05|9.8e-06, sediment: 1.13e-05|1.13e-05|9.8e-06, crust_upper: 1.13e-05|9.8e-06, crust_lower: 1.13e-05|9.8e-06
+        set Grain size exponents for diffusion creep = background: 3.0|3.0, porosity: 3.0|3.0, bound_fluid: 3.0|3.0, gabbro: 3.0|3.0, MORB: 3.0|3.0|3.0, sediment: 3.0|3.0|3.0, crust_upper: 0.0|3.0, crust_lower: 0.0|3.0
+        set Activation volumes for diffusion creep = background: 1.13e-05|9.8e-06, porosity: 1.13e-05|9.8e-06, bound_fluid: 1.13e-05|9.8e-06, gabbro: 1.13e-05|9.8e-06, MORB: 1.13e-05|1.13e-05|9.8e-06, sediment: 1.13e-05|1.13e-05|9.8e-06, crust_upper: 0.0|9.8e-06, crust_lower: 0.0|9.8e-06
         set Grain size = 1e-3
-        set Activation energies for diffusion creep = 375e3
+        set Activation energies for diffusion creep = background: 375000.0|375000.0, porosity: 375000.0|375000.0, bound_fluid: 375000.0|375000.0, gabbro: 375000.0|375000.0, MORB: 375000.0|375000.0|375000.0, sediment: 375000.0|375000.0|375000.0, crust_upper: 0.0|375000.0, crust_lower: 0.0|375000.0
         set Prefactors for dislocation creep = background: 2.75e-26|1e-50, porosity: 2.75e-26|1e-50, bound_fluid: 2.75e-26|1e-50, gabbro: 2.75e-26|1e-50, MORB: 2.75e-26|2.75e-26|1e-50, sediment: 2.75e-26|2.75e-26|1e-50, crust_upper: 1.37e-26|1e-50, crust_lower: 5.71e-23|1e-50
         set Water fugacity exponents for dislocation creep = 0.34285714285714286
         set Stress exponents for dislocation creep = background: 3.5|3.5, porosity: 3.5|3.5, bound_fluid: 3.5|3.5, gabbro: 3.5|3.5, MORB: 3.5|3.5|3.5, sediment: 3.5|3.5|3.5, crust_upper: 4.0|3.5, crust_lower: 3.0|3.5
