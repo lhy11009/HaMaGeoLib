@@ -1,0 +1,33 @@
+{
+    "beta_ref": 8e-12,
+    "Kp": 4.0,
+    "alpha_ref": 4e-5,
+    "T_ref": 1573.15,
+    "cp_ref": 1250.0,
+    "p_depth_dict": {
+        "background": [400e3, 520e3, 660e3],
+        "harzburgite": [400e3, 520e3, 660e3],
+        "MORB": [50e3, 100e3, 300e3, 410e3, 700e3, 770e3]
+    },
+    "p_width_dict": {
+        "background": [10e3, 10e3, 10e3],
+        "harzburgite": [10e3, 10e3, 10e3],
+        "MORB": [10e3, 30e3, 10e3, 20e3, 60e3, 10e3]
+    },
+    "p_temperature_dict": {
+        "background": [1732, 1762.0, 1801.0],
+        "harzburgite": [1732, 1762.0, 1801.0],
+        "MORB": [1600.0, 1600.0, 1680.0, 1732.0, 1850.0, 1900.0]
+    },
+    "p_slope_dict": {
+        "background": [2e6, 5e6, -1.5e6],
+        "harzburgite": [2e6, 5e6, -1.5e6],
+        "MORB": [0.5e6, 1e6, 3e6, -1e6, 2e6, 5e6]
+    },
+    "p_density_dict": {
+        "background": [3300.0, 3440.0, 3500.0, 3800.0],
+        "harzburgite": [3200.0, 3440.0, 3500.0, 3800.0],
+        "MORB": [2920.0, 3275.0, 3410.0, 3520.0, 3570.0, 3700.0, 3850.0],
+        "sediment": [3175.0]
+    }
+}

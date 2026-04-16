@@ -13,7 +13,7 @@ from PIL import Image, ImageFilter, ImageFont, ImageDraw
 from copy import deepcopy
 
 current_dir = os.path.dirname(__file__)
-JSON_FILE_DIR = os.path.join(current_dir, "..", "files")
+JSON_FILE_DIR = os.path.join(current_dir, "legacy_json_files")
 
 # sys.path.append(current_dir)
 
@@ -1847,6 +1847,9 @@ def ParseToSlurmBatchFile(fout, outputs, **kwargs):
         contents += ("module unload %s\n" % module)
     for module in outputs["load"]:
         contents += ("module load %s\n" % module)
+    for source_file in outputs["source"]:
+        contents += ("source %s\n" % source_file)
+    # source
     # others
     for line in outputs['others']:
         contents += (line + '\n')
@@ -1931,6 +1934,13 @@ class SLURM_OPERATOR():
         assert(type(module_list) == list)
         self.o_dict['load'] = module_list
         self.o_dict['unload'] = module_u_list
+
+    def SetSource(self, sources):
+        '''
+        set file to source
+        '''
+        assert(type(sources) == list)
+        self.o_dict['source'] = sources
 
     def SetCommand(self, build_directory, prm_file):
         '''

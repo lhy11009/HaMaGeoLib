@@ -151,7 +151,7 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     add_glyph_with_label(source_name, "velocity", ScaleFactor,
                          registrationName="glyph1",
                          MaximumNumberOfSamplePoints=250,
-                         LabelPosition=[RIGHT/2.0, TOP*1.2, 0.0])
+                         LabelPosition=[RIGHT/2.0, TOP + 200e3, 0.0])
     glyph1 = FindSource("glyph1")
     glyph1Display = Show(glyph1, renderView1, 'GeometryRepresentation')
     label_glyph1 = FindSource("Label_glyph1")
@@ -187,9 +187,10 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
 
         # adjust camera setup
         # Camera position is adjusted relative to the position of the right and top boundary
+        # todo_height
         renderView1.InteractionMode = '2D'
-        renderView1.CameraPosition = [TRENCH_CENTER, 720847.6940307743, 17717371.391353175]
-        renderView1.CameraFocalPoint = [TRENCH_CENTER, 720847.6940307743, 0.0]
+        renderView1.CameraPosition = [round(TRENCH_CENTER / 500e3) * 500e3, TOP-279152.305969, 17717371.391353175]
+        renderView1.CameraFocalPoint = [round(TRENCH_CENTER / 500e3) * 500e3, TOP-279152.305969, 0.0]
         renderView1.CameraParallelScale = 563321.6543393662  # scale to a 2000 km domain
         
     else:

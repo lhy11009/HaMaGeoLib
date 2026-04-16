@@ -1,0 +1,157 @@
+set Adiabatic surface temperature = 1573
+set Nonlinear solver scheme = no Advection, no Stokes
+set Output directory = output
+set Dimension = 2
+set End time = 0.0
+set Pressure normalization = no
+
+# Set the geometry to 1000-km deep strip
+subsection Geometry model
+  set Model name = box
+
+  subsection Box
+    set X extent = 10e3
+    set Y extent = 1000e3
+    set Y repetitions = 100
+  end
+end
+
+subsection Mesh refinement
+  set Initial global refinement                = 0
+  set Initial adaptive refinement              = 0
+  set Time steps between mesh refinement       = 0
+end
+
+subsection Gravity model
+    set Model name = function
+    subsection Function
+        set Variable names = x,y
+        set Function expression = 0; -9.81
+    end
+end
+
+subsection Formulation
+    set Formulation = isentropic compression
+    set Temperature equation = real density
+end
+
+subsection Compositional fields
+    set Number of fields = 4
+    set Names of fields = MORB, harzburgite, crust_lower, crust_upper
+    set Compositional field methods = particles, particles,  particles,  particles
+    set Mapped particle properties = MORB: initial MORB, harzburgite: initial harzburgite, crust_lower: crust_lower, crust_upper: crust_upper
+end
+
+# set one composition in the initial composition
+subsection Initial composition model
+    set List of model names = function
+    subsection Function
+        set Function expression = 0.0; 0.0; 0.0; 0.0
+    end
+end
+
+subsection Initial temperature model
+    set List of model names = adiabatic
+    subsection Adiabatic
+        subsection Function
+            set Function expression = 0.0; 0.0; 0.0; 0.0
+        end
+    end
+end
+
+# assign the initial composition to boundary
+subsection Boundary composition model
+    set List of model names = initial composition
+end
+
+subsection Boundary temperature model
+    set List of model names = initial temperature
+    set Fixed temperature boundary indicators = top, bottom
+end
+
+subsection Boundary velocity model
+    set Tangential velocity boundary indicators = left, right, bottom, top
+end
+
+
+subsection Heating model
+    set List of model names = adiabatic heating, shear heating,  latent heat
+end
+
+
+subsection Material model
+    set Model name = compositing
+    set Material averaging = geometric average only viscosity
+    subsection Multicomponent compressible
+        set Reference temperatures = 1600
+        set Reference densities = background: 3300.0, MORB: 3175.0, harzburgite:3300.0, crust_lower: 3175.0, crust_upper: 3175.0
+        set Reference isothermal compressibilities = 4e-12
+        set Isothermal bulk modulus pressure derivatives = 4
+        set Reference thermal expansivities = 2.e-5
+        set Isochoric specific heats = 1250
+        set Thermal conductivities = 0.0
+    end
+    subsection Visco Plastic
+        set Viscosity averaging scheme = geometric
+        set Viscous flow law = composite
+        set Use plastic damper = true
+        set Plastic damper viscosity = 1e20
+        set Viscosity prefactor scheme = none
+        set Minimum strain rate = 1e-20
+        set Reference strain rate = 1.0e-15
+        set Phase transition depths = background: 660000.0
+        set Phase transition widths = background: 20000.0
+        set Phase transition temperatures = background: 1573.0
+        set Phase transition Clapeyron slopes = background: 0.0
+        set Densities = 3300.0
+        set Minimum viscosity = 2.5e+19
+        set Maximum viscosity = 2.5e+23
+        set Prefactors for diffusion creep = 1.305e-16
+        set Stress exponents for diffusion creep = 1.0
+        set Grain size exponents for diffusion creep = 3.0
+        set Activation volumes for diffusion creep = 1.9e-06
+        set Grain size = 1.0000e-02
+        set Activation energies for diffusion creep = 335000.0
+        set Prefactors for dislocation creep = 1.1119e-16
+        set Stress exponents for dislocation creep = 3.5
+        set Activation volumes for dislocation creep = 1.1e-05
+        set Activation energies for dislocation creep = 480000.0
+        set Angles of internal friction = 30.0
+        set Cohesions = 60000000.0
+        set Maximum yield stress = 500e6
+        set Use adiabatic pressure in plasticity = true
+        set Thermal expansivities = 3.0e-5
+        set Thermal diffusivities = 1e-6
+        set Heat capacities = 1250.0
+    end
+    subsection Compositing
+        set Viscosity = visco plastic
+        set Density = multicomponent compressible  # visco plastic
+        set Thermal expansion coefficient = visco plastic
+        set Specific heat = visco plastic
+        set Thermal conductivity = visco plastic
+        set Compressibility = multicomponent compressible
+        set Entropy derivative pressure = visco plastic
+        set Entropy derivative temperature = visco plastic
+        set Reaction terms = visco plastic
+    end
+end
+
+subsection Postprocess
+    set List of postprocessors = visualization, composition statistics, velocity statistics, material statistics, depth average
+    subsection Visualization
+        set List of output variables = material properties
+        set Output format = vtu
+        set Time between graphical output = 0
+        set Interpolate output = true
+        set Number of grouped files = 0
+        subsection Material properties
+            set List of material properties = density, viscosity
+        end
+    end
+    subsection Depth average
+        set Number of zones = 50
+        set Output format = txt
+        set Time between graphical output = 0
+    end
+end

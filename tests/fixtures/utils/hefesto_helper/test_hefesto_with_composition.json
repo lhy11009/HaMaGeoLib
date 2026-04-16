@@ -1,0 +1,21 @@
+{
+    "HeFESTo repository": "/home/lochy/Softwares/HeFESTo/HeFESToRepository",
+    "slurm path": "${HaMaGeoLib_DIR}/scripts/server/hive/job_hive_collision_2d.slurm",
+    "control path": "${HaMaGeoLib_DIR}/hamageolib/research/haoyuan_collision0/files/HeFESTo/control",
+    "output directory": "${HaMaGeoLib_DIR}/.test/hefesto_helper",
+    "case name": "test_hefesto_parallel_with_composition",
+    "nproc": 3,
+    "T":
+    {
+        "variable": "entropy",
+        "T1": 2.0,
+        "T2": 3.0,
+        "nT": 2
+    },
+    "P":
+    {
+        "P1": 0.0,
+        "P2": 30.0,
+        "nP": 10
+    }
+}

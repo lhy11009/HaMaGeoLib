@@ -10887,8 +10887,8 @@ class RHEOLOGY_OPR():
         # upper mantle
         # use harmonic average
         # lower mantle
-        integral = np.trapezoid(integral_cores[mask_integral] * np.log10(eta[mask_integral]), self.depths[mask_integral])
-        volume = np.trapezoid(integral_cores[mask_integral], self.depths[mask_integral])
+        integral = np.trapz(integral_cores[mask_integral] * np.log10(eta[mask_integral]), self.depths[mask_integral])
+        volume = np.trapz(integral_cores[mask_integral], self.depths[mask_integral])
         average_log_eta = integral / volume
         if save_json == 1:
             json_path = os.path.join(RESULT_DIR, "mantle_profile_v1_%s_dEdiff%.4e_dEdisl%.4e_dVdiff%4e_dVdisl%.4e_dAdiff%.4e_dAdisl%.4e.json" % (rheology, dEdiff, dEdisl, dVdiff, dVdisl, dAdiff_ratio, dAdisl_ratio))
@@ -17939,6 +17939,185 @@ class PLATE_MODEL():
                 sino = n * np.pi * y / self.L
                 T += (self.Tbot - self.Ttop) * 2 / np.pi / n * np.exp(expo) * np.sin(sino)
             return T
+
+
+def ComputeBuoyancy(da_file0, da_file1, **kwargs):
+    '''
+    Compute buoyancy and density ratio profiles from two data files.
+    Parameters:
+        da_file0 (str): reference profile file path.
+        da_file1 (str): comparison profile file path.
+        kwargs:
+            odir (str): output directory (default: RESULT_DIR).
+            axT (matplotlib.axes.Axes): axis to plot temperature (optional).
+            ax_density_ratio (matplotlib.axes.Axes): axis to plot density ratio (optional).
+            ax_buoy (matplotlib.axes.Axes): axis to plot buoyancy (optional).
+    Returns:
+        tuple:
+            depths (np.ndarray): depth array [m].
+            buoyancies (np.ndarray): buoyancy profile [N/m^3].
+            density_ratios (np.ndarray): density ratio profile.
+    '''
+    assert(os.path.isfile(da_file0))
+    assert(os.path.isfile(da_file1))
+    axT = kwargs.get('axT', None)
+    ax_density_ratio = kwargs.get('ax_density_ratio', None)
+    ax_buoy = kwargs.get('ax_buoy', None)
+    odir = kwargs.get("odir", RESULT_DIR)
+    _color = kwargs.get("color", None)
+    max_depth = 2890e3
+    n_depth = 2891
+    g = 9.8
+    interval = max_depth / (n_depth - 1)
+
+    # read data
+    odata0, _ = ExportData(da_file0, RESULT_DIR, names=['depth', 'temperature', 'adiabatic_density'])
+    odata1, _ = ExportData(da_file1, RESULT_DIR, names=['depth', 'temperature', 'adiabatic_density'])
+    depths_0 = odata0[:, 0]
+    Ts_0 = odata0[:, 1]
+    densities_0 = odata0[:, 2]
+    depths_1 = odata1[:, 0]
+    Ts_1 = odata1[:, 1]
+    densities_1 = odata1[:, 2]
+
+    # interpolate data
+    DensityFunc0 = interp1d(depths_0, densities_0, assume_sorted=True, fill_value="extrapolate")
+    TFunc0 = interp1d(depths_0, Ts_0, assume_sorted=True, fill_value="extrapolate")
+    DensityFunc1 = interp1d(depths_1, densities_1, assume_sorted=True, fill_value="extrapolate")
+    TFunc1 = interp1d(depths_1, Ts_1, assume_sorted=True, fill_value="extrapolate")
+
+    # compute buoyancy and buoyancy number
+    # the buoyancy number is computed with buoyancy / density1
+    # density1 is chosen instead of density0 to simulate the buoyancy ratio of density0
+    depths = np.linspace(0, max_depth, n_depth)
+    buoyancies = np.zeros(n_depth)
+    density_ratios = np.zeros(n_depth)
+    adiabatic_diff_densities = np.zeros(n_depth)
+    alpha = 3.1e-5  # thermal expansivity: contant value
+    for i in range(n_depth):
+        depth = depths[i]
+        density0 = DensityFunc0(depth)
+        density1 = DensityFunc1(depth)
+        T0 = TFunc0(depth)
+        T1 = TFunc1(depth)
+        adiabatic_diff_density = density1 - density0
+        diff_density = adiabatic_diff_density + alpha*(T0 - T1)*density1
+        buoyancy = -diff_density * g
+        buoyancies[i] = buoyancy
+        density_ratios[i] = diff_density / density1
+    
+    # plot temperature
+    if axT is not None:
+        if _color is None:
+            plot_color = "tab:red"
+        else:
+            plot_color = _color
+        axT.plot(Ts_0, depths_0/1e3, "-", label="T0", color=plot_color)
+        if _color is None:
+            plot_color = "tab:blue"
+        else:
+            plot_color = _color
+        axT.plot(Ts_1, depths_1/1e3, "-", label="T1", color=plot_color)
+        axT.set_ylabel("Depth [km]")
+        axT.set_xlabel("Temperature [K]")
+        axT.legend()
+
+    # plot density ratio
+    if ax_density_ratio is not None:
+        if _color is None:
+            plot_color = "tab:red"
+        else:
+            plot_color = _color
+        ax_density_ratio.plot(density_ratios, depths/1e3, label="density ratio", color=plot_color)
+        ax_density_ratio.set_ylabel("Depth [km]")
+        ax_density_ratio.set_xlabel("Density Ratio")
+        ax_density_ratio.legend()
+    
+    # plot buoyancy
+    if ax_buoy is not None:
+        if _color is None:
+            plot_color = "tab:blue"
+        else:
+            plot_color = _color
+        ax_buoy.plot(buoyancies, depths/1e3, label="buoyancy", color=plot_color)
+        ax_buoy.set_ylabel("Depth [km]")
+        ax_buoy.set_xlabel("Buoyancy [N/m^3]")
+        ax_buoy.legend()
+
+    # return variables
+    return depths, buoyancies, density_ratios
+
+
+def PlotDaFigureByName(depth_average_path, **kwargs):
+    '''
+    plot figure
+    Inputs:
+        kwargs:
+            time_step - time_step to plot the figure, default is 0
+    '''
+    time = kwargs.get('time', 0.0)
+    assert(os.access(depth_average_path, os.R_OK))
+    axT = kwargs.get('axT', None)
+    axP = kwargs.get('axP', None)
+    ax_density = kwargs.get('ax_density', None)
+    _color = kwargs.get("color", None)
+    # read that
+    DepthAverage = DEPTH_AVERAGE_PLOT('DepthAverage')
+    DepthAverage.ReadHeader(depth_average_path)
+    DepthAverage.ReadData(depth_average_path)
+    
+    # manage data
+    DepthAverage.SplitTimeStep()
+    names = ['depth', 'adiabatic_pressure', 'temperature', 'adiabatic_temperature', 'viscosity', 'vertical_heat_flux', 'vertical_mass_flux', 'adiabatic_density']
+    data, exact_time = DepthAverage.ExportDataByTime(time, names)
+    # get depth
+    depths = data[:, 0]
+    # get pressure
+    pressures = data[:, 1]
+    # get temperature
+    temperatures = data[:, 2]
+    adiabat = data[:, 3]
+    # get viscosity
+    eta = data[:, 4]
+    # heat_flux
+    hf = data[:, 5]
+    # heat_flux
+    mf = data[:, 6]
+    # density
+    densities = data[:, 7]
+
+    # plot temperature
+    if axT is not None:
+        if _color is None:
+            plot_color = "tab:red"
+        else:
+            plot_color = _color
+        axT.plot(temperatures, depths/1e3, "-", label="T", color=plot_color)
+        axT.set_ylabel("Depth [km]")
+        axT.set_xlabel("Temperature [K]")
+        axT.legend()
+
+    # plot pressure 
+    if axP is not None:
+        if _color is None:
+            plot_color = "tab:green"
+        else:
+            plot_color = _color
+        axP.plot(pressures / 1e9, depths/1e3, "-", label="Pressure", color=plot_color)
+        axP.set_ylabel("Depth [km]")
+        axP.set_xlabel("Pressure [GPa]")
+        axT.legend()
+
+    # plot density 
+    if ax_density is not None:
+        if _color is None:
+            plot_color = "tab:blue"
+        else:
+            plot_color = _color
+        ax_density.plot(densities, depths/1e3, "-", label="Density", color=plot_color)
+        ax_density.set_ylabel("Depth [km]")
+        ax_density.set_xlabel("Density [kg/m^3]")
+        ax_density.legend()
 
 
 def PlotDaFigure(depth_average_path, fig_path_base, **kwargs):

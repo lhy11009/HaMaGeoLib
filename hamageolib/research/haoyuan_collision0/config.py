@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 from pathlib import Path
 from copy import deepcopy
@@ -35,6 +36,10 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_minV%.1e" % variables["viscosity_range"][0]
         if not np.isclose(variables["viscosity_range"][1], 2.5e23, rtol=1e-6):
             case_name += "_maxV%.1e" % variables["viscosity_range"][1]
+
+    # mantle_rheology
+    if use_all or "mantle_coh" in use_keys:
+        case_name += "_Coh%.1e" % variables["mantle_coh"]
     
     # Weak layer
     if use_all or "weak_layer_compositions" in use_keys:
@@ -44,9 +49,13 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if variables["weak_layer_rheology_scheme"] == "constant viscosity":
         if use_all or "weak_layer_viscosity" in use_keys:
             case_name += "_WLV%.1e" % variables["weak_layer_viscosity"]
+
     elif variables["weak_layer_rheology_scheme"] == "low friction":
         if use_all or "weak_layer_friction_factor" in use_keys:
             case_name += "_WLF%.1e" % variables["weak_layer_friction_factor"]
+        if use_all or "weak_layer_minimum_viscosity" in use_keys:
+            case_name += "_WLM%.1e" % variables["weak_layer_minimum_viscosity"]
+        
 
     # Kinematic-driven condition
     if use_all or "kinematic_driven_condition" in use_keys:
@@ -81,11 +90,15 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if variables["customize_corner"]:
             case_name += "_Cn"
 
+    # Phase transition
+    if use_all or "include_phase_transition" in use_keys:
+        if variables["include_phase_transition"]:
+            case_name += "_PTr"
 
     return case_name
 
 
-class RemovePeridotiteRule(Rule):
+class CompositionRule(Rule):
     """
     This rule customizes composition field such that one can choose
     to remove the peridotite compositin. User needs to specify
@@ -97,12 +110,17 @@ class RemovePeridotiteRule(Rule):
     Provided configuration parameters:
         removed_peridotite_compositional_indexes (list) - list of compositional indexes removed
     """
-    requires = ["remove_peridotite", "slab_layer_depths"]
+    requires = ["remove_peridotite", "slab_layer_depths", "add_harzburgite"]
 
     requires_comments = {"remove_peridotite": "Remove the peridotitle composition options and modify other compositional indices consistently",
-                         "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1"}
+                         "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1",
+                         "add_harzburgite": "Add harzburgite composition."}
     
-    defaults = {"remove_peridotite": False, "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3]}
+    defaults = {
+        "remove_peridotite": False, 
+        "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3],
+        "add_harzburgite": False
+        }
     
     provides = ["removed_peridotite_compositional_indexes"]
 
@@ -134,9 +152,11 @@ class RemovePeridotiteRule(Rule):
         """
         remove_peridotite = config["remove_peridotite"]
         slab_layer_depths = config["slab_layer_depths"]
+        add_harzburgite = config["add_harzburgite"]
 
         # initialize the provided variables to trivial initial values
         context["removed_peridotite_compositional_indexes"] = []
+        context["add_harzburgite_index"] = None
 
         if remove_peridotite:
             # Remove the composition and record the removed indexes
@@ -156,32 +176,42 @@ class RemovePeridotiteRule(Rule):
             # Edit the slab to make sure the overiding composition is reset
             # To handle this, we add a composition model that replac e that
             # composition with 0.0
-            if context["remove_fluid"]:
-                index_diff = -2
-            else:
-                index_diff = 0
-            for i, feature in enumerate(features):
-                if feature["name"] == "Slab":
-                    rm_ov_composition_model = \
-                    {
-                        "model": "uniform",
-                        "compositions": [
-                            5
-                        ],
-                        "fractions": [0.0],
-                        "min distance slab top": slab_layer_depths[-1] + index_diff,
-                        "max distance slab top": 150000.0,
-                        "operation": "replace" 
-                    }
+            if not add_harzburgite:
+                if context["remove_fluid"]:
+                    index_diff = -2
+                else:
+                    index_diff = 0
+                for i, feature in enumerate(features):
+                    if feature["name"] == "Slab":
+                        rm_ov_composition_model = \
+                        {
+                            "model": "uniform",
+                            "compositions": [
+                                5
+                            ],
+                            "fractions": [0.0],
+                            "min distance slab top": slab_layer_depths[-1] + index_diff,
+                            "max distance slab top": 150000.0,
+                            "operation": "replace" 
+                        }
+                        
+                        feature["composition models"].append(rm_ov_composition_model)
                     
-                    feature["composition models"].append(rm_ov_composition_model)
+                        break
+
+        print("prm_dict[\"Compositional fields\"] = ")
+        print(prm_dict["Compositional fields"])
+
+        # To add a new composition, we need to copy from an existing one,
+        # both in the prm file and in the wb file
+        if add_harzburgite:
+            context["add_harzburgite_index"] = duplicate_composition_from_prm(prm_dict, "gabbro", "harzburgite")
+
+            names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
+            condition_index = names_of_fields.index("gabbro")
+            add_composition_to_wb_conditionally_recursive(wb_dict, condition_index, context["add_harzburgite_index"])
+            
                 
-                    break
-                
-
-
-
-
 class RemoveFluidRule(Rule):
     """
     This rule customizes composition field such that one can choose
@@ -346,6 +376,38 @@ def remove_composition_from_wb_recursive(wb_dict, removed_indices):
             # Remove the marked composition model
             for i in sorted(indices_to_remove, reverse=True):
                 composition_models.pop(i)
+
+# todo
+def add_composition_to_wb_conditionally_recursive(wb_dict, condition_index, add_index):
+    """
+    Add entries related to composition from the wb file
+    wb_dict : dict
+        WorldBuilder configuration dictionary. This rule does not assume any
+        specific structure but receives it for consistency with the Rule
+        interface.
+    """
+    features = wb_dict["features"]
+
+    # loop for every feature and modify the composition models
+    for feature in features:
+        try:
+            composition_models = feature["composition models"]
+        except KeyError:
+            pass
+        else:
+            found_i = -1
+            for i, composition_model in enumerate(composition_models):
+                compositions = composition_model["compositions"]
+                if compositions[0] == condition_index:
+                    # In case this is the compsotion to add, mark
+                    # the composition model to be copied
+                    found_i = i
+                    break
+
+            if found_i > 0:
+                foo_model = deepcopy(composition_models[found_i])
+                foo_model["compositions"][0] = add_index
+                composition_models.append(foo_model)
 
 
 
@@ -588,7 +650,6 @@ class SlabRule(Rule):
             not return a value.
         """
 
-
         # read the slab layer configurations
         slab_layer_compositions = config["slab_layer_compositions"]
         slab_layer_depths = config["slab_layer_depths"]
@@ -646,6 +707,10 @@ class SlabRule(Rule):
         # check no confliction with other rules
         if context["removed_peridotite_compositional_indexes"]:
             my_assert("peridotie" not in slab_layer_compositions, RuleConflictError, "If peridotite is removed by other rules, it cannot be included here")
+        
+        if context["add_harzburgite_index"] is not None:
+            my_assert("harzburgite" in slab_layer_compositions, RuleConflictError, "If harzburgite is added by other rules, it must be included here")
+
 
         # get indices of the slab compositions
         names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
@@ -675,10 +740,7 @@ class SlabRule(Rule):
                         else:
                             raise NotImplementedError("This composition model is neither decribed by min/max depth nor described by min/max distance slab top")
 
-        # configure the start point of the plage, age of the slab and the spreading rate
- 
-
-            
+        # configure the start point of the plage, age of the slab and the spreading rate          
         for feature in wb_dict["features"]:
             if feature["name"] == "Subducting Plate":
                 feature["coordinates"] = [[slab_hinge_point, -100e3], [slab_hinge_point, 100e3], [plate_start_point, 100e3], [plate_start_point, -100e3]]
@@ -1317,6 +1379,8 @@ class RheologyRule(Rule):
             
 
             # assign value from the selected rheology scheme
+            # note that not all the compositions in the "upper_mantle_phases" need to exist.
+            # They are for lookup reason.
             names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"]) + ["background"]
             upper_mantle_phases = {"background": [0], 
                                    "gabbro": [0],
@@ -1324,7 +1388,8 @@ class RheologyRule(Rule):
                                    "sediment": [0, 1],
                                    "crust_upper": [0],
                                    "crust_lower": [0],
-                                   "overriding":[]
+                                   "overriding":[],
+                                   'harzburgite': [0]
                                    }
             lower_mantle_phases = {"background": [1], 
                                    "gabbro": [1],
@@ -1332,7 +1397,8 @@ class RheologyRule(Rule):
                                    "sediment": [0, 2],
                                    "crust_upper": [1],
                                    "crust_lower": [1],
-                                   "overriding":[]
+                                   "overriding":[],
+                                   'harzburgite': [1]
                                    }
             
             for composition in names_of_fields:
@@ -1749,11 +1815,11 @@ class ContinentRule(Rule):
             feature["max depth"] = 200e3
 
             # Assign layered compositional structure to continental plate
-            feature["composition models"] = [
+            feature["composition models"] += [
                 {
                     "model": "uniform",
                     "compositions": [
-                        idx_upper
+                        idx_upper + 1
                     ],
                     "min depth": 0,
                     "max depth": continent_depth_levels[0]
@@ -1761,12 +1827,15 @@ class ContinentRule(Rule):
                 {
                     "model": "uniform",
                     "compositions": [
-                        idx_lower
+                        idx_lower + 1
                     ],
                     "min depth": continent_depth_levels[0],
                     "max depth": continent_depth_levels[1]
-                },
+                }
             ]
+            
+            remove_composition_from_wb_recursive(wb_dict, [remove_idx])
+            
 
             # Define depth-dependent thermal structure for continental layers
             temperature_models = []
@@ -2182,3 +2251,107 @@ viscosity is being prescribed in the region",
             prm_dict["Boundary composition model"] = {
                 "List of model names": "initial composition"
                 }
+            
+
+class PhaseTransitionRule(Rule):
+    """
+    This rule customizes model phase transitions
+
+    Required configuration parameters:
+
+    Provided configuration parameters:
+
+    """
+    requires = ["include_phase_transition", "config_file"]
+    
+    defaults = {"include_phase_transition": False,
+                "config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json"}
+
+    requires_comments = {}
+    
+    provides = []
+
+    def apply(self, config, prm_dict, wb_dict, context):
+
+        include_phase_transition = config["include_phase_transition"]
+        config_file = config["config_file"]
+        config_path = os.path.join(package_root, config_file)
+
+        assert(os.path.isfile(config_path)) 
+
+        # read from the json file
+        with open(config_path, 'r') as fin:
+            p_dict = json.load(fin)
+
+        # configuration for linear compressibility
+        beta_ref = p_dict["beta_ref"]
+        Kp = p_dict["Kp"]  # the pressure derivative of the bulk modulus
+        alpha_ref = p_dict["alpha_ref"]
+        T_ref = p_dict["T_ref"] # same as the reference temperature values
+        cp_ref = p_dict["cp_ref"]
+
+        # configuration for phase transitions
+        # the options for gabbro and sediments are copied from
+        # the MORB composition
+        p_depth_dict = p_dict["p_depth_dict"]
+        
+        p_width_dict = p_dict["p_width_dict"]
+        
+        p_temperature_dict = p_dict["p_temperature_dict"]
+        
+        p_slope_dict = p_dict["p_slope_dict"]
+
+        p_density_dict = p_dict["p_density_dict"]
+
+        list_of_dict = [p_depth_dict, p_width_dict, p_temperature_dict, p_slope_dict, p_density_dict]
+        if type(beta_ref) == dict:
+            list_of_dict += [T_ref, alpha_ref, beta_ref, cp_ref, Kp]
+        for foo_dict in list_of_dict:
+            foo_dict["gabbro"] = foo_dict["MORB"]
+            foo_dict["sediment"] = foo_dict["MORB"]
+
+        if include_phase_transition:
+
+            # use the Multicomponent compressible to set density change
+            material_dict_PT = prm_dict["Material model"]["Multicomponent compressible"]
+            material_dict_PT["Enable phase transitions"] = "true"
+            density_entry = "Reference densities"
+
+            material_dict_PT["Phase transition depths"] = \
+                format_composition_entry(p_depth_dict)
+            
+            material_dict_PT["Phase transition widths"] = \
+                format_composition_entry(p_width_dict)
+            
+            material_dict_PT["Phase transition temperatures"] = \
+                format_composition_entry(p_temperature_dict)
+            
+            material_dict_PT["Phase transition Clapeyron slopes"] = \
+                format_composition_entry(p_slope_dict)
+            
+            material_dict_PT[density_entry] = \
+                format_composition_entry(p_density_dict)
+            
+            # set linear compressibility
+            # These values could be either a float for all phases or a dict that specifies the option
+            # for each phase.
+            if type(beta_ref) == dict:
+                material_dict_PT["Reference temperatures"] = format_composition_entry(T_ref)
+                material_dict_PT["Reference thermal expansivities"] = format_composition_entry(alpha_ref)
+                material_dict_PT["Reference isothermal compressibilities"] = format_composition_entry(beta_ref)
+                material_dict_PT["Isochoric specific heats"] = format_composition_entry(cp_ref)
+                material_dict_PT["Isothermal bulk modulus pressure derivatives"] = format_composition_entry(Kp)
+            elif type(beta_ref) == float:
+                material_dict_PT["Reference temperatures"] = str(T_ref)
+                material_dict_PT["Reference thermal expansivities"] = str(alpha_ref)
+                material_dict_PT["Reference isothermal compressibilities"] = str(beta_ref)
+                material_dict_PT["Isochoric specific heats"] = str(cp_ref)
+                material_dict_PT["Isothermal bulk modulus pressure derivatives"] = str(Kp)
+            else:
+                raise ValueError("Wrong type of value of beta_ref.")
+
+            # set composite material model
+            for _name in ["Density", "Thermal expansion coefficient", "Specific heat",\
+                        "Thermal conductivity", "Compressibility", "Entropy derivative pressure",\
+                         "Entropy derivative temperature"]:
+                prm_dict["Material model"]["Compositing"][_name] = "multicomponent compressible"

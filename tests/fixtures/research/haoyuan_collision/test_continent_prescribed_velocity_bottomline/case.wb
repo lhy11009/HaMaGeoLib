@@ -381,18 +381,6 @@
                     "min distance slab top": 7500.0,
                     "max distance slab top": 15000.0,
                     "operation": "add"
-                },
-                {
-                    "model": "uniform",
-                    "compositions": [
-                        5
-                    ],
-                    "fractions": [
-                        0.0
-                    ],
-                    "min distance slab top": 15000.0,
-                    "max distance slab top": 150000.0,
-                    "operation": "replace"
                 }
             ],
             "temperature models": [
