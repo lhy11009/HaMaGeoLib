@@ -1,0 +1,72 @@
+{
+    "beta_ref": {
+        "background": [15e-12, 10e-12, 10e-12, 10e-12, 6e-12],
+        "harzburgite": [10e-12, 10e-12, 10e-12, 6e-12],
+        "MORB": [10e-12, 10e-12, 10e-12, 8e-12, 8e-12, 8e-12, 6e-12],
+        "crust_upper": [10e-12, 10e-12, 10e-12, 8e-12, 8e-12, 6e-12],
+        "crust_lower": [10e-12, 10e-12, 10e-12, 8e-12, 8e-12, 8e-12, 6e-12]
+    },
+    "Kp": {
+        "background": 4.0,
+        "harzburgite": 4.0,
+        "MORB": 4.0,
+        "crust_upper": 4.0,
+        "crust_lower": 4.0
+    },
+    "alpha_ref":{
+        "background": 4e-5,
+        "harzburgite": 4e-5,
+        "MORB": 4e-5,
+        "crust_upper": 4e-5,
+        "crust_lower": 4e-5
+    },
+    "T_ref": {
+        "background": 1573.15,
+        "harzburgite": 1573.15,
+        "MORB": 1573.15,
+        "crust_upper": 1573.15,
+        "crust_lower": 1573.15
+    },
+    "cp_ref": {
+        "background": 1250.0,
+        "harzburgite": 1250.0,
+        "MORB": 1250.0,
+        "crust_upper": 1250.0,
+        "crust_lower": 1250.0
+    },
+    "p_depth_dict": {
+        "background": [50e3, 400e3, 520e3, 660e3],
+        "harzburgite": [400e3, 520e3, 680e3],
+        "MORB": [50e3, 100e3, 300e3, 410e3, 700e3, 770e3],
+        "crust_lower": [70e3, 110e3, 300e3, 600e3, 700e3, 780e3],
+        "crust_upper": [80e3, 110e3, 320e3, 640e3, 800e3]
+    },
+    "p_width_dict": {
+        "background": [10e3, 10e3, 10e3, 10e3],
+        "harzburgite": [10e3, 10e3, 10e3],
+        "MORB": [10e3, 30e3, 10e3, 20e3, 60e3, 10e3],
+        "crust_lower": [20e3, 20e3, 10e3, 20e3, 60e3, 10e3],
+        "crust_upper": [20e3, 20e3, 10e3, 10e3, 10e3]
+    },
+    "p_temperature_dict": {
+        "background": [1600.0, 1732, 1762.0, 1801.0],
+        "harzburgite": [1732, 1762.0, 1801.0],
+        "MORB": [1600.0, 1600.0, 1680.0, 1732.0, 1850.0, 1900.0],
+        "crust_lower": [1600.0, 1600.0, 1680.0, 1732.0, 1850.0, 1900.0],
+        "crust_upper": [1600.0, 1600.0, 1680.0, 1732.0, 1900.0]
+    },
+    "p_slope_dict": {
+        "background": [1e6, 2e6, 5e6, -1.5e6],
+        "harzburgite": [2e6, 5e6, -1.5e6],
+        "MORB": [0.5e6, 1e6, 3e6, -1e6, 2e6, 5e6],
+        "crust_lower": [0.5e6, 2e6, 2.5e6, -1e6, 2e6, 6e6],
+        "crust_upper": [0.5e6, 2e6, 2.5e6, 1e6, 6e6]
+    },
+    "p_density_dict": {
+        "background": [3180.0, 3250.0, 3380.0, 3420.0, 3920.0],
+        "harzburgite": [3200.0, 3360.0, 3420.0, 3900.0],
+        "MORB": [2920.0, 3275.0, 3380.0, 3520.0, 3560.0, 3700.0, 3980.0],
+        "crust_lower": [2810.0, 3075.0, 3300.0, 3580.0, 3630.0, 3700.0, 3970.0],
+        "crust_upper": [2650.0, 2800.0, 3150.0, 3590.0, 3750.0, 3920.0]
+    }
+}

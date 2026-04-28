@@ -16,3 +16,7 @@ py_temp_files
 *.png
 plate-model-repo
 *.log
+*.stderr
+*.stdout
+*.vtp
+*.mp4
