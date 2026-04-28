@@ -1,8 +1,10 @@
 import os
 import numpy as np
+import time
 import pyvista as pv
 from scipy.spatial import cKDTree
 from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
+from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
@@ -22,6 +24,8 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         # placeholder for class variables
         self.slab_surface_points = None
+        self.topography_points = None
+        self.iso_volume_dict = {}
 
     def read(self, pvtu_step):
 
@@ -37,6 +41,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
                      d0=5e3,
                      dr=0.001,
                      output_surfuce=False):
+
+        start = time.time()
+        print("PYVISTA_PROCESS:\n\t%s" % func_name())
 
         self.slab_grid = self.grid.threshold(value=threshold, scalars="sp_total", invert=False)
 
@@ -85,9 +92,15 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
             filename = "slab_surface_%05d.vtp" % self.pvtu_step
             filepath = os.path.join(self.pyvista_outdir, filename)
             point_cloud.save(filepath)
-            print("Save file %s" % filepath)
+            print("\tSave file %s" % filepath)
+        
+        end = time.time()
+        print("\ttakes %.1f s" % (end - start))
 
     def analyze_slab(self):
+        
+        start = time.time()
+        print("PYVISTA_PROCESS:\n\t%s" % func_name())
 
         if self.slab_surface_points is None:
             raise PYVISTA_PROCESS_WORKFLOW_ERROR("Needs to run extract_slab first.")
@@ -125,8 +138,252 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         outputs["dip_300"] = dip_angle_300
         outputs["trench_center"] = trench_center
         outputs["trench_center_50"] = trench_center_50km
+        
+        end = time.time()
+        print("\ttakes %.1f s" % (end - start))
 
         return outputs
+    
+    def extract_topography(self, *, dx=5e3, dr=0.001,
+                           interp_dx=None, output_surface=False):
+        '''
+        Extract topography (surface elevation) from the grid.
+    
+        Steps:
+            1. Sample along x-direction using KDTree
+            2. Map to real mesh points (Option 2)
+            3. Remove duplicate (x, y) pairs
+            4. Sort by x
+            5. Interpolate to regular grid (optional)
+    
+        Inputs:
+            dx - sampling spacing for KDTree queries
+            dr - normalized search radius
+            interp_dx - spacing for interpolated regular grid (None = skip interpolation)
+            output_surface - whether to save point cloud
+    
+        Outputs (stored as attributes):
+            self.topography_points  : original cleaned (x, y, z)
+            self.topography_profile : interpolated (x, y) if interp_dx is not None
+        '''
+        start = time.time()
+        print("PYVISTA_PROCESS:\n\t%s" % func_name())
+    
+        if self.grid is None:
+            raise RuntimeError("Grid not loaded. Run read() first.")
+    
+        # --- extract raw coordinates ---
+        points = self.grid.points
+        x_all = points[:, 0]
+        y_all = points[:, 1]
+    
+        # --- sampling positions ---
+        xs_raw = np.arange(self.Min2, self.Max2, dx)
+        xs = np.full(xs_raw.size, np.nan)
+        ys = np.full(xs_raw.size, np.nan)
+    
+        # --- build KDTree in x-direction ---
+        x_norm = (x_all / self.Max0).reshape(-1, 1)
+        tree = cKDTree(x_norm)
+    
+        # --- sample surface ---
+        for i, x in enumerate(xs_raw):
+            query_pt = np.array([x / self.Max2])
+            idxs = tree.query_ball_point(query_pt, r=dr)
+    
+            if not idxs:
+                continue
+    
+            local_idxs = np.array(idxs)
+            imax = np.argmax(y_all[local_idxs])
+    
+            # assign real mesh point (Option 2)
+            xs[i] = x_all[local_idxs][imax]
+            ys[i] = y_all[local_idxs][imax]
+    
+        # --- remove NaNs ---
+        mask = ~np.isnan(ys)
+        x_surf = xs[mask]
+        y_surf = ys[mask]
+    
+        # --- remove duplicate (x, y) pairs ---
+        pts2d = np.column_stack((x_surf, y_surf))
+        _, unique_idx = np.unique(pts2d, axis=0, return_index=True)
+        pts2d = pts2d[unique_idx]
+    
+        # --- sort by x ---
+        pts2d = pts2d[np.argsort(pts2d[:, 0])]
+        x_surf = pts2d[:, 0]
+        y_surf = pts2d[:, 1]
+    
+        # --- optional interpolation to regular grid ---
+        if interp_dx is not None:
+            x_reg = np.arange(x_surf[0], x_surf[-1], interp_dx)
+            y_reg = np.interp(x_reg, x_surf, y_surf)
+            z_reg = np.zeros_like(x_reg)
+    
+            self.topography_points = np.vstack([x_reg, y_reg, z_reg]).T
+        else: 
+            z_surf = np.zeros_like(x_surf)
+            self.topography_points = np.vstack([x_surf, y_surf, z_surf]).T
+    
+        # --- optional output ---
+        if output_surface:
+            point_cloud = pv.PolyData(self.topography_points)
+            filename = "topography_%05d.vtp" % self.pvtu_step
+            filepath = os.path.join(self.pyvista_outdir, filename)
+            point_cloud.save(filepath)
+            print(f"\tSave file {filepath}")
+        
+        end = time.time()
+        print("\ttakes %.1f s" % (end - start))
+    
+
+    def extract_continent_crust_iso_volumes(self, *, 
+                            save_file=True,
+                            threshold=0.8,
+                            fields=["crust_upper", "crust_lower"]):
+        """
+        Extract the iso-volume of the composition field above a threshold.
+
+        Parameters:
+            threshold (float): Scalar threshold for compositions.
+
+        This method:
+            - Filters the grid for regions where sp_lower >= threshold.
+            - Stores the result in `self.iso_volume_lower`.
+            - Saves the extracted volume as a .vtu file.
+        """
+        start = time.time()
+        indent = 4
+        
+        # additional options 
+        # Iso volume of slab lower composition
+        for field in fields:
+            iso_volume = self.grid.threshold(value=threshold, scalars=field, invert=False)
+        
+            self.iso_volume_dict[field] = iso_volume
+        
+            if save_file:
+                self.write_object_to_file(iso_volume, "%s_above_%.2f" % (field, threshold), "vtu")
+        
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+    
+        print("\ttakes %.1f s" % (end - start))
+
+    def extract_oceanic_plate_iso_volumes(self, *, 
+                            save_file=True,
+                            threshold=0.8,
+                            crust_fields=["gabbro", "MORB"],
+                            include_sediment=True,
+                            include_harzburgite=True):
+        """
+        Extract the iso-volume of the composition field above a threshold.
+
+        Parameters:
+            threshold (float): Scalar threshold for compositions.
+
+        This method:
+            - Filters the grid for regions where sp_lower >= threshold.
+            - Stores the result in `self.iso_volume_lower`.
+            - Saves the extracted volume as a .vtu file.
+        """
+        start = time.time()
+        indent = 4
+        
+        # Iso volume of oceanic sediment composition
+        if include_sediment:
+            field = "sediment"
+
+            iso_volume = self.grid.threshold(value=threshold, scalars=field, invert=False)
+        
+            self.iso_volume_dict[field] = iso_volume
+        
+            if save_file:
+                self.write_object_to_file(iso_volume, "%s_above_%.2f" % (field, threshold), "vtu")
+        
+        # Iso volume of oceanic crust composition
+        # combine crust fields into a new scalar field
+        oceanic_crust = self.grid[crust_fields[0]].copy()
+
+        for field in crust_fields[1:]:
+            oceanic_crust += self.grid[field]
+
+        self.grid["oceanic_crust"] = oceanic_crust
+
+        iso_volume = self.grid.threshold(
+            value=threshold,
+            scalars="oceanic_crust",
+            invert=False
+        )
+        
+        self.iso_volume_dict["oceanic_crust"] = iso_volume
+        
+        if save_file:
+            self.write_object_to_file(iso_volume, "oceanic_crust_above_%.2f" % threshold, "vtu")
+
+        # Iso volume of oceanic harzburgite composition
+        if include_harzburgite:
+            field = "harzburgite"
+
+            iso_volume = self.grid.threshold(value=threshold, scalars=field, invert=False)
+        
+            self.iso_volume_dict[field] = iso_volume
+        
+            if save_file:
+                self.write_object_to_file(iso_volume, "%s_above_%.2f" % (field, threshold), "vtu")
+        
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+    
+        print("\ttakes %.1f s" % (end - start))
+
+    def extract_continent_lithosphere_iso_volumes(self, fields, *, 
+                            save_file=True,
+                            threshold=0.2,
+                            temperature_threshold=1300+273.15):
+        """
+        Extract the iso-volume of the composition field above a threshold.
+
+        Parameters:
+            threshold (float): Scalar threshold for compositions.
+
+        This method:
+            - Filters the grid for regions where sp_lower >= threshold.
+            - Stores the result in `self.iso_volume_lower`.
+            - Saves the extracted volume as a .vtu file.
+        """
+        start = time.time()
+        indent = 4
+        
+        # additional options 
+        # Iso volume of slab lower composition
+        all_composition = self.grid[fields[0]].copy()
+
+        for field in fields[1:]:
+            all_composition += self.grid[field]
+
+        self.grid["all_composition"] = all_composition
+
+        iso_volume = self.grid.threshold(
+            value=[0.0, threshold],
+            scalars="all_composition",
+            invert=False
+        )
+
+        iso_volume_c = iso_volume.point_data_to_cell_data(pass_point_data=False, categorical=False)
+        mask = np.flatnonzero(iso_volume_c.cell_data['T'] < temperature_threshold)
+        grid_lithosphere = iso_volume_c.extract_cells(mask)
+        
+        if save_file:
+            self.write_object_to_file(grid_lithosphere, 
+                                      "lithosphere_below_%.2f_colder_%.2f" % (threshold, temperature_threshold), "vtu")
+        
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+    
+        print("\ttakes %.1f s" % (end - start))
 
 
 def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
@@ -172,6 +429,15 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     # analyze slab
     outputs1 = ProcessCollision.analyze_slab()
     outputs.update(**outputs1)
+    
+    # todo_topo
+    # extract topography
+    # ProcessCollision.extract_topography(output_surface=True, interp_dx=5e3, dx=1e3)
+
+    # extract iso-volume objects
+    ProcessCollision.extract_continent_crust_iso_volumes()
+    ProcessCollision.extract_continent_lithosphere_iso_volumes(fields=Case_Options.options["ALL_COMPOSITION"])
+    ProcessCollision.extract_oceanic_plate_iso_volumes(include_harzburgite=Case_Options.options["HAS_HARZBURGITE"])
 
     return outputs
 
