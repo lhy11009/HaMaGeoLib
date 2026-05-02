@@ -131,20 +131,60 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
         # add source
         filein = os.path.join(data_output_dir, "solution", "solution-%05d.pvtu" %snapshot) 
 
-        XMLPartitionedUnstructuredGridReader(registrationName='solution_%05d' % snapshot, FileName=[filein])
+        XMLPartitionedUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
 
         plot_twod_basic("solution-%05d" % snapshot, _time, pv_output_dir)
 
 def plot_twod_basic(source_name, _time, pv_output_dir):
         
     _source = FindSource(source_name)
-    sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
+
+    # Add indicator field
+    # Set color table with discrete categories;
+    # Define categories (value -> label)
+    # Define colors (flattened list)
+    lut = GetColorTransferFunction("composition_indicator")
+    add_composition_indicator(source_name)
+    programmable_source = FindSource("Programmable_comp")
+    programmable_sourceDisplay = Show(programmable_source, renderView1, 'GeometryRepresentation')
+
+    lut.InterpretValuesAsCategories = 1
+    lut.AnnotationsInitialized = 1
+
+    lut.Annotations = [
+        "0", "Asthenosphere",
+        "1", "Upper crust",
+        "2", "Lower crust",
+        "3", "Oceanic crust",
+        "4", "Sea floor sediment",
+        "5", "Lithosphere",
+        "6", "Phase 6",
+        "7", "Phase 7",
+    ]
+
+    lut.IndexedColors = [
+        0.4039, 0.8000, 0.9294,
+        0.8118, 0.8157, 0.8235,
+        0.9294, 0.4000, 0.4667,
+        0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0,
+        0.1451, 0.5373, 0.2588,
+        0.0, 0.0, 0.0,
+        0.0, 0.0, 0.0,
+    ]
+
+    programmable_sourceDisplay.ColorArrayName = ["POINTS", "composition_indicator"]
+    programmable_sourceDisplay.LookupTable = lut
+
+    Hide(programmable_source)
 
     # add glyph of velocity
     ScaleFactor = None
     if "PLOT_TYPE" == "full_domain":
         ScaleFactor = 2e6
     elif "PLOT_TYPE" == "trench_centered":
+        ScaleFactor = 1e6
+    elif "PLOT_TYPE" == "orogen":
         ScaleFactor = 1e6
     else:
         raise NotImplementedError()
@@ -160,6 +200,8 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     text_glyph1Display = Show(text_glyph1, renderView1, 'GeometryRepresentation')
 
     if "PLOT_TYPE" == "full_domain":
+        sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
+
         layout_resolution = (1350, 704)
 
         if ANIMATION:
@@ -176,6 +218,8 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         renderView1.CameraFocalPoint = [RIGHT/2.0, TOP/2.0, 0.0]
         renderView1.CameraParallelScale = 2588447.7843194483 * RIGHT / 8700e3  # scale to the length
     elif "PLOT_TYPE" == "trench_centered":
+        sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
+
         layout_resolution = (1350, 704)
 
         if ANIMATION:
@@ -192,6 +236,30 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         renderView1.CameraPosition = [round(TRENCH_CENTER / 500e3) * 500e3, TOP-279152.305969, 17717371.391353175]
         renderView1.CameraFocalPoint = [round(TRENCH_CENTER / 500e3) * 500e3, TOP-279152.305969, 0.0]
         renderView1.CameraParallelScale = 563321.6543393662  # scale to a 2000 km domain
+    elif "PLOT_TYPE" == "orogen":
+        # Reorder visibility
+        hide_everything()
+
+        # todo_topo
+        programmable_source = FindSource("Programmable_comp")
+        sourceDisplay = Show(programmable_source, renderView1, 'GeometryRepresentation')
+       
+        layout_resolution = (1350, 704)
+
+        if ANIMATION:
+            # turn on axis grid when making animation
+            sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
+
+        layout1 = GetLayout()
+        layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+
+        # adjust camera setup
+        # Camera position is adjusted relative to the position of the right and top boundary
+        # todo_height
+        renderView1.InteractionMode = '2D'
+        renderView1.CameraPosition = [round(TRENCH_CENTER / 100e3) * 100e3, TOP-148468.75, 17717371.391353175]
+        renderView1.CameraFocalPoint = [round(TRENCH_CENTER / 100e3) * 100e3, TOP-148468.75, 0.0]
+        renderView1.CameraParallelScale = 179491.639356  # scale to a 2000 km domain
         
     else:
         raise NotImplementedError("plot_type PLOT_TYPE is not implemented")
@@ -270,6 +338,74 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times):
     '''
     # placeholder
     pass
+
+def add_composition_indicator(source_name):
+    
+    source = FindSource(source_name)
+
+    # create a new 'Programmable Filter'
+    programmableFilter1 = ProgrammableFilter(registrationName='Programmable_comp', Input=source)
+    
+    # Properties modified on programmableFilter1
+    programmableFilter1.Script = """
+import numpy as np
+from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
+
+composition_fields = ['gabbro', 'MORB', 'sediment', 'crust_upper', 'crust_lower']
+
+input0 = self.GetInputDataObject(0, 0)
+output.ShallowCopy(input0)
+
+pd = input0.GetPointData()
+
+# ---- composition arrays ----
+arrays = []
+for name in CONTINENT_COMPOSITIONS:
+    arr = pd.GetArray(name)
+    if arr is None:
+        raise RuntimeError(f"Missing array: {name}")
+    arrays.append(vtk_to_numpy(arr))
+
+# ---- oceanic crust: sum up the value
+oceanic_crust_compositions = OCEANIC_CRUST_COMPOSITIONS
+arr = vtk_to_numpy(pd.GetArray(oceanic_crust_compositions[0]))
+for name in oceanic_crust_compositions[1:]:
+    arr += vtk_to_numpy(pd.GetArray(name))
+arrays.append(arr)
+
+# ---- sediment
+arr = pd.GetArray('sediment')
+arrays.append(vtk_to_numpy(arr))
+
+data = np.vstack(arrays).T
+
+# ---- background ----
+sum_composition = np.sum(data, axis=1)
+background = np.clip(1.0 - sum_composition, 0.0, 1.0)
+
+# ---- split background by temperature ----
+T = vtk_to_numpy(pd.GetArray("T"))
+if T is None:
+    raise RuntimeError("Missing temperature field: T")
+
+cold_bg = background * (T < LITHOSPHERE_TEMPERATURE)
+warm_bg = background * (T >= LITHOSPHERE_TEMPERATURE)
+
+# ---- full classification matrix ----
+data_with_bg = np.hstack([
+    warm_bg[:, None],
+    data,
+    cold_bg[:, None]
+])
+
+# ---- argmax ----
+indicator = np.argmax(data_with_bg, axis=1)
+
+# ---- write output ----
+vtk_arr = numpy_to_vtk(indicator.astype(np.int32))
+vtk_arr.SetName("composition_indicator")
+output.GetPointData().AddArray(vtk_arr)
+"""
 
 
 steps = GRAPHICAL_STEPS

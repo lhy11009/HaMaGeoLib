@@ -45,6 +45,7 @@ from .handy_shortcuts_haoyuan import func_name, strip_and_split, str_to_bool_int
 from .file_reader import read_aspect_header_file
 from ..research.haoyuan_2d_subduction.legacy_utilities import CODESUB
 import copy
+from gdmate.aspect.io import parse_entry_as_list
 
 class CASE_OPTIONS(CODESUB):
     """
@@ -323,6 +324,15 @@ class CASE_OPTIONS(CODESUB):
 
         # whether postprocessers are run on initial refinement
         self.options["PP_INITIAL_REFINEMENT"] = str_to_bool_int(self.idict["Mesh refinement"].get("Run postprocessors on initial refinement", 'false'))
+
+        # composition fields
+        self.options['COMPOSITION_FIELDS'] = []
+        try:
+            names_of_fields = parse_entry_as_list(self.idict["Compositional fields"]["Names of fields"])
+        except KeyError:
+            pass
+        else:
+            self.options['COMPOSITION_FIELDS'] = names_of_fields
 
         # get the graphical steps
         # first make sure a summary is generated

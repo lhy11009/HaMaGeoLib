@@ -639,6 +639,7 @@ def add_plot(_source, field, **kwargs):
     # hide data in view
     Hide(pvd, renderView1)
 
+
 def hide_everything():
     """
     hide all the plots and colorbars
@@ -654,5 +655,19 @@ def hide_everything():
     # for rep in GetRepresentations():
     #     rep.SetScalarBarVisibility(view, False)
 
-    # Update the view
     Render()
+
+
+def hide_all_colorbars(view=None):
+    from paraview.simple import GetSources, GetDisplayProperties, GetActiveViewOrCreate
+
+    if view is None:
+        view = GetActiveViewOrCreate('RenderView')
+
+    for src in GetSources().values():
+        disp = GetDisplayProperties(src, view=view)
+        if disp:
+            try:
+                disp.SetScalarBarVisibility(view, False)
+            except Exception:
+                pass

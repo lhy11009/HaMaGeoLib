@@ -2,7 +2,6 @@ import os
 import numpy as np
 from hamageolib.utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import COMPOSITION
-from gdmate.aspect.io import parse_entry_as_list
 
 class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
     '''
@@ -54,11 +53,13 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
             COMPOSITION(self.idict['Material model']['Visco Plastic']['Maximum viscosity']) 
         self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
 
-        names_of_fields = parse_entry_as_list(self.idict["Compositional fields"]["Names of fields"])
-        self.options['ALL_COMPOSITION'] = names_of_fields
+        # todo_topo
         self.options["HAS_HARZBURGITE"] = False
-        if "harzburgite" in names_of_fields:
+        if "harzburgite" in self.options['COMPOSITION_FIELDS']:
             self.options["HAS_HARZBURGITE"] = True
+
+        self.options["CONTINENT_COMPOSITIONS"] = ['crust_upper', 'crust_lower']
+        self.options["OCEANIC_CRUST_COMPOSITIONS"] = ['gabbro', 'MORB']
 
     def SummaryCaseVtuStep(self, ifile=None):
         '''
