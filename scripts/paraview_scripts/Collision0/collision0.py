@@ -166,8 +166,8 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         0.4039, 0.8000, 0.9294,
         0.8118, 0.8157, 0.8235,
         0.9294, 0.4000, 0.4667,
-        0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0,
+        0.784, 0.353, 0.0,
+        1.0, 0.706, 0.314,
         0.1451, 0.5373, 0.2588,
         0.0, 0.0, 0.0,
         0.0, 0.0, 0.0,
@@ -266,7 +266,7 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     
     field, fieldLUT = set_viscosity_plot(sourceDisplay, 1e18, 1e24)
     scalarBar = set_viscosity_colorbar(renderView1, fieldLUT)
-    if "PLOT_TYPE" == "trench_centered":
+    if "PLOT_TYPE" in ["trench_centered", "orogen"]:
         # for this specific plot type, we want to add color bars later
         # hide colorbar
         sourceDisplay.SetScalarBarVisibility(renderView1, False)
@@ -288,7 +288,7 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         # turn on axis grid when making animation
         sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
     
-    if "PLOT_TYPE" == "trench_centered":
+    if "PLOT_TYPE" in ["trench_centered", "orogen"]:
         # for this specific plot type, we want to add color bars later
         # hide colorbar
         sourceDisplay.SetScalarBarVisibility(renderView1, False)
@@ -309,13 +309,36 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         # turn on axis grid when making animation
         sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
     
-    if "PLOT_TYPE" == "trench_centered":
+    if "PLOT_TYPE" in ["trench_centered", "orogen"]:
         # for this specific plot type, we want to add color bars later
         # hide colorbar
         sourceDisplay.SetScalarBarVisibility(renderView1, False)
 
     fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_density_t%.4e.pdf" % _time)
     fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_density_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+    
+    # plot composition indicators
+    current_field = "composition_indicator"
+    fieldLUT0 = fieldLUT
+    ColorBy(sourceDisplay, ('POINTS', current_field, 'Magnitude'))
+    fieldLUT = GetColorTransferFunction(current_field)
+    HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+    if ANIMATION:
+        # turn on axis grid when making animation
+        sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
+    
+    if "PLOT_TYPE" in ["trench_centered", "orogen"]:
+        # for this specific plot type, we want to add color bars later
+        # hide colorbar
+        sourceDisplay.SetScalarBarVisibility(renderView1, False)
+        renderView1.OrientationAxesVisibility = 0
+
+    fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_%s_t%.4e.pdf" % (current_field, _time))
+    fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_%s_t%.4e.png" % (current_field, _time))
     SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)
