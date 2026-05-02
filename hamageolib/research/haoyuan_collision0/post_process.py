@@ -430,9 +430,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     outputs1 = ProcessCollision.analyze_slab()
     outputs.update(**outputs1)
     
-    # todo_topo
-    # extract topography
-    # ProcessCollision.extract_topography(output_surface=True, interp_dx=5e3, dx=1e3)
 
     # extract iso-volume objects
     ProcessCollision.extract_continent_crust_iso_volumes()

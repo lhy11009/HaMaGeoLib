@@ -53,7 +53,6 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
             COMPOSITION(self.idict['Material model']['Visco Plastic']['Maximum viscosity']) 
         self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
 
-        # todo_topo
         self.options["HAS_HARZBURGITE"] = False
         if "harzburgite" in self.options['COMPOSITION_FIELDS']:
             self.options["HAS_HARZBURGITE"] = True

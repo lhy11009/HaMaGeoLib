@@ -240,7 +240,6 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         # Reorder visibility
         hide_everything()
 
-        # todo_topo
         programmable_source = FindSource("Programmable_comp")
         sourceDisplay = Show(programmable_source, renderView1, 'GeometryRepresentation')
        
