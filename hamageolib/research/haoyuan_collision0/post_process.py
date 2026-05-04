@@ -4,6 +4,8 @@ import time
 import pyvista as pv
 from scipy.spatial import cKDTree
 from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
+from hamageolib.utils.exception_handler import my_assert
+from hamageolib.utils.interp_utilities import KNNInterpolatorND
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
@@ -12,20 +14,40 @@ SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../.."
 class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
     def __init__(self, data_dir, options, *,
-                 pyvista_outdir=None):
+                 pyvista_outdir=None,
+                 include_particles=False):
 
         PYVISTA_PROCESS.__init__(self, data_dir, 
-                            pyvista_outdir=pyvista_outdir)
-        
+                            pyvista_outdir=pyvista_outdir,
+                            include_particles=include_particles)
+
+        # model geometry 
         self.Min0 = options["BOTTOM"]
         self.Max0 = options["TOP"]
         self.Min2 = options["LEFT"]
         self.Max2 = options["RIGHT"]
 
+        # plate setup
+        self.plate_start_point = options["PLATE_START_POINT"]
+        self.slab_hinge_point = options["SLAB_HINGE_POINT"]
+        
+        # composition names 
+        self.composition_names = [
+            'sediment', 'gabbro', 'MORB',
+            'crust_upper', 'crust_lower'
+        ]
+
+        # lithospheric temperature
+        self.lithospheric_T = 1300 + 273.15 # K
+
         # placeholder for class variables
         self.slab_surface_points = None
         self.topography_points = None
         self.iso_volume_dict = {}
+
+        # placeholder for interpolation functions
+        self.particle_ul_func = None
+
 
     def read(self, pvtu_step):
 
@@ -35,6 +57,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         # total slab composition
         self.grid["sp_total"] = self.grid["gabbro"] + self.grid["MORB"] + self.grid["sediment"]
+
+        # background composition 
+        self.add_background()
 
     def extract_slab(self, *,
                      threshold=0.5,
@@ -385,9 +410,117 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
     
         print("\ttakes %.1f s" % (end - start))
 
+    def process_particles(self):
+        
+        start = time.time()
+
+        assert(self.include_particles)
+
+        points = self.particles.points
+        x_p = points[:, 0]
+        y_p = points[:, 1]
+
+        initial_X = self.particles["initial position"][:, 0]
+
+        self.particle_initial_X_func = KNNInterpolatorND(np.vstack((x_p/self.Max0, y_p/self.Max0)).T, initial_X.ravel(), 
+                          k=1, max_distance=0.01)
+        
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+    
+        print("\ttakes %.1f s" % (end - start))
+
+    # todo_dual
+    def extract_final(self):
+        
+        start = time.time()
+
+        my_assert(self.particle_initial_X_func is not None, PYVISTA_PROCESS_WORKFLOW_ERROR, "Needs to first process upper/lower late")
+
+        points = self.grid.points
+        x_all = points[:, 0]
+        y_all = points[:, 1]
+
+        # interpolate initial X from particles
+        initial_X = self.particle_initial_X_func(x_all/self.Max0, y_all/self.Max0)
+        self.grid['initial_X'] = initial_X
+
+        # distinguish ov and sp plate composition
+        crust_upper_comps = self.grid['crust_upper']
+        sp_crust_upper_comps = crust_upper_comps * (initial_X < self.plate_start_point * 1.01)
+        ov_crust_upper_comps = crust_upper_comps * (initial_X > self.slab_hinge_point * 0.99)
+        self.grid['sp_crust_upper'] = sp_crust_upper_comps
+        self.grid['ov_crust_upper'] = ov_crust_upper_comps
+        
+        crust_lower_comps = self.grid['crust_lower']
+        sp_crust_lower_comps = crust_lower_comps * (initial_X < self.plate_start_point * 1.01)
+        ov_crust_lower_comps = crust_lower_comps * (initial_X > self.slab_hinge_point * 0.99)
+        self.grid['sp_crust_lower'] = sp_crust_lower_comps
+        self.grid['ov_crust_lower'] = ov_crust_lower_comps
+
+        # add composition indicator
+        self.add_composition_indicator()
+
+        # output final results 
+        self.write_object_to_file(self.grid, "final", "vtu")
+        
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+        print("\ttakes %.1f s" % (end - start))
+
+    def add_background(self):
+
+        # stack compositions → shape (n_points, 7)
+        arrays = [self.grid[f] for f in self.composition_names]
+        comp_data = np.column_stack(arrays)
+
+        # compute background
+        background = 1.0 - np.sum(comp_data, axis=1)
+
+        # (optional but recommended: clamp for numerical safety)
+        background = np.clip(background, 0.0, 1.0)
+
+        self.grid["background"] = background
+
+    def add_composition_indicator(self):
+
+        # oceanic_crust field
+        oceanic_crust_field_names = ['gabbro', 'MORB']
+        
+        oceanic_crust_fields = np.column_stack([self.grid[f] for f in oceanic_crust_field_names])
+        oceanic_crust_field = np.sum(oceanic_crust_fields, axis=1)
+
+        # Asthenosphere and lithosphere
+        T = self.grid["T"]
+        asthenosphere_field  = self.grid['background'] * (T > self.lithospheric_T)
+        lithosphere_field  = self.grid['background'] * (T <= self.lithospheric_T)
+
+        # extract arrays
+        arrays = [
+                  asthenosphere_field,
+                  self.grid['sp_crust_upper'],
+                  self.grid['sp_crust_lower'],
+                  oceanic_crust_field,
+                  self.grid['sediment'],
+                  lithosphere_field,
+                  self.grid['ov_crust_upper'],
+                  self.grid['ov_crust_lower']
+                  ]
+
+        # prepend background as first column → shape (n_points, 8)
+        data = np.column_stack(arrays)
+
+        # find max index (0 = background, 1–7 = compositions)
+        indicator = np.argmax(data, axis=1)
+
+        # attach to grid
+        self.grid.point_data['composition_indicator'] = indicator.astype(np.int32)
+
+
 
 def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
-                           pyvista_outdir=None):
+                           pyvista_outdir=None,
+                           include_particles=False):
     '''
     Process with pyvsita for a single step
     Inputs:
@@ -418,7 +551,8 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
 
     # initiate the processing class
     ProcessCollision = PYVISTA_PROCESS_COLLISION(os.path.join(case_path, "output", "solution"), Case_Options.options,
-                                                 pyvista_outdir=pyvista_outdir)
+                                                 pyvista_outdir=pyvista_outdir,
+                                                 include_particles=include_particles)
 
     # read file
     ProcessCollision.read(pvtu_step)
@@ -428,13 +562,17 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
 
     # analyze slab
     outputs1 = ProcessCollision.analyze_slab()
-    outputs.update(**outputs1)
-    
+    outputs.update(**outputs1) 
 
     # extract iso-volume objects
-    ProcessCollision.extract_continent_crust_iso_volumes()
-    ProcessCollision.extract_continent_lithosphere_iso_volumes(fields=Case_Options.options["COMPOSITION_FIELDS"])
-    ProcessCollision.extract_oceanic_plate_iso_volumes(include_harzburgite=Case_Options.options["HAS_HARZBURGITE"])
+    # ProcessCollision.extract_continent_crust_iso_volumes()
+    # ProcessCollision.extract_continent_lithosphere_iso_volumes(fields=Case_Options.options["COMPOSITION_FIELDS"])
+    # ProcessCollision.extract_oceanic_plate_iso_volumes(include_harzburgite=Case_Options.options["HAS_HARZBURGITE"])
+
+    # particles workflow
+    if include_particles:
+        ProcessCollision.process_particles()
+        ProcessCollision.extract_final()
 
     return outputs
 

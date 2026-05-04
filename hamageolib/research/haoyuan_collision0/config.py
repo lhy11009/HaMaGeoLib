@@ -482,9 +482,11 @@ class PostProcessorRule(Rule):
       Default value: 100000.0
     """
 
-    requires = ["use_my_setup_of_postprocess", "time_between_output"]
+    requires = ["use_my_setup_of_postprocess", "time_between_output", "include_initial_particle_position"]
     
-    defaults = {"use_my_setup_of_postprocess": False, "time_between_output": 100e3}
+    defaults = {"use_my_setup_of_postprocess": False,
+                "time_between_output": 100e3,
+                "include_initial_particle_position": False}
 
     requires_comments = {"use_my_setup_of_postprocess": "Add depth_average plot",
                         "time_between_output": "Set time between output for all postprocess modules"}
@@ -521,6 +523,7 @@ class PostProcessorRule(Rule):
         # Get values of configurations
         use_my_setup_of_postprocess = config["use_my_setup_of_postprocess"]
         time_between_output = config["time_between_output"]
+        include_initial_particle_position = config["include_initial_particle_position"]
 
         # Things to add in my own setup of the postprocessors
         if use_my_setup_of_postprocess:
@@ -535,6 +538,9 @@ class PostProcessorRule(Rule):
             prm_dict["Postprocess"]["Visualization"]["List of output variables"] = "material properties, strain rate, named additional outputs, stress second invariant, depth, heat flux map, nonadiabatic pressure, principal stress"
         else:
             pass
+                
+        if include_initial_particle_position:
+                prm_dict["Particles"]["List of particle properties"] += ", initial position"
 
         # Fix the section of post-process
         if "Postprocess" in prm_dict:

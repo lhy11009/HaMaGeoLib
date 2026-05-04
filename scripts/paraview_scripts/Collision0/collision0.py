@@ -127,9 +127,11 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
         else:
             snapshot = step
         _time = times[i]
-    
+
+        # todo_dual 
         # add source
         filein = os.path.join(data_output_dir, "solution", "solution-%05d.pvtu" %snapshot) 
+        # filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d/final_%05d.vtu" % (snapshot, snapshot)) 
 
         XMLPartitionedUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
 
@@ -144,7 +146,8 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     # Define categories (value -> label)
     # Define colors (flattened list)
     lut = GetColorTransferFunction("composition_indicator")
-    add_composition_indicator(source_name)
+    # todo_dual
+    # add_composition_indicator(source_name)
     programmable_source = FindSource("Programmable_comp")
     programmable_sourceDisplay = Show(programmable_source, renderView1, 'GeometryRepresentation')
 

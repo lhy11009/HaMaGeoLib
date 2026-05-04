@@ -22,7 +22,9 @@ class PYVISTA_PROCESS():
     """
 
     def __init__(self, data_dir, *,
-                 pyvista_outdir=None):
+                 pyvista_outdir=None,
+                 include_particles=False,
+                 particles_dir=None):
         
         # data_directory
         self.data_dir = data_dir
@@ -35,9 +37,21 @@ class PYVISTA_PROCESS():
         if not os.path.isdir(self.pyvista_outdir):
             os.mkdir(self.pyvista_outdir)
 
+        # include particles
+        self.include_particles = include_particles
+        if include_particles:
+            if particles_dir is None:
+                self.particles_dir = os.path.join(self.data_dir, "..", "particles")
+            else:
+                self.particles_dir = particles_dir
+            
+            assert(os.path.isdir(self.particles_dir))
+            
+
         # Initialize global variables 
         self.pvtu_step = None
         self.grid = None
+        self.particles = None
 
     def read(self, pvtu_step, *,
              piece=None):
@@ -49,17 +63,34 @@ class PYVISTA_PROCESS():
         if piece is None:
             filepath = os.path.join(self.data_dir, "solution-%05d.pvtu" % self.pvtu_step)
             my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
+            if self.include_particles:
+                p_filepath = os.path.join(self.particles_dir, "particles-%05d.pvtu" % self.pvtu_step)
+                my_assert(os.path.isfile(p_filepath), FileNotFoundError, "File %s is not found" % filepath)
+
         else:
             filepath = os.path.join(self.data_dir, "solution-%05d.%04d.vtu" % (self.pvtu_step, piece))
             my_assert(isinstance(piece, int) and piece >= 0, TypeError, "piece must be non-negative integar.")
             my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
+            if self.include_particles:
+                p_filepath = os.path.join(self.particles_dir, "particles-%05d.%04d.vtu" % (self.pvtu_step, piece))
+                my_assert(os.path.isfile(p_filepath), FileNotFoundError, "File %s is not found" % filepath)
+        
+
+        # read data
+        self.grid = pv.read(filepath)
         
         end = time.time()
         print("PYVISTA_PROCESS:\n\tRead file %s" % (filepath))
         print("\ttakes %.1f s" % (end - start))
-
-        # read data
-        self.grid = pv.read(filepath)
+        start = end
+            
+        if self.include_particles:
+            self.particles = pv.read(p_filepath)
+        
+            end = time.time()
+            print("PYVISTA_PROCESS:\n\tRead file %s" % (p_filepath))
+            print("\ttakes %.1f s" % (end - start))
+            start = end
 
     def process_piecewise(self, func_name, keys, **kwargs):
         '''

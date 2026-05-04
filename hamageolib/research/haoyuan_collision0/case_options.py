@@ -2,6 +2,7 @@ import os
 import numpy as np
 from hamageolib.utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import COMPOSITION
+from gdmate.aspect.prm_wb_utils import find_WB_feature_by_name
 
 class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
     '''
@@ -44,6 +45,12 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
 
         # add additional options below
 
+        # plate_setup
+        idx_feature, feature = find_WB_feature_by_name(self.wb_dict, "Subducting Plate")
+
+        self.options["PLATE_START_POINT"] = feature["coordinates"][-1][0]
+        self.options["SLAB_HINGE_POINT"] = feature["coordinates"][0][0]
+
         # todo_collision
         eta_min_inputs =\
             COMPOSITION(self.idict['Material model']['Visco Plastic']['Minimum viscosity']) 
@@ -53,6 +60,7 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
             COMPOSITION(self.idict['Material model']['Visco Plastic']['Maximum viscosity']) 
         self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
 
+        # compositions
         self.options["HAS_HARZBURGITE"] = False
         if "harzburgite" in self.options['COMPOSITION_FIELDS']:
             self.options["HAS_HARZBURGITE"] = True
