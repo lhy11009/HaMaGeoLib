@@ -366,7 +366,6 @@ class CASE_OPTIONS(CODESUB):
                 self.options["HAS_DYNAMIC_PRESSURE"] = '1'
 
         # reserve some addition options
-        
         for i in range(100):
             key = "FOO%02d" % i
             self.options[key] = 0
