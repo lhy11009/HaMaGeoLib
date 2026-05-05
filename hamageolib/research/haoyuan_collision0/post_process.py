@@ -411,111 +411,184 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         print("\ttakes %.1f s" % (end - start))
 
     def process_particles(self):
-        
+        """
+        Process particle data and construct an interpolator for initial particle positions.
+    
+        This function:
+        - Extracts particle coordinates (x, y)
+        - Retrieves the initial X position stored on particles
+        - Builds a KNN interpolator that maps spatial coordinates → initial X
+        - Stores the interpolator for later use on the grid
+    
+        Attributes used:
+            self.particles : PyVista particle dataset
+            self.Max0 : normalization factor for coordinates
+    
+        Attributes created:
+            self.particle_initial_X_func : callable interpolator
+        """
+    
         start = time.time()
-
+    
         assert(self.include_particles)
-
+    
         points = self.particles.points
         x_p = points[:, 0]
         y_p = points[:, 1]
-
+    
         initial_X = self.particles["initial position"][:, 0]
-
-        self.particle_initial_X_func = KNNInterpolatorND(np.vstack((x_p/self.Max0, y_p/self.Max0)).T, initial_X.ravel(), 
-                          k=1, max_distance=0.01)
-        
+    
+        self.particle_initial_X_func = KNNInterpolatorND(
+            np.vstack((x_p/self.Max0, y_p/self.Max0)).T,
+            initial_X.ravel(),
+            k=1,
+            max_distance=0.01
+        )
+    
         end = time.time()
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
-    
         print("\ttakes %.1f s" % (end - start))
-
-    # todo_dual
+    
+    
     def extract_final(self):
-        
+        """
+        Interpolate particle-derived quantities onto the grid and construct final compositional fields.
+    
+        This function:
+        - Interpolates initial particle X positions onto grid points
+        - Splits crust into subducting plate (sp) and overriding plate (ov)
+        - Adds derived compositional fields
+        - Generates a composition indicator field
+        - Writes the final grid to file
+    
+        Requirements:
+            self.particle_initial_X_func must be initialized (via process_particles)
+    
+        Attributes modified:
+            self.grid : updated with new scalar fields
+        """
+    
         start = time.time()
-
-        my_assert(self.particle_initial_X_func is not None, PYVISTA_PROCESS_WORKFLOW_ERROR, "Needs to first process upper/lower late")
-
+    
+        my_assert(
+            self.particle_initial_X_func is not None,
+            PYVISTA_PROCESS_WORKFLOW_ERROR,
+            "Needs to first process upper/lower late"
+        )
+    
         points = self.grid.points
         x_all = points[:, 0]
         y_all = points[:, 1]
-
-        # interpolate initial X from particles
+    
+        # interpolate initial X from particles → grid
         initial_X = self.particle_initial_X_func(x_all/self.Max0, y_all/self.Max0)
         self.grid['initial_X'] = initial_X
-
-        # distinguish ov and sp plate composition
+    
+        # distinguish subducting plate (sp) and overriding plate (ov) crust
         crust_upper_comps = self.grid['crust_upper']
         sp_crust_upper_comps = crust_upper_comps * (initial_X < self.plate_start_point * 1.01)
         ov_crust_upper_comps = crust_upper_comps * (initial_X > self.slab_hinge_point * 0.99)
         self.grid['sp_crust_upper'] = sp_crust_upper_comps
         self.grid['ov_crust_upper'] = ov_crust_upper_comps
-        
+    
         crust_lower_comps = self.grid['crust_lower']
         sp_crust_lower_comps = crust_lower_comps * (initial_X < self.plate_start_point * 1.01)
         ov_crust_lower_comps = crust_lower_comps * (initial_X > self.slab_hinge_point * 0.99)
         self.grid['sp_crust_lower'] = sp_crust_lower_comps
         self.grid['ov_crust_lower'] = ov_crust_lower_comps
-
-        # add composition indicator
+    
+        # compute composition indicator
         self.add_composition_indicator()
-
-        # output final results 
+    
+        # write output
         self.write_object_to_file(self.grid, "final", "vtu")
-        
+    
         end = time.time()
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
-
+    
+    
     def add_background(self):
-
-        # stack compositions → shape (n_points, 7)
+        """
+        Compute and add a 'background' composition field.
+    
+        This function:
+        - Stacks all composition fields
+        - Computes residual composition: background = 1 - sum(compositions)
+        - Clamps values to [0, 1] for numerical stability
+    
+        Attributes used:
+            self.composition_names : list of composition field names
+    
+        Attributes added:
+            self.grid["background"]
+        """
+    
+        # stack compositions → shape (n_points, N)
         arrays = [self.grid[f] for f in self.composition_names]
         comp_data = np.column_stack(arrays)
-
-        # compute background
+    
+        # compute residual background
         background = 1.0 - np.sum(comp_data, axis=1)
-
-        # (optional but recommended: clamp for numerical safety)
+    
+        # clamp to valid range
         background = np.clip(background, 0.0, 1.0)
-
+    
         self.grid["background"] = background
-
+    
+    
     def add_composition_indicator(self):
-
-        # oceanic_crust field
+        """
+        Construct a discrete composition indicator field based on dominant component.
+    
+        This function:
+        - Builds derived fields (oceanic crust, asthenosphere, lithosphere)
+        - Stacks all candidate composition fields
+        - Assigns each point an integer label based on the maximum component
+    
+        Indicator mapping (by index):
+            0 : asthenosphere (background, high T)
+            1 : subducting plate upper crust
+            2 : subducting plate lower crust
+            3 : oceanic crust (gabbro + MORB)
+            4 : sediment
+            5 : lithosphere (background, low T)
+            6 : overriding plate upper crust
+            7 : overriding plate lower crust
+    
+        Attributes added:
+            self.grid.point_data['composition_indicator']
+        """
+    
+        # combine oceanic crust components
         oceanic_crust_field_names = ['gabbro', 'MORB']
-        
         oceanic_crust_fields = np.column_stack([self.grid[f] for f in oceanic_crust_field_names])
         oceanic_crust_field = np.sum(oceanic_crust_fields, axis=1)
-
-        # Asthenosphere and lithosphere
+    
+        # split background into asthenosphere vs lithosphere using temperature
         T = self.grid["T"]
-        asthenosphere_field  = self.grid['background'] * (T > self.lithospheric_T)
-        lithosphere_field  = self.grid['background'] * (T <= self.lithospheric_T)
-
-        # extract arrays
+        asthenosphere_field = self.grid['background'] * (T > self.lithospheric_T)
+        lithosphere_field = self.grid['background'] * (T <= self.lithospheric_T)
+    
+        # stack all fields → shape (n_points, 8)
         arrays = [
-                  asthenosphere_field,
-                  self.grid['sp_crust_upper'],
-                  self.grid['sp_crust_lower'],
-                  oceanic_crust_field,
-                  self.grid['sediment'],
-                  lithosphere_field,
-                  self.grid['ov_crust_upper'],
-                  self.grid['ov_crust_lower']
-                  ]
-
-        # prepend background as first column → shape (n_points, 8)
+            asthenosphere_field,
+            self.grid['sp_crust_upper'],
+            self.grid['sp_crust_lower'],
+            oceanic_crust_field,
+            self.grid['sediment'],
+            lithosphere_field,
+            self.grid['ov_crust_upper'],
+            self.grid['ov_crust_lower']
+        ]
+    
         data = np.column_stack(arrays)
-
-        # find max index (0 = background, 1–7 = compositions)
+    
+        # determine dominant composition index
         indicator = np.argmax(data, axis=1)
-
-        # attach to grid
+    
+        # store as integer field
         self.grid.point_data['composition_indicator'] = indicator.astype(np.int32)
-
 
 
 def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,

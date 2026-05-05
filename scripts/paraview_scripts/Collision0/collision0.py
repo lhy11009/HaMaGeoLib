@@ -128,12 +128,18 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
             snapshot = step
         _time = times[i]
 
-        # todo_dual 
         # add source
-        filein = os.path.join(data_output_dir, "solution", "solution-%05d.pvtu" %snapshot) 
-        # filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d/final_%05d.vtu" % (snapshot, snapshot)) 
-
-        XMLPartitionedUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
+        # The original soure is the "solution" file.
+        # The "final" source adds pyvista processed object to the original source and requires running
+        # the pyvista workflow first. The idea is to have user specify this in the options by setting "FOO00"
+        if FOO00:
+            filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d/final_%05d.vtu" % (snapshot, snapshot)) 
+            if not os.path.isfile(filein):
+                raise FileExistsError("%s doesn't exist. Needs to run pyvista workflow first.")
+            XMLUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
+        else:
+            filein = os.path.join(data_output_dir, "solution", "solution-%05d.pvtu" %snapshot) 
+            XMLPartitionedUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
 
         plot_twod_basic("solution-%05d" % snapshot, _time, pv_output_dir)
 
@@ -141,28 +147,20 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         
     _source = FindSource(source_name)
 
-    # Add indicator field
-    # Set color table with discrete categories;
-    # Define categories (value -> label)
-    # Define colors (flattened list)
     lut = GetColorTransferFunction("composition_indicator")
-    # todo_dual
-    # add_composition_indicator(source_name)
-    programmable_source = FindSource("Programmable_comp")
-    programmable_sourceDisplay = Show(programmable_source, renderView1, 'GeometryRepresentation')
 
     lut.InterpretValuesAsCategories = 1
     lut.AnnotationsInitialized = 1
 
     lut.Annotations = [
         "0", "Asthenosphere",
-        "1", "Upper crust",
-        "2", "Lower crust",
+        "1", "Upper crust (sp)",
+        "2", "Lower crust (sp)",
         "3", "Oceanic crust",
         "4", "Sea floor sediment",
         "5", "Lithosphere",
-        "6", "Phase 6",
-        "7", "Phase 7",
+        "6", "Upper crust (ov)",
+        "7", "Lower crust (ov)",
     ]
 
     lut.IndexedColors = [
@@ -172,14 +170,14 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         0.784, 0.353, 0.0,
         1.0, 0.706, 0.314,
         0.1451, 0.5373, 0.2588,
-        0.0, 0.0, 0.0,
-        0.0, 0.0, 0.0,
+        0.63, 0.605, 0.615,
+        0.70, 0.30, 0.35,
     ]
 
-    programmable_sourceDisplay.ColorArrayName = ["POINTS", "composition_indicator"]
-    programmable_sourceDisplay.LookupTable = lut
+    # programmable_sourceDisplay.ColorArrayName = ["POINTS", "composition_indicator"]
+    # programmable_sourceDisplay.LookupTable = lut
 
-    Hide(programmable_source)
+    # Hide(programmable_source)
 
     # add glyph of velocity
     ScaleFactor = None
@@ -201,9 +199,10 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     label_glyph1Display = Show(label_glyph1, renderView1, 'GeometryRepresentation')
     text_glyph1 = FindSource("Text_glyph1")
     text_glyph1Display = Show(text_glyph1, renderView1, 'GeometryRepresentation')
+        
+    sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
 
     if "PLOT_TYPE" == "full_domain":
-        sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
 
         layout_resolution = (1350, 704)
 
@@ -221,7 +220,6 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         renderView1.CameraFocalPoint = [RIGHT/2.0, TOP/2.0, 0.0]
         renderView1.CameraParallelScale = 2588447.7843194483 * RIGHT / 8700e3  # scale to the length
     elif "PLOT_TYPE" == "trench_centered":
-        sourceDisplay = Show(_source, renderView1, 'GeometryRepresentation')
 
         layout_resolution = (1350, 704)
 
@@ -241,10 +239,10 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         renderView1.CameraParallelScale = 563321.6543393662  # scale to a 2000 km domain
     elif "PLOT_TYPE" == "orogen":
         # Reorder visibility
-        hide_everything()
+        # hide_everything()
 
-        programmable_source = FindSource("Programmable_comp")
-        sourceDisplay = Show(programmable_source, renderView1, 'GeometryRepresentation')
+        # programmable_source = FindSource("Programmable_comp")
+        # sourceDisplay = Show(programmable_source, renderView1, 'GeometryRepresentation')
        
         layout_resolution = (1350, 704)
 
@@ -432,6 +430,10 @@ vtk_arr.SetName("composition_indicator")
 output.GetPointData().AddArray(vtk_arr)
 """
 
+# check consistency in setup
+if "PLOT_TYPE" == "orogen":
+    if not FOO00:
+        raise ValueError("Needs to turn on the pyvista flag for plotting\"orogen\"")
 
 steps = GRAPHICAL_STEPS
 times = GRAPHICAL_TIMES
