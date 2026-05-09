@@ -227,9 +227,6 @@ alias thd='cd $ThDSubduction_DIR'
 export ThDSubduction_backup_DIR="/mnt/lochy2/ASPECT_DATA/ThDSubduction"
 alias thd1='cd $ThDSubduction_backup_DIR'
 
-export MOW="/mnt/lochy/ASPECT_DATA/MOW"
-export MOW_HIVE="/quobyte/billengrp/lochy/MOW"
-alias mow="cd $MOW"
 
 
 #--------------------------------------------------
@@ -247,6 +244,12 @@ export PATH=$PATH:/home/lochy/Softwares/blender-3.2.1-linux-x64
 #--------------------------------------------------
 export PV_INTERFACE_PATH=/home/lochy/Softwares/ParaView-5.11.2-MPI-Linux-Python3.9-x86_64/plugins/SCM8
 
+# -----------------------------
+# Project mow
+# -----------------------------
+export MOW="/mnt/lochy/ASPECT_DATA/MOW"
+export MOW_HIVE="/quobyte/billengrp/lochy/MOW"
+alias mow="cd $MOW"
 
 # -----------------------------
 # Project collision
@@ -260,7 +263,7 @@ alias collision="cd $COLLISION"
 # Multi-Project Commands
 # -----------------------------
 export PROJECT="${MOW}:${COLLISION}"
-export PROJECT_HIVE="${MOW_HIVE}:${COLLISION_HIVE}"
+export PROJECT_REMOTE_hive="${MOW_HIVE}:${COLLISION_HIVE}"
 
-alias from_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_hive.sh"
-alias to_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/to_hive.sh"
+alias from_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_server.sh hive"
+alias to_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/to_server.sh hive"
