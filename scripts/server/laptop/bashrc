@@ -1,0 +1,185 @@
+#--------------------------------------------------
+# Bash initialization
+#--------------------------------------------------
+# ~/.bashrc: executed by bash(1) for non-login shells.
+# see /usr/share/doc/bash/examples/startup-files
+# for examples
+
+# If not running interactively, don't do anything
+case $- in
+    *i*) ;;
+      *) return;;
+esac
+
+
+#--------------------------------------------------
+# History configuration
+#--------------------------------------------------
+# don't put duplicate lines or lines starting with space in the history
+HISTCONTROL=ignoreboth
+
+# append to the history file, don't overwrite it
+shopt -s histappend
+
+# history length
+export HISTCONTROL=ignoredups:erasedups
+HISTSIZE=10000
+HISTFILESIZE=20000
+
+
+#--------------------------------------------------
+# Default editor
+#--------------------------------------------------
+export EDITOR=vim
+
+
+#--------------------------------------------------
+# Default permissions
+#--------------------------------------------------
+# Sets default file permissions for new files and directories
+umask 022
+
+
+#--------------------------------------------------
+# Shell behavior
+#--------------------------------------------------
+# update LINES and COLUMNS automatically
+shopt -s checkwinsize
+
+# enable recursive globbing (**)
+# shopt -s globstar
+
+
+#--------------------------------------------------
+# less configuration
+#--------------------------------------------------
+# make less more friendly for non-text input files
+[ -x /usr/bin/lesspipe ] && eval "$(SHELL=/bin/sh lesspipe)"
+
+
+#--------------------------------------------------
+# Debian chroot detection
+#--------------------------------------------------
+if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
+    debian_chroot=$(cat /etc/debian_chroot)
+fi
+
+
+#--------------------------------------------------
+# Prompt configuration
+#--------------------------------------------------
+case "$TERM" in
+    xterm-color|*-256color) color_prompt=yes;;
+esac
+
+# force_color_prompt=yes
+
+if [ -n "$force_color_prompt" ]; then
+    if [ -x /usr/bin/tput ] && tput setaf 1 >&/dev/null; then
+        color_prompt=yes
+    else
+        color_prompt=
+    fi
+fi
+
+if [ "$color_prompt" = yes ]; then
+    PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+else
+    PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+fi
+
+unset color_prompt force_color_prompt
+
+
+#--------------------------------------------------
+# Xterm title
+#--------------------------------------------------
+case "$TERM" in
+xterm*|rxvt*)
+    PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
+    ;;
+*)
+    ;;
+esac
+
+
+#--------------------------------------------------
+# Color support and core aliases
+#--------------------------------------------------
+if [ -x /usr/bin/dircolors ]; then
+    test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
+
+    alias ls='ls --color=auto'
+    alias grep='grep --color=auto'
+    alias fgrep='fgrep --color=auto'
+    alias egrep='egrep --color=auto'
+fi
+
+
+#--------------------------------------------------
+# Useful ls aliases
+#--------------------------------------------------
+alias ll='ls -alF'
+alias la='ls -A'
+alias lsmore='ls -alth --color=auto | more'
+
+
+#--------------------------------------------------
+# Notification helper
+#--------------------------------------------------
+alias alert='notify-send --urgency=low -i "$([ $? = 0 ] && echo terminal || echo error)" "$(history|tail -n1|sed -e '\''s/^\s*[0-9]\+\s*//;s/[;&|]\s*alert$//'\'')"'
+
+
+#--------------------------------------------------
+# Additional user aliases
+#--------------------------------------------------
+if [ -f ~/.bash_aliases ]; then
+    . ~/.bash_aliases
+fi
+
+
+#--------------------------------------------------
+# Bash completion
+#--------------------------------------------------
+if ! shopt -oq posix; then
+  if [ -f /usr/share/bash-completion/bash_completion ]; then
+    . /usr/share/bash-completion/bash_completion
+  elif [ -f /etc/bash_completion ]; then
+    . /etc/bash_completion
+  fi
+fi
+
+
+#--------------------------------------------------
+# Custom system prompt
+#--------------------------------------------------
+PS1='[\u@\h \W]\$ '
+
+#--------------------------------------------------
+# HaMaGeoLib
+#--------------------------------------------------
+export HaMaGeoLib_DIR="~/HaMaGeoLib"
+
+
+# -----------------------------
+# Project mow
+# -----------------------------
+export COLLISION="/mnt/d/raw_data/MOW"
+export MOW_UCD="/mnt/lochy/ASPECT_DATA/MOW"
+alias mow="cd $MOW"
+
+# -----------------------------
+# Project collision
+# -----------------------------
+export COLLISION="/mnt/d/raw_data/Collision0"
+export COLLISION_UCD="/mnt/lochy/ASPECT_DATA/Collision0"
+alias collision="cd $COLLISION"
+
+# -----------------------------
+# Multi-Project Commands
+# -----------------------------
+export PROJECT="${MOW}:${COLLISION}"
+export PROJECT_REMOTE_ucd="${MOW_UCD}:${COLLISION_UCD}"
+
+alias from_ucd="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_server.sh ucd"
+alias to_ucd="${HaMaGeoLib_DIR}/scripts/bash_scripts/to_server.sh ucd"
