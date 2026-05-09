@@ -45,6 +45,8 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "weak_layer_compositions" in use_keys:
         if "gabbro" in variables["weak_layer_compositions"]:
             case_name += "_WLCG"
+        if variables["weak_layer_compositions"] == ["sediment"]:
+            case_name += "_WLS"
 
     if variables["weak_layer_rheology_scheme"] == "constant viscosity":
         if use_all or "weak_layer_viscosity" in use_keys:
@@ -198,9 +200,6 @@ class CompositionRule(Rule):
                         feature["composition models"].append(rm_ov_composition_model)
                     
                         break
-
-        print("prm_dict[\"Compositional fields\"] = ")
-        print(prm_dict["Compositional fields"])
 
         # To add a new composition, we need to copy from an existing one,
         # both in the prm file and in the wb file
