@@ -164,7 +164,7 @@ export HaMaGeoLib_DIR="/home/lochy/HaMaGeoLib"
 # -----------------------------
 # Project mow
 # -----------------------------
-export COLLISION="/mnt/d/raw_data/MOW"
+export MOW="/mnt/d/raw_data/MOW"
 export MOW_UCD="/mnt/lochy/ASPECT_DATA/MOW"
 alias mow="cd $MOW"
 
