@@ -49,6 +49,10 @@ find_project_index () {
 
         export relative_case_path="${abs_path#"$selected_folder"/}"
 
+        # assert these are not empty
+        : "${selected_remote_folder:?selected_remote_folder is empty}"
+        : "${relative_case_path:?relative_case_path is empty}"
+
     else
 
         echo "No matching folder found"
