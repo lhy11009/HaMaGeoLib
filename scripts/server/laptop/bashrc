@@ -158,7 +158,7 @@ PS1='[\u@\h \W]\$ '
 #--------------------------------------------------
 # HaMaGeoLib
 #--------------------------------------------------
-export HaMaGeoLib_DIR="~/HaMaGeoLib"
+export HaMaGeoLib_DIR="/home/lochy/HaMaGeoLib"
 
 
 # -----------------------------
