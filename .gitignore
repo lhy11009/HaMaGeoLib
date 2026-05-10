@@ -20,3 +20,4 @@ plate-model-repo
 *.stdout
 *.vtp
 *.mp4
+notebooks/research/haoyuan_collision/output/
