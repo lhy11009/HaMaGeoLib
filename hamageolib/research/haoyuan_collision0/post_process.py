@@ -410,6 +410,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
     
         print("\ttakes %.1f s" % (end - start))
 
+    class InitialParticlePositionException(Exception):
+        pass
+
     def process_particles(self):
         """
         Process particle data and construct an interpolator for initial particle positions.
@@ -435,8 +438,11 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         points = self.particles.points
         x_p = points[:, 0]
         y_p = points[:, 1]
-    
-        initial_X = self.particles["initial position"][:, 0]
+
+        try: 
+            initial_X = self.particles["initial position"][:, 0]
+        except KeyError:
+            raise self.InitialParticlePositionException()
     
         self.particle_initial_X_func = KNNInterpolatorND(
             np.vstack((x_p/self.Max0, y_p/self.Max0)).T,
@@ -450,7 +456,8 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         print("\ttakes %.1f s" % (end - start))
     
     
-    def extract_final(self):
+    def extract_final(self, *,
+                      upper_lower_plate=True):
         """
         Interpolate particle-derived quantities onto the grid and construct final compositional fields.
     
@@ -469,36 +476,38 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         """
     
         start = time.time()
-    
-        my_assert(
-            self.particle_initial_X_func is not None,
-            PYVISTA_PROCESS_WORKFLOW_ERROR,
-            "Needs to first process upper/lower late"
-        )
-    
-        points = self.grid.points
-        x_all = points[:, 0]
-        y_all = points[:, 1]
-    
-        # interpolate initial X from particles → grid
-        initial_X = self.particle_initial_X_func(x_all/self.Max0, y_all/self.Max0)
-        self.grid['initial_X'] = initial_X
-    
-        # distinguish subducting plate (sp) and overriding plate (ov) crust
-        crust_upper_comps = self.grid['crust_upper']
-        sp_crust_upper_comps = crust_upper_comps * (initial_X < self.plate_start_point * 1.01)
-        ov_crust_upper_comps = crust_upper_comps * (initial_X > self.slab_hinge_point * 0.99)
-        self.grid['sp_crust_upper'] = sp_crust_upper_comps
-        self.grid['ov_crust_upper'] = ov_crust_upper_comps
-    
-        crust_lower_comps = self.grid['crust_lower']
-        sp_crust_lower_comps = crust_lower_comps * (initial_X < self.plate_start_point * 1.01)
-        ov_crust_lower_comps = crust_lower_comps * (initial_X > self.slab_hinge_point * 0.99)
-        self.grid['sp_crust_lower'] = sp_crust_lower_comps
-        self.grid['ov_crust_lower'] = ov_crust_lower_comps
+
+        if upper_lower_plate:
+            # distinguish upper / lower mantle composition 
+            my_assert(
+                self.particle_initial_X_func is not None,
+                PYVISTA_PROCESS_WORKFLOW_ERROR,
+                "Needs to first process upper/lower late"
+            )
+        
+            points = self.grid.points
+            x_all = points[:, 0]
+            y_all = points[:, 1]
+        
+            # interpolate initial X from particles → grid
+            initial_X = self.particle_initial_X_func(x_all/self.Max0, y_all/self.Max0)
+            self.grid['initial_X'] = initial_X
+        
+            # distinguish subducting plate (sp) and overriding plate (ov) crust
+            crust_upper_comps = self.grid['crust_upper']
+            sp_crust_upper_comps = crust_upper_comps * (initial_X < self.plate_start_point * 1.01)
+            ov_crust_upper_comps = crust_upper_comps * (initial_X > self.slab_hinge_point * 0.99)
+            self.grid['sp_crust_upper'] = sp_crust_upper_comps
+            self.grid['ov_crust_upper'] = ov_crust_upper_comps
+        
+            crust_lower_comps = self.grid['crust_lower']
+            sp_crust_lower_comps = crust_lower_comps * (initial_X < self.plate_start_point * 1.01)
+            ov_crust_lower_comps = crust_lower_comps * (initial_X > self.slab_hinge_point * 0.99)
+            self.grid['sp_crust_lower'] = sp_crust_lower_comps
+            self.grid['ov_crust_lower'] = ov_crust_lower_comps
     
         # compute composition indicator
-        self.add_composition_indicator()
+        self.add_composition_indicator(upper_lower_plate=upper_lower_plate)
     
         # write output
         self.write_object_to_file(self.grid, "final", "vtu")
@@ -537,7 +546,8 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         self.grid["background"] = background
     
     
-    def add_composition_indicator(self):
+    def add_composition_indicator(self, *,
+                                  upper_lower_plate=True):
         """
         Construct a discrete composition indicator field based on dominant component.
     
@@ -571,16 +581,26 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         lithosphere_field = self.grid['background'] * (T <= self.lithospheric_T)
     
         # stack all fields → shape (n_points, 8)
-        arrays = [
-            asthenosphere_field,
-            self.grid['sp_crust_upper'],
-            self.grid['sp_crust_lower'],
-            oceanic_crust_field,
-            self.grid['sediment'],
-            lithosphere_field,
-            self.grid['ov_crust_upper'],
-            self.grid['ov_crust_lower']
-        ]
+        if upper_lower_plate:
+            arrays = [
+                asthenosphere_field,
+                self.grid['sp_crust_upper'],
+                self.grid['sp_crust_lower'],
+                oceanic_crust_field,
+                self.grid['sediment'],
+                lithosphere_field,
+                self.grid['ov_crust_upper'],
+                self.grid['ov_crust_lower']
+            ]
+        else:
+            arrays = [
+                asthenosphere_field,
+                self.grid['crust_upper'],
+                self.grid['crust_lower'],
+                oceanic_crust_field,
+                self.grid['sediment'],
+                lithosphere_field
+            ]
     
         data = np.column_stack(arrays)
     
@@ -644,8 +664,18 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
 
     # particles workflow
     if include_particles:
-        ProcessCollision.process_particles()
-        ProcessCollision.extract_final()
+
+        # process the particle file and see if the initial particle
+        # position presents. If so, differentiate the upper/lower 
+        # plate with it.
+        upper_lower_plate = True
+        try:
+            ProcessCollision.process_particles()
+        except PYVISTA_PROCESS_COLLISION.InitialParticlePositionException:
+            upper_lower_plate = False
+
+        # extract the final output file
+        ProcessCollision.extract_final(upper_lower_plate=upper_lower_plate)
 
     return outputs
 

@@ -97,6 +97,10 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if variables["include_phase_transition"]:
             case_name += "_PTr"
 
+    if use_all or "include_strain_weakening" in use_keys:
+        if variables["include_strain_weakening"]:
+            case_name += "_PS"  # short for plastic strain
+
     return case_name
 
 
@@ -2360,3 +2364,90 @@ class PhaseTransitionRule(Rule):
                         "Thermal conductivity", "Compressibility", "Entropy derivative pressure",\
                          "Entropy derivative temperature"]:
                 prm_dict["Material model"]["Compositing"][_name] = "multicomponent compressible"
+
+class StrainWeakeningRule(Rule):
+    """
+    This rule customizes strain weakening mechanisms
+
+    Required configuration parameters:
+
+    Provided configuration parameters:
+
+    """
+    requires = ["include_strain_weakening", "strain_weakening_start_interval", "strain_weakening_end_interval", "strain_weakening_factor", "weak_layer_compositions"]
+    
+    defaults = {"include_strain_weakening": False, 
+                "strain_weakening_start_interval": 0.5, 
+                "strain_weakening_end_interval": 1.5,
+                "strain_weakening_factor": 0.25,
+                "weak_layer_compositions": ["MORB", "sediment"]}
+
+    requires_comments = {}
+    
+    provides = []
+
+    def apply(self, config, prm_dict, wb_dict, context):
+
+        include_strain_weakening = config["include_strain_weakening"]
+        strain_weakening_start_interval = config["strain_weakening_start_interval"]
+        strain_weakening_end_interval = config["strain_weakening_end_interval"]
+        strain_weakening_factor = config["strain_weakening_factor"]
+        weak_layer_compositions = config["weak_layer_compositions"]
+
+        if include_strain_weakening:
+            # Composition settings
+            number_of_compositional_fields = int(prm_dict["Compositional fields"]["Number of fields"])
+            names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
+            try:
+                compositional_field_types = parse_entry_as_list(prm_dict["Compositional fields"]["Types of fields"])
+            except KeyError:
+                compositional_field_types = ["chemical composition" for i in range(number_of_compositional_fields)]
+            compositional_field_methods = parse_entry_as_list(prm_dict["Compositional fields"]["Compositional field methods"])
+            mapped_particle_properties = parse_entry_as_list(prm_dict["Compositional fields"]["Mapped particle properties"])
+
+            number_of_compositional_fields += 2
+            names_of_fields += ["noninitial_plastic_strain", "plastic_strain"]
+            compositional_field_types += ["strain", "strain"]
+            compositional_field_methods += ["particles", "particles"]
+            mapped_particle_properties += ["noninitial_plastic_strain: noninitial_plastic_strain", "plastic_strain: plastic_strain"]
+
+
+            prm_dict["Compositional fields"]["Number of fields"] = str(number_of_compositional_fields)
+            prm_dict["Compositional fields"]["Names of fields"] = format_list_as_entry(names_of_fields)
+            prm_dict["Compositional fields"]["Types of fields"] = format_list_as_entry(compositional_field_types)
+            prm_dict["Compositional fields"]["Compositional field methods"] = format_list_as_entry(compositional_field_methods)
+            prm_dict["Compositional fields"]["Mapped particle properties"] = format_list_as_entry(mapped_particle_properties)
+
+            # Initial composition settings
+            prm_dict["Initial composition model"]["List of model names"] += ", function"
+            prm_dict["Initial composition model"]["List of model operators"] = "add"
+            initial_plastic_strain_expr = "0"
+            prm_dict["Initial composition model"]["Function"] = {
+                "Variable names": "x,y",
+                "Function expression": (number_of_compositional_fields-2) * "0; " + "0; " + initial_plastic_strain_expr
+            }
+
+            # Particle settings
+            prm_dict["Particles"]["List of particle properties"] += ", viscoplastic strain invariants"
+
+            # modify the material model
+            material_model = prm_dict["Material model"]["Visco Plastic"]
+
+            material_model["Strain weakening mechanism"] = "plastic weakening with plastic strain only"
+
+
+            # list of entries, note the need to include the "background"
+            start_inverval_list = ["%.2f" % strain_weakening_start_interval for i in range(number_of_compositional_fields+1)]
+            end_inverval_list = ["%.2f" % strain_weakening_end_interval for i in range(number_of_compositional_fields+1)]
+            weakening_factor_list = ["%.2f" % strain_weakening_factor for i in range(number_of_compositional_fields+1)]
+
+            # exclude the weak layer compositions
+            for composition in weak_layer_compositions:
+                i = names_of_fields.index(composition) + 1 # need to include the background
+                weakening_factor_list[i] = "1.00"
+
+            # format options as entry into the prm file
+            material_model["Start plasticity strain weakening intervals"] = format_list_as_entry(start_inverval_list)
+            material_model["End plasticity strain weakening intervals"] = format_list_as_entry(end_inverval_list)
+            material_model["Cohesion strain weakening factors"] = format_list_as_entry(weakening_factor_list)
+            material_model["Friction strain weakening factors"] = format_list_as_entry(weakening_factor_list)
