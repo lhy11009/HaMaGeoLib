@@ -45,7 +45,7 @@ class PYVISTA_PROCESS():
             else:
                 self.particles_dir = particles_dir
             
-            assert(os.path.isdir(self.particles_dir))
+            my_assert(os.path.isdir(self.particles_dir), FileExistsError, "%s doesn't exists." % self.particles_dir)
             
 
         # Initialize global variables 

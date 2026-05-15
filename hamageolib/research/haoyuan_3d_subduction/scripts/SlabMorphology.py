@@ -180,7 +180,7 @@ def main():
                 PprocessThD, outputs = ProcessVtuFileThDStep(args.indir, pvtu_step, Case_Options, odir=odir, only_initialization=True)
 
         except FileNotFoundError:
-            Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, False)
+            Case_Options.SummaryCaseVtuStepUpdateValue("File Exists", step, False)
         else:
             if analyze_results:
                 print("Analyze step %d" % step)
@@ -200,7 +200,7 @@ def main():
                     print("\t Mow area cold center = ", outputs["Mow area slab center"])
                 
                 
-                Case_Options.SummaryCaseVtuStepUpdateValue("File found", step, True)
+                Case_Options.SummaryCaseVtuStepUpdateValue("File Exists", step, True)
                 # update value in sumamry
                 Case_Options.SummaryCaseVtuStepUpdateValue("Slab depth", step, outputs["slab_depth"])
                 Case_Options.SummaryCaseVtuStepUpdateValue("Trench (center)", step, outputs["trench_center"])

@@ -63,7 +63,12 @@ class CASE_OPTIONS(CODESUB):
         summary_df (panda object): case summary
     """
 
-    def __init__(self, case_dir, **kwargs):
+    def __init__(self, case_dir, *,
+                 case_file="case.prm",
+                 wb_basename="case.wb",
+                 image_directory="img",
+                 output_directory="output",
+                 pyvista_basename="pyvista_outputs"):
         """
         Initializes the CASE_OPTIONS class by setting up file paths, checking directories,
         and loading parameters from .prm and .wb files if available.
@@ -71,19 +76,16 @@ class CASE_OPTIONS(CODESUB):
         Args:
             case_dir (str): The directory of the case.
         """
-        prm_basename = kwargs.get("case_file", "case.prm")
-        wb_basename = kwargs.get("world_builder_file", "case.wb")
-        output_dir_basename = kwargs.get("output_directory", "output")
-        
         # Validate and set case directory
         self.case_dir = case_dir
         my_assert(os.path.isdir(self.case_dir), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case directory - %s doesn\'t exist' % self.case_dir)
 
         # Validate and set output directory
-        self.output_dir = os.path.join(case_dir, output_dir_basename)
+        self.output_dir = os.path.join(case_dir, output_directory)
         my_assert(os.path.isdir(self.output_dir), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case output directory - %s doesn\'t exist' % self.output_dir)
+        
 
         # Set paths for visualization files and validate access
         self.visit_file = None
@@ -97,12 +99,16 @@ class CASE_OPTIONS(CODESUB):
             self.paraview_file = paraview_file_tmp
 
         # Set or create image directory
-        self.img_dir = os.path.join(case_dir, 'img')
+        self.img_dir = os.path.join(case_dir, image_directory)
         if not os.path.isdir(self.img_dir):
             os.mkdir(self.img_dir)
 
+        pv_output_dir = os.path.join(self.img_dir, "pv_outputs")
+        if not os.path.isdir(pv_output_dir):
+            os.mkdir(pv_output_dir)
+
         # Parse parameters from .prm file
-        prm_file = os.path.join(self.case_dir, prm_basename)
+        prm_file = os.path.join(self.case_dir, case_file)
         my_assert(os.access(prm_file, os.R_OK), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case prm file - %s cannot be read' % prm_file)
         with open(prm_file, 'r') as fin:
@@ -114,6 +120,11 @@ class CASE_OPTIONS(CODESUB):
         if os.access(wb_file, os.R_OK):
             with open(wb_file, 'r') as fin:
                 self.wb_dict = json.load(fin)
+
+        # Directory for pyvista outputs
+        self.pyvista_dir = os.path.join(self.case_dir, pyvista_basename)
+        if not os.path.isdir(self.pyvista_dir):
+            os.mkdir(self.pyvista_dir)
 
         # Initialize options dictionary
         self.options = {}
@@ -202,6 +213,7 @@ class CASE_OPTIONS(CODESUB):
         pvtu_step0 = self.get_pvtu_step(0)
         Time = self.visualization_df["Time"].iloc[pvtu_step0:]
         Time_step_number = self.visualization_df["Time step number"].iloc[pvtu_step0:]
+        File_exists = self.visualization_df['File Exists'].iloc[pvtu_step0:]
         Vtu_step = np.arange(0, Time_step_number.size, dtype=int)
         Vtu_snapshot = self.get_pvtu_step(Vtu_step)
 
@@ -210,7 +222,7 @@ class CASE_OPTIONS(CODESUB):
             "Time": Time,
             "Time step number": Time_step_number,
             "Vtu snapshot": Vtu_snapshot,
-            "File found": [True for i in range(Time_step_number.size)]
+            "File Exists": File_exists
             })
 
         if ifile is not None and os.path.isfile(ifile): 
@@ -276,6 +288,8 @@ class CASE_OPTIONS(CODESUB):
 
         # paths
         self.options["OUTPUT_DIRECTORY"] = self.output_dir
+        self.options["VISUALIZATION_DIRECTORY"] = os.path.join(self.output_dir, "solution")
+        self.options["PYVISTA_DIRECTORY"] = self.pyvista_dir
         self.options["IMAGE_DIRECTORY"] = self.img_dir
 
         # default operations
@@ -390,6 +404,61 @@ class CASE_OPTIONS(CODESUB):
             pvtu_step = vtu_step  # Otherwise, .pvtu and .vtu steps align directly
 
         return pvtu_step
+    
+    def retrieve_visualization_file(self, visualization_snapshot_step):
+        '''
+        Retrieve the visualization file name corresponding to a given VTU/PVTU snapshot step.
+        This function also reset the VISUALIZATION_FILE_DIRECTORY variable
+
+        Parameters:
+            visualization_snapshot_step (int):
+                Visualization snapshot number stored in the summary dataframe.
+
+        Returns:
+            visualization_file_name (str):
+                Name of the visualization file associated with the matching time step.
+
+        Attributes used:
+            self.summary_df (pandas.DataFrame):
+                DataFrame containing mappings between visualization snapshots
+                and simulation time step numbers.
+
+            self.visualization_df (pandas.DataFrame):
+                DataFrame containing mappings between simulation time steps
+                and visualization file names.
+        '''
+
+        assert(self.summary_df is not None)
+        assert(self.visualization_df is not None)
+
+        # locate matching entry in summary dataframe
+        summary_mask = (
+            self.summary_df["Vtu snapshot"] == visualization_snapshot_step
+        )
+
+        simulation_time_step = (
+            self.summary_df
+            .loc[summary_mask, "Time step number"]
+            .iloc[0]
+        )
+
+        # locate matching visualization file
+        visualization_mask = (
+            self.visualization_df["Time step number"] == simulation_time_step
+        )
+
+        visualization_file_name = (
+            self.visualization_df
+            .loc[visualization_mask, "Visualization file name"]
+            .iloc[0]
+        )
+
+        # Reset the visualization directory to the parental
+        # directory where we find this file
+        self.options["VISUALIZATION_DIRECTORY"] = \
+            os.path.join(self.case_dir, os.path.dirname(visualization_file_name))
+
+        return visualization_file_name
             
 class CASE_SUMMARY:
 

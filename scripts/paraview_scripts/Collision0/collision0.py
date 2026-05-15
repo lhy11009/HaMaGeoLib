@@ -112,12 +112,12 @@ def set_data_axes_grid(renderView1):
     renderView1.AxesGrid.ZTitle = 'Z [m]'
 
 
-def twod_workflow(pv_output_dir, data_output_dir, steps, times):
+def twod_workflow(pv_output_dir, visualization_dir, steps, times):
     '''
     Workflow for the twod case
     Inputs:
         pv_output_dir - directory for figure
-        data_output_dir - where the original case output locates
+        visualization_dir - where the original case output locates
         steps - time steps
         times - corresponding times
     '''
@@ -133,12 +133,12 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times):
         # The "final" source adds pyvista processed object to the original source and requires running
         # the pyvista workflow first. The idea is to have user specify this in the options by setting "FOO00"
         if FOO00:
-            filein = os.path.join(data_output_dir, "..", "pyvista_outputs", "%05d/final_%05d.vtu" % (snapshot, snapshot)) 
+            filein = os.path.join("PYVISTA_DIRECTORY", "%05d/final_%05d.vtu" % (snapshot, snapshot)) 
             if not os.path.isfile(filein):
                 raise FileExistsError("%s doesn't exist. Needs to run pyvista workflow first.")
             XMLUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
         else:
-            filein = os.path.join(data_output_dir, "solution", "solution-%05d.pvtu" %snapshot) 
+            filein = os.path.join(visualization_dir, "solution-%05d.pvtu" %snapshot) 
             XMLPartitionedUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
 
         plot_twod_basic("solution-%05d" % snapshot, _time, pv_output_dir)
@@ -437,7 +437,7 @@ if "PLOT_TYPE" == "orogen":
 
 steps = GRAPHICAL_STEPS
 times = GRAPHICAL_TIMES
-data_output_dir = "OUTPUT_DIRECTORY"
+visualization_dir = "VISUALIZATION_DIRECTORY"
 pv_output_dir = os.path.abspath(os.path.join("IMAGE_DIRECTORY", "pv_outputs"))
 
 # get active view
@@ -445,6 +445,6 @@ renderView1 = GetActiveViewOrCreate('RenderView')
     
 
 if int("DIMENSION") == 3:
-    thd_workflow(pv_output_dir, data_output_dir, steps, times)
+    thd_workflow(pv_output_dir, visualization_dir, steps, times)
 else:
-    twod_workflow(pv_output_dir, data_output_dir, steps, times)
+    twod_workflow(pv_output_dir, visualization_dir, steps, times)

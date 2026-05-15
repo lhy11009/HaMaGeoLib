@@ -632,10 +632,8 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     
     # output directory
     if pyvista_outdir is None:
-        if not os.path.isdir(os.path.join(case_path, "pyvista_outputs")):
-            os.mkdir(os.path.join(case_path, "pyvista_outputs"))
-        pyvista_outdir = os.path.join(case_path, "pyvista_outputs", "%05d" % pvtu_step)
-
+        pyvista_outdir = os.path.join(Case_Options.pyvista_dir, "%05d" % pvtu_step)
+    
     if not os.path.isdir(pyvista_outdir):
         os.mkdir(pyvista_outdir)
     
@@ -643,7 +641,10 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     outputs = {}
 
     # initiate the processing class
-    ProcessCollision = PYVISTA_PROCESS_COLLISION(os.path.join(case_path, "output", "solution"), Case_Options.options,
+    # retrive the visualization file in case we perform a two-stage model
+    # and the outputs are distributed in different folders
+    file_name = Case_Options.retrieve_visualization_file(pvtu_step)
+    ProcessCollision = PYVISTA_PROCESS_COLLISION(os.path.join(Case_Options.case_dir, os.path.dirname(file_name)), Case_Options.options,
                                                  pyvista_outdir=pyvista_outdir,
                                                  include_particles=include_particles)
 
@@ -724,10 +725,11 @@ def finalize_visualization_2d_11022025(local_dir, file_name, _time, frame_png_fi
     # Options
     add_time = kwargs.get("add_time", True)
     canvas_size = kwargs.get("canvas_size", (996, 568))
+    img_dir = kwargs.get("img_dir", "img")
 
     # Inputs
-    eps_file = os.path.join(local_dir, "img", "pv_outputs", "%s_t%.4e.eps" % (file_name, _time))
-    pdf_file = os.path.join(local_dir, "img", "pv_outputs", "%s_t%.4e.pdf" % (file_name, _time))
+    eps_file = os.path.join(local_dir, img_dir, "pv_outputs", "%s_t%.4e.eps" % (file_name, _time))
+    pdf_file = os.path.join(local_dir, img_dir, "pv_outputs", "%s_t%.4e.pdf" % (file_name, _time))
 
     if (not os.path.isfile(eps_file)) and (not os.path.isfile(pdf_file)):
         raise FileNotFoundError(f"Neither the EPS nor pdf exists: {eps_file}, {pdf_file}")
@@ -738,7 +740,7 @@ def finalize_visualization_2d_11022025(local_dir, file_name, _time, frame_png_fi
     # Outputs
     # Paths to output files
 
-    prep_file_dir = os.path.join(local_dir, "img", "prep")
+    prep_file_dir = os.path.join(local_dir, img_dir, "prep")
     if not os.path.isdir(prep_file_dir):
         os.mkdir(prep_file_dir)
 
@@ -756,7 +758,7 @@ def finalize_visualization_2d_11022025(local_dir, file_name, _time, frame_png_fi
     target_size = (1350, 704)  # Desired image dimensions in pixels
     crop_box = (200, 100, 1000, 700)  # Optional crop box to define the region of interest
 
-    full_image_path = extract_image_by_size(pdf_file, target_size, os.path.join(local_dir, "img"), crop_box)
+    full_image_path = extract_image_by_size(pdf_file, target_size, os.path.join(local_dir, img_dir), crop_box)
 
     # Overlays multiple images on a blank canvas with specified sizes, positions, cropping, and scaling.
     overlay_images_on_blank_canvas(
@@ -790,10 +792,11 @@ def finalize_visualization_2d_03132026(local_dir, file_name, _time, frame_png_fi
     # Options
     add_time = kwargs.get("add_time", True)
     canvas_size = kwargs.get("canvas_size", (1500, 700))
+    img_dir = kwargs.get("img_dir", "img")
 
     # Inputs
-    eps_file = os.path.join(local_dir, "img", "pv_outputs", "%s_t%.4e.eps" % (file_name, _time))
-    pdf_file = os.path.join(local_dir, "img", "pv_outputs", "%s_t%.4e.pdf" % (file_name, _time))
+    eps_file = os.path.join(local_dir, img_dir, "pv_outputs", "%s_t%.4e.eps" % (file_name, _time))
+    pdf_file = os.path.join(local_dir, img_dir, "pv_outputs", "%s_t%.4e.pdf" % (file_name, _time))
 
     if (not os.path.isfile(eps_file)) and (not os.path.isfile(pdf_file)):
         raise FileNotFoundError(f"Neither the EPS nor pdf exists: {eps_file}, {pdf_file}")
@@ -804,7 +807,7 @@ def finalize_visualization_2d_03132026(local_dir, file_name, _time, frame_png_fi
     # Outputs
     # Paths to output files
 
-    prep_file_dir = os.path.join(local_dir, "img", "prep")
+    prep_file_dir = os.path.join(local_dir, img_dir, "prep")
     if not os.path.isdir(prep_file_dir):
         os.mkdir(prep_file_dir)
 
@@ -822,7 +825,7 @@ def finalize_visualization_2d_03132026(local_dir, file_name, _time, frame_png_fi
     target_size = (1350, 704)  # Desired image dimensions in pixels
     crop_box = (200, 100, 1000, 700)  # Optional crop box to define the region of interest
 
-    full_image_path = extract_image_by_size(pdf_file, target_size, os.path.join(local_dir, "img"), crop_box)
+    full_image_path = extract_image_by_size(pdf_file, target_size, os.path.join(local_dir, img_dir), crop_box)
 
     # Overlays multiple images on a blank canvas with specified sizes, positions, cropping, and scaling.
     overlay_images_on_blank_canvas(
@@ -855,10 +858,11 @@ def finalize_visualization_2d_05012026(local_dir, file_name, _time, frame_png_fi
     # Options
     add_time = kwargs.get("add_time", True)
     canvas_size = kwargs.get("canvas_size", (1500, 700))
+    img_dir = kwargs.get("img_dir", "img")
 
     # Inputs
-    eps_file = os.path.join(local_dir, "img", "pv_outputs", "%s_t%.4e.eps" % (file_name, _time))
-    pdf_file = os.path.join(local_dir, "img", "pv_outputs", "%s_t%.4e.pdf" % (file_name, _time))
+    eps_file = os.path.join(local_dir, img_dir, "pv_outputs", "%s_t%.4e.eps" % (file_name, _time))
+    pdf_file = os.path.join(local_dir, img_dir, "pv_outputs", "%s_t%.4e.pdf" % (file_name, _time))
 
     if (not os.path.isfile(eps_file)) and (not os.path.isfile(pdf_file)):
         raise FileNotFoundError(f"Neither the EPS nor pdf exists: {eps_file}, {pdf_file}")
@@ -869,7 +873,7 @@ def finalize_visualization_2d_05012026(local_dir, file_name, _time, frame_png_fi
     # Outputs
     # Paths to output files
 
-    prep_file_dir = os.path.join(local_dir, "img", "prep")
+    prep_file_dir = os.path.join(local_dir, img_dir, "prep")
     if not os.path.isdir(prep_file_dir):
         os.mkdir(prep_file_dir)
 
@@ -887,7 +891,7 @@ def finalize_visualization_2d_05012026(local_dir, file_name, _time, frame_png_fi
     target_size = (1350, 704)  # Desired image dimensions in pixels
     crop_box = (200, 100, 1000, 700)  # Optional crop box to define the region of interest
 
-    full_image_path = extract_image_by_size(pdf_file, target_size, os.path.join(local_dir, "img"), crop_box)
+    full_image_path = extract_image_by_size(pdf_file, target_size, os.path.join(local_dir, img_dir), crop_box)
 
     # Overlays multiple images on a blank canvas with specified sizes, positions, cropping, and scaling.
     overlay_images_on_blank_canvas(
