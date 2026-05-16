@@ -7,6 +7,7 @@ from ...utils.exception_handler import my_assert
 from ...core.AnalyticalSolution import ContinentalThermChapmanPartition
 from ...research.haoyuan_2d_subduction.legacy_tools import RHEOLOGY_PRM, RHEOLOGY_OPR,\
     RefitRheology
+from ...research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
 from gdmate.aspect.config_engine import Rule, RuleConflictError
 from gdmate.aspect.table import DepthAverageTable
 from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
@@ -100,6 +101,11 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "include_strain_weakening" in use_keys:
         if variables["include_strain_weakening"]:
             case_name += "_PS"  # short for plastic strain
+
+    # Two-stage models
+    if use_all or "two_stage_base_case" in use_keys:
+        if len(variables["two_stage_base_case"]) > 0:
+            case_name += "_two"
 
     return case_name
 
@@ -2451,3 +2457,107 @@ class StrainWeakeningRule(Rule):
             material_model["End plasticity strain weakening intervals"] = format_list_as_entry(end_inverval_list)
             material_model["Cohesion strain weakening factors"] = format_list_as_entry(weakening_factor_list)
             material_model["Friction strain weakening factors"] = format_list_as_entry(weakening_factor_list)
+
+
+class TwoStageRule(Rule):
+    """
+    This rule customizes 2-stage setup
+
+    Required configuration parameters:
+
+    Provided configuration parameters:
+
+    """
+
+    requires = ["two_stage_base_case", "second_stage_convergence", "second_stage_earliest_time",
+                "second_stage_convergence_tolerance", "second_stage_far_field_range",
+                "second_stage_far_field_distance"]
+
+    defaults = {"two_stage_base_case": "",
+                "second_stage_convergence": 0.04, 
+                "second_stage_earliest_time": 5e6,
+                "second_stage_convergence_tolerance": 0.001,
+                "second_stage_far_field_range": 500e3,
+                "second_stage_far_field_distance": 1000e3}
+
+    requires_comments = {"second_stage_convergence": "This is the constrained convergence for the second stage",
+                         "second_stage_convergence_tolerance": "Looking for convergence value by this tolerance",
+                         "second_stage_earliest_time": "Time to start the lookup of second stage point"}
+    
+    provides = []
+
+    def apply(self, config, prm_dict, wb_dict, context):
+
+        two_stage_base_case = config["two_stage_base_case"]
+        second_stage_convergence = config["second_stage_convergence"]
+        second_stage_earliest_time = config["second_stage_earliest_time"]
+        second_stage_convergence_tolerance = config["second_stage_convergence_tolerance"]
+        second_stage_far_field_range = config["second_stage_far_field_range"]
+        second_stage_far_field_distance = config["second_stage_far_field_distance"]
+        
+        if len(two_stage_base_case) > 0:
+
+            assert(os.path.isdir(two_stage_base_case))
+
+            Case_Options_2d = CASE_OPTIONS_TWOD(two_stage_base_case)
+            Case_Options_2d.Interpret()
+            summary_file = os.path.join(two_stage_base_case, "summary.csv")
+
+            my_assert(os.path.isfile(summary_file), FileExistsError, "%s doesn't exist." % summary_file)
+
+            Case_Options_2d.SummaryCaseVtuStep(summary_file)
+
+            times = Case_Options_2d.summary_df["Time"].to_numpy()
+            sp_velocities = Case_Options_2d.summary_df["sp_velocity"].to_numpy()
+            ov_velocities = Case_Options_2d.summary_df["ov_velocity"].to_numpy()
+            trench_centers_2d = Case_Options_2d.summary_df["trench_center_50"].to_numpy()
+            conv_velocities = sp_velocities - ov_velocities
+
+            tol = 0.1        # acceptable difference
+
+            # Combined condition
+            mask = (times > second_stage_earliest_time) &\
+                (np.abs(conv_velocities - second_stage_convergence) < second_stage_convergence_tolerance)
+
+            # Get matching indices
+            indices = np.where(mask)[0]
+
+            if len(indices) == 0:
+                raise ValueError("No matching value found.")
+
+            idx = indices[0]   # first occurrence
+            start_time = times[idx]
+            sp_v = sp_velocities[idx]
+            ov_v = ov_velocities[idx]
+            trench_x = trench_centers_2d[idx]
+
+            print("TwoStageRule:")
+            print("\tIndex:", idx)
+            print("\tTime:", start_time)
+            print("\tSP velocity:", sp_v)
+            print("\tOV velocity:", ov_v)
+            print("\tConvergence velocity:", conv_velocities[idx])
+
+            prm_dict["Prescribed solution"]["List of model names"] += ", velocity function"
+
+            velocity_func_dict = {
+                "Indicator function": {
+                    "Variable names": "x, y, t",
+                    "Function constants": "x1=%.2e, x2=%.2e, x3=%.2e, x4=%.2e, y1=%.4e, y2=%.4e, t0=%.2e" %\
+                        (trench_x-second_stage_far_field_range-second_stage_far_field_distance, trench_x-second_stage_far_field_range,\
+                        trench_x+second_stage_far_field_distance, trench_x+second_stage_far_field_distance+second_stage_far_field_range,\
+                        context["domain_depth"]-60e3, context["domain_depth"]-45e3,\
+                          start_time),
+                    "Function expression": "(t>t0)&&(((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2))) ? 1: 0; (t>t0)&&(((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2))) ? 1:0"
+                },
+                "Function":{
+                    "Variable names": "x, y",
+                    "Function constants": "x1=%.2e, x2=%.2e, x3=%.2e, x4=%.2e, y1=%.4e, y2=%.4e, vx=%.2e, vy=0.0, vx_ov=%.2e, vy_ov=0.0" %\
+                        (trench_x-second_stage_far_field_range-second_stage_far_field_distance, trench_x-second_stage_far_field_range,\
+                        trench_x+second_stage_far_field_distance, trench_x+second_stage_far_field_distance+second_stage_far_field_range,\
+                        context["domain_depth"]-60e3, context["domain_depth"]-45e3,\
+                        sp_v, ov_v),
+                    "Function expression": "(x>x1)&&(x<x2)? vx: vx_ov; (x>x1)&&(x<x2)? vy:vy_ov"
+                }
+            }
+            prm_dict["Prescribed solution"]["Velocity function"] = velocity_func_dict

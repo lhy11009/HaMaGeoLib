@@ -169,6 +169,51 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         return outputs
     
+    def analyze_velocity(self, trench_center, *, 
+                         query_depth=50e3,
+                         dist_range=[500e3, 1000e3]):
+
+        start = time.time()
+        print("PYVISTA_PROCESS:\n\t%s" % func_name())
+
+        outputs = {}
+
+        # sample points 
+        N = 10
+
+        # sp velcoity
+        vx_sum = 0.0
+        for dist in np.linspace(dist_range[0], dist_range[1], N):
+
+            x = trench_center - dist
+            idx = self.grid.find_closest_point(
+                (x, self.Max0 - query_depth, 0.0)
+            )
+            velocity = self.grid["velocity"][idx]
+            vx, vy = velocity[:2]
+            vx_sum += vx
+
+        outputs["sp_velocity"] = vx_sum / N
+
+        # ov velocity
+        vx_sum = 0.0
+        for dist in np.linspace(dist_range[0], dist_range[1], N):
+
+            x = trench_center + dist
+            idx = self.grid.find_closest_point(
+                (x, self.Max0 - query_depth, 0.0)
+            )
+            velocity = self.grid["velocity"][idx]
+            vx, vy = velocity[:2]
+            vx_sum += vx
+
+        outputs["ov_velocity"] = vx_sum / N
+
+        end = time.time()
+        print("\ttakes %.1f s" % (end - start))
+        
+        return outputs
+    
     def extract_topography(self, *, dx=5e3, dr=0.001,
                            interp_dx=None, output_surface=False):
         '''
@@ -657,6 +702,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     # analyze slab
     outputs1 = ProcessCollision.analyze_slab()
     outputs.update(**outputs1) 
+    
+    outputs2 = ProcessCollision.analyze_velocity(outputs["trench_center_50"])
+    outputs.update(**outputs2) 
 
     # extract iso-volume objects
     # ProcessCollision.extract_continent_crust_iso_volumes()
