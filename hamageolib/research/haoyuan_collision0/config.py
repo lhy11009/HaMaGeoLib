@@ -87,6 +87,11 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     
     if use_all or "subducting_continent_length" in use_keys:
         case_name += "_SL%.2e" % variables["subducting_continent_length"]
+
+    # todo_taper
+    if use_all or "continent_taper_length" in use_keys:
+        if variables["continent_taper_length"] > 0.0:
+            case_name += "_CTL%.2e" % variables["continent_taper_length"]
     
     # Corner
     if use_all or "customize_corner" in use_keys:
@@ -105,7 +110,17 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     # Two-stage models
     if use_all or "two_stage_base_case" in use_keys:
         if len(variables["two_stage_base_case"]) > 0:
-            case_name += "_two"
+            case_name += "_Two"
+
+            if use_all or "second_stage_earliest_time" in use_keys:
+                case_name += "Et%.2e" % variables["second_stage_earliest_time"]
+
+    # todo_fast
+    # Fastscape
+    if use_all or "include_fastscape" in use_keys:
+        if variables["include_fastscape"]:
+            case_name += "_FS"
+        
 
     return case_name
 
@@ -1735,16 +1750,24 @@ class ContinentRule(Rule):
         to the subducting plate. Only used when add_continents is "both".
         Default value: -1
     """
-
     requires = ["add_continents", "continent_depth_levels", "subducting_continent_length", "chapman_model_type",
-                "chapman_model_surface_heatflux", "fix_continent_rheology_prefactor"]
+                "chapman_model_surface_heatflux", "fix_continent_rheology_prefactor", "continent_taper_length",
+                "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness", "continent_taper_sediment_thickness",
+                "fix_continent_rheology_with_phase_transition", "include_phase_transition", "config_file"]
 
     defaults = {"add_continents": "none",\
                 "continent_depth_levels": [20e3, 40e3],\
                     "subducting_continent_length": -1,
                     "chapman_model_type": "default",
                     "chapman_model_surface_heatflux": 0.055,
-                    "fix_continent_rheology_prefactor": False}
+                    "fix_continent_rheology_prefactor": False,
+                    "continent_taper_length": -1.0,
+                    "continent_taper_upper_crust_thickness": 3.5e3,
+                    "continent_taper_lower_crust_thickness": 3.5e3,
+                    "continent_taper_sediment_thickness": 4e3,
+                    "fix_continent_rheology_with_phase_transition": False,
+                    "include_phase_transition": False,
+                    "config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json"}
 
     requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\"",
                          "continent_depth_levels": "Depth levels of the boundary between compositions (e.g. between upper and lower crust, lower crust and mantle)",
@@ -1788,10 +1811,16 @@ class ContinentRule(Rule):
             This method modifies `prm_dict`, `wb_dict`, and/or `context`
             in-place and returns None.
         """
-
         chapman_model_type = config["chapman_model_type"]
         chapman_model_surface_heatflux = config["chapman_model_surface_heatflux"]
         fix_continent_rheology_prefactor = config["fix_continent_rheology_prefactor"]
+        continent_taper_length = config["continent_taper_length"]
+        continent_taper_upper_crust_thickness = config["continent_taper_upper_crust_thickness"]
+        continent_taper_lower_crust_thickness = config["continent_taper_lower_crust_thickness"]
+        continent_taper_sediment_thickness = config["continent_taper_sediment_thickness"]
+        fix_continent_rheology_with_phase_transition = config["fix_continent_rheology_with_phase_transition"]
+        include_phase_transition = config["include_phase_transition"]
+        config_file = config["config_file"]
 
         # handle the overriding plate
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
@@ -1944,6 +1973,12 @@ class ContinentRule(Rule):
 
         # handle the subducting plate
         if config["add_continents"] == "both":
+
+            # Assign a change at the end if tapering is applied
+            taper_length_foo = 0.0
+            if continent_taper_length > 0.0:
+                taper_length_foo = continent_taper_length
+
             # Retrieve geometric parameters for constructing subducting continent
             subducting_continent_length = config["subducting_continent_length"]
             subducting_plate_length = context["slab_hinge_point"] - context["plate_start_point"]
@@ -1972,23 +2007,80 @@ class ContinentRule(Rule):
                     100000.0
                 ],
                 [
-                    continent_end_point,
+                    continent_end_point - taper_length_foo,
                     100000.0
                 ],
                 [
-                    continent_end_point,
+                    continent_end_point - taper_length_foo,
                     -100000.0
                 ]
             ]
 
             # Insert new continental feature immediately after overriding plate
             wb_dict["features"].insert(idx_feature+1, new_feature)
+            idx_feature_c = idx_feature+1
 
             # Modify original subducting plate geometry to exclude continental segment
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Subducting Plate")
 
             feature["coordinates"][2][0] = continent_end_point
             feature["coordinates"][3][0] = continent_end_point
+
+            # taper the margin
+            if continent_taper_length > 0.0:
+                # todo_taper
+                new_feature_1 = deepcopy(new_feature)
+
+                new_feature_1["name"] = "Subducting Continent Margin"
+
+                new_feature_1["coordinates"] = [
+                    [
+                        continent_end_point - taper_length_foo,
+                        -100000.0
+                    ],
+                    [
+                        continent_end_point - taper_length_foo,
+                        100000.0
+                    ],
+                    [
+                        continent_end_point,
+                        100000.0
+                    ],
+                    [
+                        continent_end_point,
+                        -100000.0
+                    ]
+                ]
+                
+                # Insert continental margin feature immediately after subducting continental platte
+                compositional_field_names = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
+                index_sediment = compositional_field_names.index("sediment")
+
+                wb_dict["features"].insert(idx_feature_c+1, new_feature_1)
+
+                compo_dict_0, compo_dict_1 = new_feature_1["composition models"][0], new_feature_1["composition models"][1]
+                max_depth_0, max_depth_1 = compo_dict_0["max depth"], compo_dict_1["max depth"]
+
+                taper_line = [[continent_end_point - taper_length_foo,-100000.0],[continent_end_point - taper_length_foo,100000.0]]
+
+                depth_entry_s = [[continent_taper_sediment_thickness],\
+                 [0.0, taper_line]]
+                depth_entry_0 = [[continent_taper_upper_crust_thickness+continent_taper_sediment_thickness],\
+                 [max_depth_0, taper_line]]
+                depth_entry_1 = [[continent_taper_upper_crust_thickness+continent_taper_lower_crust_thickness+continent_taper_sediment_thickness],\
+                 [max_depth_1, taper_line]]
+                
+                compo_dict_0["min depth"] = depth_entry_s
+                compo_dict_0["max depth"] = depth_entry_0
+                compo_dict_1["min depth"] = depth_entry_0
+                compo_dict_1["max depth"] = depth_entry_1
+
+                compo_dict_s = deepcopy(compo_dict_0)
+                compo_dict_s.pop("min depth")
+                compo_dict_s["max depth"] = depth_entry_s
+                compo_dict_s["compositions"] = [index_sediment]
+                new_feature_1["composition models"].insert(0, compo_dict_s)
+
     
         # Handle material properties: rheology and density
         rheology_continent_dict = None
@@ -2061,6 +2153,58 @@ class ContinentRule(Rule):
             diff_E_dict["crust_lower"][0] = 0.0
             diff_V_dict["crust_lower"][0] = 0.0
             diff_p_dict["crust_lower"][0] = 0.0
+
+            # todo_continent
+            if fix_continent_rheology_with_phase_transition:
+                # fix the parameters related to the phase transition
+
+                assert(include_phase_transition)
+
+                config_path = os.path.join(package_root, config_file)
+                assert(os.path.isfile(config_path)) 
+
+                # read from the json file
+                with open(config_path, 'r') as fin:
+                    p_dict = json.load(fin)
+
+                # configuration for phase transitions
+                # the options for gabbro and sediments are copied from
+                # the MORB composition
+                p_depth_dict = p_dict["p_depth_dict"]
+                p_width_dict = p_dict["p_width_dict"]
+                p_temperature_dict = p_dict["p_temperature_dict"]
+                p_slope_dict = p_dict["p_slope_dict"]
+                p_density_dict = p_dict["p_density_dict"]
+
+                p_depth_vp_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Phase transition depths"])
+                p_width_vp_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Phase transition widths"])
+                p_temperature_vp_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Phase transition temperatures"])
+                p_slope_vp_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Phase transition Clapeyron slopes"])
+                max_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"])
+                min_viscosity_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"])
+                
+                list_of_dict = [disl_A_dict, disl_n_dict, disl_E_dict, disl_V_dict,
+                                diff_A_dict, diff_p_dict, diff_E_dict, diff_V_dict,
+                                cohesion_dict, angle_friction_dict, max_viscosity_dict, min_viscosity_dict]
+
+                for composition in ["crust_upper", "crust_lower"]:
+                    p_depth_vp_dict[composition] = [p_depth_dict[composition][0], p_depth_dict[composition][1], p_depth_vp_dict[composition]]
+                    p_width_vp_dict[composition] = [p_width_dict[composition][0], p_width_dict[composition][1], p_width_vp_dict[composition]]
+                    p_temperature_vp_dict[composition] = [p_temperature_dict[composition][0], p_temperature_dict[composition][1], p_temperature_vp_dict[composition]]
+                    p_slope_vp_dict[composition] = [p_slope_dict[composition][0], p_slope_dict[composition][1], p_slope_vp_dict[composition]]
+
+                    for _dict in list_of_dict:
+                        _dict[composition].insert(1, _dict[composition][0])
+                        _dict[composition].insert(2, _dict[composition][-1])
+
+
+                prm_dict["Material model"]["Visco Plastic"]["Phase transition depths"] = format_composition_entry(p_depth_vp_dict)
+                prm_dict["Material model"]["Visco Plastic"]["Phase transition widths"] = format_composition_entry(p_width_vp_dict)
+                prm_dict["Material model"]["Visco Plastic"]["Phase transition temperatures"] = format_composition_entry(p_temperature_vp_dict)
+                prm_dict["Material model"]["Visco Plastic"]["Phase transition Clapeyron slopes"] = format_composition_entry(p_slope_vp_dict)
+            
+                prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"] = format_composition_entry(max_viscosity_dict)
+                prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"] = format_composition_entry(min_viscosity_dict)
 
             # Write updated material properties back into prm_dict
             prm_dict["Material model"]["Visco Plastic"]["Densities"] = format_composition_entry(density_dict)
@@ -2176,6 +2320,18 @@ def parse_contiental_extension_rheology(prm_path):
     cohesion = float(material_dict["Cohesions"])
 
     return dislocation_aspect, friction_angle, cohesion 
+
+# todo_fast
+def parse_fastscape_configuration(prm_path):
+
+    # Read the prm file from the original continental extension cookbook
+    # Run parser
+    assert prm_path.exists(), f"Test file not found: {prm_path}"
+
+    with open(prm_path, "r") as fin:
+        params_dict = parse_parameters_to_dict(fin)
+
+        return deepcopy(params_dict["Mesh deformation"]["Fastscape"])
 
 
 class CornerRule(Rule):
@@ -2308,6 +2464,7 @@ class PhaseTransitionRule(Rule):
         # configuration for phase transitions
         # the options for gabbro and sediments are copied from
         # the MORB composition
+        # todo_continent
         p_depth_dict = p_dict["p_depth_dict"]
         
         p_width_dict = p_dict["p_width_dict"]
@@ -2471,18 +2628,20 @@ class TwoStageRule(Rule):
 
     requires = ["two_stage_base_case", "second_stage_convergence", "second_stage_earliest_time",
                 "second_stage_convergence_tolerance", "second_stage_far_field_range",
-                "second_stage_far_field_distance"]
+                "second_stage_far_field_distance", "second_stage_prescribe_y_motion"]
 
     defaults = {"two_stage_base_case": "",
                 "second_stage_convergence": 0.04, 
                 "second_stage_earliest_time": 5e6,
                 "second_stage_convergence_tolerance": 0.001,
                 "second_stage_far_field_range": 500e3,
-                "second_stage_far_field_distance": 1000e3}
+                "second_stage_far_field_distance": 1000e3,
+                "second_stage_prescribe_y_motion": True}
 
     requires_comments = {"second_stage_convergence": "This is the constrained convergence for the second stage",
                          "second_stage_convergence_tolerance": "Looking for convergence value by this tolerance",
-                         "second_stage_earliest_time": "Time to start the lookup of second stage point"}
+                         "second_stage_earliest_time": "Time to start the lookup of second stage point",
+                         "second_stage_prescribe_y_motion": "Whether to also prescribe the velocity in the y direction to 0.0."}
     
     provides = []
 
@@ -2494,6 +2653,7 @@ class TwoStageRule(Rule):
         second_stage_convergence_tolerance = config["second_stage_convergence_tolerance"]
         second_stage_far_field_range = config["second_stage_far_field_range"]
         second_stage_far_field_distance = config["second_stage_far_field_distance"]
+        second_stage_prescribe_y_motion = config["second_stage_prescribe_y_motion"]
         
         if len(two_stage_base_case) > 0:
 
@@ -2540,6 +2700,11 @@ class TwoStageRule(Rule):
 
             prm_dict["Prescribed solution"]["List of model names"] += ", velocity function"
 
+            # prescrib y velocity if requried, otherwise only prescribe the velocity on the x direction
+            function_expr = "(t>t0)&&(((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2))) ? 1: 0; 0"
+            if second_stage_prescribe_y_motion:
+                function_expr = "(t>t0)&&(((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2))) ? 1: 0; (t>t0)&&(((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2))) ? 1:0"
+
             velocity_func_dict = {
                 "Indicator function": {
                     "Variable names": "x, y, t",
@@ -2548,7 +2713,7 @@ class TwoStageRule(Rule):
                         trench_x+second_stage_far_field_distance, trench_x+second_stage_far_field_distance+second_stage_far_field_range,\
                         context["domain_depth"]-60e3, context["domain_depth"]-45e3,\
                           start_time),
-                    "Function expression": "(t>t0)&&(((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2))) ? 1: 0; (t>t0)&&(((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2))) ? 1:0"
+                    "Function expression": function_expr
                 },
                 "Function":{
                     "Variable names": "x, y",
@@ -2561,3 +2726,41 @@ class TwoStageRule(Rule):
                 }
             }
             prm_dict["Prescribed solution"]["Velocity function"] = velocity_func_dict
+
+# todo_fast
+class FastScapeRule(Rule):
+    """
+    This rule customizes fast scape setup
+
+    Required configuration parameters:
+
+    Provided configuration parameters:
+
+    """
+
+    requires = ["include_fastscape"]
+
+    defaults = {
+        "include_fastscape": False
+    }
+    
+    def apply(self, config, prm_dict, wb_dict, context):
+
+        include_fastscape = config["include_fastscape"]
+
+        if include_fastscape:
+            prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/fastscape/fastscape_1.prm"
+
+            fastscape_dict = parse_fastscape_configuration(prm_path)
+
+            fastscape_dict["Boundary conditions"] = {
+                "Front": "0",
+                "Back": "0",
+                "Left": "1",
+                "Right": "1"
+            }
+
+            prm_dict["Mesh deformation"]["Mesh deformation boundary indicators"] = "top : fastscape"
+            prm_dict["Mesh deformation"].pop("Free surface")
+            prm_dict["Mesh deformation"].pop("Diffusion")
+            prm_dict["Mesh deformation"]["Fastscape"] = fastscape_dict
