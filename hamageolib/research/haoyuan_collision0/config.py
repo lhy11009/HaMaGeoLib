@@ -834,7 +834,7 @@ class GeometryRule(Rule):
     """
 
     requires = ["domain_length_pre_modification", "domain_depth", "global_refinement", "adaptive_refinement", "repetition_length", "use_isosurfaces",
-                "kinematic_driven_condition", "kinematic_driven_condition_domain_modification"]
+                "kinematic_driven_condition", "kinematic_driven_condition_domain_modification", "fix_surface_mesh_resolution"]
     
     defaults = {
         "domain_length_pre_modification": 8700e3,
@@ -844,7 +844,8 @@ class GeometryRule(Rule):
         "adaptive_refinement": 4,
         "use_isosurfaces": False,
         "kinematic_driven_condition": False,
-        "kinematic_driven_condition_domain_modification": [1000e3, 1000e3]
+        "kinematic_driven_condition_domain_modification": [1000e3, 1000e3],
+        "fix_surface_mesh_resolution": False
     }
 
     requires_comments = {
@@ -853,11 +854,12 @@ class GeometryRule(Rule):
         "use_isosurfaces": "Whether to replace composition threshold with isosurfaces."
         }
 
-    provides = ["use_isosurfaces", "domain_depth", "domain_length"]
+    provides = ["use_isosurfaces", "domain_depth", "domain_length", "total_refinement"]
 
     # todo_comments
     provides_comments = {
-        "domain_length": "Length of the domain."
+        "domain_length": "Length of the domain.",
+        "total_refinement": "Total refinement level."
     }
 
     def apply(self, config, prm_dict, wb_dict, context):
@@ -870,6 +872,7 @@ class GeometryRule(Rule):
         kinematic_driven_condition = config["kinematic_driven_condition"]
         kinematic_driven_condition_domain_modification = config["kinematic_driven_condition_domain_modification"]
         default_repetition_length = self.defaults["repetition_length"]
+        fix_surface_mesh_resolution = config["fix_surface_mesh_resolution"]
 
         # apply modification based on the kinematic driven condition
         # the idea is to subtract modification on both sides
@@ -891,6 +894,7 @@ class GeometryRule(Rule):
         global_refinement = config["global_refinement"] + refinement_modifier
         adaptive_refinement = config["adaptive_refinement"]
         total_refinement = global_refinement + adaptive_refinement
+        context["total_refinement"] = total_refinement
         my_assert(global_refinement > 0, ValueError, "The global refinement has to be positive")
         my_assert(adaptive_refinement > 0, ValueError, "The adaptive refinement has to be positive")
 
@@ -908,6 +912,11 @@ class GeometryRule(Rule):
         prm_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = rf"""if(y>(ymax-litho_thickness),{global_refinement}, \
                               if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {global_refinement-1}, {global_refinement-2}))"""
         prm_dict["Mesh refinement"]["Maximum refinement function"]["Function constants"] = "xmax=5500e3, xmin=4000e3, ymax=%de3" % int(domain_depth/1e3)
+        # todo_fast
+        if fix_surface_mesh_resolution:
+            prm_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = rf"""if(y>(ymax-surf_thickness), {global_refinement+adaptive_refinement}, (if(y>(ymax-litho_thickness),{global_refinement}, \
+                              if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {global_refinement-1}, {global_refinement-2}))))"""
+            prm_dict["Mesh refinement"]["Minimum refinement function"]["Function constants"] = "litho_thickness=120e3, surf_thickness=20e3, ymax=%de3" % int(domain_depth/1e3)
         prm_dict["Mesh refinement"]["Maximum refinement function"]["Function expression"] = \
             rf"""if( x<=xmax && x>=xmin && y>=(ymax - 660e3), {total_refinement}, {total_refinement-2})"""
         prm_dict["Boundary temperature model"]["Constant"]["Boundary indicator to temperature mappings"] = f"bottom:{bottom_T}, top:273"
@@ -2752,6 +2761,8 @@ class FastScapeRule(Rule):
             prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/fastscape/fastscape_1.prm"
 
             fastscape_dict = parse_fastscape_configuration(prm_path)
+
+            fastscape_dict["Maximum surface refinement level"] = str(context["total_refinement"])
 
             fastscape_dict["Boundary conditions"] = {
                 "Front": "0",
