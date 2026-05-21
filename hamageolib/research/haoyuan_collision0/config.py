@@ -115,7 +115,6 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             if use_all or "second_stage_earliest_time" in use_keys:
                 case_name += "Et%.2e" % variables["second_stage_earliest_time"]
 
-    # todo_fast
     # Fastscape
     if use_all or "include_fastscape" in use_keys:
         if variables["include_fastscape"]:
@@ -912,7 +911,6 @@ class GeometryRule(Rule):
         prm_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = rf"""if(y>(ymax-litho_thickness),{global_refinement}, \
                               if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {global_refinement-1}, {global_refinement-2}))"""
         prm_dict["Mesh refinement"]["Maximum refinement function"]["Function constants"] = "xmax=5500e3, xmin=4000e3, ymax=%de3" % int(domain_depth/1e3)
-        # todo_fast
         if fix_surface_mesh_resolution:
             prm_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = rf"""if(y>(ymax-surf_thickness), {global_refinement+adaptive_refinement}, (if(y>(ymax-litho_thickness),{global_refinement}, \
                               if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {global_refinement-1}, {global_refinement-2}))))"""
@@ -1762,7 +1760,8 @@ class ContinentRule(Rule):
     requires = ["add_continents", "continent_depth_levels", "subducting_continent_length", "chapman_model_type",
                 "chapman_model_surface_heatflux", "fix_continent_rheology_prefactor", "continent_taper_length",
                 "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness", "continent_taper_sediment_thickness",
-                "fix_continent_rheology_with_phase_transition", "include_phase_transition", "config_file"]
+                "fix_continent_rheology_with_phase_transition", "include_phase_transition", "config_file",
+                "fix_surface_mesh_resolution"]
 
     defaults = {"add_continents": "none",\
                 "continent_depth_levels": [20e3, 40e3],\
@@ -1776,7 +1775,8 @@ class ContinentRule(Rule):
                     "continent_taper_sediment_thickness": 4e3,
                     "fix_continent_rheology_with_phase_transition": False,
                     "include_phase_transition": False,
-                    "config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json"}
+                    "config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json",
+                    "fix_surface_mesh_resolution": False}
 
     requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\"",
                          "continent_depth_levels": "Depth levels of the boundary between compositions (e.g. between upper and lower crust, lower crust and mantle)",
@@ -1830,6 +1830,7 @@ class ContinentRule(Rule):
         fix_continent_rheology_with_phase_transition = config["fix_continent_rheology_with_phase_transition"]
         include_phase_transition = config["include_phase_transition"]
         config_file = config["config_file"]
+        fix_surface_mesh_resolution = config["fix_surface_mesh_resolution"]
 
         # handle the overriding plate
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
@@ -1978,6 +1979,16 @@ class ContinentRule(Rule):
             temperature_models.append(mantle_temperature_model)
 
             feature["temperature models"] = temperature_models
+
+            if fix_surface_mesh_resolution:
+                # fix max refinement in the crust upper layer
+                # this is typically needed for running the fastscape coupled model
+                isosurfaces = parse_isosurfaces_entry(prm_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"])
+                for isosurface in isosurfaces:
+                    if isosurface["composition"] == "crust_upper":
+                        isosurface["min"] = "max"
+                        isosurface["max"] = "max"
+                prm_dict["Mesh refinement"]["Isosurfaces"]["Isosurfaces"] = format_isosurfaces_entry(isosurfaces)
 
 
         # handle the subducting plate

@@ -249,6 +249,7 @@ export PV_INTERFACE_PATH=/home/lochy/Softwares/ParaView-5.11.2-MPI-Linux-Python3
 # -----------------------------
 export MOW="/mnt/lochy/ASPECT_DATA/MOW"
 export MOW_HIVE="/quobyte/billengrp/lochy/MOW"
+export MOW_STAMPEDE3="/scratch/06806/hyli/MOW"
 alias mow="cd $MOW"
 
 # -----------------------------
@@ -256,6 +257,7 @@ alias mow="cd $MOW"
 # -----------------------------
 export COLLISION="/mnt/lochy/ASPECT_DATA/Collision0"
 export COLLISION_HIVE="/quobyte/billengrp/lochy/Collision0"
+export COLLISION_STAMPEDE3="/scratch/06806/hyli/Collision0"
 alias collision="cd $COLLISION"
 
 
@@ -264,6 +266,7 @@ alias collision="cd $COLLISION"
 # -----------------------------
 export PROJECT="${MOW}:${COLLISION}"
 export PROJECT_REMOTE_hive="${MOW_HIVE}:${COLLISION_HIVE}"
+export PROJECT_REMOTE_stampede3="${MOW_STAMPEDE3}:${COLLISION_STAMPEDE3}"
 
 alias from_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_server.sh hive"
 alias to_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/to_server.sh hive"
