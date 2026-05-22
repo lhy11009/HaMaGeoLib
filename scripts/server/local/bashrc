@@ -270,3 +270,5 @@ export PROJECT_REMOTE_stampede3="${MOW_STAMPEDE3}:${COLLISION_STAMPEDE3}"
 
 alias from_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_server.sh hive"
 alias to_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/to_server.sh hive"
+alias from_stampede3="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_server.sh stampede3"
+alias to_stampede3="${HaMaGeoLib_DIR}/scripts/bash_scripts/to_server.sh stampede3"
