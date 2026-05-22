@@ -1760,7 +1760,7 @@ class ContinentRule(Rule):
     requires = ["add_continents", "continent_depth_levels", "subducting_continent_length", "chapman_model_type",
                 "chapman_model_surface_heatflux", "fix_continent_rheology_prefactor", "continent_taper_length",
                 "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness", "continent_taper_sediment_thickness",
-                "fix_continent_rheology_with_phase_transition", "include_phase_transition", "config_file",
+                "fix_continent_rheology_with_phase_transition", "include_phase_transition", "PT_config_file",
                 "fix_surface_mesh_resolution"]
 
     defaults = {"add_continents": "none",\
@@ -1775,7 +1775,7 @@ class ContinentRule(Rule):
                     "continent_taper_sediment_thickness": 4e3,
                     "fix_continent_rheology_with_phase_transition": False,
                     "include_phase_transition": False,
-                    "config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json",
+                    "PT_config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json",
                     "fix_surface_mesh_resolution": False}
 
     requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\"",
@@ -1829,7 +1829,7 @@ class ContinentRule(Rule):
         continent_taper_sediment_thickness = config["continent_taper_sediment_thickness"]
         fix_continent_rheology_with_phase_transition = config["fix_continent_rheology_with_phase_transition"]
         include_phase_transition = config["include_phase_transition"]
-        config_file = config["config_file"]
+        PT_config_file = config["PT_config_file"]
         fix_surface_mesh_resolution = config["fix_surface_mesh_resolution"]
 
         # handle the overriding plate
@@ -2180,7 +2180,7 @@ class ContinentRule(Rule):
 
                 assert(include_phase_transition)
 
-                config_path = os.path.join(package_root, config_file)
+                config_path = os.path.join(package_root, PT_config_file)
                 assert(os.path.isfile(config_path)) 
 
                 # read from the json file
@@ -2453,10 +2453,10 @@ class PhaseTransitionRule(Rule):
     Provided configuration parameters:
 
     """
-    requires = ["include_phase_transition", "config_file"]
+    requires = ["include_phase_transition", "PT_config_file"]
     
     defaults = {"include_phase_transition": False,
-                "config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json"}
+                "PT_config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json"}
 
     requires_comments = {}
     
@@ -2465,8 +2465,8 @@ class PhaseTransitionRule(Rule):
     def apply(self, config, prm_dict, wb_dict, context):
 
         include_phase_transition = config["include_phase_transition"]
-        config_file = config["config_file"]
-        config_path = os.path.join(package_root, config_file)
+        PT_config_file = config["PT_config_file"]
+        config_path = os.path.join(package_root, PT_config_file)
 
         assert(os.path.isfile(config_path)) 
 

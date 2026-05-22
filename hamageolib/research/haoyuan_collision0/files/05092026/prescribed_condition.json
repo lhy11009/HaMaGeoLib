@@ -95,7 +95,7 @@
   "weak_layer_minimum_viscosity": 2.5e+19,
   "weak_layer_friction_factor": 0.02,
   "include_phase_transition": true,
-  "config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04272026.json",
+  "PT_config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04272026.json",
   "add_harzburgite": true,
   "ref_strain_rate": 1e-15,
   "activation_volume_lower_mantle": 3e-06,
