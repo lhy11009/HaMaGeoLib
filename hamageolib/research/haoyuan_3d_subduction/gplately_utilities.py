@@ -7,14 +7,21 @@ import math
 import re
 import gplately
 
-from matplotlib import gridspec
+from matplotlib import gridspec, rcdefaults, cm
+from cmcrameri import cm as ccm 
+from matplotlib.colors import Normalize
+
 import cartopy.crs as ccrs
 from shutil import rmtree
 
 from hamageolib.research.haoyuan_2d_subduction.legacy_utilities import map_mid_point, remove_substrings
 from hamageolib.utils.exception_handler import my_assert
+from hamageolib.utils.handy_shortcuts_haoyuan import func_name
+import hamageolib.utils.plot_helper as plot_helper
+
 from plate_model_manager import PlateModelManager
 from pyproj import Geod
+    
 
 # Retrieve the default color cycle
 default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
@@ -94,7 +101,9 @@ class GPLATE_PROCESS():
         self.all_columns_1 = self.all_columns + ['age']
 
 
-    def reconstruct(self, model_name, reconstruction_time, anchor_plate_id, *, file_to_load=None):
+    def reconstruct(self, model_name, reconstruction_time, anchor_plate_id, *, 
+                    reconstruct_subduction=True,
+                    file_to_load=None):
         # Summary:
         # Load a plate model, build a PlateReconstruction with a chosen anchor plate, and
         # tessellate subduction zones at the requested reconstruction time. Stores a DataFrame
@@ -139,19 +148,20 @@ class GPLATE_PROCESS():
             anchor_plate_id=anchor_plate_id
         )
 
-        # get the reconstruction of subduction zones
-        subduction_data_raw = model.tessellate_subduction_zones(self.reconstruction_time, 
-                                                            tessellation_threshold_radians=0.01, 
-                                                            anchor_plate_id=anchor_plate_id,
-                                                            ignore_warnings=True)
+        if reconstruct_subduction:
+            # get the reconstruction of subduction zones
+            subduction_data_raw = model.tessellate_subduction_zones(self.reconstruction_time, 
+                                                                tessellation_threshold_radians=0.01, 
+                                                                anchor_plate_id=anchor_plate_id,
+                                                                ignore_warnings=True)
 
 
-        if file_to_load is not None and os.path.isfile(file_to_load):
-            print("reconstruct: load subduction zone file %s" % file_to_load)
-            self.subduction_data = pd.read_csv(file_to_load)
-        else:
-            print("reconstruct: record reconstructed subduction data.")
-            self.subduction_data = pd.DataFrame(subduction_data_raw, columns=self.all_columns)
+            if file_to_load is not None and os.path.isfile(file_to_load):
+                print("reconstruct: load subduction zone file %s" % file_to_load)
+                self.subduction_data = pd.read_csv(file_to_load)
+            else:
+                print("reconstruct: record reconstructed subduction data.")
+                self.subduction_data = pd.DataFrame(subduction_data_raw, columns=self.all_columns)
 
         self.gPlotter = GPLOTTER(plate_model, model)
         self.gPlotter.set_time(self.reconstruction_time)
@@ -173,7 +183,6 @@ class GPLATE_PROCESS():
         # Raises:
         # - GPLATE_PROCESS_WORKFLOW_ERROR if reconstruct() was not called prior to this method.
 
-        my_assert(self.subduction_data is not None, GPLATE_PROCESS_WORKFLOW_ERROR, "Need to call function \"reconstruct\" first.")
         # Initialize the age grid raster, which will be used for age-related computations
         self.age_grid_raster = gplately.Raster(
                                         data=self.plate_model.get_raster("AgeGrids", self.reconstruction_time),
@@ -185,7 +194,8 @@ class GPLATE_PROCESS():
         # Thus, it seems these points are just on the boundary where some other value could be filled.
         self.age_grid_raster.fill_NaNs(inplace=True)
 
-        self.subduction_data['age'] = self.age_grid_raster.interpolate(self.subduction_data.lon, self.subduction_data.lat, method="nearest")
+        if self.subduction_data is not None:
+            self.subduction_data['age'] = self.age_grid_raster.interpolate(self.subduction_data.lon, self.subduction_data.lat, method="nearest")
         
     
     def resample_subduction(self, arc_length_edge, arc_length_resample_section, *, interpolation="linear"):
@@ -2223,4 +2233,230 @@ def check_json_configuration(json_dict, length):
                     "Index (%d) is not present anywhere for a "
                     "data length of (%d)" % (idx, length)
                 )
+
+def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
+                                    o_path="./foo",
+                                    show=True):
+
+    # Options
+    vmin = 0; vmax = 100 # velocity limit
+
+    query_labels = [
+        "P1",
+        "P2",
+    ]
+
+    # Start of outpus
+    print("%s:" % func_name())
+
+    # Query for the velocity and position of the reconstructed point at this time
+    vel_lon_q, vel_lat_q, rlons_q, rlats_q = gpts.plate_velocity(reconstruction_time, return_reconstructed_points=True)
+    query_points_pos = [(rlons_q[0], rlats_q[0]), (rlons_q[1], rlats_q[1])]
+
+    print("\tFix points at time %d Ma: (%.1f, %.1f), (%.1f, %.1f)" %\
+           (reconstruction_time, rlons_q[0], rlats_q[0], rlons_q[1], rlats_q[1]))\
+    
+    print("\tGet velocity at time %d Ma: (%.2e, %.2e) cm/yr, (%.2e, %.2e) cm/yr" %\
+           (reconstruction_time, vel_lon_q[0], vel_lat_q[0], vel_lon_q[1], vel_lat_q[1]))
+    
+           
+
+    # The distribution of points in the velocity domain: set global extent with 5 degree intervals
+    # Create a lat-lon mesh and convert to 1d lat-lon arrays
+    Xnodes = np.arange(-180,180,5)
+    Ynodes = np.arange(-90,90,5)
+
+    x, y = np.meshgrid(Xnodes,Ynodes)
+    x = x.flatten()
+    y = y.flatten()
+    
+
+    # Plot options
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 1.5 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.5
+    line_width_scaling_multiplier = 1.0 # extra scaling multiplier for lines
+    n_minor_ticks = 4  # number of minor ticks between two major ones
+
+    # scale the matplotlib params
+    plot_helper.scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
+
+    # Set a velocity norm 
+    norm = Normalize(vmin=vmin, vmax=vmax)
+
+    # Set up a GeoAxis plot
+    fig, axes = plt.subplots(
+    2, 1,
+    figsize=(10, 12),   # 3 × original width
+    dpi=100,
+    subplot_kw={"projection": ccrs.Mollweide(central_longitude = 0)},
+    constrained_layout=True
+    )
+    ax0, ax1 = axes[0], axes[1]
+
+    # Plot stream line
+    # Also plot the query points on the map
+    ax0.gridlines(color='0.7',linestyle='--', xlocs=np.arange(-180,180,15), ylocs=np.arange(-90,90,15))
+
+    gplot.plot_continents(ax0, facecolor='0.95')
+    gplot.plot_coastlines(ax0, color='0.9')
+    gplot.plot_ridges(ax0, color='r')
+    gplot.plot_transforms(ax0, color='r')
+    gplot.plot_trenches(ax0, color='k')
+    gplot.plot_subduction_teeth(ax0, color='k')
+    ax0.set_global()
+
+    vel_x, vel_y = model.get_point_velocities(x, y, reconstruction_time, return_east_north_arrays=True)
+    vel_mag = np.hypot(vel_x, vel_y)
+
+    stream = ax0.streamplot(x, y, vel_x, vel_y, 
+                            color=vel_mag, 
+                            transform=ccrs.PlateCarree(), 
+                            linewidth=0.02*vel_mag, 
+                            cmap=ccm.roma_r, 
+                            density=2,
+                            norm=norm)
+    
+    cbar = fig.colorbar(
+        stream.lines,
+        ax=ax0,
+        orientation='horizontal',
+        pad=0.05,
+        shrink=0.7
+    )
+
+    cbar.set_label('Plate velocity magnitude (mm/yr)')
+
+    i = 0
+    for (lon, lat), label in zip(query_points_pos, query_labels):
+
+        ax0.scatter(
+            lon,
+            lat,
+            s=80,
+            color=default_colors[i],
+            edgecolor='black',
+            linewidth=1.0,
+            transform=ccrs.PlateCarree(),
+            zorder=10
+        )
+
+        ax0.text(
+            lon,
+            lat,
+            label,
+            transform=ccrs.PlateCarree(),
+            fontsize=9,
+            color='black',
+            weight='bold',
+            ha='left',
+            va='bottom',
+            zorder=11
+        )
+
+        i += 1
+
+    # velocity plot
+    # the default 
+    ax1.gridlines(color='0.7',linestyle='--', xlocs=np.arange(-180,180,15), ylocs=np.arange(-90,90,15))
+
+    gplot.time=reconstruction_time
+    gplot.plot_continents(ax1, facecolor='navajowhite')
+    gplot.plot_coastlines(ax1, color='orange')
+    gplot.plot_ridges(ax1, color='r')
+    gplot.plot_transforms(ax1, color='r')
+    gplot.plot_trenches(ax1, color='k')
+    gplot.plot_subduction_teeth(ax1, color='k')
+    ax1.set_global()
+    
+    # gplot.plot_plate_motion_vectors(ax1, spacingX=10, spacingY=10, regrid_shape=20, alpha=0.5, color='green', zorder=2) # use the default
+
+    vel_x, vel_y = model.get_point_velocities( 
+        x.flatten(),
+        y.flatten(),
+        reconstruction_time,
+        return_east_north_arrays=True
+    ) # extract the velocity and 
+
+    vel_mag = np.hypot(vel_x, vel_y)
+
+    vel_x = vel_x.reshape(x.shape)
+    vel_y = vel_y.reshape(y.shape)
+    vel_mag = vel_mag.reshape(x.shape)
+
+    q = ax1.quiver(
+        x,
+        y,
+        vel_x,
+        vel_y,
+        vel_mag,
+        transform=ccrs.PlateCarree(),
+        cmap=ccm.roma_r,
+        norm=norm,
+        alpha=0.7,
+        zorder=2
+    )
+
+    i = 0
+    for (lon, lat), label in zip(query_points_pos, query_labels):
+
+        ax1.scatter(
+            lon,
+            lat,
+            s=80,
+            color=default_colors[i],
+            edgecolor='black',
+            linewidth=1.0,
+            transform=ccrs.PlateCarree(),
+            zorder=10
+        )
+
+        ax1.text(
+            lon,
+            lat,
+            label,
+            transform=ccrs.PlateCarree(),
+            fontsize=9,
+            color='black',
+            weight='bold',
+            ha='left',
+            va='bottom',
+            zorder=11
+        )
+
+        i += 1
+
+    cbar = fig.colorbar(
+        q,
+        ax=ax1,
+        orientation='horizontal',
+        pad=0.05,
+        shrink=0.7
+    )
+
+    cbar.set_label('Plate velocity magnitude (mm/yr)')
+
+    
+    fig.suptitle('Global plate motion velocity at %i Ma' % (reconstruction_time))
+
+    fig.savefig(o_path + ".png")
+    print("\tSaved figure %s" % (o_path + ".png"))
+    fig.savefig(o_path + ".pdf")
+    print("\tSaved figure %s" % (o_path + ".pdf"))
+
+    if not show:
+        plt.close(fig)
+
+    rcdefaults()
+
+    return vel_lon_q, vel_lat_q, rlons_q, rlats_q
 
