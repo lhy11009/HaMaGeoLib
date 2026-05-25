@@ -2236,7 +2236,13 @@ def check_json_configuration(json_dict, length):
 
 def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
                                     o_path="./foo",
-                                    show=True):
+                                    show=True,
+                                    pair_trace=[],
+                                    trace_times=[],
+                                    projection="Mollweide",
+                                    region="default",
+                                    grid_line_interval=15,
+                                    velocity_scaling_factor=1.0):
 
     # Options
     vmin = 0; vmax = 100 # velocity limit
@@ -2249,6 +2255,14 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
     # Start of outpus
     print("%s:" % func_name())
 
+    # get trace position
+    if len(pair_trace) > 0:
+        lons_trace_1 = [pair[0][0] for pair in pair_trace]
+        lats_trace_1 = [pair[0][1] for pair in pair_trace]
+
+        lons_trace_2 = [pair[1][0] for pair in pair_trace]
+        lats_trace_2 = [pair[1][1] for pair in pair_trace]
+
     # Query for the velocity and position of the reconstructed point at this time
     vel_lon_q, vel_lat_q, rlons_q, rlats_q = gpts.plate_velocity(reconstruction_time, return_reconstructed_points=True)
     query_points_pos = [(rlons_q[0], rlats_q[0]), (rlons_q[1], rlats_q[1])]
@@ -2259,7 +2273,11 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
     print("\tGet velocity at time %d Ma: (%.2e, %.2e) cm/yr, (%.2e, %.2e) cm/yr" %\
            (reconstruction_time, vel_lon_q[0], vel_lat_q[0], vel_lon_q[1], vel_lat_q[1]))
     
-           
+    if len(pair_trace) > 0:
+        lons_trace_1.append(rlons_q[0])
+        lats_trace_1.append(rlats_q[0])
+        lons_trace_2.append(rlons_q[1])
+        lats_trace_2.append(rlats_q[1])
 
     # The distribution of points in the velocity domain: set global extent with 5 degree intervals
     # Create a lat-lon mesh and convert to 1d lat-lon arrays
@@ -2294,18 +2312,47 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
     norm = Normalize(vmin=vmin, vmax=vmax)
 
     # Set up a GeoAxis plot
+    central_longitude = 0
+    if region != "default":
+        central_longitude = int((region[0]+region[1]) / 2.0)
+
+    projection_obj = None
+    if projection == "Mollweide": 
+        projection_obj = ccrs.Mollweide(central_longitude=central_longitude)
+    elif projection == "Robinson":
+        projection_obj = ccrs.Robinson(central_longitude=central_longitude)
+    elif projection == "PlateCarree":
+        projection_obj = ccrs.PlateCarree(central_longitude=central_longitude)
+    else:
+        raise NotImplementedError("%s: projection type %s is not included." % (func_name(), projection))
+    assert(projection_obj is not None)
+
     fig, axes = plt.subplots(
     2, 1,
     figsize=(10, 12),   # 3 × original width
     dpi=100,
-    subplot_kw={"projection": ccrs.Mollweide(central_longitude = 0)},
+    subplot_kw={"projection": projection_obj},
     constrained_layout=True
     )
     ax0, ax1 = axes[0], axes[1]
 
     # Plot stream line
     # Also plot the query points on the map
-    ax0.gridlines(color='0.7',linestyle='--', xlocs=np.arange(-180,180,15), ylocs=np.arange(-90,90,15))
+    xlocs=np.arange(-180,180,15)
+    ylocs = np.arange(-90,90,15)
+    if region != "default":
+        xlocs = np.arange(
+                region[0],
+                region[1] + 1,
+                grid_line_interval
+            )
+        ylocs=np.arange(
+                region[2],
+                region[3] + 1,
+                grid_line_interval
+            )
+
+    ax0.gridlines(color='0.7',linestyle='--', xlocs=xlocs, ylocs=ylocs)
 
     gplot.plot_continents(ax0, facecolor='0.95')
     gplot.plot_coastlines(ax0, color='0.9')
@@ -2336,6 +2383,54 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
 
     cbar.set_label('Plate velocity magnitude (mm/yr)')
 
+    if len(pair_trace) > 0:
+
+        ax0.plot(
+            lons_trace_1,
+            lats_trace_1,
+            transform=ccrs.PlateCarree(),
+            linestyle='-',
+            linewidth=5,
+            color=default_colors[0],
+            alpha=0.5,
+            zorder=7
+        )
+
+        ax0.plot(
+            lons_trace_2,
+            lats_trace_2,
+            transform=ccrs.PlateCarree(),
+            linestyle='-',
+            linewidth=5,
+            color=default_colors[1],
+            alpha=0.5,
+            zorder=7
+        )
+
+        ax0.scatter(
+            lons_trace_1,
+            lats_trace_1,
+            s=40,
+            color=default_colors[0],
+            edgecolor='black',
+            linewidth=0.5,
+            alpha=0.4,
+            transform=ccrs.PlateCarree(),
+            zorder=8
+        )
+
+        ax0.scatter(
+            lons_trace_2,
+            lats_trace_2,
+            s=40,
+            color=default_colors[1],
+            edgecolor='black',
+            linewidth=0.5,
+            alpha=0.4,
+            transform=ccrs.PlateCarree(),
+            zorder=8
+        )
+
     i = 0
     for (lon, lat), label in zip(query_points_pos, query_labels):
 
@@ -2365,9 +2460,12 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
 
         i += 1
 
+    if region != "default":
+        ax0.set_extent(region)
+
     # velocity plot
     # the default 
-    ax1.gridlines(color='0.7',linestyle='--', xlocs=np.arange(-180,180,15), ylocs=np.arange(-90,90,15))
+    ax1.gridlines(color='0.7',linestyle='--', xlocs=xlocs, ylocs=ylocs)
 
     gplot.time=reconstruction_time
     gplot.plot_continents(ax1, facecolor='navajowhite')
@@ -2377,21 +2475,6 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
     gplot.plot_trenches(ax1, color='k')
     gplot.plot_subduction_teeth(ax1, color='k')
     ax1.set_global()
-    
-    # gplot.plot_plate_motion_vectors(ax1, spacingX=10, spacingY=10, regrid_shape=20, alpha=0.5, color='green', zorder=2) # use the default
-
-    vel_x, vel_y = model.get_point_velocities( 
-        x.flatten(),
-        y.flatten(),
-        reconstruction_time,
-        return_east_north_arrays=True
-    ) # extract the velocity and 
-
-    vel_mag = np.hypot(vel_x, vel_y)
-
-    vel_x = vel_x.reshape(x.shape)
-    vel_y = vel_y.reshape(y.shape)
-    vel_mag = vel_mag.reshape(x.shape)
 
     q = ax1.quiver(
         x,
@@ -2403,7 +2486,17 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
         cmap=ccm.roma_r,
         norm=norm,
         alpha=0.7,
-        zorder=2
+        zorder=2,
+        scale=int(1200/velocity_scaling_factor),
+        scale_units='width'
+    )
+    
+    cbar = fig.colorbar(
+        q,
+        ax=ax1,
+        orientation='horizontal',
+        pad=0.05,
+        shrink=0.7
     )
 
     i = 0
@@ -2434,14 +2527,10 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
         )
 
         i += 1
+    
+    if region != "default":
+        ax1.set_extent(region)
 
-    cbar = fig.colorbar(
-        q,
-        ax=ax1,
-        orientation='horizontal',
-        pad=0.05,
-        shrink=0.7
-    )
 
     cbar.set_label('Plate velocity magnitude (mm/yr)')
 
@@ -2458,5 +2547,5 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
 
     rcdefaults()
 
-    return vel_lon_q, vel_lat_q, rlons_q, rlats_q
+    return vel_lon_q, vel_lat_q, rlons_q, rlats_q, o_path
 

@@ -464,3 +464,49 @@ def rotate_vec_sph_to_cart(r, theta, phi, v_r, v_theta, v_phi):
     eph = np.stack([-sp,     cp,    0.0*np.ones_like(st)], axis=-1)
     v   = (v_r[..., None]*er + v_theta[..., None]*eth + v_phi[..., None]*eph)
     return v[..., 0], v[..., 1], v[..., 2]
+
+
+def relative_velocity_parallel_perpendicular(
+    lon1, lat1,
+    lon2, lat2,
+    v_lon_1, v_lat_1,
+    v_lon_2, v_lat_2
+):
+    """
+    Compute relative velocity components parallel and perpendicular
+    to the line connecting point 1 to point 2.
+
+    Assumes velocities are east/north components in the same units,
+    e.g. cm/yr or mm/yr.
+    """
+
+    # Convert degrees to radians
+    lat_mean = np.deg2rad(0.5 * (lat1 + lat2))
+
+    # Approximate local Cartesian direction from point 1 to point 2
+    dx = (lon2 - lon1) * np.cos(lat_mean)
+    dy = lat2 - lat1
+
+    # Unit vector from point 1 to point 2
+    length = np.hypot(dx, dy)
+    assert length > 0.0, "The two points must not be identical."
+
+    e_parallel = np.array([dx, dy]) / length
+
+    # Unit vector perpendicular to the connecting line
+    e_perp = np.array([-e_parallel[1], e_parallel[0]])
+
+    # Relative velocity: point 2 relative to point 1
+    v1 = np.array([v_lon_1, v_lat_1])
+    v2 = np.array([v_lon_2, v_lat_2])
+    dv = v2 - v1
+
+    # Projection
+    v_parallel = np.dot(dv, e_parallel)
+    v_perpendicular = np.dot(dv, e_perp)
+    v_parallel_1 = np.dot(v1, e_parallel)
+    v_perpendicular_1 = np.dot(v1, e_perp)
+    v_parallel_2 = np.dot(v2, e_parallel)
+    v_perpendicular_2 = np.dot(v2, e_perp)
+
+    return v_parallel, v_perpendicular, [v_parallel_1, v_perpendicular_1], [v_parallel_2, v_perpendicular_2]

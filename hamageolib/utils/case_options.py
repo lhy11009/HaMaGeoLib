@@ -45,7 +45,6 @@ from .handy_shortcuts_haoyuan import func_name, strip_and_split, str_to_bool_int
 from .file_reader import read_aspect_header_file
 from ..research.haoyuan_2d_subduction.legacy_utilities import CODESUB
 import copy
-from gdmate.aspect.io import parse_entry_as_list
 
 class CASE_OPTIONS(CODESUB):
     """
@@ -282,6 +281,8 @@ class CASE_OPTIONS(CODESUB):
             return resampled_df
     
     def Interpret(self, **kwargs):
+        
+        from gdmate.aspect.io import parse_entry_as_list
 
         # set model_type to default
         self.options["MODEL_TYPE"] = "default"
