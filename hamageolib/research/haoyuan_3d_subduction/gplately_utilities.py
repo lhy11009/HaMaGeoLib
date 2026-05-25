@@ -169,6 +169,9 @@ class GPLATE_PROCESS():
         self.plate_model = plate_model
         self.anchor_plate_id = anchor_plate_id
 
+    class GetRasterError(Exception):
+        pass
+
     def add_age_raster(self):
         # Summary:
         # Attach seafloor age to each subduction data point by interpolating a global age raster
@@ -184,8 +187,13 @@ class GPLATE_PROCESS():
         # - GPLATE_PROCESS_WORKFLOW_ERROR if reconstruct() was not called prior to this method.
 
         # Initialize the age grid raster, which will be used for age-related computations
+        raster_data = None
+        try:
+            raster_data = self.plate_model.get_raster("AgeGrids", self.reconstruction_time)
+        except:
+            raise self.GetRasterError(f"Get raster for model {self.model} doesn't work.")
         self.age_grid_raster = gplately.Raster(
-                                        data=self.plate_model.get_raster("AgeGrids", self.reconstruction_time),
+                                        data=raster_data,
                                         plate_reconstruction=self.model,
                                         extent=[-180, 180, -90, 90]
                                         )
@@ -1038,11 +1046,31 @@ class GPLOTTER():
 
         # Initialize the plotting object for visualizing topologies
         # The layers used for plotting include coastlines, continental polygons, and COBs (Continental Ocean Boundaries)
+        # The intializing procedure allow some of these to be missing.
+        coastlines = None
+        continents = None
+        cobs = None
+
+        try:
+            coastlines = self.plate_model.get_layer("Coastlines")
+        except:
+            pass
+
+        try:
+            continents = self.plate_model.get_layer("ContinentalPolygons")
+        except:
+            pass
+
+        try:
+            cobs = self.plate_model.get_layer("COBs")
+        except:
+            pass
+
         self.gplot = gplately.plot.PlotTopologies(
-            self.model, 
-            self.plate_model.get_layer('Coastlines'), 
-            self.plate_model.get_layer('ContinentalPolygons'), 
-            self.plate_model.get_layer('COBs')
+            self.model,
+            coastlines,
+            continents,
+            cobs
         )
 
         # Set default values
@@ -2485,7 +2513,7 @@ def plot_points_velocity_for_orogen(gpts, reconstruction_time, model, gplot, *,
         transform=ccrs.PlateCarree(),
         cmap=ccm.roma_r,
         norm=norm,
-        alpha=0.7,
+        alpha=1.0,
         zorder=2,
         scale=int(1200/velocity_scaling_factor),
         scale_units='width'
