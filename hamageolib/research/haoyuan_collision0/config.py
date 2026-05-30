@@ -84,6 +84,8 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_CTover"
         if variables["add_continents"] == "both":
             case_name += "_CTboth"
+        if variables["fix_continent_rheology_with_phase_transition"]:
+            case_name += "_RPT"
     
     if use_all or "subducting_continent_length" in use_keys:
         case_name += "_SL%.2e" % variables["subducting_continent_length"]
@@ -119,6 +121,14 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "include_fastscape" in use_keys:
         if variables["include_fastscape"]:
             case_name += "_FS"
+
+    if use_all or "do_topography_test" in use_keys:
+        if variables["do_topography_test"]:
+            case_name += "_topoT"
+
+    if use_all or "include_initial_topography" in use_keys:
+        if variables["include_initial_topography"]:
+            case_name += "_topoI"
         
 
     return case_name
@@ -505,11 +515,12 @@ class PostProcessorRule(Rule):
       Default value: 100000.0
     """
 
-    requires = ["use_my_setup_of_postprocess", "time_between_output", "include_initial_particle_position"]
+    requires = ["use_my_setup_of_postprocess", "time_between_output", "include_initial_particle_position", "include_topography_output"]
     
     defaults = {"use_my_setup_of_postprocess": False,
                 "time_between_output": 100e3,
-                "include_initial_particle_position": False}
+                "include_initial_particle_position": False,
+                "include_topography_output": False}
 
     requires_comments = {"use_my_setup_of_postprocess": "Add depth_average plot",
                         "time_between_output": "Set time between output for all postprocess modules"}
@@ -547,6 +558,7 @@ class PostProcessorRule(Rule):
         use_my_setup_of_postprocess = config["use_my_setup_of_postprocess"]
         time_between_output = config["time_between_output"]
         include_initial_particle_position = config["include_initial_particle_position"]
+        include_topography_output = config["include_topography_output"]
 
         # Things to add in my own setup of the postprocessors
         if use_my_setup_of_postprocess:
@@ -563,7 +575,14 @@ class PostProcessorRule(Rule):
             pass
                 
         if include_initial_particle_position:
-                prm_dict["Particles"]["List of particle properties"] += ", initial position"
+            prm_dict["Particles"]["List of particle properties"] += ", initial position"
+
+        if include_topography_output:
+            prm_dict["Postprocess"]["List of postprocessors"] += ", topography"
+            prm_dict["Postprocess"]["Topography"] = {
+                "Output to file": "true"
+            }
+
 
         # Fix the section of post-process
         if "Postprocess" in prm_dict:
@@ -574,6 +593,8 @@ class PostProcessorRule(Rule):
                 prm_dict["Postprocess"]["Particles"]["Time between data output"] = "%de3" % int(time_between_output/1e3)
             if "Depth average" in prm_dict["Postprocess"]:
                 prm_dict["Postprocess"]["Depth average"]["Time between graphical output"] = "%de3" % int(time_between_output/1e3)
+            if "Topography" in prm_dict["Postprocess"]:
+                prm_dict["Postprocess"]["Topography"]["Time between text output"] = "%de3" % int(time_between_output/1e3)
 
 
 class SlabRule(Rule):
@@ -622,7 +643,7 @@ class SlabRule(Rule):
     """
     requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point_pre_modification", "slab_hinge_point_pre_modification",
                 "plate_end_point_pre_modification", "slab_age", "kinematic_driven_condition", "kinematic_driven_condition_domain_modification",
-                "use_convergence_rate_for_ridge_position", "convergence_rate"]
+                "use_convergence_rate_for_ridge_position", "convergence_rate", "do_topography_test"]
     
     defaults = {"slab_layer_compositions": ["sediment", "MORB", "gabbro"], "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3],
                 "plate_start_point_pre_modification": 1000e3,
@@ -633,6 +654,7 @@ class SlabRule(Rule):
                 "kinematic_driven_condition_domain_modification": [1000e3, 1000e3],
                 "use_convergence_rate_for_ridge_position": False,
                 "convergence_rate": 0.05,
+                "do_topography_test": False
                 }
     
     requires_comments = {"slab_layer_compositions": "Include these compositions for the slab",
@@ -690,6 +712,7 @@ class SlabRule(Rule):
         kinematic_driven_condition_domain_modification = config["kinematic_driven_condition_domain_modification"]
         use_convergence_rate_for_ridge_position = config["use_convergence_rate_for_ridge_position"]
         convergence_rate = config["convergence_rate"]
+        do_topography_test = config["do_topography_test"]
 
         domain_length = context["domain_length"]
 
@@ -785,11 +808,23 @@ class SlabRule(Rule):
             if feature["name"] == "Overriding Plate":
                 feature["coordinates"] = [[slab_hinge_point, -100e3], [slab_hinge_point, 100e3], [plate_end_point, 100e3], [plate_end_point, -100e3]]
 
+        if do_topography_test:
+            # elinate slab when performing topography test
+            find_index = None
+            for i, feature in enumerate(wb_dict["features"]):
+                if feature["name"] == "Slab":
+                    find_index = i
+                    break
+
+            if find_index is not None:
+                wb_dict["features"].pop(find_index)
+
         # put the related parameters into context for later rules 
         context["spreading_velocity"] = spreading_velocity
         context["slab_hinge_point"] = slab_hinge_point
         context["plate_start_point"] = plate_start_point
         context["plate_end_point"] = plate_end_point
+        context["do_topography_test"] = do_topography_test
 
 class GeometryRule(Rule):
     """
@@ -833,7 +868,7 @@ class GeometryRule(Rule):
     """
 
     requires = ["domain_length_pre_modification", "domain_depth", "global_refinement", "adaptive_refinement", "repetition_length", "use_isosurfaces",
-                "kinematic_driven_condition", "kinematic_driven_condition_domain_modification", "fix_surface_mesh_resolution"]
+                "kinematic_driven_condition", "kinematic_driven_condition_domain_modification"]
     
     defaults = {
         "domain_length_pre_modification": 8700e3,
@@ -844,7 +879,6 @@ class GeometryRule(Rule):
         "use_isosurfaces": False,
         "kinematic_driven_condition": False,
         "kinematic_driven_condition_domain_modification": [1000e3, 1000e3],
-        "fix_surface_mesh_resolution": False
     }
 
     requires_comments = {
@@ -943,6 +977,7 @@ class GeometryRule(Rule):
             isosurfaces_dict = {"Isosurfaces": isosurfaces_configuration}
             prm_dict["Mesh refinement"]["Strategy"] = format_list_as_entry(mesh_refinement_strategies)
             prm_dict["Mesh refinement"]["Isosurfaces"] = isosurfaces_dict
+
 
         # Add to context
         context["use_isosurfaces"] = use_isosurfaces
@@ -2101,7 +2136,13 @@ class ContinentRule(Rule):
                 compo_dict_s["compositions"] = [index_sediment]
                 new_feature_1["composition models"].insert(0, compo_dict_s)
 
-    
+                context["continent_taper_length"] = taper_length_foo
+            else:
+                context["continent_taper_length"] = 0.0
+
+            context["continent_end_point"] = continent_end_point
+
+
         # Handle material properties: rheology and density
         rheology_continent_dict = None
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
@@ -2758,15 +2799,23 @@ class FastScapeRule(Rule):
 
     """
 
-    requires = ["include_fastscape"]
+    requires = ["include_fastscape", "fix_surface_mesh_resolution", "topography_continent", "topography_ocean", "include_initial_topography"]
 
     defaults = {
-        "include_fastscape": False
+        "include_fastscape": False, 
+        "fix_surface_mesh_resolution": False,
+        "topography_continent": 940.0,
+        "topography_ocean": -3200.0,
+        "include_initial_topography": False
     }
     
     def apply(self, config, prm_dict, wb_dict, context):
 
         include_fastscape = config["include_fastscape"]
+        include_initial_topography = config["include_initial_topography"]
+        topography_continent = config["topography_continent"]
+        topography_ocean = config["topography_ocean"]
+                                      
 
         if include_fastscape:
             prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/fastscape/fastscape_1.prm"
@@ -2786,3 +2835,19 @@ class FastScapeRule(Rule):
             prm_dict["Mesh deformation"].pop("Free surface")
             prm_dict["Mesh deformation"].pop("Diffusion")
             prm_dict["Mesh deformation"]["Fastscape"] = fastscape_dict
+
+        if include_initial_topography:
+
+            initial_topography_model = {}
+            initial_topography_model["Model name"] = "function"
+            initial_topography_model["Function"] = {
+                "Function constants": "x0 = %.2e, x1 = %.2e, x2 = %.2e, l0 = %.2e, topoC = %.2e, topoO = %.2e" % \
+                (context["plate_start_point"], context["continent_end_point"], context["slab_hinge_point"],context["continent_taper_length"],
+                topography_continent, topography_ocean),
+                "Function expression": rf"""(x>x2)? topoC:\
+                              ((x>x1)? topoO:\
+                              ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
+                              ((x>x0)? topoC: 0.0)))"""
+            }
+
+            prm_dict["Geometry model"]["Initial topography model"] = initial_topography_model
