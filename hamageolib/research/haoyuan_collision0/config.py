@@ -1720,9 +1720,11 @@ class WeakLayerRule(Rule):
 
 
 class SolverRule(Rule):
+
+    # todo_rebase
     
     requires = ["stokes_solver_type", "skip_expensive_stokes", "max_nonlinear_iterations", "linear_solver_tolerance", "number_of_cheap_Stokes_solver_steps",
-                "GMRES_solver_restart_length", "nonlinear_solver_tolerance", "nonlinear_solver_failure_strategy"]
+                "GMRES_solver_restart_length", "nonlinear_solver_tolerance", "nonlinear_solver_failure_strategy", "use_rebased_branch"]
     
     defaults = {"stokes_solver_type": "block AMG", 
                 "skip_expensive_stokes": False, 
@@ -1731,7 +1733,8 @@ class SolverRule(Rule):
                 "number_of_cheap_Stokes_solver_steps":20000, 
                 "GMRES_solver_restart_length": 1000, 
                 "nonlinear_solver_tolerance": 5e-3,
-                "nonlinear_solver_failure_strategy": "cut timestep size"}
+                "nonlinear_solver_failure_strategy": "cut timestep size",
+                "use_rebased_branch": False}
     
     requires_comments = {"skip_expensive_stokes": "Within a nonlinear solver, Skip the expensive stokes iteration even the cheap one fails and continue next linear iteration."}
 
@@ -1746,6 +1749,7 @@ class SolverRule(Rule):
         stokes_solver_type = config["stokes_solver_type"]
         nonlinear_solver_tolerance = config["nonlinear_solver_tolerance"]
         nonlinear_solver_failure_strategy = config["nonlinear_solver_failure_strategy"]
+        use_rebased_branch = config["use_rebased_branch"]
 
         # configure max nonlinear interations
         prm_dict["Max nonlinear iterations"] = "%d" % max_nonlinear_iterations
@@ -1760,7 +1764,10 @@ class SolverRule(Rule):
 
         # configure solver to skip expensive stokes solves
         if skip_expensive_stokes:
-            prm_dict["Solver parameters"]["Stokes solver parameters"]["Skip expensive stokes solver"] = "true"
+            if use_rebased_branch:
+                prm_dict["Linear solver failure strategy"] = "continue with nonlinear solver"
+            else:
+                prm_dict["Solver parameters"]["Stokes solver parameters"]["Skip expensive stokes solver"] = "true"
 
 
 class ContinentRule(Rule): 
