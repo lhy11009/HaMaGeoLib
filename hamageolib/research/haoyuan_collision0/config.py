@@ -4,10 +4,12 @@ import numpy as np
 from pathlib import Path
 from copy import deepcopy
 from ...utils.exception_handler import my_assert
+from ...utils.handy_shortcuts_haoyuan import func_name
 from ...core.AnalyticalSolution import ContinentalThermChapmanPartition
 from ...research.haoyuan_2d_subduction.legacy_tools import RHEOLOGY_PRM, RHEOLOGY_OPR,\
     RefitRheology
 from ...research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
+
 from gdmate.aspect.config_engine import Rule, RuleConflictError
 from gdmate.aspect.table import DepthAverageTable
 from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
@@ -2055,6 +2057,7 @@ class ContinentRule(Rule):
             continent_end_point = context["plate_start_point"] + subducting_continent_length
 
             # Duplicate overriding plate feature to construct subducting continent
+            # todo_corner
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Overriding Plate")
             new_feature = deepcopy(feature)
 
@@ -2412,13 +2415,17 @@ class CornerRule(Rule):
 
     """
     requires = ["customize_corner", "customize_corner_width", "customize_corner_depth", "customize_corner_viscosity",
-                "customize_corner_temperature"]
+                "customize_corner_temperature", "customize_ridge", "chapman_model_surface_heatflux"]
     
     defaults = {"customize_corner": False, 
                 "customize_corner_width": 600e3, 
                 "customize_corner_depth": 100e3,
                 "customize_corner_viscosity": -1.0,
-                "customize_corner_temperature": False}
+                "customize_corner_temperature": False,
+                "use_rebased_branch": False,
+                "customize_ridge": False,
+                "chapman_model_surface_heatflux": 0.055
+                }
 
     requires_comments = {"customize_corner": "Allow user to customize corner property from prescribed conditions",
                          "customize_corner_width": "Width of the corner region",
@@ -2437,6 +2444,9 @@ viscosity is being prescribed in the region",
         customize_corner_depth = config["customize_corner_depth"]
         customize_corner_viscosity = config["customize_corner_viscosity"]
         customize_corner_temperature = config["customize_corner_temperature"]
+        customize_ridge = config["customize_ridge"]
+        use_rebased_branch = config["use_rebased_branch"]
+        chapman_model_surface_heatflux = config["chapman_model_surface_heatflux"]
 
         # Read variables from the context
         domain_length = context["domain_length"]
@@ -2467,26 +2477,147 @@ viscosity is being prescribed in the region",
                     "Function expression": "(((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? 1.0: 0.0)"
                 }
 
+                model_name = "temperature from initial"
+                section_name = "Temperature from initial"
+                if use_rebased_branch:
+                    model_name = "initial temperature"
+                    section_name = "Initial temperature"
+
                 try:
                     prescribed_solution = prm_dict["Prescribed solution"]
                 except KeyError:
+                    # todo_rebase
                     prm_dict["Prescribed solution"] = {
-                        "List of model names": "temperature from initial",
-                        "Temperature from initial":{
+                        "List of model names": model_name,
+                        section_name:{
                             "Indicator function": indicator_function
                         }
                     }
                 else:
                     foo_list = parse_entry_as_list(prescribed_solution["List of model names"])
-                    if "temperature from initial" not in foo_list:
-                        prescribed_solution["List of model names"] += ", temperature from initial"
+                    if model_name not in foo_list:
+                        prescribed_solution["List of model names"] += ", %s" % model_name
 
-                    prescribed_solution["Temperature from initial"] = {
+                    prescribed_solution[section_name] = {
                             "Indicator function": indicator_function
                     }
 
+            # todo_corner
+            if customize_ridge:
+                
+                ridge_plate_max_depth = 300e3 # maximum depth of the ridge feature
+                
+                plate_age = None # age of the ridge at the end
+                if np.isclose(chapman_model_surface_heatflux, 0.055, rtol=1e-6):
+                    plate_age = 75e6 # yr, note this is not an exact match of the continent
+                else:
+                    raise NotImplementedError("This surface heatflux value is not yet handled by %s" % func_name())
+                
+
+                # subducting side
+                idx_c_feature, sb_continent_feature = find_WB_feature_by_name(wb_dict, "Subducting Continent")
+                idx_o_feature, sb_ocean_feature = find_WB_feature_by_name(wb_dict, "Subducting Plate")
+                sb_ridge_feature = deepcopy(sb_ocean_feature)
+
+                # fix the subducting plate
+                sb_continent_feature["coordinates"][0][0] = customize_corner_width
+                sb_continent_feature["coordinates"][1][0] = customize_corner_width
+
+                # fix the subducting ridge
+
+                sb_ridge_feature["name"] = "Subducting ridge"
+                sb_ridge_feature["max depth"] = ridge_plate_max_depth
+
+                sb_ridge_feature["coordinates"] = [
+                    [   
+                        0.0,
+                        -100000.0
+                    ],
+                    [
+                        0.0,
+                        100000.0
+                    ],
+                    [
+                        customize_corner_width,
+                        100000.0
+                    ],
+                    [
+                        customize_corner_width,
+                        -100000.0
+                    ]]
+                
+                spreading_velocity = customize_corner_width / plate_age  # m/yr
+                temperature_model =  {
+                    "model": "plate model",
+                    "min depth": -10000.0,
+                    "max depth": ridge_plate_max_depth,
+                    "spreading velocity": spreading_velocity,
+                    "ridge coordinates": [[[
+                            0,
+                            -100000
+                        ],
+                        [
+                            0,
+                            100000
+                        ]]]
+                }
+                
+                sb_ridge_feature["temperature models"] = [temperature_model]
+            
+                wb_dict["features"].insert(idx_c_feature, sb_ridge_feature)
+                
+                # overriding side
+                idx_c_feature, ov_continent_feature = find_WB_feature_by_name(wb_dict, "Overriding Plate")
+                ov_ridge_feature = deepcopy(sb_ocean_feature)
+
+                # fix the overidding plate
+                ov_continent_feature["coordinates"][2][0] = context["domain_length"] - customize_corner_width
+                ov_continent_feature["coordinates"][3][0] = context["domain_length"] - customize_corner_width
+
+                # fix the overidding ridge
+                ov_ridge_feature["name"] = "Overriding ridge"
+                ov_ridge_feature["max depth"] = ridge_plate_max_depth
+
+                ov_ridge_feature["coordinates"] = [
+                    [   
+                        context["domain_length"] - customize_corner_width,
+                        -100000.0
+                    ],
+                    [
+                        context["domain_length"] - customize_corner_width,
+                        100000.0
+                    ],
+                    [
+                        context["domain_length"],
+                        100000.0
+                    ],
+                    [
+                        context["domain_length"],
+                        -100000.0
+                    ]]
+                
+                spreading_velocity = customize_corner_width / plate_age  # m/yr
+                temperature_model =  {
+                    "model": "plate model",
+                    "min depth": -10000.0,
+                    "max depth": ridge_plate_max_depth,
+                    "spreading velocity": spreading_velocity,
+                    "ridge coordinates": [[[
+                            context["domain_length"],
+                            -100000
+                        ],
+                        [
+                            context["domain_length"],
+                            100000
+                        ]]]
+                }
+                
+                ov_ridge_feature["temperature models"] = [temperature_model]
+            
+                wb_dict["features"].insert(idx_c_feature, ov_ridge_feature)
+
             # Modify the composition boundary condition
-            # Here we assume that both continents start from / end at the side boundary
+            # Here we assume that both cofntinents start from / end at the side boundary
             prm_dict["Boundary composition model"] = {
                 "List of model names": "initial composition"
                 }
@@ -2806,14 +2937,16 @@ class FastScapeRule(Rule):
 
     """
 
-    requires = ["include_fastscape", "fix_surface_mesh_resolution", "topography_continent", "topography_ocean", "include_initial_topography"]
+    requires = ["include_fastscape", "fix_surface_mesh_resolution", "topography_continent", "topography_ocean", "include_initial_topography",
+                "include_initial_topography_trench_continent_taper"]
 
     defaults = {
         "include_fastscape": False, 
         "fix_surface_mesh_resolution": False,
         "topography_continent": 940.0,
         "topography_ocean": -3200.0,
-        "include_initial_topography": False
+        "include_initial_topography": False,
+        "include_initial_topography_trench_continent_taper": 300e3
     }
     
     def apply(self, config, prm_dict, wb_dict, context):
@@ -2822,6 +2955,7 @@ class FastScapeRule(Rule):
         include_initial_topography = config["include_initial_topography"]
         topography_continent = config["topography_continent"]
         topography_ocean = config["topography_ocean"]
+        include_initial_topography_trench_continent_taper = config["include_initial_topography_trench_continent_taper"]
                                       
 
         if include_fastscape:
@@ -2848,13 +2982,15 @@ class FastScapeRule(Rule):
             initial_topography_model = {}
             initial_topography_model["Model name"] = "function"
             initial_topography_model["Function"] = {
-                "Function constants": "x0 = %.2e, x1 = %.2e, x2 = %.2e, l0 = %.2e, topoC = %.2e, topoO = %.2e" % \
-                (context["plate_start_point"], context["continent_end_point"], context["slab_hinge_point"],context["continent_taper_length"],
+                "Function constants": "x0 = %.2e, x1 = %.2e, x2 = %.2e, l0 = %.2e, l1 = %.2e, topoC = %.2e, topoO = %.2e" % \
+                (context["plate_start_point"], context["continent_end_point"], context["slab_hinge_point"],
+                 context["continent_taper_length"], include_initial_topography_trench_continent_taper,
                 topography_continent, topography_ocean),
                 "Function expression": rf"""(x>x2)? topoC:\
+                              ((x>x2-l1)? ((x2-x)/l1*topoO + (x-x2+l1)/l1*topoC):\
                               ((x>x1)? topoO:\
                               ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
-                              ((x>x0)? topoC: 0.0)))"""
+                              ((x>x0)? topoC: 0.0))))"""
             }
 
             prm_dict["Geometry model"]["Initial topography model"] = initial_topography_model
