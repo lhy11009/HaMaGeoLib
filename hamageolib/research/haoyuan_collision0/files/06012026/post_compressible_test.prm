@@ -31,6 +31,8 @@ set Max nonlinear iterations                   = 70
 set End time                                   = 100e6
 set CFL number                                 = 0.5
 
+set Interpolate temperature from material model = false
+
 # Using a free surface, so we must disable surface pressure
 # set Surface pressure                           = 0
 set Pressure normalization                     = no

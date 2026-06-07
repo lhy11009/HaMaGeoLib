@@ -131,6 +131,10 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "include_initial_topography" in use_keys:
         if variables["include_initial_topography"]:
             case_name += "_topoI"
+
+    if use_all or "customize_corner_temperature_fix" in use_keys:
+        if variables["customize_corner_temperature_fix"]:
+            case_name += "_CTF"
         
 
     return case_name
@@ -2135,14 +2139,14 @@ class ContinentRule(Rule):
                 depth_entry_1 = [[continent_taper_upper_crust_thickness+continent_taper_lower_crust_thickness+continent_taper_sediment_thickness],\
                  [max_depth_1, taper_line]]
                 
-                compo_dict_0["min depth"] = depth_entry_s
-                compo_dict_0["max depth"] = depth_entry_0
-                compo_dict_1["min depth"] = depth_entry_0
-                compo_dict_1["max depth"] = depth_entry_1
+                compo_dict_0["min depth"] = deepcopy(depth_entry_s)
+                compo_dict_0["max depth"] = deepcopy(depth_entry_0)
+                compo_dict_1["min depth"] = deepcopy(depth_entry_0)
+                compo_dict_1["max depth"] = deepcopy(depth_entry_1)
 
                 compo_dict_s = deepcopy(compo_dict_0)
                 compo_dict_s.pop("min depth")
-                compo_dict_s["max depth"] = depth_entry_s
+                compo_dict_s["max depth"] = deepcopy(depth_entry_s)
                 compo_dict_s["compositions"] = [index_sediment]
                 new_feature_1["composition models"].insert(0, compo_dict_s)
 
@@ -2415,7 +2419,8 @@ class CornerRule(Rule):
 
     """
     requires = ["customize_corner", "customize_corner_width", "customize_corner_depth", "customize_corner_viscosity",
-                "customize_corner_temperature", "customize_ridge", "chapman_model_surface_heatflux"]
+                "customize_corner_temperature", "customize_ridge", "chapman_model_surface_heatflux",
+                "customize_corner_temperature_fix", "customize_corner_temperature_fix_width", "customize_corner_temperature_fix_depth"]
     
     defaults = {"customize_corner": False, 
                 "customize_corner_width": 600e3, 
@@ -2424,7 +2429,10 @@ class CornerRule(Rule):
                 "customize_corner_temperature": False,
                 "use_rebased_branch": False,
                 "customize_ridge": False,
-                "chapman_model_surface_heatflux": 0.055
+                "chapman_model_surface_heatflux": 0.055,
+                "customize_corner_temperature_fix": False,
+                "customize_corner_temperature_fix_width": 0.0,
+                "customize_corner_temperature_fix_depth": 0.0
                 }
 
     requires_comments = {"customize_corner": "Allow user to customize corner property from prescribed conditions",
@@ -2447,6 +2455,9 @@ viscosity is being prescribed in the region",
         customize_ridge = config["customize_ridge"]
         use_rebased_branch = config["use_rebased_branch"]
         chapman_model_surface_heatflux = config["chapman_model_surface_heatflux"]
+        customize_corner_temperature_fix = config["customize_corner_temperature_fix"]
+        customize_corner_temperature_fix_width = config["customize_corner_temperature_fix_width"]
+        customize_corner_temperature_fix_depth = config["customize_corner_temperature_fix_depth"]
 
         # Read variables from the context
         domain_length = context["domain_length"]
@@ -2501,6 +2512,29 @@ viscosity is being prescribed in the region",
                     prescribed_solution[section_name] = {
                             "Indicator function": indicator_function
                     }
+
+            # todo_fix
+            # further fix temperature in the solution
+            # the first option tells the simulator to take value from the material model outputs
+            # the second option tells the material model to generate these additional outputs
+            # the third option tells the material model to take value from the initial temperature
+            if customize_corner_temperature_fix:
+
+                prm_dict["Interpolate temperature from material model"] = "true"
+
+                prm_dict["Material model"]["Visco Plastic"]["Prescribe temperature value"] = "true"
+
+                prm_dict["Material model"]["Visco Plastic"]["Prescribe temperature value from initial temperature"] = "true"
+
+                
+                indicator_function = {
+                    "Variable names": "x, y",
+                    "Function constants": "cwidth = %de3, cdepth = %de3, ymax = %de3, xmax = %de3" % \
+                        ((customize_corner_width+customize_corner_temperature_fix_width)/1e3, (customize_corner_depth+customize_corner_temperature_fix_depth)/1e3, domain_depth/1e3, domain_length/1e3),
+                    "Function expression": "(((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? 1.0: 0.0)"
+                }
+                
+                prm_dict["Material model"]["Visco Plastic"]["Prescribe temperature value function"] = indicator_function
 
             # todo_corner
             if customize_ridge:
@@ -2986,11 +3020,111 @@ class FastScapeRule(Rule):
                 (context["plate_start_point"], context["continent_end_point"], context["slab_hinge_point"],
                  context["continent_taper_length"], include_initial_topography_trench_continent_taper,
                 topography_continent, topography_ocean),
-                "Function expression": rf"""(x>x2)? topoC:\
-                              ((x>x2-l1)? ((x2-x)/l1*topoO + (x-x2+l1)/l1*topoC):\
+                "Function expression": rf"""(x>x2+l1)? topoC:\
+                              ((x>x2)? ((x2+l1-x)/l1*topoO + (x-x2)/l1*topoC):\
                               ((x>x1)? topoO:\
                               ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
                               ((x>x0)? topoC: 0.0))))"""
             }
 
             prm_dict["Geometry model"]["Initial topography model"] = initial_topography_model
+
+
+            # loop features and apply the configuration of topography
+            # the min depth surely needs to be changed, so even if there missing one before,
+            # we need to set to the negative topography value (because its depth).
+            # Every composition model and temperature model need to be looped and changed by the min/max depth
+            for feature in wb_dict["features"]:
+                
+                topography = None
+                if feature["name"] in ["Subducting Plate", "Slab"]:
+                    topography = topography_ocean
+                elif feature["name"] in ["Subducting Continent", "Overriding Plate"]:
+                    topography = topography_continent
+                else:
+                    continue
+
+                try:
+                    feature["min depth"] -= topography
+                except KeyError:
+                    feature["min depth"] = -topography
+                try:
+                    feature["max depth"] -= topography
+                except KeyError:
+                    pass
+                
+                try:
+                    composition_models = feature["composition models"]
+                except KeyError:
+                    pass
+                else:
+                    for composition_model in composition_models:
+                        if ("min depth" in composition_model) or ("max depth" in composition_model):
+                            try:
+                                composition_model["min depth"] -= topography
+                            except KeyError:
+                                composition_model["min depth"] = -topography
+                            try:
+                                composition_model["max depth"] -= topography
+                            except KeyError:
+                                pass
+
+                try:
+                    temperature_models = feature["temperature models"]
+                except KeyError:
+                    pass
+                else:
+                    for temperature_model in temperature_models:
+                        if ("min depth" in temperature_model) or ("max depth" in temperature_model):
+                            try:
+                                temperature_model["min depth"] -= topography
+                            except KeyError:
+                                temperature_model["min depth"] = -topography
+                            try:
+                                temperature_model["max depth"] -= topography
+                            except KeyError:
+                                pass
+            
+            # fix the passive margin separately if it presents
+            # still, the "min depth" needs to present, if it doesn't, copy from the structure of "max depth"
+            # and then assign it the negative of topography value
+            idx_feature, feature = find_WB_feature_by_name(wb_dict, "Subducting Continent Margin")
+
+            if feature is not None:
+                feature["min depth"] -= topography_continent
+                feature["max depth"] -= topography_ocean
+
+                composition_models = feature["composition models"]
+                for composition_model in composition_models:
+                    try: 
+                        # todo_topo
+                        # print("composition_model[\"min depth\"][0][0]: ", composition_model["min depth"][0][0])
+                        # print("topography_ocean: ", topography_ocean)
+                        composition_model["min depth"][0][0] -= topography_ocean
+                        composition_model["min depth"][1][0] -= topography_continent
+                    except KeyError:
+                        composition_model["min depth"] = deepcopy(composition_model["max depth"])
+                        composition_model["min depth"][0][0] = -topography_ocean
+                        composition_model["min depth"][1][0] = -topography_continent
+                    try: 
+                        composition_model["max depth"][0][0] -= topography_ocean
+                        composition_model["max depth"][1][0] -= topography_continent
+                        pass
+                    except KeyError:
+                        pass
+
+                try:
+                    temperature_models = feature["temperature models"]
+                except KeyError:
+                    pass
+                else:
+                    for temperature_model in temperature_models:
+                        if ("min depth" in temperature_model) or ("max depth" in temperature_model):
+                            try:
+                                temperature_model["min depth"] -= topography_continent
+                            except KeyError:
+                                temperature_model["min depth"] = -topography_continent
+                            try:
+                                temperature_model["max depth"] -= topography_continent
+                            except KeyError:
+                                pass
