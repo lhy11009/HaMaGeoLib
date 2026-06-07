@@ -14,5 +14,5 @@
 #SBATCH --constraint='zen3' # Do not run or compile on zen4 node
 
 # module load gcc/13.2.0
-srun ${ASPECT_SOURCE_DIR}/build_main_coliision/aspect-release ./case.prm
+srun ${ASPECT_SOURCE_DIR}/build_main_collision/aspect-release ./case.prm
 # srun ${ASPECT_SOURCE_DIR}/build_main_collision/aspect-debug ./case.prm
