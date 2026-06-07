@@ -115,7 +115,7 @@ alias newjob_mow_2d="cp ${HaMaGeoLib_DIR}/scripts/server/stampede3/job_stampede3
 # -----------------------------
 export COLLISION="$SCRATCH/Collision0"
 alias collision="cd $COLLISION"
-alias newjob_collision="cp ${HaMaGeoLib_DIR}/scripts/server/hive/job_hive_collision_2d.slurm ./"
+alias newjob_collision="cp ${HaMaGeoLib_DIR}/scripts/server/stampede3/job_stampede3_collision_2d.slurm ./"
 
 #alias compile_collision='cd ${ASPECT_SOURCE_DIR} && \
 #git checkout main_collision && git reset --hard lhy11009/main_collision && \
