@@ -950,13 +950,13 @@ class GeometryRule(Rule):
         prm_dict["Mesh refinement"]["Minimum refinement function"]["Function constants"] = "litho_thickness=120e3, ymax=%de3" % int(domain_depth/1e3)
         prm_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = rf"""if(y>(ymax-litho_thickness),{global_refinement}, \
                               if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {global_refinement-1}, {global_refinement-2}))"""
-        prm_dict["Mesh refinement"]["Maximum refinement function"]["Function constants"] = "xmax=5500e3, xmin=4000e3, ymax=%de3" % int(domain_depth/1e3)
         if fix_surface_mesh_resolution:
             prm_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = rf"""if(y>(ymax-surf_thickness), {global_refinement+adaptive_refinement}, (if(y>(ymax-litho_thickness),{global_refinement}, \
                               if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {global_refinement-1}, {global_refinement-2}))))"""
             prm_dict["Mesh refinement"]["Minimum refinement function"]["Function constants"] = "litho_thickness=120e3, surf_thickness=20e3, ymax=%de3" % int(domain_depth/1e3)
+        prm_dict["Mesh refinement"]["Maximum refinement function"]["Function constants"] = "ymax=%de3" % int(domain_depth/1e3)
         prm_dict["Mesh refinement"]["Maximum refinement function"]["Function expression"] = \
-            rf"""if( x<=xmax && x>=xmin && y>=(ymax - 660e3), {total_refinement}, {total_refinement-2})"""
+            rf"""if(y>=(ymax - 660e3), {total_refinement}, {total_refinement-2})"""
         prm_dict["Boundary temperature model"]["Constant"]["Boundary indicator to temperature mappings"] = f"bottom:{bottom_T}, top:273"
 
 
@@ -2971,12 +2971,11 @@ class FastScapeRule(Rule):
 
     """
 
-    requires = ["include_fastscape", "fix_surface_mesh_resolution", "topography_continent", "topography_ocean", "include_initial_topography",
+    requires = ["include_fastscape", "topography_continent", "topography_ocean", "include_initial_topography",
                 "include_initial_topography_trench_continent_taper"]
 
     defaults = {
         "include_fastscape": False, 
-        "fix_surface_mesh_resolution": False,
         "topography_continent": 940.0,
         "topography_ocean": -3200.0,
         "include_initial_topography": False,

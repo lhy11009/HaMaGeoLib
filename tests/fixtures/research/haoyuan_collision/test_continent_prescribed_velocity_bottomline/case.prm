@@ -239,10 +239,10 @@ subsection Mesh refinement
                               if(y>=(ymax - 662e3) && y<=(ymax - 658e3), 3, 2))
     end
     subsection Maximum refinement function
-        set Function constants = xmax=5500e3, xmin=4000e3, ymax=1000e3
+        set Function constants = ymax=1000e3
         set Coordinate system = cartesian
         set Variable names = x, y
-        set Function expression = if( x<=xmax && x>=xmin && y>=(ymax - 660e3), 8, 6)
+        set Function expression = if(y>=(ymax - 660e3), 8, 6)
     end
     subsection Isosurfaces
         set Isosurfaces = max, max, porosity: 0.5 | 1.0; max, max, bound_fluid: 0.5 | 1.0; max, max, sediment: 0.5 | 1.0; max-1, max, gabbro: 0.5 | 1.0; max, max, MORB: 0.5 | 1.0; max-1, max, crust_upper: 0.5 | 1.0; max-1, max, crust_lower: 0.5 | 1.0
