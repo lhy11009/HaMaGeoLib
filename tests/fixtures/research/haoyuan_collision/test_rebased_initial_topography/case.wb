@@ -40,39 +40,40 @@
                     -100000.0
                 ]
             ],
-            "min depth": 0,
-            "max depth": 200000.0,
+            "min depth": -940.0,
+            "max depth": 199060.0,
             "composition models": [
                 {
                     "model": "uniform",
                     "compositions": [
                         4
                     ],
-                    "min depth": 0,
-                    "max depth": 20000.0
+                    "min depth": -940.0,
+                    "max depth": 19060.0
                 },
                 {
                     "model": "uniform",
                     "compositions": [
                         5
                     ],
-                    "min depth": 20000.0,
-                    "max depth": 40000.0
+                    "min depth": 19060.0,
+                    "max depth": 39060.0
                 }
             ],
             "temperature models": [
                 {
                     "model": "chapman",
-                    "max depth": 20000.0,
+                    "max depth": 19060.0,
                     "top temperature": 273.0,
                     "top heat flux": 0.055,
                     "thermal conductivity": 2.5,
-                    "heat generation per unit volume": 1e-06
+                    "heat generation per unit volume": 1e-06,
+                    "min depth": -940.0
                 },
                 {
                     "model": "chapman",
-                    "min depth": 20000.0,
-                    "max depth": 40000.0,
+                    "min depth": 19060.0,
+                    "max depth": 39060.0,
                     "top temperature": 633.0,
                     "top heat flux": 0.035,
                     "thermal conductivity": 2.5,
@@ -80,8 +81,8 @@
                 },
                 {
                     "model": "chapman",
-                    "min depth": 40000.0,
-                    "max depth": 120000.0,
+                    "min depth": 39060.0,
+                    "max depth": 119060.0,
                     "top temperature": 893.0,
                     "top heat flux": 0.03,
                     "thermal conductivity": 4.0,
@@ -110,39 +111,40 @@
                     -100000.0
                 ]
             ],
-            "min depth": 0,
-            "max depth": 200000.0,
+            "min depth": -940.0,
+            "max depth": 199060.0,
             "composition models": [
                 {
                     "model": "uniform",
                     "compositions": [
                         4
                     ],
-                    "min depth": 0,
-                    "max depth": 20000.0
+                    "min depth": -940.0,
+                    "max depth": 19060.0
                 },
                 {
                     "model": "uniform",
                     "compositions": [
                         5
                     ],
-                    "min depth": 20000.0,
-                    "max depth": 40000.0
+                    "min depth": 19060.0,
+                    "max depth": 39060.0
                 }
             ],
             "temperature models": [
                 {
                     "model": "chapman",
-                    "max depth": 20000.0,
+                    "max depth": 19060.0,
                     "top temperature": 273.0,
                     "top heat flux": 0.055,
                     "thermal conductivity": 2.5,
-                    "heat generation per unit volume": 1e-06
+                    "heat generation per unit volume": 1e-06,
+                    "min depth": -940.0
                 },
                 {
                     "model": "chapman",
-                    "min depth": 20000.0,
-                    "max depth": 40000.0,
+                    "min depth": 19060.0,
+                    "max depth": 39060.0,
                     "top temperature": 633.0,
                     "top heat flux": 0.035,
                     "thermal conductivity": 2.5,
@@ -150,8 +152,8 @@
                 },
                 {
                     "model": "chapman",
-                    "min depth": 40000.0,
-                    "max depth": 120000.0,
+                    "min depth": 39060.0,
+                    "max depth": 119060.0,
                     "top temperature": 893.0,
                     "top heat flux": 0.03,
                     "thermal conductivity": 4.0,
@@ -180,8 +182,8 @@
                     -100000.0
                 ]
             ],
-            "min depth": 0,
-            "max depth": 200000.0,
+            "min depth": -940.0,
+            "max depth": 203200.0,
             "composition models": [
                 {
                     "model": "uniform",
@@ -190,10 +192,28 @@
                     ],
                     "max depth": [
                         [
-                            4000.0
+                            7200.0
                         ],
                         [
-                            0.0,
+                            -940.0,
+                            [
+                                [
+                                    1500000.0,
+                                    -100000.0
+                                ],
+                                [
+                                    1500000.0,
+                                    100000.0
+                                ]
+                            ]
+                        ]
+                    ],
+                    "min depth": [
+                        [
+                            3200.0
+                        ],
+                        [
+                            -940.0,
                             [
                                 [
                                     1500000.0,
@@ -214,10 +234,10 @@
                     ],
                     "min depth": [
                         [
-                            4000.0
+                            7200.0
                         ],
                         [
-                            0.0,
+                            -940.0,
                             [
                                 [
                                     1500000.0,
@@ -232,10 +252,10 @@
                     ],
                     "max depth": [
                         [
-                            7500.0
+                            10700.0
                         ],
                         [
-                            20000.0,
+                            19060.0,
                             [
                                 [
                                     1500000.0,
@@ -256,10 +276,10 @@
                     ],
                     "min depth": [
                         [
-                            7500.0
+                            10700.0
                         ],
                         [
-                            20000.0,
+                            19060.0,
                             [
                                 [
                                     1500000.0,
@@ -274,10 +294,10 @@
                     ],
                     "max depth": [
                         [
-                            11500.0
+                            14700.0
                         ],
                         [
-                            40000.0,
+                            39060.0,
                             [
                                 [
                                     1500000.0,
@@ -295,16 +315,17 @@
             "temperature models": [
                 {
                     "model": "chapman",
-                    "max depth": 20000.0,
+                    "max depth": 19060.0,
                     "top temperature": 273.0,
                     "top heat flux": 0.055,
                     "thermal conductivity": 2.5,
-                    "heat generation per unit volume": 1e-06
+                    "heat generation per unit volume": 1e-06,
+                    "min depth": -940.0
                 },
                 {
                     "model": "chapman",
-                    "min depth": 20000.0,
-                    "max depth": 40000.0,
+                    "min depth": 19060.0,
+                    "max depth": 39060.0,
                     "top temperature": 633.0,
                     "top heat flux": 0.035,
                     "thermal conductivity": 2.5,
@@ -312,8 +333,8 @@
                 },
                 {
                     "model": "chapman",
-                    "min depth": 40000.0,
-                    "max depth": 120000.0,
+                    "min depth": 39060.0,
+                    "max depth": 119060.0,
                     "top temperature": 893.0,
                     "top heat flux": 0.03,
                     "thermal conductivity": 4.0,
@@ -342,40 +363,40 @@
                     -100000.0
                 ]
             ],
-            "min depth": 0,
-            "max depth": 150000.0,
+            "min depth": 3200.0,
+            "max depth": 153200.0,
             "composition models": [
                 {
                     "model": "uniform",
                     "compositions": [
                         2
                     ],
-                    "min depth": 0.0,
-                    "max depth": 4000.0
+                    "min depth": 3200.0,
+                    "max depth": 7200.0
                 },
                 {
                     "model": "uniform",
                     "compositions": [
                         1
                     ],
-                    "min depth": 4000.0,
-                    "max depth": 7500.0
+                    "min depth": 7200.0,
+                    "max depth": 10700.0
                 },
                 {
                     "model": "uniform",
                     "compositions": [
                         0
                     ],
-                    "min depth": 7500.0,
-                    "max depth": 11500.0
+                    "min depth": 10700.0,
+                    "max depth": 14700.0
                 },
                 {
                     "model": "uniform",
                     "compositions": [
                         3
                     ],
-                    "min depth": 11500.0,
-                    "max depth": 39200.0
+                    "min depth": 14700.0,
+                    "max depth": 42400.0
                 }
             ],
             "temperature models": [
@@ -394,8 +415,8 @@
                         ]
                     ],
                     "spreading velocity": 0.05,
-                    "min depth": 0,
-                    "max depth": 300000.0,
+                    "min depth": 3200.0,
+                    "max depth": 303200.0,
                     "bottom temperature": -1
                 }
             ]
@@ -417,7 +438,7 @@
                 10000000000.0,
                 0
             ],
-            "max depth": 1000000.0,
+            "max depth": 1003200.0,
             "segments": [
                 {
                     "length": 300000.0,
@@ -494,7 +515,8 @@
                     "min distance slab top": -200000.0,
                     "max distance slab top": 300000.0
                 }
-            ]
+            ],
+            "min depth": 3200.0
         }
     ]
 }

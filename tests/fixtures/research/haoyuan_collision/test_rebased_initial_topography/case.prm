@@ -117,8 +117,8 @@ subsection Geometry model
         set Model name = function
         subsection Function
             set Function constants = x0 = 0.00e+00, x1 = 2.00e+06, x2 = 3.00e+06, l0 = 5.00e+05, l1 = 3.00e+05, topoC = 9.40e+02, topoO = -3.20e+03
-            set Function expression = (x>x2)? topoC:\
-                              ((x>x2-l1)? ((x2-x)/l1*topoO + (x-x2+l1)/l1*topoC):\
+            set Function expression = (x>x2+l1)? topoC:\
+                              ((x>x2)? ((x2+l1-x)/l1*topoO + (x-x2)/l1*topoC):\
                               ((x>x1)? topoO:\
                               ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
                               ((x>x0)? topoC: 0.0))))

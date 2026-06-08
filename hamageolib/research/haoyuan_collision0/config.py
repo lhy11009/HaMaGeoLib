@@ -2520,7 +2520,7 @@ viscosity is being prescribed in the region",
             # the third option tells the material model to take value from the initial temperature
             if customize_corner_temperature_fix:
 
-                prm_dict["Interpolate temperature from material model"] = "true"
+                prm_dict["Temperature field"]["Interpolate temperature from material model"] = "true"
 
                 prm_dict["Material model"]["Visco Plastic"]["Prescribe temperature value"] = "true"
 
@@ -3097,7 +3097,6 @@ class FastScapeRule(Rule):
                 composition_models = feature["composition models"]
                 for composition_model in composition_models:
                     try: 
-                        # todo_topo
                         # print("composition_model[\"min depth\"][0][0]: ", composition_model["min depth"][0][0])
                         # print("topography_ocean: ", topography_ocean)
                         composition_model["min depth"][0][0] -= topography_ocean
