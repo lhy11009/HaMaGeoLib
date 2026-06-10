@@ -79,7 +79,11 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "prescribe_subducting_plate_velocity" in use_keys:
         if variables["prescribe_subducting_plate_velocity"]:
             case_name += "_PC%.1e" % variables["convergence_rate"]
-    
+
+    # Slab age
+    if use_all or "slab_age" in use_keys:
+        case_name += "_SA%.1f" % (variables["slab_age"]/1e6)
+
     # Continent
     if use_all or "add_continents" in use_keys:
         if variables["add_continents"] == "overriding":
