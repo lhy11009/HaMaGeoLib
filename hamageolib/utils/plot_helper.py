@@ -466,7 +466,6 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
     Args:
         file_path (str): Path to the simulation log file.
         output_dir (str): Directory to save the generated plots.
-        **kwargs: Optional arguments for plot customization passed to plot_statistic_generic.
 
     Returns:
         None
@@ -639,13 +638,17 @@ def generate_statistic_plots(file_path, output_dir="plots", **kwargs):
 
     rcdefaults()
 
-def generate_runtime_plots(time_df, output_dir="plots", **kwargs):
+def generate_runtime_plots(time_df, output_dir="plots", *,
+                           assemble=False,
+                           start_time=None,
+                           end_time=None):
 
     import hamageolib.utils.plot_helper as plot_helper
     from matplotlib import rcdefaults
 
+    # todo_plot
+
     # Additional options
-    assemble = kwargs.get("assemble", False)
 
     # Retrieve the default color cycle
     default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
@@ -685,11 +688,23 @@ def generate_runtime_plots(time_df, output_dir="plots", **kwargs):
             i_row = i // n_col
             j_col = i % n_col
             ax = fig.add_subplot(gs[i_row, j_col])
+
+            # raw data
             xs = time_df.Time.to_numpy(dtype=float)
             ys = time_df[plot_attr].to_numpy(dtype=float)
             ys*=scalings[i]
-            ax.plot(xs, ys, color=default_colors[i])
+
+            # plotting mask
+            mask = np.ones_like(xs, dtype=bool)
+            if start_time is not None:
+                mask &= (xs >= start_time)
+            if end_time is not None:
+                mask &= (xs <= end_time)
+
+            # plot
+            ax.plot(xs[mask], ys[mask], color=default_colors[i])
             ax.set_xlabel("Time")
+            ax.set_xlim(left=start_time, right=end_time)
             ax.set_ylabel("%s (%s)" % (plot_attr, str(units[i])))
             ax.grid()
         fig.savefig(os.path.join(output_dir, "assembled.png"))

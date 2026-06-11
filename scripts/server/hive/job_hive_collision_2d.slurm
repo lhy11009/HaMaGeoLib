@@ -13,6 +13,10 @@
 #SBATCH --job-name=collision_2d_job
 #SBATCH --constraint='zen2|zen3' # Do not run or compile on zen4 node
 
-# module load gcc/13.2.0
+# set up environment
+echo "Loading required modules and variables..."
+source /home/lochy/env/main_collision.sh
+
+# run in debug and release
 srun ${ASPECT_SOURCE_DIR}/build_main_collision/aspect-release ./case.prm
 # srun ${ASPECT_SOURCE_DIR}/build_main_collision/aspect-debug ./case.prm
