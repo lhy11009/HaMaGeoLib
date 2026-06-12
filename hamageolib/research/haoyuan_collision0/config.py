@@ -46,10 +46,12 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     
     # Weak layer
     if use_all or "weak_layer_compositions" in use_keys:
-        if "gabbro" in variables["weak_layer_compositions"]:
-            case_name += "_WLCG"
         if variables["weak_layer_compositions"] == ["sediment"]:
             case_name += "_WLS"
+        if "gabbro" in variables["weak_layer_compositions"]:
+            case_name += "_WLCG"
+        if "MORB" in variables["weak_layer_compositions"]:
+            case_name += "_WLM"
 
     if variables["weak_layer_rheology_scheme"] == "constant viscosity":
         if use_all or "weak_layer_viscosity" in use_keys:

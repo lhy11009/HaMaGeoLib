@@ -2,12 +2,36 @@
 
 set -euo pipefail
 
-SERVER=${1:-hive}
-STEP="${2:-}"
+INCLUDE_PARTICLES=false
+POSITIONAL=()
+
+# parse the command line options
+for arg in "$@"; do
+    case "$arg" in
+        -p)
+            INCLUDE_PARTICLES=true
+            ;;
+        *)
+            POSITIONAL+=("$arg")
+            ;;
+    esac
+done
+
+
+# read server and step
+SERVER=${POSITIONAL[0]:-hive}
+STEP=${POSITIONAL[1]:-}
     
+# exclude patterns from sync
+# Only exclude particles if -p was NOT specified
 EXCLUDES=(
     "--exclude=*restart*"
 )
+
+if ! $INCLUDE_PARTICLES; then
+    EXCLUDES+=("--exclude=*particle*")
+fi
+
 
 source "${HaMaGeoLib_DIR}/scripts/bash_scripts/find_project_index.sh" "$SERVER"
 
