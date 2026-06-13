@@ -2978,14 +2978,22 @@ class FastScapeRule(Rule):
     """
 
     requires = ["include_fastscape", "topography_continent", "topography_ocean", "include_initial_topography",
-                "include_initial_topography_trench_continent_taper"]
+                "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
+                "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent"]
 
+    # todo_topo
     defaults = {
         "include_fastscape": False, 
         "topography_continent": 940.0,
         "topography_ocean": -3200.0,
         "include_initial_topography": False,
-        "include_initial_topography_trench_continent_taper": 300e3
+        "include_initial_topography_trench_continent_taper": 300e3,
+        "drainage_area_exponent": 0.4,
+        "bedrock_diffusivity": 31.54,
+        "bedrock_river_incision_rate": 0.0,
+        "slope_exponent": 1.0,
+        "bedrock_deposition_coefficient": 1.0,
+        "multi_direction_slope_exponent": -1.0
     }
     
     def apply(self, config, prm_dict, wb_dict, context):
@@ -2995,8 +3003,14 @@ class FastScapeRule(Rule):
         topography_continent = config["topography_continent"]
         topography_ocean = config["topography_ocean"]
         include_initial_topography_trench_continent_taper = config["include_initial_topography_trench_continent_taper"]
-                                      
+        drainage_area_exponent = config["drainage_area_exponent"]
+        bedrock_diffusivity = config["bedrock_diffusivity"]
+        bedrock_river_incision_rate = config["bedrock_river_incision_rate"]
+        bedrock_deposition_coefficient = config["bedrock_deposition_coefficient"]
+        multi_direction_slope_exponent = config["multi_direction_slope_exponent"]
+        slope_exponent = config["slope_exponent"]
 
+        
         if include_fastscape:
             prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/fastscape/fastscape_1.prm"
 
@@ -3009,6 +3023,15 @@ class FastScapeRule(Rule):
                 "Back": "0",
                 "Left": "1",
                 "Right": "1"
+            }
+
+            fastscape_dict["Erosional parameters"] = {
+                "Drainage area exponent": str(drainage_area_exponent),
+                "Bedrock diffusivity": str(bedrock_diffusivity),
+                "Bedrock river incision rate": str(bedrock_river_incision_rate),
+                "Slope exponent": str(slope_exponent),
+                "Bedrock deposition coefficient": str(bedrock_deposition_coefficient),
+                "Multi-direction slope exponent": str(multi_direction_slope_exponent)
             }
 
             prm_dict["Mesh deformation"]["Mesh deformation boundary indicators"] = "top : fastscape"

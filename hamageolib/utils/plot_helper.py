@@ -48,6 +48,7 @@ import pandas as pd
 import os
 from PIL import Image, ImageDraw, ImageFont  # Pillow for cropping and saving images
 import subprocess
+from copy import deepcopy
 
 from .file_reader import read_aspect_header_file
 from .exception_handler import my_assert
@@ -690,8 +691,9 @@ def generate_runtime_plots(time_df, output_dir="plots", *,
             ax = fig.add_subplot(gs[i_row, j_col])
 
             # raw data
-            xs = time_df.Time.to_numpy(dtype=float)
-            ys = time_df[plot_attr].to_numpy(dtype=float)
+            xs = deepcopy(time_df.Time.to_numpy(dtype=float))
+            ys = deepcopy(time_df[plot_attr].to_numpy(dtype=float))
+
             ys*=scalings[i]
 
             # plotting mask

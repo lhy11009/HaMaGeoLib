@@ -14,7 +14,7 @@ local_Collision_dir = "/mnt/lochy/ASPECT_DATA/Collision0" # data directory
 assert(os.path.isdir(local_Collision_dir))
 
 # Options
-local_dir_2d = os.path.join(local_Collision_dir, "collision_setup18/C_CTL5.00e+05")
+local_dir_2d = os.path.join(local_Collision_dir, "collision_setup23/C_WLM_SA50.0")
 # option for 1 stage
 is_process_second_stage = False; second_stage_outputs = None
 prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"
