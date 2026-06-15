@@ -2981,7 +2981,6 @@ class FastScapeRule(Rule):
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent"]
 
-    # todo_topo
     defaults = {
         "include_fastscape": False, 
         "topography_continent": 940.0,

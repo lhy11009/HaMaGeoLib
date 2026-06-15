@@ -2,11 +2,13 @@ import os
 import numpy as np
 import time
 import pyvista as pv
+from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
 from hamageolib.utils.exception_handler import my_assert
 from hamageolib.utils.interp_utilities import KNNInterpolatorND
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
+from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
 
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
@@ -48,6 +50,12 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         # placeholder for interpolation functions
         self.particle_ul_func = None
 
+        # placeholder for topography functions
+        self.topography_func = None
+
+        # placeholder for suture position     
+        self.suture_point = None
+
 
     def read(self, pvtu_step):
 
@@ -60,6 +68,33 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         # background composition 
         self.add_background()
+
+    def load_topograph(self, time_step):
+
+        start = time.time()
+
+        topography_file = os.path.join(self.data_dir, "..", "topography", "topography.%05d" % time_step)
+    
+        my_assert(os.path.isfile(topography_file), FileExistsError, "File %s doesn't exist." % topography_file)
+
+        # Extract data
+        data = np.loadtxt(topography_file, comments="#")
+
+        x = data[:, 0]
+        topography = data[:, 2]
+
+        self.topography_func = interp1d(
+            x,
+            topography,
+            kind="linear",
+            bounds_error=False,
+            fill_value=np.nan
+        )
+        
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+        print("\ttakes %.1f s" % (end - start))
+
 
     def extract_slab(self, *,
                      threshold=0.5,
@@ -488,7 +523,7 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
             initial_X = self.particles["initial position"][:, 0]
         except KeyError:
             raise self.InitialParticlePositionException()
-    
+
         self.particle_initial_X_func = KNNInterpolatorND(
             np.vstack((x_p/self.Max0, y_p/self.Max0)).T,
             initial_X.ravel(),
@@ -499,10 +534,25 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         end = time.time()
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
-    
+
+    def analyze_shortening(self):
+        
+        start = time.time()
+
+        my_assert((self.topography_func is not None) and (self.particle_initial_X_func is not None), 
+                  PYVISTA_PROCESS_WORKFLOW_ERROR,
+                  "%s requires both the topography function and the particle results" % func_name())
+        
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+        print("\ttakes %.1f s" % (end - start))
+
+        # todo_short
+        pass 
     
     def extract_final(self, *,
-                      upper_lower_plate=True):
+                      upper_lower_plate=True,
+                      threshold=0.8):
         """
         Interpolate particle-derived quantities onto the grid and construct final compositional fields.
     
@@ -544,12 +594,60 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
             ov_crust_upper_comps = crust_upper_comps * (initial_X > self.slab_hinge_point * 0.99)
             self.grid['sp_crust_upper'] = sp_crust_upper_comps
             self.grid['ov_crust_upper'] = ov_crust_upper_comps
-        
+
             crust_lower_comps = self.grid['crust_lower']
             sp_crust_lower_comps = crust_lower_comps * (initial_X < self.plate_start_point * 1.01)
             ov_crust_lower_comps = crust_lower_comps * (initial_X > self.slab_hinge_point * 0.99)
             self.grid['sp_crust_lower'] = sp_crust_lower_comps
             self.grid['ov_crust_lower'] = ov_crust_lower_comps
+
+            # todo_short
+            # process suture profile
+            suture_max_depth = 100e3
+            suture_depth_interval = 5e3
+
+            self.suture_profile_depths = np.arange(
+                0.0,
+                suture_max_depth + suture_depth_interval,
+                suture_depth_interval
+            )
+
+            self.suture_profile_x = np.full(
+                self.suture_profile_depths.shape,
+                np.nan
+            )
+
+            for i, depth in enumerate(self.suture_profile_depths):
+
+                y_top = self.Max0 - depth
+                y_bottom = y_top - suture_depth_interval
+
+                mask = (
+                    (y_all <= y_top)
+                    & (y_all > y_bottom)
+                    & (ov_crust_upper_comps > threshold)
+                )
+
+                if np.any(mask):
+                    self.suture_profile_x[i] = x_all[mask].min()
+
+            print("self.suture_profile_x: ")
+            print(self.suture_profile_x)
+
+            self.export_suture_profile()
+
+            # mask = ov_crust_upper_comps > threshold
+
+            # assert np.any(mask), (
+            #     f"No subducting-plate upper crust points found above threshold={threshold}."
+            # )
+
+            # min_x = x_all[mask].min()
+            # self.suture_point = min_x
+
+            # print("self.suture_point: ")
+            # print(self.suture_point)
+
     
         # compute composition indicator
         self.add_composition_indicator(upper_lower_plate=upper_lower_plate)
@@ -557,6 +655,52 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         # write output
         self.write_object_to_file(self.grid, "final", "vtu")
     
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+        print("\ttakes %.1f s" % (end - start))
+
+    
+    # todo_short
+    def export_suture_profile(self):
+
+        start = time.time()
+        
+        my_assert(
+            (self.suture_profile_x is not None) and (self.suture_profile_depths is not None),
+            PYVISTA_PROCESS_WORKFLOW_ERROR,
+            "Needs to first process suture position")
+
+        valid_foo = ~np.isnan(self.suture_profile_x)
+
+        if np.sum(valid_foo) < 2:
+            raise ValueError(
+                "Need at least two valid suture profile points."
+            )
+
+        x_foo = self.suture_profile_x[valid_foo]
+        depth_foo = self.suture_profile_depths[valid_foo]
+
+        points_foo = np.column_stack([
+            x_foo,
+            self.Max0 - depth_foo,
+            np.zeros_like(x_foo)
+        ])
+
+        poly_foo = pv.PolyData(points_foo)
+
+        poly_foo.lines = np.hstack([
+            [len(points_foo)],
+            np.arange(len(points_foo))
+        ])
+
+        poly_foo["depth"] = depth_foo
+
+        filename = "%s_%05d.vtp" % ("suture", self.pvtu_step)
+        filepath = os.path.join(self.pyvista_outdir, filename)
+        poly_foo.save(filepath)
+        
+        print("%ssaved file %s" % (4*" ", filepath))
+        
         end = time.time()
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
@@ -658,7 +802,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
 def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
                            pyvista_outdir=None,
-                           include_particles=False):
+                           include_particles=False,
+                           include_topography=False,
+                           analyze_shortening=False):
     '''
     Process with pyvsita for a single step
     Inputs:
@@ -672,6 +818,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
     try:
       _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
+      time_step = Case_Options.summary_df.loc[idx, "Time step number"].values[0]
     except IndexError:
         raise IndexError("The pvtu_step %d doesn't seem to exist in this case" % pvtu_step)
     
@@ -695,6 +842,10 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
 
     # read file
     ProcessCollision.read(pvtu_step)
+
+    # read topography data
+    if include_topography:
+        ProcessCollision.load_topograph(time_step)
 
     # extract slab
     ProcessCollision.extract_slab(output_surfuce=True)
@@ -725,6 +876,12 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
 
         # extract the final output file
         ProcessCollision.extract_final(upper_lower_plate=upper_lower_plate)
+    
+    if analyze_shortening:
+
+        assert (include_topography and include_particles)
+        # todo_short
+        ProcessCollision.analyze_shortening()
 
     return outputs
 
@@ -963,3 +1120,84 @@ def finalize_visualization_2d_05012026(local_dir, file_name, _time, frame_png_fi
         add_text_to_image(output_image_file, output_image_file, text, position, font_path, font_size)
 
     return output_image_file
+
+
+def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
+                         time_interval=1e5):
+    """
+    Read topography data from an ASPECT topography output file at a specified time.
+
+    The function locates the simulation output time step closest to
+    ``plot_time_p``, verifies that the match is within a tolerance of
+    1e4 years, reads the corresponding topography file, and returns the
+    horizontal coordinate and topography arrays.
+
+    Parameters
+    ----------
+    local_dir_2d : str
+        Path to the local ASPECT case directory containing the
+        ``output/topography`` folder.
+
+    Case_Options_2d : CASE_OPTIONS
+        Case options object that contains the simulation summary data and
+        provides the ``resample_visualization_df`` method.
+
+    plot_time_p : float
+        Target model time (years) for which topography data should be
+        extracted.
+
+    time_interval : float, optional
+        Time interval (years) used when resampling the visualization
+        output table. Default is ``1e5``.
+
+    Returns
+    -------
+    x : numpy.ndarray
+        Horizontal coordinate values from the topography file.
+
+    topography : numpy.ndarray
+        Surface elevation values corresponding to ``x``.
+
+    Raises
+    ------
+    ValueError
+        If no simulation output time is found within 1e4 years of
+        ``plot_time_p``.
+
+    AssertionError
+        If the corresponding topography file does not exist.
+
+    Notes
+    -----
+    The topography file is expected to have three columns:
+
+    - Column 0: horizontal coordinate (x)
+    - Column 1: vertical coordinate (y)
+    - Column 2: topography
+
+    The file is read using ``numpy.loadtxt`` with lines beginning with
+    ``#`` treated as comments.
+    """
+    
+    resampled_df = Case_Options_2d.resample_visualization_df(time_interval)
+
+    graphical_steps = resampled_df["Vtu step"].values
+
+    idx = (Case_Options_2d.summary_df["Time"] - plot_time_p).abs().idxmin()
+
+    _time = Case_Options_2d.summary_df.loc[idx, "Time"]
+    my_assert(np.isclose(_time, plot_time_p, atol=1e4), ValueError, "Time %.1e is not found for %s" % (plot_time_p, local_dir_2d))
+
+    time_step = Case_Options_2d.summary_df.loc[idx, "Time step number"]
+    
+    topography_file = os.path.join(local_dir_2d, "output/topography", "topography.%05d" % time_step)
+
+    assert(os.path.isfile(topography_file))
+
+    # Extract data
+    data = np.loadtxt(topography_file, comments="#")
+
+    x = data[:, 0]
+    topography = data[:, 2]
+
+    return x, topography

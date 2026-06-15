@@ -14,7 +14,13 @@ local_Collision_dir = "/mnt/lochy/ASPECT_DATA/Collision0" # data directory
 assert(os.path.isdir(local_Collision_dir))
 
 # Options
-local_dir_2d = os.path.join(local_Collision_dir, "collision_setup23/C_WLM_SA50.0")
+local_dir_2d = os.path.join(local_Collision_dir, 
+                            "collision_setup23/C_WLM_SA50.0"
+                            )
+
+include_particles = True  # include particles in post-processing
+include_topography = True # include topography in post-processing
+analyze_shortening = True # include shortening in post-processing
 # option for 1 stage
 is_process_second_stage = False; second_stage_outputs = None
 prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"
@@ -40,24 +46,26 @@ else:
     Case_Options_p.Interpret()
     Case_Options_p.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary.csv"))
 
-include_particles = True  # include particles in post-processing
 
 graphical_steps_np = Case_Options_p.summary_df["Vtu step"].to_numpy()
 graphical_steps = [int(step) for step in graphical_steps_np]
 
+# todo_short
 # Processing pyvista
-for step in graphical_steps:
-# while True: # debug
-    # step = 104
+# for step in graphical_steps:
+while True: # debug
+    step = 400 # debug
 
     pvtu_step = Case_Options_p.get_pvtu_step(step)
     outputs = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_p, 
-                                     include_particles=include_particles)
-    # print("outputs: ", outputs) # debug
+                                     include_particles=include_particles, 
+                                     include_topography=include_topography,
+                                     analyze_shortening=analyze_shortening)
+    print("outputs: ", outputs) # debug
 
     for key, value in outputs.items():
         Case_Options_p.SummaryCaseVtuStepUpdateValue(key, step, value)
-    # break # debug
+    break # debug
 
 file_name = "summary.csv"
 if is_process_second_stage:

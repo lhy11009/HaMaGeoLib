@@ -437,6 +437,15 @@ class CASE_OPTIONS(CODESUB):
             self.summary_df["Vtu snapshot"] == visualization_snapshot_step
         )
 
+        assert summary_mask.any(), (
+            "Could not find a matching entry in summary_df for "
+            f"visualization_snapshot_step={visualization_snapshot_step}. "
+            f"Available Vtu snapshot range: "
+            f"[{self.summary_df['Vtu snapshot'].min()}, "
+            f"{self.summary_df['Vtu snapshot'].max()}]. "
+            f"Think of updating the case summary.csv file."
+        )
+
         simulation_time_step = (
             self.summary_df
             .loc[summary_mask, "Time step number"]
@@ -446,6 +455,21 @@ class CASE_OPTIONS(CODESUB):
         # locate matching visualization file
         visualization_mask = (
             self.visualization_df["Time step number"] == simulation_time_step
+        )
+
+        available_timesteps = sorted(
+            self.visualization_df["Time step number"].dropna().unique()
+        )
+
+        assert visualization_mask.any(), (
+            "Could not find a matching visualization entry for "
+            f"simulation_time_step={simulation_time_step}. "
+            f"Available timestep range: "
+            f"[{available_timesteps[0]}, {available_timesteps[-1]}], "
+            f"count={len(available_timesteps)}, "
+            f"head={available_timesteps[:10]}, "
+            f"tail={available_timesteps[-10:]}. "
+            f"Think of updating the case summary.csv file."
         )
 
         visualization_file_name = (
