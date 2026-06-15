@@ -162,41 +162,44 @@ class CASE_OPTIONS(CODESUB):
         # parse information of the output file
         try:
             time_between_graphical_output = self.idict['Postprocess']['Visualization']['Time between graphical output']
-        except ValueError:
+        except KeyError:
             time_between_graphical_output = 1e8 # default value
 
         try:
             graphical_output_format = self.idict['Postprocess']['Visualization']['Output format']
-        except ValueError:
+        except KeyError:
             graphical_output_format = "vtu" # default value
 
         self.visualization_df = None
         if self.statistic_df is not None:
             statistic_time = self.statistic_df["Time"]
             statistic_timestep = self.statistic_df["Time step number"]
-            statistic_visualization_file_name = self.statistic_df["Visualization file name"]
-
-            not_nan_indexes, non_nan_visualization_file_name, matched_series_list = \
-                filter_and_match(statistic_visualization_file_name, statistic_time, statistic_timestep)
-
-            
-            data = {
-                "Vtu step": np.arange(0, matched_series_list[1].values.size, dtype=int) if matched_series_list else [],
-                "Index": not_nan_indexes,
-                "Visualization file name": non_nan_visualization_file_name.values,
-                "Time": matched_series_list[0].values if matched_series_list else [],
-                "Time step number": matched_series_list[1].values if matched_series_list else []
-            }
-
-            self.visualization_df = pd.DataFrame(data)
-            if graphical_output_format == "vtu":
-                self.visualization_df['File Exists'] = self.visualization_df["Visualization file name"].apply(
-                    lambda file_name: os.path.isfile(os.path.join(case_dir, file_name + ".pvtu"))
-                )
+            try:
+                statistic_visualization_file_name = self.statistic_df["Visualization file name"]
+            except KeyError:
+                pass # self.visualization_df remains None in case no visualization file is generated
             else:
-                raise NotImplementedError()
+                not_nan_indexes, non_nan_visualization_file_name, matched_series_list = \
+                    filter_and_match(statistic_visualization_file_name, statistic_time, statistic_timestep)
 
-            self.visualization_df.attrs["Time between graphical output"] = time_between_graphical_output
+                
+                data = {
+                    "Vtu step": np.arange(0, matched_series_list[1].values.size, dtype=int) if matched_series_list else [],
+                    "Index": not_nan_indexes,
+                    "Visualization file name": non_nan_visualization_file_name.values,
+                    "Time": matched_series_list[0].values if matched_series_list else [],
+                    "Time step number": matched_series_list[1].values if matched_series_list else []
+                }
+
+                self.visualization_df = pd.DataFrame(data)
+                if graphical_output_format == "vtu":
+                    self.visualization_df['File Exists'] = self.visualization_df["Visualization file name"].apply(
+                        lambda file_name: os.path.isfile(os.path.join(case_dir, file_name + ".pvtu"))
+                    )
+                else:
+                    raise NotImplementedError()
+
+                self.visualization_df.attrs["Time between graphical output"] = time_between_graphical_output
 
     def SummaryCaseVtuStep(self, ifile=None):
         '''
@@ -204,6 +207,7 @@ class CASE_OPTIONS(CODESUB):
         ofile (str): if this provided, output the csv summary
         '''
         my_assert(self.options != {}, ValueError, "The Case needs to be interpreted first")
+        my_assert(self.visualization_df is not None, ValueError, "The Case doesn't have visualization outputs")
         
         # Get a summary of case status
         initial_adaptive_refinement = int(self.options['INITIAL_ADAPTIVE_REFINEMENT'])
@@ -356,13 +360,19 @@ class CASE_OPTIONS(CODESUB):
         # normal float object.
         vtu_step = kwargs.get("step", None)
         
-        if self.summary_df is None:
+        if self.summary_df is None and (self.visualization_df is not None):
+            # Summary based on the visualization steps
             self.SummaryCaseVtuStep(ifile=os.path.join(self.case_dir, "summary.csv"))
         
         if vtu_step is None:
-            self.options['GRAPHICAL_TIMES'] = self.summary_df["Time"].to_list()
-            self.options['GRAPHICAL_STEPS'] = [float(x) for x in self.summary_df["Vtu step"].to_list()]
-            self.options['GRAPHICAL_TIME_STEPS'] = self.summary_df["Time step number"].to_list()
+            if self.visualization_df is not None:
+                self.options['GRAPHICAL_TIMES'] = self.summary_df["Time"].to_list()
+                self.options['GRAPHICAL_STEPS'] = [float(x) for x in self.summary_df["Vtu step"].to_list()]
+                self.options['GRAPHICAL_TIME_STEPS'] = self.summary_df["Time step number"].to_list()
+            else:
+                self.options['GRAPHICAL_TIMES'] = None
+                self.options['GRAPHICAL_STEPS'] = None
+                self.options['GRAPHICAL_TIME_STEPS'] = None
         else:
             row_idx = self.summary_df[self.summary_df["Vtu step"] == vtu_step].index[0]
             self.options['GRAPHICAL_STEPS'] = [vtu_step]
