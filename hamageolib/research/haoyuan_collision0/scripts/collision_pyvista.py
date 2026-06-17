@@ -20,7 +20,7 @@ local_dir_2d = os.path.join(local_Collision_dir,
 
 include_particles = True  # include particles in post-processing
 include_topography = True # include topography in post-processing
-analyze_shortening = True # include shortening in post-processing
+analyze_shortening_by_cell = True # include shortening in post-processing
 # option for 1 stage
 is_process_second_stage = False; second_stage_outputs = None
 prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"
@@ -60,7 +60,7 @@ while True: # debug
     outputs = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_p, 
                                      include_particles=include_particles, 
                                      include_topography=include_topography,
-                                     analyze_shortening=analyze_shortening)
+                                     analyze_shortening_by_cell=analyze_shortening_by_cell)
     print("outputs: ", outputs) # debug
 
     for key, value in outputs.items():

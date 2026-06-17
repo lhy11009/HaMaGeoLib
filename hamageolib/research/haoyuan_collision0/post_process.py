@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import time
+import math
 import pyvista as pv
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
@@ -9,6 +10,8 @@ from hamageolib.utils.exception_handler import my_assert
 from hamageolib.utils.interp_utilities import KNNInterpolatorND
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
+from hamageolib.utils.pyvista_utilities import get_corner_point_ids
+
 
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
@@ -54,7 +57,11 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         self.topography_func = None
 
         # placeholder for suture position     
-        self.suture_point = None
+        self.suture_profile_depths = None
+        self.suture_profile_x = None
+
+        # placeholder for dimention ratio function
+        self.dimention_ratio_func = None
 
 
     def read(self, pvtu_step):
@@ -84,7 +91,7 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         topography = data[:, 2]
 
         self.topography_func = interp1d(
-            x,
+            x/self.Max0,
             topography,
             kind="linear",
             bounds_error=False,
@@ -535,24 +542,195 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
 
-    def analyze_shortening(self):
+    def analyze_shortening_by_cell(self, *,
+                           threshold=0.8):
         
         start = time.time()
 
-        my_assert((self.topography_func is not None) and (self.particle_initial_X_func is not None), 
+        my_assert((self.topography_func is not None) and 
+                  (self.particle_initial_X_func is not None) and 
+                  (self.suture_profile_x is not None), 
                   PYVISTA_PROCESS_WORKFLOW_ERROR,
-                  "%s requires both the topography function and the particle results" % func_name())
+                  "%s requires the topography function, the particle results and the suture profile" % func_name())
+
+        # Get the crust field 
+        crust_upper_comps = self.grid['crust_upper']
+        crust_lower_comps = self.grid['crust_lower']
+        initial_Xs = self.grid['initial_X']
         
+        # Initialize cell data field
+        self.grid.cell_data["dimention_ratio"] = np.full(
+            self.grid.n_cells,
+            np.nan,
+            dtype=float
+        )
+
+        cells = self.grid.cells.reshape((-1, 5))[:, 1:]
+        points = self.grid.points
+        
+        dimention_ratio_array = np.full(self.grid.n_cells, np.nan)
+        
+        for cell_id, point_ids in enumerate(cells):
+        
+            cell_points = points[point_ids]
+        
+            sorted_by_y = np.argsort(cell_points[:, 1])
+        
+            bottom_local = sorted_by_y[:2]
+            top_local = sorted_by_y[-2:]
+        
+            top_points = cell_points[top_local]
+            top_ids = point_ids[top_local]
+        
+            top_left_id = top_ids[np.argmin(top_points[:, 0])]
+            top_right_id = top_ids[np.argmax(top_points[:, 0])]
+        
+            top_right_initial_X = initial_Xs[top_right_id]
+            top_left_initial_X = initial_Xs[top_left_id]
+        
+            top_right_crust = (
+                crust_upper_comps[top_right_id]
+                + crust_lower_comps[top_right_id]
+            )
+            top_left_crust = (
+                crust_upper_comps[top_left_id]
+                + crust_lower_comps[top_left_id]
+            )
+        
+            denominator = top_right_initial_X - top_left_initial_X
+        
+            if (
+                np.isfinite(top_left_initial_X)
+                and np.isfinite(top_right_initial_X)
+                and abs(denominator) > 1e-16
+                and top_right_crust > threshold
+                and top_left_crust > threshold
+            ):
+                dimention_ratio_array[cell_id] = (
+                    top_points[np.argmax(top_points[:, 0]), 0]
+                    - top_points[np.argmin(top_points[:, 0]), 0]
+                ) / denominator
+        
+        self.grid.cell_data["dimention_ratio"] = dimention_ratio_array
+
         end = time.time()
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
 
-        # todo_short
-        pass 
-    
-    def extract_final(self, *,
+    # todo_short
+    def analyze_shortening_by_bin(self, *,
+                           threshold=0.8,
+                           bin_size=10e3,
+                           profile_half_size=500e3,
+                           profile_bin_size=5e3,
+                           profile_bury_depth=1e3):
+        
+        start = time.time()
+
+        my_assert((self.topography_func is not None) and 
+                  (self.particle_initial_X_func is not None) and 
+                  (self.suture_profile_x is not None), 
+                  PYVISTA_PROCESS_WORKFLOW_ERROR,
+                  "%s requires the topography function, the particle results and the suture profile" % func_name())
+
+        # Get the crust field 
+        crust_upper_comps = self.grid['crust_upper']
+        crust_lower_comps = self.grid['crust_lower']
+        initial_Xs = self.grid['initial_X']
+        
+        # Initialize cell data field
+        self.grid["dimention_ratio_bin"] = np.full(
+            self.grid.n_points,
+            np.nan,
+            dtype=float
+        )
+        
+        points = self.grid.points
+
+        # mask points with continent compositions
+        mask_cr = ((crust_upper_comps + crust_lower_comps) > threshold)
+        continent_crust_points = points[mask_cr]
+
+        # bin-left and bin-right points
+        continent_crust_points_left = continent_crust_points.copy()
+        continent_crust_points_left[:, 0] -= bin_size/2.0
+        continent_crust_points_right = continent_crust_points.copy()
+        continent_crust_points_right[:, 0] += bin_size/2.0
+
+        initial_X_left = self.particle_initial_X_func(continent_crust_points_left[:, 0]/self.Max0, continent_crust_points_left[:, 1]/self.Max0)
+        initial_X_right = self.particle_initial_X_func(continent_crust_points_right[:, 0]/self.Max0, continent_crust_points_right[:, 1]/self.Max0)
+        mask_ini = (np.isfinite(initial_X_left) & np.isfinite(initial_X_right))
+
+        # combined mask
+        mask = mask_cr.copy()
+        mask[mask_cr] = mask_ini 
+
+        # compute dimention_ratio for valid points
+        continent_crust_points_left_ini_valid = continent_crust_points_left[mask_ini]
+        continent_crust_points_right_ini_valid = continent_crust_points_right[mask_ini]
+        initial_X_left_valid = initial_X_left[mask_ini]
+        initial_X_right_valid = initial_X_right[mask_ini]
+        points_valid = points[mask]
+        self.grid["dimention_ratio_bin"][mask] = (continent_crust_points_right_ini_valid[:, 0] - continent_crust_points_left_ini_valid[:, 0])/\
+                                                (initial_X_right_valid - initial_X_left_valid)
+        
+        # interpolate a dimential_ratio function
+        self.dimention_ratio_func = KNNInterpolatorND(
+            np.vstack((points_valid[:, 0]/self.Max0, points_valid[:, 1]/self.Max0)).T,
+            self.grid["dimention_ratio_bin"][mask].ravel(),
+            k=1,
+            max_distance=0.01
+        )
+
+        # derive and save a profile of dimention ratio
+        # this profile is buried below the local topography by bury_depth
+        suture_shallow_x = self.suture_profile_x[0]
+        n_bins = profile_half_size / profile_bin_size
+
+        assert math.isclose(n_bins, round(n_bins), rel_tol=0.0, abs_tol=1e-12), (
+            f"profile_half_size/profile_bin_size must be an integer. "
+            f"Got {profile_half_size}/{profile_bin_size} = {n_bins}"
+        )
+
+        profile_x = np.arange(suture_shallow_x - profile_half_size, 
+                              suture_shallow_x + profile_half_size + 0.1, 
+                              profile_bin_size)
+        
+        profile_y = self.Max0 + self.topography_func(profile_x/self.Max0) - profile_bury_depth
+
+        profile_dimention_ratio = self.dimention_ratio_func(profile_x/self.Max0, profile_y/self.Max0)
+
+        profile_bin_length0 = np.ones(profile_x.shape) * profile_bin_size
+        profile_bin_length = profile_dimention_ratio * profile_bin_size
+        profile_bin_deformation = (profile_dimention_ratio - 1.0) * profile_bin_size
+
+        data = np.column_stack([profile_x, profile_y, 
+                                profile_bin_length0, profile_bin_length,
+                                profile_dimention_ratio, profile_bin_deformation])
+
+        filename = "%s_%05d.txt" % ("dimention_ratio", self.pvtu_step)
+        filepath = os.path.join(self.pyvista_outdir, filename)
+
+        np.savetxt(
+            filepath,
+            data,
+            header="x y size0 size dimention_ratio deformation",
+            comments="",
+            fmt="%.4e"
+        )
+
+        print("\tsaved file %s" % filepath)
+
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+        print("\ttakes %.1f s" % (end - start))
+
+    def extract_additionals(self, *,
                       upper_lower_plate=True,
-                      threshold=0.8):
+                      threshold=0.8,
+                      suture_max_depth = 100e3,
+                      suture_depth_interval = 5e3
+                      ):
         """
         Interpolate particle-derived quantities onto the grid and construct final compositional fields.
     
@@ -601,10 +779,7 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
             self.grid['sp_crust_lower'] = sp_crust_lower_comps
             self.grid['ov_crust_lower'] = ov_crust_lower_comps
 
-            # todo_short
             # process suture profile
-            suture_max_depth = 100e3
-            suture_depth_interval = 5e3
 
             self.suture_profile_depths = np.arange(
                 0.0,
@@ -625,7 +800,7 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
                 mask = (
                     (y_all <= y_top)
                     & (y_all > y_bottom)
-                    & (ov_crust_upper_comps > threshold)
+                    & ((ov_crust_upper_comps+ov_crust_lower_comps) > threshold)
                 )
 
                 if np.any(mask):
@@ -636,31 +811,15 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
             self.export_suture_profile()
 
-            # mask = ov_crust_upper_comps > threshold
-
-            # assert np.any(mask), (
-            #     f"No subducting-plate upper crust points found above threshold={threshold}."
-            # )
-
-            # min_x = x_all[mask].min()
-            # self.suture_point = min_x
-
-            # print("self.suture_point: ")
-            # print(self.suture_point)
-
     
         # compute composition indicator
         self.add_composition_indicator(upper_lower_plate=upper_lower_plate)
     
-        # write output
-        self.write_object_to_file(self.grid, "final", "vtu")
     
         end = time.time()
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
 
-    
-    # todo_short
     def export_suture_profile(self):
 
         start = time.time()
@@ -672,10 +831,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         valid_foo = ~np.isnan(self.suture_profile_x)
 
-        if np.sum(valid_foo) < 2:
-            raise ValueError(
-                "Need at least two valid suture profile points."
-            )
+        my_assert(np.sum(valid_foo) >= 2,
+                ValueError,
+                "Need at least two valid suture profile points.")
 
         x_foo = self.suture_profile_x[valid_foo]
         depth_foo = self.suture_profile_depths[valid_foo]
@@ -804,7 +962,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
                            pyvista_outdir=None,
                            include_particles=False,
                            include_topography=False,
-                           analyze_shortening=False):
+                           analyze_shortening_by_cell=False):
     '''
     Process with pyvsita for a single step
     Inputs:
@@ -873,15 +1031,21 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
             ProcessCollision.process_particles()
         except PYVISTA_PROCESS_COLLISION.InitialParticlePositionException:
             upper_lower_plate = False
-
-        # extract the final output file
-        ProcessCollision.extract_final(upper_lower_plate=upper_lower_plate)
     
-    if analyze_shortening:
+    # extract the final output file
+    if include_particles:
+        ProcessCollision.extract_additionals(upper_lower_plate=upper_lower_plate)
 
+    # analyze shortening in continental crust
+    if analyze_shortening_by_cell:
         assert (include_topography and include_particles)
         # todo_short
-        ProcessCollision.analyze_shortening()
+        # ProcessCollision.analyze_shortening_by_cell()
+        ProcessCollision.analyze_shortening_by_bin()
+    
+    # write final output
+    ProcessCollision.write_object_to_file(ProcessCollision.grid, "final", "vtu")
+    
 
     return outputs
 
