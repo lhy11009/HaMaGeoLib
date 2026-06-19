@@ -2247,11 +2247,11 @@ class ContinentRule(Rule):
             if fix_continent_rheology_prefactor:
                 disl_A_dict["crust_upper"][0] = 8.57e-28 
             else:
-                disl_A_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['A'])
+                disl_A_dict["crust_upper"][0] = 1.37e-26
             # todo_factor
-            disl_n_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['n'])
-            disl_E_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['E'])
-            disl_V_dict["crust_upper"][0] = float(dislocation_aspect["crust_upper"]['V'])
+            disl_n_dict["crust_upper"][0] = 4.0
+            disl_E_dict["crust_upper"][0] = 223.e3
+            disl_V_dict["crust_upper"][0] = 0.0
             angle_friction_dict["crust_upper"][0] = friction_angle
             cohesion_dict["crust_upper"][0] = cohesion
             diff_A_dict["crust_upper"][0] = 1e-50
@@ -2359,6 +2359,12 @@ class ContinentRule(Rule):
 
             # Store rheology information in shared context
             context["continent_rheology"] = rheology_continent_dict
+
+# todo_crust
+def get_continental_rheology():
+    
+
+    return diff_dict, disl_dict
 
 
 def parse_contiental_extension_density(prm_path):
