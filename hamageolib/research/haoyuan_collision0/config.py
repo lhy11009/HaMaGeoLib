@@ -2205,10 +2205,8 @@ class ContinentRule(Rule):
         rheology_continent_dict = None
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
 
-            # Parse continental rheology reference parameter file
-            prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/continental_extensiion/continental_extension.prm"
-            dislocation_aspect, friction_angle, cohesion  = parse_contiental_extension_rheology(prm_path)
-            density_aspect = parse_contiental_extension_density(prm_path)
+            # get the rheology parameters for the continent
+            diffusion_continent, dislocation_continent, plasticity_continent = get_continental_rheology(fix_continent_rheology_prefactor=fix_continent_rheology_prefactor)
 
             # Read and parse existing material model entries
             density_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Densities"])
@@ -2243,36 +2241,29 @@ class ContinentRule(Rule):
 
             # Assign rheological and density properties to continental compositions
             # todo_crust
-            density_dict["crust_upper"] = float(density_aspect["crust_upper"])
-            if fix_continent_rheology_prefactor:
-                disl_A_dict["crust_upper"][0] = 8.57e-28 
-            else:
-                disl_A_dict["crust_upper"][0] = 1.37e-26
-            # todo_factor
-            disl_n_dict["crust_upper"][0] = 4.0
-            disl_E_dict["crust_upper"][0] = 223.e3
-            disl_V_dict["crust_upper"][0] = 0.0
-            angle_friction_dict["crust_upper"][0] = friction_angle
-            cohesion_dict["crust_upper"][0] = cohesion
-            diff_A_dict["crust_upper"][0] = 1e-50
-            diff_E_dict["crust_upper"][0] = 0.0
-            diff_V_dict["crust_upper"][0] = 0.0
-            diff_p_dict["crust_upper"][0] = 0.0
+            density_dict["crust_upper"] = 2700.0
+            disl_A_dict["crust_upper"][0] = float(dislocation_continent["crust_upper"]['A'])
+            disl_n_dict["crust_upper"][0] = float(dislocation_continent["crust_upper"]['n'])
+            disl_E_dict["crust_upper"][0] = float(dislocation_continent["crust_upper"]['E'])
+            disl_V_dict["crust_upper"][0] = float(dislocation_continent["crust_upper"]['V'])
+            angle_friction_dict["crust_upper"][0] = float(plasticity_continent["friction_angle"])
+            cohesion_dict["crust_upper"][0] = float(plasticity_continent["cohesion"])
+            diff_A_dict["crust_upper"][0] = float(diffusion_continent["crust_upper"]['A'])
+            diff_E_dict["crust_upper"][0] = float(diffusion_continent["crust_upper"]['E'])
+            diff_V_dict["crust_upper"][0] = float(diffusion_continent["crust_upper"]['V'])
+            diff_p_dict["crust_upper"][0] = float(diffusion_continent["crust_upper"]['p'])
             
-            density_dict["crust_lower"] = float(density_aspect["crust_lower"])
-            if fix_continent_rheology_prefactor:
-                disl_A_dict["crust_lower"][0] = 7.13e-18
-            else:
-                disl_A_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['A'])
-            disl_n_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['n'])
-            disl_E_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['E'])
-            disl_V_dict["crust_lower"][0] = float(dislocation_aspect["crust_lower"]['V'])
-            angle_friction_dict["crust_lower"][0] = friction_angle
-            cohesion_dict["crust_lower"][0] = cohesion
-            diff_A_dict["crust_lower"][0] = 1e-50
-            diff_E_dict["crust_lower"][0] = 0.0
-            diff_V_dict["crust_lower"][0] = 0.0
-            diff_p_dict["crust_lower"][0] = 0.0
+            density_dict["crust_lower"] = 2900.0
+            disl_A_dict["crust_lower"][0] = float(dislocation_continent["crust_lower"]['A'])
+            disl_n_dict["crust_lower"][0] = float(dislocation_continent["crust_lower"]['n'])
+            disl_E_dict["crust_lower"][0] = float(dislocation_continent["crust_lower"]['E'])
+            disl_V_dict["crust_lower"][0] = float(dislocation_continent["crust_lower"]['V'])
+            angle_friction_dict["crust_lower"][0] = float(plasticity_continent["friction_angle"])
+            cohesion_dict["crust_lower"][0] = float(plasticity_continent["cohesion"])
+            diff_A_dict["crust_lower"][0] = float(diffusion_continent["crust_lower"]['A'])
+            diff_E_dict["crust_lower"][0] = float(diffusion_continent["crust_upper"]['E'])
+            diff_V_dict["crust_lower"][0] = float(diffusion_continent["crust_upper"]['V'])
+            diff_p_dict["crust_lower"][0] = float(diffusion_continent["crust_upper"]['p'])
 
             # todo_continent
             if fix_continent_rheology_with_phase_transition:
@@ -2360,11 +2351,96 @@ class ContinentRule(Rule):
             # Store rheology information in shared context
             context["continent_rheology"] = rheology_continent_dict
 
-# todo_crust
-def get_continental_rheology():
-    
 
-    return diff_dict, disl_dict
+def get_continental_rheology(*,
+                             fix_continent_rheology_prefactor=False):
+    """
+    Return rheological parameters for continental upper and lower crust.
+
+    Parameters
+    ----------
+    fix_continent_rheology_prefactor : bool, optional
+        If True, use corrected dislocation-creep prefactors that are
+        compatible with the flow-law formulation used in the model.
+        If False, use the legacy prefactors that were previously adopted.
+
+    Returns
+    -------
+    diff_dict : dict
+        Diffusion-creep flow-law parameters for each crustal layer.
+        Diffusion creep is effectively disabled by assigning a very
+        small prefactor (A = 1e-50).
+
+    disl_dict : dict
+        Dislocation-creep flow-law parameters for each crustal layer.
+
+    plasticity_dict : dict
+        Plastic yielding parameters shared by the continental crust.
+    """
+
+    # Initialize rheology dictionaries for the two continental layers.
+    disl_dict = {}
+    disl_dict["crust_upper"] = {}
+    disl_dict["crust_lower"] = {}
+
+    diff_dict = {}
+    diff_dict["crust_upper"] = {}
+    diff_dict["crust_lower"] = {}
+
+    # Plasticity parameters (Mohr-Coulomb / Drucker-Prager style).
+    plasticity_dict = {}
+    plasticity_dict["friction_angle"] = 30.0  # degrees
+    plasticity_dict["cohesion"] = 20e6        # Pa
+
+    # ------------------------------------------------------------------
+    # Upper crust: dislocation creep
+    # ------------------------------------------------------------------
+    # Two alternative prefactors are available:
+    # - fixed/corrected prefactor
+    # - legacy prefactor used in earlier model setups
+    if fix_continent_rheology_prefactor:
+        disl_dict["crust_upper"]["A"] = 8.57e-28
+    else:
+        disl_dict["crust_upper"]["A"] = 1.37e-26
+
+    disl_dict["crust_upper"]["n"] = 4.0       # stress exponent
+    disl_dict["crust_upper"]["E"] = 223.e3    # activation energy (J/mol)
+    disl_dict["crust_upper"]["V"] = 0.0       # activation volume (m^3/mol)
+
+    # ------------------------------------------------------------------
+    # Upper crust: diffusion creep
+    # ------------------------------------------------------------------
+    # Diffusion creep is disabled by using an extremely small prefactor.
+    diff_dict["crust_upper"]["A"] = 1e-50
+    diff_dict["crust_upper"]["E"] = 0.0
+    diff_dict["crust_upper"]["V"] = 0.0
+    diff_dict["crust_upper"]["p"] = 0.0       # grain-size exponent
+
+    # ------------------------------------------------------------------
+    # Lower crust: dislocation creep
+    # ------------------------------------------------------------------
+    # Lower crust is weaker than the upper crust and follows a different
+    # flow law with n = 3 and a higher activation energy.
+    if fix_continent_rheology_prefactor:
+        disl_dict["crust_lower"]["A"] = 7.13e-18
+    else:
+        disl_dict["crust_lower"]["A"] = 5.71e-23
+
+    disl_dict["crust_lower"]["n"] = 3.0
+    disl_dict["crust_lower"]["E"] = 345.e3    # J/mol
+    disl_dict["crust_lower"]["V"] = 0.0       # m^3/mol
+
+    # ------------------------------------------------------------------
+    # Lower crust: diffusion creep
+    # ------------------------------------------------------------------
+    # Diffusion creep is disabled for consistency with the adopted
+    # continental rheology formulation.
+    diff_dict["crust_lower"]["A"] = 1e-50
+    diff_dict["crust_lower"]["E"] = 0.0
+    diff_dict["crust_lower"]["V"] = 0.0
+    diff_dict["crust_lower"]["p"] = 0.0
+
+    return diff_dict, disl_dict, plasticity_dict
 
 
 def parse_contiental_extension_density(prm_path):
