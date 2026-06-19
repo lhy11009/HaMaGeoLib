@@ -1683,7 +1683,7 @@ class WeakLayerRule(Rule):
             prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"] = format_composition_entry(angle_friction_dict)
             prm_dict["Material model"]["Visco Plastic"]["Cohesions"] = format_composition_entry(cohesion_dict)
             prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"] = format_composition_entry(min_viscosity_dict)
-            
+
             prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"] = format_composition_entry(diff_A_dict)
 
 
@@ -1742,11 +1742,11 @@ class SolverRule(Rule):
 # todo_crust
 class OceanRule(Rule):
 
-    requires = ["fix_continent_rheology_prefactor", "weak_layer_rheology_scheme", "weak_layer_compositions"]
+    requires = ["fix_continent_rheology_prefactor", "ocean_layer_rheology_scheme", "weak_layer_compositions"]
 
     defaults = {
                 "fix_continent_rheology_prefactor": False,
-                "weak_layer_rheology_scheme": "constant viscosity",
+                "ocean_layer_rheology_scheme": "default",
                 "weak_layer_compositions": ["MORB", "sediment"]
                 }
 
@@ -1755,11 +1755,11 @@ class OceanRule(Rule):
 
     def apply(self, config, prm_dict, wb_dict, context):
 
-        weak_layer_rheology_scheme = config["weak_layer_rheology_scheme"]
+        ocean_layer_rheology_scheme = config["ocean_layer_rheology_scheme"]
         fix_continent_rheology_prefactor = config["fix_continent_rheology_prefactor"]
         weak_layer_compositions = config["weak_layer_compositions"]
 
-        if weak_layer_rheology_scheme == "low friction":
+        if ocean_layer_rheology_scheme == "mineral rheology":
 
             prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/continental_extensiion/continental_extension.prm"
             dislocation_aspect, friction_angle, cohesion  = parse_contiental_extension_rheology(prm_path)
@@ -1814,6 +1814,11 @@ class OceanRule(Rule):
             prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"] = format_composition_entry(diff_V_dict)
             prm_dict["Material model"]["Visco Plastic"]["Grain size exponents for diffusion creep"] = format_composition_entry(diff_p_dict)
 
+        elif ocean_layer_rheology_scheme == "default":
+            pass
+
+        else:
+            raise NotImplementedError()
 
 class ContinentRule(Rule): 
     """
@@ -2237,6 +2242,7 @@ class ContinentRule(Rule):
             
 
             # Assign rheological and density properties to continental compositions
+            # todo_crust
             density_dict["crust_upper"] = float(density_aspect["crust_upper"])
             if fix_continent_rheology_prefactor:
                 disl_A_dict["crust_upper"][0] = 8.57e-28 

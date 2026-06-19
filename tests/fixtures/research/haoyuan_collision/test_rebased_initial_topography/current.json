@@ -125,5 +125,6 @@
   "two_stage_base_case": "",
   "include_initial_topography_trench_continent_taper": 300000.0,
   "topography_continent": 940.0,
-  "topography_ocean": -3200.0
+  "topography_ocean": -3200.0,
+  "ocean_layer_rheology_scheme": "mineral rheology"
 }

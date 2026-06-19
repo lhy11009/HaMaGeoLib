@@ -100,5 +100,6 @@
   "ref_strain_rate": 1e-15,
   "activation_volume_lower_mantle": 3e-06,
   "jump_lower_mantle": 30.0,
-  "include_initial_particle_position": true
+  "include_initial_particle_position": true,
+  "ocean_layer_rheology_scheme": "mineral rheology"
 }

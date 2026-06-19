@@ -95,5 +95,6 @@
   "include_phase_transition": true,
   "jump_lower_mantle": 30.0,
   "ref_strain_rate": 1e-15,
-  "activation_volume_lower_mantle": 3e-06
+  "activation_volume_lower_mantle": 3e-06,
+  "ocean_layer_rheology_scheme": "mineral rheology"
 }
