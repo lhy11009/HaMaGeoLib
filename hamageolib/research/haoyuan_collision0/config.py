@@ -1761,8 +1761,8 @@ class OceanRule(Rule):
 
         if ocean_layer_rheology_scheme == "mineral rheology":
 
-            prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/continental_extensiion/continental_extension.prm"
-            dislocation_aspect, friction_angle, cohesion  = parse_contiental_extension_rheology(prm_path)
+            # get the rheology parameters for the continent
+            diffusion_continent, dislocation_continent, plasticity_continent = get_continental_rheology(fix_continent_rheology_prefactor=fix_continent_rheology_prefactor)
 
             # parse in the angle of friction as phase options
             disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
@@ -1792,18 +1792,14 @@ class OceanRule(Rule):
         
                 # fix with the quartz flow law
                 # Assign rheological and density properties to continental compositions
-                if fix_continent_rheology_prefactor:
-                    disl_A_dict[composition][0] = 8.57e-28 
-                else:
-                    disl_A_dict[composition][0] = float(dislocation_aspect["crust_upper"]['A'])
-
-                disl_n_dict[composition][0] = float(dislocation_aspect["crust_upper"]['n'])
-                disl_E_dict[composition][0] = float(dislocation_aspect["crust_upper"]['E'])
-                disl_V_dict[composition][0] = float(dislocation_aspect["crust_upper"]['V'])
-                # diff_A_dict[composition][0] = 1e-50
-                diff_p_dict[composition][0] = 0.0
-                diff_E_dict[composition][0] = 0.0
-                diff_V_dict[composition][0] = 0.0
+                disl_A_dict[composition][0] = float(dislocation_continent["crust_upper"]['A'])
+                disl_n_dict[composition][0] = float(dislocation_continent["crust_upper"]['n'])
+                disl_E_dict[composition][0] = float(dislocation_continent["crust_upper"]['E'])
+                disl_V_dict[composition][0] = float(dislocation_continent["crust_upper"]['V'])
+                diff_A_dict[composition][0] = float(diffusion_continent["crust_upper"]['A'])
+                diff_p_dict[composition][0] = float(diffusion_continent["crust_upper"]['p'])
+                diff_E_dict[composition][0] = float(diffusion_continent["crust_upper"]['E'])
+                diff_V_dict[composition][0] = float(diffusion_continent["crust_upper"]['V'])
 
             prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"] = format_composition_entry(disl_A_dict)
             prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"] = format_composition_entry(disl_n_dict)
