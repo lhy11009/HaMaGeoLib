@@ -1555,7 +1555,7 @@ class WeakLayerRule(Rule):
     """
     
     requires = ["weak_layer_compositions", "weak_layer_viscosity", "weak_layer_cutoff_depth", "weak_layer_transition_width", "force_weak_layer_max_refinement",
-                "use_isosurfaces", "weak_layer_rheology_scheme", "weak_layer_friction_factor", "fix_continent_rheology_prefactor", "weak_layer_minimum_viscosity"]
+                "use_isosurfaces", "weak_layer_rheology_scheme", "weak_layer_friction_factor", "weak_layer_minimum_viscosity"]
     
     defaults = {"weak_layer_compositions": ["MORB", "sediment"],
                 "weak_layer_rheology_scheme": "constant viscosity",
@@ -1565,8 +1565,7 @@ class WeakLayerRule(Rule):
                 "force_weak_layer_max_refinement": False,
                 "use_isosurfaces": False,
                 "weak_layer_friction_factor": 0.02,
-                "weak_layer_minimum_viscosity": 2e20,
-                "fix_continent_rheology_prefactor": False
+                "weak_layer_minimum_viscosity": 2e20
                 }
     
     requires_comments = {"weak_layer_compositions": "The weak layer is expand to these compositions. Phase transitions of them are set up consistently.",
@@ -1615,7 +1614,6 @@ class WeakLayerRule(Rule):
         use_isosurfaces = config["use_isosurfaces"]
         weak_layer_rheology_scheme = config["weak_layer_rheology_scheme"]
         weak_layer_friction_factor = config["weak_layer_friction_factor"]
-        fix_continent_rheology_prefactor = config["fix_continent_rheology_prefactor"]
         weak_layer_minimum_viscosity = config["weak_layer_minimum_viscosity"]
 
         # Expand and make a new phase if compositions are not from "MORB" or "sediment"
@@ -1658,76 +1656,36 @@ class WeakLayerRule(Rule):
             prm_dict["Material model"]["Visco Plastic"]["Maximum viscosity"] = format_composition_entry(max_viscosity_dict)
             prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"] = format_composition_entry(min_viscosity_dict)
         elif weak_layer_rheology_scheme == "low friction":
-            prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/continental_extensiion/continental_extension.prm"
-            dislocation_aspect, friction_angle, cohesion  = parse_contiental_extension_rheology(prm_path)
-
-            # parse in the angle of friction as phase options
+            # todo_crust
             disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
             diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
-
-            min_viscosity_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"],
-                                                                     instance=disl_A_dict)
 
             angle_friction_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"],
                                                                       instance=disl_A_dict)
             cohesion_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Cohesions"],
                                                                       instance=disl_A_dict)
-
-            disl_n_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"],
-                                                              instance=disl_A_dict)
-
-            disl_E_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"],
-                                                              instance=disl_A_dict)
-
-            disl_V_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"],
-                                                              instance=disl_A_dict)
-            
-            diff_E_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"],
-                                                              instance=disl_A_dict)
-
-            diff_V_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"],
-                                                              instance=disl_A_dict)
-            
-            diff_p_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Grain size exponents for diffusion creep"],
-                                                              instance=disl_A_dict)
+            min_viscosity_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"],
+                                                                     instance=disl_A_dict)
 
 
             # For each composition in the weak layer, ensures the weak friction value as well as the quartz flow law is turned on 
             weak_layer_friction = np.tan(angle_friction_dict["background"][0]*np.pi/180.0) * weak_layer_friction_factor
             weak_layer_cohesion = cohesion_dict["background"][0] * weak_layer_friction_factor
             for composition in weak_layer_compositions:
+                # set weak plastic law
                 angle_friction_dict[composition][0] = "%.3e" % (180.0/np.pi*np.arctan(weak_layer_friction))
                 cohesion_dict[composition][0] = "%.3e" % weak_layer_cohesion
                 min_viscosity_dict[composition][0] = "%.3e" % weak_layer_minimum_viscosity
-
-
-                # fix with the quartz flow law
-                # Assign rheological and density properties to continental compositions
-                if fix_continent_rheology_prefactor:
-                    disl_A_dict[composition][0] = 8.57e-28 
-                else:
-                    disl_A_dict[composition][0] = float(dislocation_aspect["crust_upper"]['A'])
-
-                disl_n_dict[composition][0] = float(dislocation_aspect["crust_upper"]['n'])
-                disl_E_dict[composition][0] = float(dislocation_aspect["crust_upper"]['E'])
-                disl_V_dict[composition][0] = float(dislocation_aspect["crust_upper"]['V'])
+                # turn off diffusion creep
                 diff_A_dict[composition][0] = 1e-50
-                diff_p_dict[composition][0] = 0.0
-                diff_E_dict[composition][0] = 0.0
-                diff_V_dict[composition][0] = 0.0
-            
+
             # assign the angle of friction            
             prm_dict["Material model"]["Visco Plastic"]["Angles of internal friction"] = format_composition_entry(angle_friction_dict)
             prm_dict["Material model"]["Visco Plastic"]["Cohesions"] = format_composition_entry(cohesion_dict)
             prm_dict["Material model"]["Visco Plastic"]["Minimum viscosity"] = format_composition_entry(min_viscosity_dict)
-            prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"] = format_composition_entry(disl_A_dict)
-            prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"] = format_composition_entry(disl_n_dict)
-            prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"] = format_composition_entry(disl_E_dict)
-            prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"] = format_composition_entry(disl_V_dict)
+            
             prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"] = format_composition_entry(diff_A_dict)
-            prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"] = format_composition_entry(diff_E_dict)
-            prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"] = format_composition_entry(diff_V_dict)
-            prm_dict["Material model"]["Visco Plastic"]["Grain size exponents for diffusion creep"] = format_composition_entry(diff_p_dict)
+
 
 
 
@@ -1780,6 +1738,81 @@ class SolverRule(Rule):
                 prm_dict["Linear solver failure strategy"] = "continue with nonlinear solver"
             else:
                 prm_dict["Solver parameters"]["Stokes solver parameters"]["Skip expensive stokes solver"] = "true"
+
+# todo_crust
+class OceanRule(Rule):
+
+    requires = ["fix_continent_rheology_prefactor", "weak_layer_rheology_scheme", "weak_layer_compositions"]
+
+    defaults = {
+                "fix_continent_rheology_prefactor": False,
+                "weak_layer_rheology_scheme": "constant viscosity",
+                "weak_layer_compositions": ["MORB", "sediment"]
+                }
+
+    requires_comments = {
+    }
+
+    def apply(self, config, prm_dict, wb_dict, context):
+
+        weak_layer_rheology_scheme = config["weak_layer_rheology_scheme"]
+        fix_continent_rheology_prefactor = config["fix_continent_rheology_prefactor"]
+        weak_layer_compositions = config["weak_layer_compositions"]
+
+        if weak_layer_rheology_scheme == "low friction":
+
+            prm_path = package_root/"hamageolib/research/haoyuan_collision0/files/continental_extensiion/continental_extension.prm"
+            dislocation_aspect, friction_angle, cohesion  = parse_contiental_extension_rheology(prm_path)
+
+            # parse in the angle of friction as phase options
+            disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
+            diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
+
+
+
+            disl_n_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"],
+                                                              instance=disl_A_dict)
+
+            disl_E_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"],
+                                                              instance=disl_A_dict)
+
+            disl_V_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"],
+                                                              instance=disl_A_dict)
+            
+            diff_E_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"],
+                                                              instance=disl_A_dict)
+
+            diff_V_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"],
+                                                              instance=disl_A_dict)
+            
+            diff_p_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Grain size exponents for diffusion creep"],
+                                                              instance=disl_A_dict)
+            
+            for composition in weak_layer_compositions:
+        
+                # fix with the quartz flow law
+                # Assign rheological and density properties to continental compositions
+                if fix_continent_rheology_prefactor:
+                    disl_A_dict[composition][0] = 8.57e-28 
+                else:
+                    disl_A_dict[composition][0] = float(dislocation_aspect["crust_upper"]['A'])
+
+                disl_n_dict[composition][0] = float(dislocation_aspect["crust_upper"]['n'])
+                disl_E_dict[composition][0] = float(dislocation_aspect["crust_upper"]['E'])
+                disl_V_dict[composition][0] = float(dislocation_aspect["crust_upper"]['V'])
+                # diff_A_dict[composition][0] = 1e-50
+                diff_p_dict[composition][0] = 0.0
+                diff_E_dict[composition][0] = 0.0
+                diff_V_dict[composition][0] = 0.0
+
+            prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"] = format_composition_entry(disl_A_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"] = format_composition_entry(disl_n_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Activation energies for dislocation creep"] = format_composition_entry(disl_E_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Activation volumes for dislocation creep"] = format_composition_entry(disl_V_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"] = format_composition_entry(diff_A_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Activation energies for diffusion creep"] = format_composition_entry(diff_E_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Activation volumes for diffusion creep"] = format_composition_entry(diff_V_dict)
+            prm_dict["Material model"]["Visco Plastic"]["Grain size exponents for diffusion creep"] = format_composition_entry(diff_p_dict)
 
 
 class ContinentRule(Rule): 

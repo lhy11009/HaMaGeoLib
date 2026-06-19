@@ -617,7 +617,6 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
 
-    # todo_short
     def analyze_shortening_by_bin(self, *,
                            threshold=0.8,
                            bin_size=10e3,
@@ -632,6 +631,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
                   (self.suture_profile_x is not None), 
                   PYVISTA_PROCESS_WORKFLOW_ERROR,
                   "%s requires the topography function, the particle results and the suture profile" % func_name())
+
+        # dict for storing outputs 
+        outputs = {}
 
         # Get the crust field 
         crust_upper_comps = self.grid['crust_upper']
@@ -685,11 +687,12 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         # derive and save a profile of dimention ratio
         # this profile is buried below the local topography by bury_depth
         suture_shallow_x = self.suture_profile_x[0]
-        n_bins = profile_half_size / profile_bin_size
+        n_bins_foo = profile_half_size / profile_bin_size
+        n_bins = int(round(n_bins_foo))
 
-        assert math.isclose(n_bins, round(n_bins), rel_tol=0.0, abs_tol=1e-12), (
+        assert math.isclose(n_bins_foo, n_bins, rel_tol=0.0, abs_tol=1e-12), (
             f"profile_half_size/profile_bin_size must be an integer. "
-            f"Got {profile_half_size}/{profile_bin_size} = {n_bins}"
+            f"Got {profile_half_size}/{profile_bin_size} = {n_bins_foo}"
         )
 
         profile_x = np.arange(suture_shallow_x - profile_half_size, 
@@ -714,16 +717,26 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         np.savetxt(
             filepath,
             data,
-            header="x y size0 size dimention_ratio deformation",
-            comments="",
+            header="# x y size0 size dimention_ratio deformation",
+            comments="# suture x at %.2e m, with profiles extend %.2e m on either side.\n" % (suture_shallow_x, profile_half_size),
             fmt="%.4e"
         )
 
         print("\tsaved file %s" % filepath)
 
+        # Derive shortening on the upper plate and lower plate
+        lower_profile_subarray = profile_bin_deformation[0:n_bins]
+        lower_valid_proflie_subarray = lower_profile_subarray[np.isfinite(lower_profile_subarray)]
+        upper_profile_subarray = profile_bin_deformation[n_bins:]
+        upper_valid_proflie_subarray = upper_profile_subarray[np.isfinite(upper_profile_subarray)]
+        outputs["lower_plate_deformation"] = lower_valid_proflie_subarray.sum()
+        outputs["upper_plate_deformation"] = upper_valid_proflie_subarray.sum()
+
         end = time.time()
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
+
+        return outputs
 
     def extract_additionals(self, *,
                       upper_lower_plate=True,
@@ -805,9 +818,6 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
                 if np.any(mask):
                     self.suture_profile_x[i] = x_all[mask].min()
-
-            print("self.suture_profile_x: ")
-            print(self.suture_profile_x)
 
             self.export_suture_profile()
 
@@ -1039,9 +1049,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     # analyze shortening in continental crust
     if analyze_shortening_by_cell:
         assert (include_topography and include_particles)
-        # todo_short
         # ProcessCollision.analyze_shortening_by_cell()
-        ProcessCollision.analyze_shortening_by_bin()
+        outputs_foo = ProcessCollision.analyze_shortening_by_bin()
+        outputs.update(**outputs_foo)
     
     # write final output
     ProcessCollision.write_object_to_file(ProcessCollision.grid, "final", "vtu")

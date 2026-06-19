@@ -76,7 +76,8 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
         CASE_OPTIONS_BASE.SummaryCaseVtuStep(self, ifile)
 
         # Add new columns you want to add
-        new_columns = ["slab_depth", "dip_100", "dip_300", "trench_center", "trench_center_50", "sp_velocity", "ov_velocity"]
+        new_columns = ["slab_depth", "dip_100", "dip_300", "trench_center", "trench_center_50", 
+                       "sp_velocity", "ov_velocity", "lower_plate_deformation", "upper_plate_deformation"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:

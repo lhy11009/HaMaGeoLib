@@ -50,22 +50,21 @@ else:
 graphical_steps_np = Case_Options_p.summary_df["Vtu step"].to_numpy()
 graphical_steps = [int(step) for step in graphical_steps_np]
 
-# todo_short
 # Processing pyvista
-# for step in graphical_steps:
-while True: # debug
-    step = 400 # debug
+for step in graphical_steps:
+# while True: # debug
+    # step = 0 # debug
 
     pvtu_step = Case_Options_p.get_pvtu_step(step)
     outputs = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_p, 
                                      include_particles=include_particles, 
                                      include_topography=include_topography,
                                      analyze_shortening_by_cell=analyze_shortening_by_cell)
-    print("outputs: ", outputs) # debug
+    # print("outputs: ", outputs) # debug
 
     for key, value in outputs.items():
         Case_Options_p.SummaryCaseVtuStepUpdateValue(key, step, value)
-    break # debug
+    # break # debug
 
 file_name = "summary.csv"
 if is_process_second_stage:
