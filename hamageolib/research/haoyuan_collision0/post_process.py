@@ -47,7 +47,6 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         # placeholder for class variables
         self.slab_surface_points = None
-        self.topography_points = None
         self.iso_volume_dict = {}
 
         # placeholder for interpolation functions
@@ -256,7 +255,8 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         
         return outputs
     
-    def extract_topography(self, *, dx=5e3, dr=0.001,
+    def extract_topography(self, *, 
+                           dx=5e3, dr=0.001,
                            interp_dx=None, output_surface=False):
         '''
         Extract topography (surface elevation) from the grid.
@@ -275,11 +275,12 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
             output_surface - whether to save point cloud
     
         Outputs (stored as attributes):
-            self.topography_points  : original cleaned (x, y, z)
             self.topography_profile : interpolated (x, y) if interp_dx is not None
         '''
         start = time.time()
         print("PYVISTA_PROCESS:\n\t%s" % func_name())
+
+        my_assert(self.topography_func is None, PYVISTA_PROCESS_WORKFLOW_ERROR, "%s should not be executed if a topography_func already exists" % func_name())
     
         if self.grid is None:
             raise RuntimeError("Grid not loaded. Run read() first.")
@@ -300,7 +301,7 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
     
         # --- sample surface ---
         for i, x in enumerate(xs_raw):
-            query_pt = np.array([x / self.Max2])
+            query_pt = np.array([x / self.Max0])
             idxs = tree.query_ball_point(query_pt, r=dr)
     
             if not idxs:
@@ -327,25 +328,47 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         pts2d = pts2d[np.argsort(pts2d[:, 0])]
         x_surf = pts2d[:, 0]
         y_surf = pts2d[:, 1]
+
+        # --- generate the topography function ---
+        self.topography_func = interp1d(
+            x_surf/self.Max0,
+            (y_surf-self.Max0),
+            kind="linear",
+            bounds_error=False,
+            fill_value=np.nan
+        )
     
         # --- optional interpolation to regular grid ---
+        x_reg = x_surf
+        y_reg = y_surf
+        z_reg = np.zeros_like(x_surf)
+        topo_reg = y_surf - self.Max0
         if interp_dx is not None:
             x_reg = np.arange(x_surf[0], x_surf[-1], interp_dx)
-            y_reg = np.interp(x_reg, x_surf, y_surf)
+            topo_reg = self.topography_func(x_reg/self.Max0)
+            y_reg = topo_reg + self.Max0
             z_reg = np.zeros_like(x_reg)
     
-            self.topography_points = np.vstack([x_reg, y_reg, z_reg]).T
-        else: 
-            z_surf = np.zeros_like(x_surf)
-            self.topography_points = np.vstack([x_surf, y_surf, z_surf]).T
+        topography_points = np.vstack([x_reg, y_reg, z_reg]).T
     
-        # --- optional output ---
+        # --- outputs ---
         if output_surface:
-            point_cloud = pv.PolyData(self.topography_points)
+            point_cloud = pv.PolyData(topography_points)
             filename = "topography_%05d.vtp" % self.pvtu_step
             filepath = os.path.join(self.pyvista_outdir, filename)
             point_cloud.save(filepath)
             print(f"\tSave file {filepath}")
+
+        data_out = np.vstack([x_reg, y_reg, topo_reg]).T
+        filename_txt = "topography_%05d.txt" % self.pvtu_step
+        filepath_txt = os.path.join(self.pyvista_outdir, filename_txt)
+        np.savetxt(
+            filepath_txt,
+            data_out,
+            header="# x y topography",
+            fmt="%.4e"
+        )
+        print(f"\tSave file {filepath_txt}")
         
         end = time.time()
         print("\ttakes %.1f s" % (end - start))
@@ -972,7 +995,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
                            pyvista_outdir=None,
                            include_particles=False,
                            include_topography=False,
-                           analyze_shortening_by_cell=False):
+                           analyze_shortening=False):
     '''
     Process with pyvsita for a single step
     Inputs:
@@ -1013,7 +1036,10 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
 
     # read topography data
     if include_topography:
-        ProcessCollision.load_topograph(time_step)
+        try:
+            ProcessCollision.load_topograph(time_step)
+        except FileExistsError:
+            ProcessCollision.extract_topography(dx=5e3, dr=0.001, interp_dx=5e3, output_surface=True)
 
     # extract slab
     ProcessCollision.extract_slab(output_surfuce=True)
@@ -1047,8 +1073,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
         ProcessCollision.extract_additionals(upper_lower_plate=upper_lower_plate)
 
     # analyze shortening in continental crust
-    if analyze_shortening_by_cell:
-        assert (include_topography and include_particles)
+    if analyze_shortening:
+        my_assert (include_topography and include_particles, PYVISTA_PROCESS_WORKFLOW_ERROR, 
+                   "To perform analyze_shortening, include_topography and include_particles must be true")
         # ProcessCollision.analyze_shortening_by_cell()
         outputs_foo = ProcessCollision.analyze_shortening_by_bin()
         outputs.update(**outputs_foo)

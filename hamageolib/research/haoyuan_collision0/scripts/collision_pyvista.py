@@ -14,16 +14,19 @@ local_Collision_dir = "/mnt/lochy/ASPECT_DATA/Collision0" # data directory
 assert(os.path.isdir(local_Collision_dir))
 
 # Options
+# one_vtu_step - if this option is not None, only execute one step
 local_dir_2d = os.path.join(local_Collision_dir, 
-                            "collision_setup23/C_WLM_SA50.0"
+                            "collision_setup11/D2000_minV2.5e+19_Coh1.0e+02_WLS_WLF2.0e-02_WLM2.5e+19_CTboth_SL2.00e+06_Cn_PTr"
                             )
+# prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"; output_directory="output" # normal
+prm_basename_2d = "case_23_re_v.prm"; wb_basename_2d = "case.wb"; output_directory="output_23_re_v" # in case we use a different name
+one_vtu_step = 350
 
 include_particles = True  # include particles in post-processing
 include_topography = True # include topography in post-processing
-analyze_shortening_by_cell = True # include shortening in post-processing
+analyze_shortening = True # include shortening in post-processing
 # option for 1 stage
 is_process_second_stage = False; second_stage_outputs = None
-prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"
 # option for 2 stage
 # is_process_second_stage = True; second_stage_outputs = "output_re"
 # prm_basename_2d = "case_re.prm"; wb_basename_2d = "case.wb"
@@ -42,13 +45,18 @@ if is_process_second_stage:
     Case_Options_p.Interpret()
     Case_Options_p.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary_1.csv"))
 else:
-    Case_Options_p = CASE_OPTIONS_TWOD(local_dir_2d, case_file=prm_basename_2d, wb_basename=wb_basename_2d, output_directory="output")
+    Case_Options_p = CASE_OPTIONS_TWOD(local_dir_2d, case_file=prm_basename_2d, wb_basename=wb_basename_2d, output_directory=output_directory)
     Case_Options_p.Interpret()
     Case_Options_p.SummaryCaseVtuStep(os.path.join(local_dir_2d, "summary.csv"))
 
 
 graphical_steps_np = Case_Options_p.summary_df["Vtu step"].to_numpy()
-graphical_steps = [int(step) for step in graphical_steps_np]
+graphical_steps = None
+if one_vtu_step is not None:
+    graphical_steps = [one_vtu_step]
+else:
+    graphical_steps = [int(step) for step in graphical_steps_np]
+
 
 # Processing pyvista
 for step in graphical_steps:
@@ -59,7 +67,7 @@ for step in graphical_steps:
     outputs = ProcessVtuFileTwoDStep(local_dir_2d, pvtu_step, Case_Options_p, 
                                      include_particles=include_particles, 
                                      include_topography=include_topography,
-                                     analyze_shortening_by_cell=analyze_shortening_by_cell)
+                                     analyze_shortening=analyze_shortening)
     # print("outputs: ", outputs) # debug
 
     for key, value in outputs.items():

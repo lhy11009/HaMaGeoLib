@@ -464,7 +464,7 @@ class CASE_OPTIONS(CODESUB):
 
         # locate matching visualization file
         visualization_mask = (
-            self.visualization_df["Time step number"] == simulation_time_step
+            self.visualization_df["Vtu step"] == visualization_snapshot_step
         )
 
         available_timesteps = sorted(

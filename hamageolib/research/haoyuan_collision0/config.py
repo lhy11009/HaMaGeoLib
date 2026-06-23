@@ -20,6 +20,8 @@ from gdmate.aspect.prm_wb_utils import delete_composition_from_prm, duplicate_co
 # root of the package
 package_root = Path(__file__).resolve().parents[3]
 
+year = 365 * 24 * 3600.0  # s in year
+
 
 def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[]):
 
@@ -32,6 +34,12 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if len(prefix) > 0:
             case_name += "_"
         case_name += "D%d" % int(variables["domain_depth"]/1e3)
+    
+    if use_all or "global_refinement" in use_keys:
+        case_name += "_gr%d" % int(variables["global_refinement"])
+    
+    if use_all or "adaptive_refinement" in use_keys:
+        case_name += "_ar%d" % int(variables["adaptive_refinement"])
 
     # viscosity
     if use_all or "viscosity_range" in use_keys:
@@ -955,10 +963,10 @@ class GeometryRule(Rule):
         prm_dict["Mesh refinement"]["Initial adaptive refinement"] = str(adaptive_refinement)
         prm_dict["Mesh refinement"]["Minimum refinement function"]["Function constants"] = "litho_thickness=120e3, ymax=%de3" % int(domain_depth/1e3)
         prm_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = rf"""if(y>(ymax-litho_thickness),{global_refinement}, \
-                              if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {global_refinement-1}, {global_refinement-2}))"""
+                              if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {max(global_refinement-1, 1)}, {max(global_refinement-2, 1)}))"""
         if fix_surface_mesh_resolution:
             prm_dict["Mesh refinement"]["Minimum refinement function"]["Function expression"] = rf"""if(y>(ymax-surf_thickness), {global_refinement+adaptive_refinement}, (if(y>(ymax-litho_thickness),{global_refinement}, \
-                              if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {global_refinement-1}, {global_refinement-2}))))"""
+                              if(y>=(ymax - 662e3) && y<=(ymax - 658e3), {max(global_refinement-1, 1)}, {max(global_refinement-2, 1)}))))"""
             prm_dict["Mesh refinement"]["Minimum refinement function"]["Function constants"] = "litho_thickness=120e3, surf_thickness=20e3, ymax=%de3" % int(domain_depth/1e3)
         prm_dict["Mesh refinement"]["Maximum refinement function"]["Function constants"] = "ymax=%de3" % int(domain_depth/1e3)
         prm_dict["Mesh refinement"]["Maximum refinement function"]["Function expression"] = \
@@ -1767,8 +1775,6 @@ class OceanRule(Rule):
             # parse in the angle of friction as phase options
             disl_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for dislocation creep"])
             diff_A_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Prefactors for diffusion creep"])
-
-
 
             disl_n_dict = parse_composition_entry_with_phases(prm_dict["Material model"]["Visco Plastic"]["Stress exponents for dislocation creep"],
                                                               instance=disl_A_dict)
@@ -3154,6 +3160,8 @@ class FastScapeRule(Rule):
             prm_dict["Mesh deformation"].pop("Free surface")
             prm_dict["Mesh deformation"].pop("Diffusion")
             prm_dict["Mesh deformation"]["Fastscape"] = fastscape_dict
+        else:
+            prm_dict["Mesh deformation"]["Diffusion"]["Hillslope transport coefficient"] = "%.3e" % (bedrock_diffusivity/year)
 
         if include_initial_topography:
 

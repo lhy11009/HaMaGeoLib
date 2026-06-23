@@ -2,12 +2,16 @@
 
 set -euo pipefail
 
+INCLUDE_RESTART=false
 INCLUDE_PARTICLES=false
 POSITIONAL=()
 
 # parse the command line options
 for arg in "$@"; do
     case "$arg" in
+        -r)
+            INCLUDE_RESTART=true
+            ;;
         -p)
             INCLUDE_PARTICLES=true
             ;;
@@ -24,9 +28,11 @@ STEP=${POSITIONAL[1]:-}
     
 # exclude patterns from sync
 # Only exclude particles if -p was NOT specified
-EXCLUDES=(
-    "--exclude=*restart*"
-)
+EXCLUDES=()
+
+if ! $INCLUDE_RESTART; then
+    EXCLUDES+=("--exclude=*restart*")
+fi
 
 if ! $INCLUDE_PARTICLES; then
     EXCLUDES+=("--exclude=*particle*")

@@ -65,7 +65,7 @@ class PYVISTA_PROCESS():
             my_assert(os.path.isfile(filepath), FileNotFoundError, "File %s is not found" % filepath)
             if self.include_particles:
                 p_filepath = os.path.join(self.particles_dir, "particles-%05d.pvtu" % self.pvtu_step)
-                my_assert(os.path.isfile(p_filepath), FileNotFoundError, "File %s is not found" % filepath)
+                my_assert(os.path.isfile(p_filepath), FileNotFoundError, "File %s is not found" % p_filepath)
 
         else:
             filepath = os.path.join(self.data_dir, "solution-%05d.%04d.vtu" % (self.pvtu_step, piece))

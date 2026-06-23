@@ -81,7 +81,7 @@ subsection Mesh deformation
         set Surface velocity projection = normal
     end
     subsection Diffusion
-        set Hillslope transport coefficient = 1e-6
+        set Hillslope transport coefficient = 1.000e-06
     end
 end
 

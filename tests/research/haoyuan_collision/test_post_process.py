@@ -51,3 +51,28 @@ def test_extract_slab_2d():
     assert(np.isclose(outputs["trench_center_50"], 5151631.5))
 
 
+@pytest.mark.big_test
+def test_extract_topography_from_pyvista_2d():
+    
+    source_case_path = big_fixture_root/"D2000_minV2.5e+19_Coh1.0e+02_WLS_WLF2.0e-02_WLM2.5e+19_CTboth_SL2.00e+06_Cn_PTr"
+    test_case_path = test_dir/"test_extract_topography_from_pyvista_2d"
+    
+    # make a clean test folder
+    if test_case_path.is_dir():
+        rmtree(test_case_path)
+    test_case_path.mkdir(exist_ok=False)
+    
+    Case_Options_2d = CASE_OPTIONS_TWOD(source_case_path)
+    Case_Options_2d.Interpret()
+    Case_Options_2d.SummaryCaseVtuStep(os.path.join(test_case_path, "summary.csv"))
+    
+    # run the PyVista workflow
+    outputs = ProcessVtuFileTwoDStep(source_case_path, 350, Case_Options_2d,
+                                    pyvista_outdir=test_case_path/"pyvista_outputs",
+                                    include_topography=True)
+    
+    topography_file = test_case_path/"pyvista_outputs/topography_00350.txt"
+    topography_std_file = source_case_path/"topography_00350.txt"
+    
+    assert(filecmp.cmp(topography_file, topography_std_file))
+
