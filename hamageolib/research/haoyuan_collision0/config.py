@@ -22,7 +22,6 @@ package_root = Path(__file__).resolve().parents[3]
 
 year = 365 * 24 * 3600.0  # s in year
 
-
 def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[]):
 
     # First add the prefix
@@ -105,6 +104,12 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     
     if use_all or "subducting_continent_length" in use_keys:
         case_name += "_SL%.2e" % variables["subducting_continent_length"]
+
+    if use_all or "upper_crust_water_wt_percent" in use_keys:
+        case_name += "_UCwt%.2e" % variables["upper_crust_water_wt_percent"]
+    
+    if use_all or "lower_crust_water_fugacity" in use_keys:
+        case_name += "_LCwf%.2e" % variables["lower_crust_water_fugacity"]
 
     # todo_taper
     if use_all or "continent_taper_length" in use_keys:
@@ -1850,12 +1855,20 @@ class ContinentRule(Rule):
         Horizontal length (in meters) of the continental portion attached
         to the subducting plate. Only used when add_continents is "both".
         Default value: -1
+
+    upper_crust_water_wt_percent
+        water weight percent. The default value is 0.15 wt %. This value is used
+        because the Gleason and Tullis 1995 reported value of 0.15 wt %.
+
+    lower_crust_water_fugacity
+        lower mantle water fugacity value. The default value is 1 MPa. This value is used 
+        because the Rybachi et al., 2006 uses water fugacity in their flow law.
     """
     requires = ["add_continents", "continent_depth_levels", "subducting_continent_length", "chapman_model_type",
                 "chapman_model_surface_heatflux", "fix_continent_rheology_prefactor", "continent_taper_length",
                 "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness", "continent_taper_sediment_thickness",
                 "fix_continent_rheology_with_phase_transition", "include_phase_transition", "PT_config_file",
-                "fix_surface_mesh_resolution"]
+                "fix_surface_mesh_resolution", "upper_crust_water_wt_percent", "lower_crust_water_fugacity"]
 
     defaults = {"add_continents": "none",\
                 "continent_depth_levels": [20e3, 40e3],\
@@ -1870,7 +1883,9 @@ class ContinentRule(Rule):
                     "fix_continent_rheology_with_phase_transition": False,
                     "include_phase_transition": False,
                     "PT_config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json",
-                    "fix_surface_mesh_resolution": False}
+                    "fix_surface_mesh_resolution": False,
+                    "upper_crust_water_wt_percent": 0.15,
+                    "lower_crust_water_fugacity": 1.0}
 
     requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\"",
                          "continent_depth_levels": "Depth levels of the boundary between compositions (e.g. between upper and lower crust, lower crust and mantle)",
@@ -1878,7 +1893,10 @@ class ContinentRule(Rule):
                          "chapman_model_type": "Type of Chapman model configuration, the default approach prescribes layer HPE, temperature and heat flux.\
                             the partition coefficent approach would first compute layer parameters by assigning a partition coefficent as defined in the \
                             Hasterok and Chapman, 2011 paper",
-                         "chapman_model_surface_heatflux": "Surface heat flux value used in the Chapman model"} 
+                         "chapman_model_surface_heatflux": "Surface heat flux value used in the Chapman model",
+                         "upper_crust_water_wt_percent": "Water weight percent to use with Gleason and Tullis 1995. The default value is 0.15 wt %.",
+                         "lower_crust_water_fugacity": "Lower mantle water fugacity value to be used with the Rybachi et al., 2006."
+                         } 
     
     provides = ["continent_rheology"]
 
@@ -1925,6 +1943,8 @@ class ContinentRule(Rule):
         include_phase_transition = config["include_phase_transition"]
         PT_config_file = config["PT_config_file"]
         fix_surface_mesh_resolution = config["fix_surface_mesh_resolution"]
+        upper_crust_water_wt_percent = config["upper_crust_water_wt_percent"]
+        lower_crust_water_fugacity = config["lower_crust_water_fugacity"]
 
         # handle the overriding plate
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
@@ -2208,7 +2228,10 @@ class ContinentRule(Rule):
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
 
             # get the rheology parameters for the continent
-            diffusion_continent, dislocation_continent, plasticity_continent = get_continental_rheology(fix_continent_rheology_prefactor=fix_continent_rheology_prefactor)
+            diffusion_continent, dislocation_continent, plasticity_continent = get_continental_rheology(
+                fix_continent_rheology_prefactor=fix_continent_rheology_prefactor,
+                upper_crust_water_wt_percent=upper_crust_water_wt_percent,
+                lower_crust_water_fugacity=lower_crust_water_fugacity)
 
             # Read and parse existing material model entries
             density_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Densities"])
@@ -2267,7 +2290,6 @@ class ContinentRule(Rule):
             diff_V_dict["crust_lower"][0] = float(diffusion_continent["crust_upper"]['V'])
             diff_p_dict["crust_lower"][0] = float(diffusion_continent["crust_upper"]['p'])
 
-            # todo_continent
             if fix_continent_rheology_with_phase_transition:
                 # fix the parameters related to the phase transition
 
@@ -2353,9 +2375,11 @@ class ContinentRule(Rule):
             # Store rheology information in shared context
             context["continent_rheology"] = rheology_continent_dict
 
-
 def get_continental_rheology(*,
-                             fix_continent_rheology_prefactor=False):
+                             fix_continent_rheology_prefactor=False,
+                             upper_crust_water_wt_percent=0.15,
+                             lower_crust_water_fugacity=1,
+                             ):
     """
     Return rheological parameters for continental upper and lower crust.
 
@@ -2365,6 +2389,14 @@ def get_continental_rheology(*,
         If True, use corrected dislocation-creep prefactors that are
         compatible with the flow-law formulation used in the model.
         If False, use the legacy prefactors that were previously adopted.
+    
+    upper_crust_water_wt_percent: float, optional
+        water weight percent. The default value is 0.15 wt %. This value is used
+        because the Gleason and Tullis 1995 reported value of 0.15 wt %.
+
+    lower_crust_water_fugacity: float, optional
+        lower mantle water fugacity value. The default value is 1 MPa. This value is used 
+        because the Rybachi et al., 2006 uses water fugacity in their flow law.
 
     Returns
     -------
@@ -2826,7 +2858,6 @@ class PhaseTransitionRule(Rule):
         # configuration for phase transitions
         # the options for gabbro and sediments are copied from
         # the MORB composition
-        # todo_continent
         p_depth_dict = p_dict["p_depth_dict"]
         
         p_width_dict = p_dict["p_width_dict"]
