@@ -43,6 +43,7 @@ source "${HaMaGeoLib_DIR}/scripts/bash_scripts/find_project_index.sh" "$SERVER"
 
 REMOTE_PATH="${SERVER}:${selected_remote_folder}/${relative_case_path}/*"
 
+
 if [[ -n "$STEP" ]]; then
 
     FILE_PATTERN=$(printf "solution-%05d.*" "$STEP")
@@ -51,22 +52,14 @@ if [[ -n "$STEP" ]]; then
     echo "  ${FILE_PATTERN}"
     echo "rsync -avu  --include='*/' --include=output/solution/${FILE_PATTERN} --exclude='*' ${REMOTE_PATH} ."
 
-    rsync -avu \
-        --include='*/' \
-        --include="output/solution/${FILE_PATTERN}" \
-        --exclude='*' \
-        "${REMOTE_PATH}" \
-        .
+    eval "rsync -avu  --include='*/' --include=output/solution/${FILE_PATTERN} --exclude='*' ${REMOTE_PATH} ."
 
 else
 
 
     echo "Full sync"
     echo "rsync -avu ${EXCLUDES[*]} ${REMOTE_PATH} ."
-
-    rsync -avu \
-        "${EXCLUDES[@]}" \
-        "${REMOTE_PATH}" \
-        .
+    
+    eval "rsync -avu ${EXCLUDES[*]} ${REMOTE_PATH} ."
 
 fi

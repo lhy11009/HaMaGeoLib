@@ -20,8 +20,4 @@ REMOTE_PATH="${SERVER}:${selected_remote_folder}/${relative_case_path}/"
 # run command to sync from local to remote folder
 echo "rsync -avu ${INCLUDES[*]} --exclude=* ./* $REMOTE_PATH"
 
-rsync -avu \
-    "${INCLUDES[@]}" \
-    --exclude=* \
-    ./* \
-    "${REMOTE_PATH}"
+eval "rsync -avu ${INCLUDES[*]} --exclude=* ./* $REMOTE_PATH"

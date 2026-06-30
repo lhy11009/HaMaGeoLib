@@ -65,7 +65,8 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_WLV%.1e" % variables["weak_layer_viscosity"]
 
     elif variables["weak_layer_rheology_scheme"] == "low friction":
-        if use_all or "weak_layer_friction_factor" in use_keys:
+        if use_all or "weak_layer_friction_factor" in use_keys and \
+            (not np.isclose(variables["weak_layer_friction_factor"], 0.02, rtol=1e-6)):
             case_name += "_WLF%.1e" % variables["weak_layer_friction_factor"]
         if use_all or "weak_layer_minimum_viscosity" in use_keys:
             case_name += "_WLM%.1e" % variables["weak_layer_minimum_viscosity"]
@@ -89,9 +90,13 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if variables["prescribe_subducting_plate_velocity"]:
             case_name += "_PC%.1e" % variables["convergence_rate"]
 
-    # Slab age
+    # Slab
     if use_all or "slab_age" in use_keys:
         case_name += "_SA%.1f" % (variables["slab_age"]/1e6)
+
+    if (use_all or "additional_initial_slab_length" in use_keys) and\
+    (not np.isclose(variables["additional_initial_slab_length"], 0.0, atol=1e-6)):
+        case_name += "_ASL%.1e" % (variables["additional_initial_slab_length"])
 
     # Continent
     if use_all or "add_continents" in use_keys:
@@ -105,10 +110,12 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "subducting_continent_length" in use_keys:
         case_name += "_SL%.2e" % variables["subducting_continent_length"]
 
-    if use_all or "upper_crust_water_wt_percent" in use_keys:
+    if use_all or "upper_crust_water_wt_percent" in use_keys and \
+        (not np.isclose(variables["upper_crust_water_wt_percent"], 0.15, atol=1e-6)):
         case_name += "_UCwt%.2e" % variables["upper_crust_water_wt_percent"]
     
-    if use_all or "lower_crust_water_fugacity" in use_keys:
+    if use_all or "lower_crust_water_fugacity" in use_keys and \
+        (not np.isclose(variables["lower_crust_water_fugacity"], 1.0, atol=1e-6)):
         case_name += "_LCwf%.2e" % variables["lower_crust_water_fugacity"]
 
     # todo_taper
@@ -665,10 +672,13 @@ class SlabRule(Rule):
       Position of the ridge tied to the start of the subduction plate
     - slab_hinge_point_pre_modification:
       Position of the trench
+    - additional_initial_slab_length:
+      additional length of the slab to be added to the default 300 km segment with
+      a continued dip angle
     """
     requires = ["slab_layer_compositions", "slab_layer_depths", "plate_start_point_pre_modification", "slab_hinge_point_pre_modification",
                 "plate_end_point_pre_modification", "slab_age", "kinematic_driven_condition", "kinematic_driven_condition_domain_modification",
-                "use_convergence_rate_for_ridge_position", "convergence_rate", "do_topography_test"]
+                "use_convergence_rate_for_ridge_position", "convergence_rate", "do_topography_test", "additional_initial_slab_length"]
     
     defaults = {"slab_layer_compositions": ["sediment", "MORB", "gabbro"], "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3],
                 "plate_start_point_pre_modification": 1000e3,
@@ -679,7 +689,8 @@ class SlabRule(Rule):
                 "kinematic_driven_condition_domain_modification": [1000e3, 1000e3],
                 "use_convergence_rate_for_ridge_position": False,
                 "convergence_rate": 0.05,
-                "do_topography_test": False
+                "do_topography_test": False,
+                "additional_initial_slab_length": 0.0
                 }
     
     requires_comments = {"slab_layer_compositions": "Include these compositions for the slab",
@@ -687,7 +698,8 @@ class SlabRule(Rule):
                          "slab_age": "Age of the subducting plate at the trench",
                          "plate_start_point_pre_modification": "Start point of subducting plate before modificaton",
                          "slab_hinge_point_pre_modification": "Position of the trench",
-                         "use_convergence_rate_for_ridge_position": "Whether to use convergence rate to inform ridge position"}
+                         "use_convergence_rate_for_ridge_position": "Whether to use convergence rate to inform ridge position",
+                         "additional_initial_slab_length": "additional length of the slab to be added to the default 300 km segment with a continued dip angle"}
     provides = ["spreading_velocity", "slab_hinge_point", "plate_start_point"]
 
     # todo_comments
@@ -738,6 +750,7 @@ class SlabRule(Rule):
         use_convergence_rate_for_ridge_position = config["use_convergence_rate_for_ridge_position"]
         convergence_rate = config["convergence_rate"]
         do_topography_test = config["do_topography_test"]
+        additional_initial_slab_length = config["additional_initial_slab_length"]
 
         domain_length = context["domain_length"]
 
@@ -829,6 +842,9 @@ class SlabRule(Rule):
                 feature["temperature models"][0]["ridge coordinates"] = [[[ridge_point,-100e3],[ridge_point,100e3]]]
                 feature["temperature models"][0]["subducting velocity"] = spreading_velocity
                 feature["temperature models"][0]["spreading velocity"] = spreading_velocity
+
+                if additional_initial_slab_length > 0.0:
+                    feature["segments"].append({"length":additional_initial_slab_length,"thickness":[150e3],"top truncation":[-50e3],"angle":[70,70]})
 
             if feature["name"] == "Overriding Plate":
                 feature["coordinates"] = [[slab_hinge_point, -100e3], [slab_hinge_point, 100e3], [plate_end_point, 100e3], [plate_end_point, -100e3]]

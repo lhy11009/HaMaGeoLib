@@ -16,11 +16,14 @@ assert(os.path.isdir(local_Collision_dir))
 # Options
 # one_vtu_step - if this option is not None, only execute one step
 local_dir_2d = os.path.join(local_Collision_dir, 
-                            "collision_setup11/D2000_minV2.5e+19_Coh1.0e+02_WLS_WLF2.0e-02_WLM2.5e+19_CTboth_SL2.00e+06_Cn_PTr"
+                            "collision_setup26/C_gr6_ar4_WLM_WLF5.0e-02_SA50.0_ASL1.0e+05"
                             )
 # prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"; output_directory="output" # normal
-prm_basename_2d = "case_23_re_v.prm"; wb_basename_2d = "case.wb"; output_directory="output_23_re_v" # in case we use a different name
-one_vtu_step = 350
+prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"; output_directory="output" # in case we use a different name
+
+# if this is set to None, then loop all steps
+# if this is set to a number, only execute one step
+one_vtu_step = None # None
 
 include_particles = True  # include particles in post-processing
 include_topography = True # include topography in post-processing
