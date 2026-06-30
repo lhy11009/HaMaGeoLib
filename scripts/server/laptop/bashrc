@@ -173,7 +173,6 @@ alias mow="cd $MOW"
 # -----------------------------
 export COLLISION="/mnt/d/raw_data/Collision0"
 export COLLISION_UCD="/mnt/lochy/ASPECT_DATA/Collision0"
-export COLLISION_UCD_1="/mnt/lochy2/ASPECT_DATA/Collision0"
 alias collision="cd $COLLISION"
 
 # -----------------------------
