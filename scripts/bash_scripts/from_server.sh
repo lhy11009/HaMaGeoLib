@@ -5,6 +5,7 @@ set -euo pipefail
 INCLUDE_RESTART=false
 INCLUDE_ONLY_RESTART=false
 INCLUDE_PARTICLES=false
+LOCAL_DIR=""
 POSITIONAL=()
 
 # parse the command line options
@@ -37,6 +38,9 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# debug
+echo "$INCLUDE_ONLY_RESTART"
 
 
 # read server and step
@@ -78,7 +82,7 @@ fi
 # This option is used if we want to keep restart file in a separate location
 # Else if a $STEP is given, then only a certain step is synced
 # Otherwise the case is synced as a whole
-if [[ $INCLUDE_ONLY_RESTART ]]; then
+if [[ "$INCLUDE_ONLY_RESTART" == "true" ]]; then
 
     echo "rsync -avu  --include='*/' --include='output/restart/*' --include='output/restart/*/*' --exclude='*' ${REMOTE_PATH} ${LOCAL_PATH}"
 

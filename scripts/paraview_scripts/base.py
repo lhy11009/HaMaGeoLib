@@ -128,7 +128,10 @@ def import_xmls(_dir, **kwargs):
     i = 0
     for subdir, dirs, files in os.walk(_dir):
         for filename in files:
-            if filename.endswith("PARAVIEW.xml"):
+            # depending on the version of SCM, there will be slightly different
+            # file format
+            # if filename.endswith("PARAVIEW.xml"):
+            if filename.endswith("*.ct"):
                 filepath = os.path.join(subdir, filename)
                 if debug:
                     print("Find filepath: ", filepath)  # debug

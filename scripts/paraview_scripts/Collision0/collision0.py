@@ -40,7 +40,7 @@ def set_temperature_plot(sourceDisplay):
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, 273.15, 2273.15)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("lapaz", True)
+    fieldLUT.ApplyPreset("SCM_lapaz", True)
     return field, fieldLUT
 
 
@@ -69,7 +69,7 @@ def set_density_plot(sourceDisplay):
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, 3000.0, 4000.0)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("bilbao", True)
+    fieldLUT.ApplyPreset("SCM_bilbao", True)
     return field, fieldLUT
 
 
@@ -429,6 +429,13 @@ vtk_arr = numpy_to_vtk(indicator.astype(np.int32))
 vtk_arr.SetName("composition_indicator")
 output.GetPointData().AddArray(vtk_arr)
 """
+
+# For some reason, the SCM is not automatically loaded anymore
+# and needs to be loaded manually.
+PV_INTERFACE_PATH = os.environ["PV_INTERFACE_PATH"]
+if PV_INTERFACE_PATH != "" and os.path.isdir(PV_INTERFACE_PATH):
+    print("import files under: %s" % PV_INTERFACE_PATH)
+    import_xmls(PV_INTERFACE_PATH)
 
 # check consistency in setup
 if "PLOT_TYPE" == "orogen":

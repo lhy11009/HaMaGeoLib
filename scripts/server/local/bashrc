@@ -269,8 +269,15 @@ export PROJECT="${MOW}:${COLLISION}"
 export PROJECT_REMOTE_hive="${MOW_HIVE}:${COLLISION_HIVE}"
 export PROJECT_REMOTE_stampede3="${MOW_STAMPEDE3}:${COLLISION_STAMPEDE3}"
 
+# -----------------------------
+# Sync options
+# For each of the project and server
+# from_$server would sync the data from one server
+# from_$server_restart_$project would separately sync the restart file
+# -----------------------------
 alias from_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_server.sh hive"
 alias from_hive_restart_collision="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_server.sh -R -l ${COLLISION_1} hive"
+alias from_stampede3_restart_collision="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_server.sh -R -l ${COLLISION_1} stampede3"
 alias to_hive="${HaMaGeoLib_DIR}/scripts/bash_scripts/to_server.sh hive"
 alias from_stampede3="${HaMaGeoLib_DIR}/scripts/bash_scripts/from_server.sh stampede3"
 alias to_stampede3="${HaMaGeoLib_DIR}/scripts/bash_scripts/to_server.sh stampede3"
