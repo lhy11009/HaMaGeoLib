@@ -16,18 +16,22 @@ assert(os.path.isdir(local_Collision_dir))
 # Options
 # one_vtu_step - if this option is not None, only execute one step
 local_dir_2d = os.path.join(local_Collision_dir, 
-                            "collision_setup26/C_gr6_ar4_WLM_WLF5.0e-02_SA50.0_ASL1.0e+05"
+                            "collision_setup25/C_gr6_ar4_WLS_SA100.0_CTL5.00e+05_FS"
                             )
 # prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"; output_directory="output" # normal
 prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"; output_directory="output" # in case we use a different name
+# if min and max steps are given, then only perform analysis for steps in between,
+# otherwise, loop for all the visualization steps
+graphical_step_min = 70
+graphical_step_max = None
 
 # if this is set to None, then loop all steps
 # if this is set to a number, only execute one step
 one_vtu_step = None # None
 
-include_particles = True  # include particles in post-processing
+include_particles = False  # include particles in post-processing
 include_topography = True # include topography in post-processing
-analyze_shortening = True # include shortening in post-processing
+analyze_shortening = False # include shortening in post-processing
 # option for 1 stage
 is_process_second_stage = False; second_stage_outputs = None
 # option for 2 stage
@@ -58,7 +62,16 @@ graphical_steps = None
 if one_vtu_step is not None:
     graphical_steps = [one_vtu_step]
 else:
-    graphical_steps = [int(step) for step in graphical_steps_np]
+    # Start with all True and mask the range of steps
+    mask = np.ones(graphical_steps_np.shape, dtype=bool)
+
+    if graphical_step_min is not None:
+        mask &= (graphical_steps_np > graphical_step_min)
+
+    if graphical_step_max is not None:
+        mask &= (graphical_steps_np < graphical_step_max)
+    
+    graphical_steps = [int(step) for step in graphical_steps_np[mask]]
 
 
 # Processing pyvista
