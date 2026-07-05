@@ -61,19 +61,21 @@ class CASE_OPTIONS(CODESUB):
         options (dict): Dictionary storing interpreted options for data output and model parameters.
         summary_df (panda object): case summary
     """
-
     def __init__(self, case_dir, *,
                  case_file="case.prm",
                  wb_basename="case.wb",
                  image_directory="img",
                  output_directory="output",
-                 pyvista_basename="pyvista_outputs"):
+                 pyvista_basename="pyvista_outputs",
+                 pp_directory=None):
         """
         Initializes the CASE_OPTIONS class by setting up file paths, checking directories,
         and loading parameters from .prm and .wb files if available.
 
         Args:
             case_dir (str): The directory of the case.
+            pp_directory (str, optional): This would assign a different path to save the
+                results other than the case_dir
         """
         # Validate and set case directory
         self.case_dir = case_dir
@@ -84,7 +86,6 @@ class CASE_OPTIONS(CODESUB):
         self.output_dir = os.path.join(case_dir, output_directory)
         my_assert(os.path.isdir(self.output_dir), FileNotFoundError,
                   'BASH_OPTIONS.__init__: case output directory - %s doesn\'t exist' % self.output_dir)
-        
 
         # Set paths for visualization files and validate access
         self.visit_file = None
@@ -96,15 +97,6 @@ class CASE_OPTIONS(CODESUB):
         paraview_file_tmp = os.path.join(self.output_dir, 'solution.pvd')
         if os.path.isfile(paraview_file_tmp):
             self.paraview_file = paraview_file_tmp
-
-        # Set or create image directory
-        self.img_dir = os.path.join(case_dir, image_directory)
-        if not os.path.isdir(self.img_dir):
-            os.mkdir(self.img_dir)
-
-        pv_output_dir = os.path.join(self.img_dir, "pv_outputs")
-        if not os.path.isdir(pv_output_dir):
-            os.mkdir(pv_output_dir)
 
         # Parse parameters from .prm file
         prm_file = os.path.join(self.case_dir, case_file)
@@ -119,11 +111,6 @@ class CASE_OPTIONS(CODESUB):
         if os.access(wb_file, os.R_OK):
             with open(wb_file, 'r') as fin:
                 self.wb_dict = json.load(fin)
-
-        # Directory for pyvista outputs
-        self.pyvista_dir = os.path.join(self.case_dir, pyvista_basename)
-        if not os.path.isdir(self.pyvista_dir):
-            os.mkdir(self.pyvista_dir)
 
         # Initialize options dictionary
         self.options = {}
@@ -156,6 +143,29 @@ class CASE_OPTIONS(CODESUB):
             self.dealii_version = None
             self.world_builder_version = None
             self.n_mpi = None
+        
+        # Directory to save outputs, if not specifically
+        # assigned, outputs will be saved in the same
+        # case directory
+        # an image directory
+        # a paraview output directory
+        # a directory for pyvista outputs
+        self.pp_dir = case_dir
+        if pp_directory is not None:
+            self.pp_dir = pp_directory
+        my_assert(os.path.isdir(self.pp_dir), FileExistsError, "The post-process output directory %s doesn't exist." % self.pp_dir)
+        
+        self.img_dir = os.path.join(self.pp_dir, image_directory)
+        if not os.path.isdir(self.img_dir):
+            os.mkdir(self.img_dir)
+        
+        pv_output_dir = os.path.join(self.img_dir, "pv_outputs")
+        if not os.path.isdir(pv_output_dir):
+            os.mkdir(pv_output_dir)
+        
+        self.pyvista_dir = os.path.join(self.pp_dir, pyvista_basename)
+        if not os.path.isdir(self.pyvista_dir):
+            os.mkdir(self.pyvista_dir)
         
 
         # Read visualization files

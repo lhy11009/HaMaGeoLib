@@ -1406,12 +1406,68 @@ def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
     return x, topography
 
 
-# todo_pp
-def prepare_case_option_2d(_dir_2d, is_process_second_stage, *,
-                           prm_basename_2d="case.prm",
-                           wb_basename_2d = "case.wb",
-                           output_directory="output",
-                           second_stage_outputs="output_re"):
+def prepare_case_option_2d(_dir_2d, is_process_second_stage, *, 
+                           prm_basename_2d="case.prm", 
+                           wb_basename_2d = "case.wb", 
+                           output_directory="output", 
+                           second_stage_outputs="output_re", 
+                           pp_directory=None):
+    """
+    Initialize and prepare a 2-D case for post-processing.
+
+    This helper function constructs a ``CASE_OPTIONS_TWOD`` object using the
+    appropriate directories and filenames for either the first-stage or
+    second-stage simulation outputs. It then interprets the case configuration
+    and generates a summary of available VTU output steps.
+
+    Parameters
+    ----------
+    _dir_2d : str
+        Path to the case directory.
+
+    is_process_second_stage : bool
+        Whether to process the second-stage simulation outputs. If ``True``,
+        the function uses the second-stage output, image, and PyVista
+        directories (e.g., ``output_re``, ``img_1``,
+        ``pyvista_outputs_1``). Otherwise, the default first-stage
+        directories are used.
+
+    prm_basename_2d : str, optional
+        Name of the parameter file. Default is ``"case.prm"``.
+
+    wb_basename_2d : str, optional
+        Name of the World Builder input file. Default is ``"case.wb"``.
+
+    output_directory : str, optional
+        Name of the primary simulation output directory. Default is
+        ``"output"``.
+
+    second_stage_outputs : str, optional
+        Name of the second-stage output directory. Used only when
+        ``is_process_second_stage`` is ``True``. Default is ``"output_re"``.
+
+    pp_directory : str, optional
+        Directory containing post-processing results. If ``None``, the
+        default location defined by ``CASE_OPTIONS_TWOD`` is used.
+
+    Returns
+    -------
+    Case_Options_2d : CASE_OPTIONS_TWOD
+        Initialized and interpreted case object.
+
+    summary_filename : str
+        Name of the generated VTU summary file. This is either
+        ``"summary.csv"`` or ``"summary_1.csv"``, depending on the value of
+        ``is_process_second_stage``.
+
+    Notes
+    -----
+    This function calls
+
+    - ``Interpret()`` to read and process the case configuration.
+    - ``SummaryCaseVtuStep()`` to generate a summary of available VTU output
+      files for subsequent post-processing.
+    """
 
     Case_Options_2d = None
     summary_filename = None
@@ -1421,13 +1477,15 @@ def prepare_case_option_2d(_dir_2d, is_process_second_stage, *,
                                           wb_basename=wb_basename_2d, 
                                           output_directory=second_stage_outputs,
                                           pyvista_basename="pyvista_outputs_1",
-                                          image_directory="img_1")
+                                          image_directory="img_1",
+                                          pp_directory=pp_directory)
         summary_filename = "summary_1.csv"
     else:
         Case_Options_2d = CASE_OPTIONS_TWOD(_dir_2d,
                                           case_file=prm_basename_2d, 
                                           wb_basename=wb_basename_2d, 
-                                            output_directory=output_directory)
+                                          output_directory=output_directory,
+                                          pp_directory=pp_directory)
         summary_filename = "summary.csv"
 
     Case_Options_2d.Interpret()
@@ -1441,8 +1499,7 @@ def prepare_case_option_2d(_dir_2d, is_process_second_stage, *,
 def plot_run_time_combined(dirs_2d, Case_Options_2d_array, *,
                            use_time_mask=False,
                            start_time=None,
-                           end_time=None,
-                           is_process_second_stage=False):
+                           end_time=None):
     """
     Generate comparison plots of runtime statistics for multiple ASPECT cases.
 
@@ -1590,9 +1647,7 @@ def plot_run_time_combined(dirs_2d, Case_Options_2d_array, *,
             ax.legend()
 
 
-    output_dir = os.path.join(dirs_2d[0], "img", "runtime_plots")
-    if is_process_second_stage:
-        output_dir = os.path.join(dirs_2d[0], "img_1", "runtime_plots")
+    output_dir = os.path.join(Case_Options_2d_array[0].img_dir, "runtime_plots")
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
 

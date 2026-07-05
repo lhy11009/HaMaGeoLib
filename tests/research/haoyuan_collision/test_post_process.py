@@ -5,7 +5,7 @@ from shutil import rmtree
 from pathlib import Path
 import numpy as np
 
-from hamageolib.research.haoyuan_collision0.post_process import ProcessVtuFileTwoDStep
+from hamageolib.research.haoyuan_collision0.post_process import *
 from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
 
 # Resolve the root of the pakage and set up
@@ -76,3 +76,33 @@ def test_extract_topography_from_pyvista_2d():
     
     assert(filecmp.cmp(topography_file, topography_std_file))
 
+# todo_pp
+def test_main_postprocess_workflow():
+    '''
+    Test the main workflow for post-processing the collision0 project.
+    Now only works for 2-d cases
+    '''
+    
+    source_case_path = big_fixture_root/"D2000_minV2.5e+19_Coh1.0e+02_WLS_WLF2.0e-02_WLM2.5e+19_CTboth_SL2.00e+06_Cn_PTr"
+    pp_directory = os.path.join(test_dir, "test_main_postprocess_workflow")
+
+    # make a new post-process directory
+    if os.path.isdir(pp_directory):
+        rmtree(pp_directory)
+    os.mkdir(pp_directory)
+
+    # Prepare case options
+    # The second option of the function is is_process_second_stage, this is not needed
+    # if not processing a dual-stage model 
+    Case_Options_2d, summary_filename = prepare_case_option_2d(source_case_path, False,
+                                                               pp_directory=pp_directory)
+
+    # Plot run time information
+    # Note these "combined" functions are designed to address multiple cases
+    # in a series manner, therefore when there is only one case, it has to
+    # be put in a trivial array
+    plot_run_time_combined([source_case_path], [Case_Options_2d])
+
+    run_time_image_path = os.path.join(pp_directory, "img", "runtime_plots", "assembled.png")
+
+    assert(os.path.isfile(run_time_image_path))
