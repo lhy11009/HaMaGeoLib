@@ -3,6 +3,8 @@ import numpy as np
 import time
 import math
 import pyvista as pv
+from matplotlib import pyplot as plt
+from matplotlib import gridspect
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
@@ -1402,3 +1404,115 @@ def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
     topography = data[:, 2]
 
     return x, topography
+
+
+# todo_pp
+def plot_run_time_combined(dirs_2d, Case_Options_2d_array,*,
+                           use_time_mask = True,
+                           start_time=None,
+                           end_time=None,
+                           is_process_second_stage=False):
+
+    import hamageolib.utils.plot_helper as plot_helper
+    from matplotlib import rcdefaults
+    from copy import deepcopy
+
+    # Retrieve the default color cycle
+    default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+
+    # Example usage
+    # Rule of thumbs:
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 2. Set five major ticks for each axis
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 2.0 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.5
+    line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
+
+    # scale the matplotlib params
+    plot_helper.scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
+
+    # plot_attr_types - which variable in the Case_Options object the attribute belongs to
+    # plot_attrs - the names of the attribute to plot
+    hr = 3600.0 # s in hr
+    plot_attr_types = ["statistic_df", "time_df"]
+    plot_attrs = ["Time step number", "Corrected Wall Clock"]
+    scalings = [1.0, 1.0/hr]
+    units = [None, "hr"]
+
+    n_col = 2
+    n_row = int(np.ceil(float(len(plot_attrs)) / n_col))
+    fig = plt.figure(figsize=(10*n_col*scaling_factor, 6*n_row*scaling_factor), tight_layout=True)
+    gs = gridspec.GridSpec(n_row, n_col)
+
+    # Loop for 2d cases
+    for j, plot_attr in enumerate(plot_attrs):
+        i_row = j // n_col
+        j_col = j % n_col
+        ax = fig.add_subplot(gs[i_row, j_col])
+        for i, _dir_2d in enumerate(dirs_2d):
+
+            Case_Options_2d = Case_Options_2d_array[i]
+
+            # raw data: append 0.0 at the start
+            attr_df = getattr(Case_Options_2d, plot_attr_types[j])
+            xs = deepcopy(attr_df.Time.to_numpy(dtype=float))
+            xs = np.insert(xs, 0, 0.0)
+
+            ys = deepcopy(attr_df[plot_attr].to_numpy(dtype=float))
+            ys = np.insert(ys, 0, 0.0)
+
+            ys*=scalings[j]
+
+            xs_p = np.arange(0.0, np.max(xs)+0.1e6, 0.1e6)
+            ys_p = np.interp(xs_p, xs, ys)
+
+            # plotting mask, if either start_time or end_time
+            # is given.
+            # otherwise mask is all true
+            mask = np.ones_like(xs_p, dtype=bool)
+
+            if use_time_mask:
+                if start_time is not None:
+                    mask &= (xs_p >= start_time)
+                if end_time is not None:
+                    mask &= (xs_p <= end_time)
+
+
+            # plot
+            ax.plot(xs_p[mask], ys_p[mask], color=default_colors[i], label=os.path.basename(_dir_2d))
+        ax.set_xlabel("Time")
+        ax.set_xlim(left=start_time, right=end_time)
+        ax.set_ylim(bottom=0)
+        ax.set_ylabel("%s (%s)" % (plot_attr, str(units[j])))
+        ax.grid()
+        if j == 0:
+            ax.legend()
+
+
+    output_dir = os.path.join(dirs_2d[0], "img", "runtime_plots")
+    if is_process_second_stage:
+        output_dir = os.path.join(dirs_2d[0], "img_1", "runtime_plots")
+    if not os.path.isdir(output_dir):
+        os.mkdir(output_dir)
+
+    # save both png and pdf file
+    # save both png and pdf file
+    file_path = os.path.join(output_dir, "assembled.png")
+    fig.savefig(file_path)
+    print(f"Summary plots have been saved to: {file_path}")
+    file_path = os.path.join(output_dir, "assembled.pdf")
+    fig.savefig(file_path)
+    print(f"Summary plots have been saved to: {file_path}")
+
+
+    rcdefaults()
