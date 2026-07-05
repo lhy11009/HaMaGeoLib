@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --partition=skx         # Partition to submit the job
 #SBATCH -N 1                         # Number of nodes
-#SBATCH -ntasks-per-node=48
-#SBATCH --time=12:00:00              # Max execution time (24 hours)
+#SBATCH --ntasks-per-node=48
+#SBATCH --time=48:00:00              # Max execution time (24 hours)
 #SBATCH --mem=0
 #SBATCH --switches=1
 
