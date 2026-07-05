@@ -4,7 +4,7 @@ import time
 import math
 import pyvista as pv
 from matplotlib import pyplot as plt
-from matplotlib import gridspect
+from matplotlib import gridspec
 from scipy.interpolate import interp1d
 from scipy.spatial import cKDTree
 from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
@@ -1407,11 +1407,102 @@ def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
 
 
 # todo_pp
-def plot_run_time_combined(dirs_2d, Case_Options_2d_array,*,
-                           use_time_mask = True,
+def prepare_case_option_2d(_dir_2d, is_process_second_stage, *,
+                           prm_basename_2d="case.prm",
+                           wb_basename_2d = "case.wb",
+                           output_directory="output",
+                           second_stage_outputs="output_re"):
+
+    Case_Options_2d = None
+    summary_filename = None
+    if is_process_second_stage:
+        Case_Options_2d = CASE_OPTIONS_TWOD(_dir_2d, 
+                                          case_file=prm_basename_2d, 
+                                          wb_basename=wb_basename_2d, 
+                                          output_directory=second_stage_outputs,
+                                          pyvista_basename="pyvista_outputs_1",
+                                          image_directory="img_1")
+        summary_filename = "summary_1.csv"
+    else:
+        Case_Options_2d = CASE_OPTIONS_TWOD(_dir_2d,
+                                          case_file=prm_basename_2d, 
+                                          wb_basename=wb_basename_2d, 
+                                            output_directory=output_directory)
+        summary_filename = "summary.csv"
+
+    Case_Options_2d.Interpret()
+    Case_Options_2d.SummaryCaseVtuStep(os.path.join(_dir_2d, summary_filename))
+
+    return Case_Options_2d, summary_filename
+
+
+
+
+def plot_run_time_combined(dirs_2d, Case_Options_2d_array, *,
+                           use_time_mask=False,
                            start_time=None,
                            end_time=None,
                            is_process_second_stage=False):
+    """
+    Generate comparison plots of runtime statistics for multiple ASPECT cases.
+
+    This function compares selected runtime quantities from several simulation
+    cases on a common figure. Currently, it plots
+
+    - Time step number
+    - Corrected wall-clock time
+
+    as functions of model time. The data are interpolated onto a uniform
+    0.1 Myr time grid to facilitate direct comparison between simulations with
+    different output intervals.
+
+    Parameters
+    ----------
+    dirs_2d : list of str
+        List of directories containing the simulation results. The directory
+        names are also used as legend labels.
+
+    Case_Options_2d_array : list
+        List of ``Case_Options`` objects corresponding to ``dirs_2d``.
+        Each object must contain the attributes
+
+        - ``statistic_df`` (pandas.DataFrame)
+        - ``time_df`` (pandas.DataFrame)
+
+        with a common ``Time`` column.
+
+    use_time_mask : bool, optional
+        Whether to restrict the plotted time range using ``start_time`` and
+        ``end_time``. Default is ``False``.
+
+    start_time : float, optional
+        Beginning of the plotted time interval (model time, in years).
+        If ``None``, plotting starts from the beginning of the simulation.
+        Note that this and the end_time just limit the plot range, if not other wise be 
+        required by use_time_mask
+
+    end_time : float, optional
+        End of the plotted time interval (model time, in years).
+        If ``None``, plotting continues until the end of the simulation.
+
+    is_process_second_stage : bool, optional
+        If ``True``, save figures to the ``img_1/runtime_plots`` directory.
+        Otherwise, save them to ``img/runtime_plots``. Default is ``False``.
+
+    Notes
+    -----
+    - Runtime data are interpolated to a uniform spacing of 0.1 Myr before
+      plotting.
+    - Wall-clock time is converted from seconds to hours.
+    - Figures are saved in both PNG and PDF formats as
+      ``assembled.png`` and ``assembled.pdf``.
+    - Matplotlib plotting parameters are temporarily modified for publication-
+      quality output and restored to their defaults before returning.
+
+    Returns
+    -------
+    None
+    """
 
     import hamageolib.utils.plot_helper as plot_helper
     from matplotlib import rcdefaults
@@ -1514,5 +1605,6 @@ def plot_run_time_combined(dirs_2d, Case_Options_2d_array,*,
     fig.savefig(file_path)
     print(f"Summary plots have been saved to: {file_path}")
 
+    plt.close(fig)
 
     rcdefaults()
