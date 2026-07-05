@@ -13468,7 +13468,7 @@ opcrust: 1e+31, opharz: 1e+31", \
 
         # adjust world builder version
         if version >= 3.0:
-            self.wb_dict["version"] = "1.1"
+            self.wb_dict["version"] = "1.2"
 
         # geometry
         if geometry == 'chunk':
@@ -16626,7 +16626,7 @@ class CASE_THD(CASE):
                 raise ValueError("Geometry must by \"chunk\" or \"box\", get %s" % geometry)
         
         if version >= 3.0:
-            self.wb_dict["version"] = "1.1"
+            self.wb_dict["version"] = "1.2"
 
             i0 = FindWBFeatures(self.wb_dict, 'Slab')
             s_dict = self.wb_dict['features'][i0]

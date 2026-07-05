@@ -114,6 +114,10 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         (not np.isclose(variables["upper_crust_water_wt_percent"], 0.15, atol=1e-6)):
         case_name += "_UCwt%.2e" % variables["upper_crust_water_wt_percent"]
     
+    if use_all or "upper_crust_scaling_factor" in use_keys and \
+        (not np.isclose(variables["upper_crust_scaling_factor"], 1.0, atol=1e-6)):
+        case_name += "_UCf%.2e" % variables["upper_crust_scaling_factor"]
+    
     if use_all or "lower_crust_water_fugacity" in use_keys and \
         (not np.isclose(variables["lower_crust_water_fugacity"], 1.0, atol=1e-6)):
         case_name += "_LCwf%.2e" % variables["lower_crust_water_fugacity"]
@@ -1876,6 +1880,10 @@ class ContinentRule(Rule):
         water weight percent. The default value is 0.15 wt %. This value is used
         because the Gleason and Tullis 1995 reported value of 0.15 wt %.
 
+    upper_crust_scaling_factor
+        This factor will additionally weaken/strengthen the upper-crust rheology from experiment,
+        depending on value smaller/bigger than 1.0
+
     lower_crust_water_fugacity
         lower mantle water fugacity value. The default value is 1 MPa. This value is used 
         because the Rybachi et al., 2006 uses water fugacity in their flow law.
@@ -1884,7 +1892,8 @@ class ContinentRule(Rule):
                 "chapman_model_surface_heatflux", "fix_continent_rheology_prefactor", "continent_taper_length",
                 "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness", "continent_taper_sediment_thickness",
                 "fix_continent_rheology_with_phase_transition", "include_phase_transition", "PT_config_file",
-                "fix_surface_mesh_resolution", "upper_crust_water_wt_percent", "lower_crust_water_fugacity"]
+                "fix_surface_mesh_resolution", "upper_crust_water_wt_percent", "lower_crust_water_fugacity",
+                "upper_crust_scaling_factor"]
 
     defaults = {"add_continents": "none",\
                 "continent_depth_levels": [20e3, 40e3],\
@@ -1901,7 +1910,8 @@ class ContinentRule(Rule):
                     "PT_config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json",
                     "fix_surface_mesh_resolution": False,
                     "upper_crust_water_wt_percent": 0.15,
-                    "lower_crust_water_fugacity": 1.0}
+                    "lower_crust_water_fugacity": 1.0,
+                    "upper_crust_scaling_factor": 1.0}
 
     requires_comments = {"add_continents": "Whether to add continents in the model. This option could be \"none\", \"overriding\", \"subducting\", \"both\"",
                          "continent_depth_levels": "Depth levels of the boundary between compositions (e.g. between upper and lower crust, lower crust and mantle)",
@@ -1911,7 +1921,8 @@ class ContinentRule(Rule):
                             Hasterok and Chapman, 2011 paper",
                          "chapman_model_surface_heatflux": "Surface heat flux value used in the Chapman model",
                          "upper_crust_water_wt_percent": "Water weight percent to use with Gleason and Tullis 1995. The default value is 0.15 wt %.",
-                         "lower_crust_water_fugacity": "Lower mantle water fugacity value to be used with the Rybachi et al., 2006."
+                         "lower_crust_water_fugacity": "Lower mantle water fugacity value to be used with the Rybachi et al., 2006.",
+                         "upper_crust_scaling_factor": "Weaken/strengthen the upper-crust rheology from experiment, depending on value smaller/bigger than 1.0"
                          } 
     
     provides = ["continent_rheology"]
@@ -1961,6 +1972,7 @@ class ContinentRule(Rule):
         fix_surface_mesh_resolution = config["fix_surface_mesh_resolution"]
         upper_crust_water_wt_percent = config["upper_crust_water_wt_percent"]
         lower_crust_water_fugacity = config["lower_crust_water_fugacity"]
+        upper_crust_scaling_factor = config["upper_crust_scaling_factor"]
 
         # handle the overriding plate
         if config["add_continents"] == "both" or config["add_continents"] == "overriding":
@@ -2247,7 +2259,8 @@ class ContinentRule(Rule):
             diffusion_continent, dislocation_continent, plasticity_continent = get_continental_rheology(
                 fix_continent_rheology_prefactor=fix_continent_rheology_prefactor,
                 upper_crust_water_wt_percent=upper_crust_water_wt_percent,
-                lower_crust_water_fugacity=lower_crust_water_fugacity)
+                lower_crust_water_fugacity=lower_crust_water_fugacity,
+                upper_crust_scaling_factor=upper_crust_scaling_factor)
 
             # Read and parse existing material model entries
             density_dict = parse_composition_entry(prm_dict["Material model"]["Visco Plastic"]["Densities"])
@@ -2395,6 +2408,7 @@ def get_continental_rheology(*,
                              fix_continent_rheology_prefactor=False,
                              upper_crust_water_wt_percent=0.15,
                              lower_crust_water_fugacity=1,
+                             upper_crust_scaling_factor=1.0
                              ):
     """
     Return rheological parameters for continental upper and lower crust.
@@ -2452,6 +2466,10 @@ def get_continental_rheology(*,
         disl_dict["crust_upper"]["A"] = 8.57e-28
     else:
         disl_dict["crust_upper"]["A"] = 1.37e-26
+
+    # Apply the scaling factor:
+    # a value smaller than 1.0 will make the rheology weaker
+    disl_dict["crust_upper"]["A"] /= upper_crust_scaling_factor
 
     disl_dict["crust_upper"]["n"] = 4.0       # stress exponent
     disl_dict["crust_upper"]["E"] = 223.e3    # activation energy (J/mol)

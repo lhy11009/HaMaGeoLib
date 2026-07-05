@@ -1847,9 +1847,18 @@ def ParseToSlurmBatchFile(fout, outputs, **kwargs):
         contents += ("module unload %s\n" % module)
     for module in outputs["load"]:
         contents += ("module load %s\n" % module)
-    for source_file in outputs["source"]:
-        contents += ("source %s\n" % source_file)
+
     # source
+    # In case this option is not provided by outputs,
+    # just skip this part
+    try:
+        source_files = outputs["source"]
+    except KeyError:
+        pass
+    else:
+        for source_file in source_files:
+            contents += ("source %s\n" % source_file)
+
     # others
     for line in outputs['others']:
         contents += (line + '\n')

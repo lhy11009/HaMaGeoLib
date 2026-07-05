@@ -16,7 +16,7 @@
 #SBATCH --error=candi_%j.err   # Redirect standard error to file
 
 # Dealii and ASPECT DIR
-INSTALL_PREFIX=/work2/06806/hyli/stampede3/Softwares/dealii/deal.ii-9.7.0-Native-32bits-candi-intel-24.0-impi-21.11
+INSTALL_PREFIX=/work2/06806/hyli/stampede3/Softwares/dealii/deal.ii-9.7.0-Native-32bits-candi-intel-24.0-impi-21.11-20260409
 ASPECT_INSTALL_DIR="/work2/06806/hyli/stampede3/Softwares/aspect"
 
 # environment
