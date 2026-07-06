@@ -67,6 +67,7 @@ class CASE_OPTIONS(CODESUB):
                  image_directory="img",
                  output_directory="output",
                  pyvista_basename="pyvista_outputs",
+                 summary_filename="summary.csv",
                  pp_directory=None):
         """
         Initializes the CASE_OPTIONS class by setting up file paths, checking directories,
@@ -166,6 +167,8 @@ class CASE_OPTIONS(CODESUB):
         self.pyvista_dir = os.path.join(self.pp_dir, pyvista_basename)
         if not os.path.isdir(self.pyvista_dir):
             os.mkdir(self.pyvista_dir)
+        
+        self.summary_file = os.path.join(self.pp_dir, summary_filename)
         
 
         # Read visualization files

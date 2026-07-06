@@ -1455,11 +1455,6 @@ def prepare_case_option_2d(_dir_2d, is_process_second_stage, *,
     Case_Options_2d : CASE_OPTIONS_TWOD
         Initialized and interpreted case object.
 
-    summary_filename : str
-        Name of the generated VTU summary file. This is either
-        ``"summary.csv"`` or ``"summary_1.csv"``, depending on the value of
-        ``is_process_second_stage``.
-
     Notes
     -----
     This function calls
@@ -1468,9 +1463,8 @@ def prepare_case_option_2d(_dir_2d, is_process_second_stage, *,
     - ``SummaryCaseVtuStep()`` to generate a summary of available VTU output
       files for subsequent post-processing.
     """
-
+    # todo_pp
     Case_Options_2d = None
-    summary_filename = None
     if is_process_second_stage:
         Case_Options_2d = CASE_OPTIONS_TWOD(_dir_2d, 
                                           case_file=prm_basename_2d, 
@@ -1478,20 +1472,19 @@ def prepare_case_option_2d(_dir_2d, is_process_second_stage, *,
                                           output_directory=second_stage_outputs,
                                           pyvista_basename="pyvista_outputs_1",
                                           image_directory="img_1",
+                                          summary_filename="summary_1.csv",
                                           pp_directory=pp_directory)
-        summary_filename = "summary_1.csv"
     else:
         Case_Options_2d = CASE_OPTIONS_TWOD(_dir_2d,
                                           case_file=prm_basename_2d, 
                                           wb_basename=wb_basename_2d, 
                                           output_directory=output_directory,
                                           pp_directory=pp_directory)
-        summary_filename = "summary.csv"
 
     Case_Options_2d.Interpret()
-    Case_Options_2d.SummaryCaseVtuStep(os.path.join(_dir_2d, summary_filename))
+    Case_Options_2d.SummaryCaseVtuStep(Case_Options_2d.summary_file)
 
-    return Case_Options_2d, summary_filename
+    return Case_Options_2d
 
 
 
@@ -1663,3 +1656,54 @@ def plot_run_time_combined(dirs_2d, Case_Options_2d_array, *,
     plt.close(fig)
 
     rcdefaults()
+
+
+# todo_pp
+def process_all_vtu_steps(dir_2d, Case_Options_2d, *, 
+                          graphical_step_min=None,
+                          graphical_step_max=None,
+                          one_vtu_step=None,
+                          include_particles=False,
+                          include_topography=False,
+                          analyze_shortening=False):
+    """
+    This function handles post-processing requiring the vtu outputs
+    from the case.
+    options:
+        one_vtu_step - if this is present, only execute this one step
+    """
+
+    graphical_steps_np = Case_Options_2d.summary_df["Vtu step"].to_numpy()
+    graphical_steps = None
+    if one_vtu_step is not None:
+        graphical_steps = [one_vtu_step]
+    else:
+        # Start with all True and mask the range of steps
+        mask = np.ones(graphical_steps_np.shape, dtype=bool)
+    
+        if graphical_step_min is not None:
+            mask &= (graphical_steps_np > graphical_step_min)
+    
+        if graphical_step_max is not None:
+            mask &= (graphical_steps_np < graphical_step_max)
+        
+        graphical_steps = [int(step) for step in graphical_steps_np[mask]]
+    
+    
+    # Processing pyvista
+    for step in graphical_steps:
+    # while True: # debug
+        # step = 0 # debug
+    
+        pvtu_step = Case_Options_2d.get_pvtu_step(step)
+        outputs = ProcessVtuFileTwoDStep(dir_2d, pvtu_step, Case_Options_2d, 
+                                         include_particles=include_particles, 
+                                         include_topography=include_topography,
+                                         analyze_shortening=analyze_shortening)
+        # print("outputs: ", outputs) # debug
+    
+        for key, value in outputs.items():
+            Case_Options_2d.SummaryCaseVtuStepUpdateValue(key, step, value)
+        # break # debug
+    
+    Case_Options_2d.SummaryCaseVtuStepExport(Case_Options_2d.summary_file)

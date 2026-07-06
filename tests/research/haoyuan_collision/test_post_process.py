@@ -80,7 +80,9 @@ def test_extract_topography_from_pyvista_2d():
 def test_main_postprocess_workflow():
     '''
     Test the main workflow for post-processing the collision0 project.
-    Now only works for 2-d cases
+    Now only works for 2-d cases.
+    Note the idea of this test is to check the workflow and see to it
+    the files are generated, but not to check the contents of the files.
     '''
     
     source_case_path = big_fixture_root/"D2000_minV2.5e+19_Coh1.0e+02_WLS_WLF2.0e-02_WLM2.5e+19_CTboth_SL2.00e+06_Cn_PTr"
@@ -94,8 +96,8 @@ def test_main_postprocess_workflow():
     # Prepare case options
     # The second option of the function is is_process_second_stage, this is not needed
     # if not processing a dual-stage model 
-    Case_Options_2d, summary_filename = prepare_case_option_2d(source_case_path, False,
-                                                               pp_directory=pp_directory)
+    Case_Options_2d = prepare_case_option_2d(source_case_path, False,
+                                            pp_directory=pp_directory)
 
     # Plot run time information
     # Note these "combined" functions are designed to address multiple cases
@@ -106,3 +108,16 @@ def test_main_postprocess_workflow():
     run_time_image_path = os.path.join(pp_directory, "img", "runtime_plots", "assembled.png")
 
     assert(os.path.isfile(run_time_image_path))
+
+    # Post-processing the results involving vtu files
+    # For this test, we just run the processing of one step
+    process_all_vtu_steps(source_case_path, Case_Options_2d,
+                          graphical_step_min=None,
+                          graphical_step_max=None,
+                          one_vtu_step=350,
+                          include_particles=False,
+                          include_topography=False,
+                          analyze_shortening=False)
+    
+    final_vtu_file_path = os.path.join(pp_directory, "pyvista_outputs", "00350", "final_00350.vtu")
+    assert(os.path.isfile(final_vtu_file_path))
