@@ -762,6 +762,10 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         print("\ttakes %.1f s" % (end - start))
 
         return outputs
+    
+    # todo_pin
+    def pin_vertical_profiles(self):
+        pass
 
     def extract_additionals(self, *,
                       upper_lower_plate=True,
