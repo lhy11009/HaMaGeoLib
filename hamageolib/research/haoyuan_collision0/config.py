@@ -131,6 +131,11 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "customize_corner" in use_keys:
         if variables["customize_corner"]:
             case_name += "_Cn"
+    
+    if use_all or "customize_corner_width" in use_keys:
+        if variables["customize_corner"]:
+            if (not np.isclose(variables["customize_corner_width"], 600e3, atol=1e-6)):
+                case_name += "_Cw%.1e" % variables["customize_corner_width"]
 
     # Phase transition
     if use_all or "include_phase_transition" in use_keys:

@@ -1463,7 +1463,6 @@ def prepare_case_option_2d(_dir_2d, is_process_second_stage, *,
     - ``SummaryCaseVtuStep()`` to generate a summary of available VTU output
       files for subsequent post-processing.
     """
-    # todo_pp
     Case_Options_2d = None
     if is_process_second_stage:
         Case_Options_2d = CASE_OPTIONS_TWOD(_dir_2d, 
@@ -1658,7 +1657,6 @@ def plot_run_time_combined(dirs_2d, Case_Options_2d_array, *,
     rcdefaults()
 
 
-# todo_pp
 def process_all_vtu_steps(dir_2d, Case_Options_2d, *, 
                           graphical_step_min=None,
                           graphical_step_max=None,
@@ -1667,10 +1665,59 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
                           include_topography=False,
                           analyze_shortening=False):
     """
-    This function handles post-processing requiring the vtu outputs
-    from the case.
-    options:
-        one_vtu_step - if this is present, only execute this one step
+    Process VTU outputs for one or more graphical output steps.
+
+    This function performs PyVista-based post-processing on selected VTU
+    output files from a simulation. For each graphical output step, it
+    processes the corresponding PVTU file, extracts the requested
+    post-processing quantities, updates the case summary table, and writes
+    the updated summary file to disk.
+
+    Parameters
+    ----------
+    dir_2d : str
+        Path to the simulation case directory.
+
+    Case_Options_2d : CASE_OPTIONS_TWOD
+        Initialized case object containing simulation metadata and the VTU
+        summary table.
+
+    graphical_step_min : int, optional
+        Process only graphical output steps greater than this value.
+
+    graphical_step_max : int, optional
+        Process only graphical output steps less than this value.
+
+    one_vtu_step : int, optional
+        If specified, process only this graphical output step. When provided,
+        ``graphical_step_min`` and ``graphical_step_max`` are ignored.
+
+    include_particles : bool, optional
+        Whether to load and process particle data associated with each VTU
+        output. Default is ``False``.
+
+    include_topography : bool, optional
+        Whether to extract and analyze surface topography. Default is
+        ``False``.
+
+    analyze_shortening : bool, optional
+        Whether to compute crustal shortening and related diagnostics.
+        Default is ``False``.
+
+    Notes
+    -----
+    The function performs the following steps:
+
+    1. Select the graphical output steps to process.
+    2. Determine the corresponding PVTU file for each step.
+    3. Call ``ProcessVtuFileTwoDStep()`` to perform the requested analyses.
+    4. Update the summary table with the returned quantities.
+    5. Export the updated summary table to
+       ``Case_Options_2d.summary_file``.
+
+    Returns
+    -------
+    None
     """
 
     graphical_steps_np = Case_Options_2d.summary_df["Vtu step"].to_numpy()
@@ -1707,3 +1754,5 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
         # break # debug
     
     Case_Options_2d.SummaryCaseVtuStepExport(Case_Options_2d.summary_file)
+
+# todo_topo
