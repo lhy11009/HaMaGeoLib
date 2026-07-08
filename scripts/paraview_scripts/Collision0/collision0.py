@@ -103,6 +103,18 @@ def set_pin_line_plot(sourceDisplay):
     return field, fieldLUT
 
 
+# todo_pin
+def set_active_deforming_plot(sourceDisplay):
+    '''
+    set the active deforming plot
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    ColorBy(sourceDisplay, None)
+    sourceDisplay.DiffuseColor = [36/255.0, 0/255.0, 107/255.0] # 24006b
+    sourceDisplay.Opacity = 0.5
+
+
 def set_data_axes_grid(renderView1):
     '''
     toggle the data axes for display geologic domain
@@ -169,7 +181,14 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times):
             XMLPolyDataReader(registrationName='pin_lines-%05d' % snapshot, FileName=[filein])
             add_threshold_by_field('pin_lines-%05d' % snapshot, "local_length", [0.0, 20e3], registrationName="pin_lines_threshold1")
 
+            # todo_pin
+            # Add the active deforming region. Ultimately this is from a percentile of strain rate
+            if source_has_field('solution-%05d' % snapshot, "active_deforming"):
+                add_threshold_by_field('solution-%05d' % snapshot, "active_deforming", [0.8, 1.0], registrationName="solution_active_deforming_threshold1")
+
+        # Main workflow of plotting
         plot_twod_basic("solution-%05d" % snapshot, _time, pv_output_dir)
+
 
 def plot_twod_basic(source_name, _time, pv_output_dir):
         
@@ -371,6 +390,13 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
             source_pin = possible_lookup_source("pin_lines_threshold1")
             sourceDisplayPin = Show(source_pin, renderView1, 'GeometryRepresentation')
             set_pin_line_plot(sourceDisplayPin)
+
+            # todo_pin 
+            # turn on the active deforming region if the "active_deforming" field exists
+            if source_has_field(_source, "active_deforming"):
+                source_ad = possible_lookup_source("solution_active_deforming_threshold1")
+                sourceDisplayAd = Show(source_ad, renderView1, 'GeometryRepresentation')
+                set_active_deforming_plot(sourceDisplayAd)
 
 
     fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_%s_t%.4e.pdf" % (current_field, _time))

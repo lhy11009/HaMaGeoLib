@@ -764,8 +764,108 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         return outputs
     
     # todo_pin
-    def record_active_deformation(self):
-        pass
+    def get_active_deforming_region_near_suture(self, percentile, *,
+        depth_bin=10e3,
+        x_half_dist=500e3,
+        max_depth=None):
+        """
+        Identify active deforming regions based on the percentile of
+        log10(strain_rate) within each depth bin.
+    
+        The threshold for each depth bin is computed from the specified
+        x-range and then applied to the entire depth bin.
+    
+        Parameters
+        ----------
+        percentile : float
+            Percentile (0-100) used to define the threshold.
+        depth_bin : float, optional
+            Thickness of depth bins in meters. Default is 10 km.
+        x_half_dist : float, optional
+            Determine the region to inspect, relative to the suture point
+        max_depth : float, optional
+            Maximum depth (m) to analyze.
+            If None, use the deepest point in the dataset.
+    
+        Returns
+        -------
+        active_mask : ndarray of bool
+            Boolean mask identifying active deforming regions.
+        """
+        my_assert(
+            (self.suture_profile_x is not None) and (self.suture_profile_depths is not None),
+            PYVISTA_PROCESS_WORKFLOW_ERROR,
+            "Needs to first process suture position")
+
+        start = time.time()
+
+        # Get the coordinates.
+        # Also parse option of x range, relative to suture position
+        x = self.grid.points[:, 0]
+        y = self.grid.points[:, 1]
+        
+        suture_shallow_x = self.suture_profile_x[0]
+        x_range = [suture_shallow_x - x_half_dist, suture_shallow_x + x_half_dist]
+        
+        # Depth below the local surface
+        # Also parse option of depth and create edges of bins
+        surface_y = self.Max0 + self.topography_func(x / self.Max0)
+    
+        depth = surface_y - y
+    
+        if max_depth is None:
+            max_depth = depth.max()
+        
+        depth_edges = np.arange(0.0, max_depth + depth_bin, depth_bin)
+
+        # Get the strain rate field
+        # Also derive a valid mask for positive values
+        strain_rate = self.grid["strain_rate"]
+    
+        valid = (strain_rate > 0.0)
+
+        # Initate the active_mask as all False
+        active_mask = np.zeros(strain_rate.shape, dtype=bool)
+    
+        # For each depth bin wrapped by edges:
+        # Look for a percentile for threshold of log values
+        # Then select strain rate beyond this percentile
+        for d0, d1 in zip(depth_edges[:-1], depth_edges[1:]):
+    
+            # Region used to compute the threshold
+            sample = (
+                valid &
+                (x >= x_range[0]) &
+                (x <= x_range[1]) &
+                (depth >= d0) &
+                (depth < d1)
+            )
+    
+            if np.count_nonzero(sample) == 0:
+                continue
+    
+            log_threshold = np.percentile(
+                np.log10(strain_rate[sample]),
+                percentile
+            )
+    
+            # Apply threshold to the entire depth interval
+            apply = (
+                valid &
+                (depth >= d0) &
+                (depth < d1)
+            )
+    
+            active_mask[apply] = (
+                np.log10(strain_rate[apply]) > log_threshold
+            )
+    
+        self.grid["active_deforming"] = active_mask.astype(np.uint8)
+
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+        print("\ttakes %.1f s" % (end - start))
+    
 
     def pin_vertical_profiles(self,
                               pin_dist_x=10e3,
@@ -1141,7 +1241,8 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
                            pyvista_outdir=None,
                            include_particles=False,
                            include_topography=False,
-                           analyze_shortening=False):
+                           analyze_shortening=False,
+                           analyze_deformation=False):
     '''
     Process with pyvsita for a single step
     Inputs:
@@ -1229,6 +1330,15 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
         # analyze shortening by bins
         outputs_foo = ProcessCollision.analyze_shortening_by_bin()
         outputs.update(**outputs_foo)
+
+    # analyze deforming region by percentile (first entry, e.g. 95)
+    # near the suture by half-distance
+    # todo_pin
+    if analyze_deformation:
+        ProcessCollision.get_active_deforming_region_near_suture(95,
+        depth_bin=10e3,
+        x_half_dist=500e3,
+        max_depth=100e3)
     
     # write final output
     ProcessCollision.write_object_to_file(ProcessCollision.grid, "final", "vtu")
@@ -1811,7 +1921,8 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
                           one_vtu_step=None,
                           include_particles=False,
                           include_topography=False,
-                          analyze_shortening=False):
+                          analyze_shortening=False,
+                          analyze_deformation=False):
     """
     Process VTU outputs for one or more graphical output steps.
 
@@ -1894,7 +2005,8 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
         outputs = ProcessVtuFileTwoDStep(dir_2d, pvtu_step, Case_Options_2d, 
                                          include_particles=include_particles, 
                                          include_topography=include_topography,
-                                         analyze_shortening=analyze_shortening)
+                                         analyze_shortening=analyze_shortening,
+                                         analyze_deformation=analyze_deformation)
         # print("outputs: ", outputs) # debug
     
         for key, value in outputs.items():

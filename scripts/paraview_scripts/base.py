@@ -776,3 +776,42 @@ def color_preset_exists(name):
             return True
 
     return False
+
+
+# todo_pin
+def source_has_field(source_i, field_name, association="Point Data"):
+    """
+    Check whether a ParaView source has a given data array.
+
+    Parameters
+    ----------
+    source : Proxy or str
+        ParaView source/filter or name of source
+    field_name : str
+        Name of the array to search for.
+    association : str, optional
+        One of:
+            "Point Data"
+            "Cell Data"
+            "Field Data"
+        Default is "Point Data".
+
+    Returns
+    -------
+    bool
+        True if the array exists, False otherwise.
+    """
+    source = possible_lookup_source(source_i)
+
+    data = servermanager.Fetch(source)
+
+    if association == "Point Data":
+        arrays = data.GetPointData()
+    elif association == "Cell Data":
+        arrays = data.GetCellData()
+    elif association == "Field Data":
+        arrays = data.GetFieldData()
+    else:
+        raise ValueError(f"Unknown association: {association}")
+
+    return arrays.HasArray(field_name) == 1
