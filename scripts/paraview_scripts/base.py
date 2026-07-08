@@ -37,8 +37,11 @@ class PARAVIEW_PLOT():
         # import xmls
         PV_INTERFACE_PATH = os.environ["PV_INTERFACE_PATH"]
         if PV_INTERFACE_PATH != "" and os.path.isdir(PV_INTERFACE_PATH):
-            print("import files under: %s" % PV_INTERFACE_PATH)
-            import_xmls(PV_INTERFACE_PATH)
+            if not color_preset_exists("SCM_roma"):
+                print("import files under: %s" % PV_INTERFACE_PATH)
+                import_xmls(PV_INTERFACE_PATH)
+            else:
+                print("preset exists, skip importing color xml files.")
 
         # get variables
         project = kwargs.get("project", "ThDSubduction")
@@ -131,7 +134,7 @@ def import_xmls(_dir, **kwargs):
             # depending on the version of SCM, there will be slightly different
             # file format
             # if filename.endswith("PARAVIEW.xml"):
-            if filename.endswith("*.ct"):
+            if filename.endswith("ct"):
                 filepath = os.path.join(subdir, filename)
                 if debug:
                     print("Find filepath: ", filepath)  # debug
@@ -268,6 +271,58 @@ def add_isovolume(solutionpvd, field, thresholds, **kwargs):
     renderView1.Update()
     Hide(isoVolume1, renderView1)
     return isoVolume1, isoVolume1Display, renderView1
+
+
+def add_threshold_by_field(source_in, field, threshold, *, 
+                           association="POINTS",
+                           registrationName=None):
+    """
+    Create a Threshold filter on a field.
+
+    Parameters
+    ----------
+    source_in : Proxy or source name
+        Input source/filter.
+    field : str
+        Name of the scalar field.
+    threshold : sequence of length 2
+        [lower, upper] threshold values.
+    association : {"POINTS", "CELLS"}, optional
+        Whether the field is point or cell data.
+
+    Returns
+    -------
+    Threshold
+        The Threshold filter.
+    """
+
+    if (type(threshold) != list):
+        raise ValueError(
+            "threshold must be a list"
+        )
+
+    if (len(threshold) != 2):
+        raise ValueError(
+            "threshold must be a sequence of length 2: [lower, upper]"
+        )
+    
+    if threshold[0] > threshold[1]:
+        raise ValueError(
+            "threshold[0] must be <= threshold[1]"
+        )
+    
+    source = possible_lookup_source(source_in)
+
+    kwargs = {"Input": source}
+    if registrationName is not None:
+        kwargs["registrationName"] = registrationName
+
+    threshold_filter = Threshold(**kwargs)
+    threshold_filter.Scalars = [association, field]
+    threshold_filter.LowerThreshold = threshold[0]
+    threshold_filter.UpperThreshold = threshold[1]
+
+    return threshold_filter
 
 
 def add_glyph(_source, field, scalefactor, nsample, **kwargs):
@@ -674,3 +729,50 @@ def hide_all_colorbars(view=None):
                 disp.SetScalarBarVisibility(view, False)
             except Exception:
                 pass
+
+
+def possible_lookup_source(source):
+    """
+    Return a ParaView source proxy.
+
+    Parameters
+    ----------
+    source : str or Proxy
+        If a string, look up the corresponding source by its
+        registered name. Otherwise, assume it is already a
+        ParaView proxy and return it unchanged.
+
+    Returns
+    -------
+    Proxy
+        The ParaView source proxy.
+    """
+    if isinstance(source, str):
+        proxy = FindSource(source)
+        if proxy is None:
+            raise ValueError(f"No source named '{source}' found.")
+        return proxy
+
+    return source
+
+
+def color_preset_exists(name):
+    '''
+    Check whether a color set already exist
+
+    Parameters
+    ----------
+    name: str
+        Name of the color set
+    Returns
+        a bool value indicating whether this color exists or not
+    ----------
+    '''
+
+    presets = servermanager.vtkSMTransferFunctionPresets()
+
+    for i in range(presets.GetNumberOfPresets()):
+        if presets.GetPresetName(i) == name:
+            return True
+
+    return False

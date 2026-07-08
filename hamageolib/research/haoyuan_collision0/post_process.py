@@ -764,8 +764,148 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         return outputs
     
     # todo_pin
-    def pin_vertical_profiles(self):
+    def record_active_deformation(self):
         pass
+
+    def pin_vertical_profiles(self,
+                              pin_dist_x=10e3,
+                              pin_dist_y=2e3,
+                              pin_max_depth=30e3):
+
+        # This requires that particles are included
+        # and that the topography is first processed.
+        assert(self.include_particles)
+        my_assert((self.topography_func is not None), PYVISTA_PROCESS_WORKFLOW_ERROR,
+                  "%s requires the topography function, the particle results and the suture profile" % func_name())
+        
+        start = time.time()
+
+        # Current particle positions and
+        # Initial particle positions
+        points = self.particles.points
+        x_p = points[:, 0]
+        y_p = points[:, 1]
+
+        try:
+            initial_position = self.particles["initial position"]
+        except KeyError:
+            raise RuntimeError("Particle field 'initial position' is not available.")
+
+        initial_X = initial_position[:, 0]
+        initial_Y = initial_position[:, 1]
+
+        # Create pin grid
+        pin_x = np.arange(0.0, self.Max2 + pin_dist_x, pin_dist_x)
+
+        pin_y_max = self.Max0 + self.topography_func(pin_x/self.Max0)
+        pin_depth = np.arange(0.0, pin_max_depth+pin_dist_y, pin_dist_y)
+
+        # pin_X, pin_Y = np.meshgrid(pin_x, pin_y, indexing="xy")
+        # Create the pin grid
+        pin_X = np.tile(pin_x, (len(pin_depth), 1))
+        pin_Y = pin_y_max[None, :] - pin_depth[:, None]
+
+        pin_points = np.column_stack((
+            pin_X.ravel(),
+            pin_Y.ravel()
+        ))
+
+        # Build KD-tree using initial particle positions
+        tree = cKDTree(np.column_stack((initial_X, initial_Y)))
+
+        # Find nearest particle for every pin
+        # and Reshape to match the pin grid
+        pin_distance, pin_particle_idx = tree.query(pin_points)
+
+        pin_particle_idx = pin_particle_idx.reshape(pin_X.shape)
+        pin_distance = pin_distance.reshape(pin_X.shape)
+
+
+        # Pinned points: Current locations 
+        # and Initial locations (for reference)
+        pin_current_X = x_p[pin_particle_idx]
+        pin_current_Y = y_p[pin_particle_idx]
+
+        pin_initial_X = initial_X[pin_particle_idx]
+        pin_initial_Y = initial_Y[pin_particle_idx]
+
+        # Connect pinned points into lines at every
+        # x position, and stored in a pyvista object
+        n_depth, n_x = pin_particle_idx.shape
+
+        profiles = []
+        profile_lengths = []
+        local_lengths = []
+
+        for j in range(n_x):
+
+            # Current coordinates of this profile
+            pts = np.column_stack((
+                pin_current_X[:, j],
+                pin_current_Y[:, j],
+                np.zeros(n_depth)
+            ))
+
+            # Compute total profile length
+            segment_lengths = np.linalg.norm(
+                np.diff(pts, axis=0),
+                axis=1
+            )
+            profile_length = segment_lengths.sum()
+            profile_lengths.append(profile_length)
+
+            # Local length record the distance of a
+            # point on the profile to the next and ends
+            # with 0.0 for the deepest point.
+            local_length = np.append(segment_lengths, 0.0)
+            local_lengths.append(local_length)
+
+            # Create a polyline
+            poly = pv.lines_from_points(pts)
+
+            my_assert(pts.shape[0] == poly.n_points, ValueError, 
+                      "pts.shape[0] is %d, while poly.n_points is %d" % (pts.shape[0], poly.n_points))
+
+            profiles.append(poly)
+
+
+        pin_lines = pv.merge(profiles, merge_points=False) 
+
+        # Add proflie length, and local length to pin_lines
+        profile_lengths_point = np.repeat(profile_lengths, n_depth)
+
+        pin_lines["profile_length"] = profile_lengths_point
+
+        pin_lines["local_length"] = np.concatenate(local_lengths)
+
+        # Add current depth to pin_lines
+        pin_y_max = self.Max0 + self.topography_func(pin_x / self.Max0)
+
+        current_surface_y = np.repeat(pin_y_max, n_depth)
+
+        current_depth = current_surface_y - pin_current_Y.ravel(order="F")
+
+        pin_lines["depth"] = current_depth
+        
+        # Add initial depth to pin_lines
+        initial_y_max = np.full(pin_x.shape, self.Max0)
+
+        iniital_surface_y = np.repeat(initial_y_max, n_depth)
+
+        initial_depth = iniital_surface_y - pin_initial_Y.ravel(order="F")
+
+        pin_lines["initial_depth"] = initial_depth
+
+        # output pyvista object
+        filename = "%s_%05d.vtp" % ("pin_lines", self.pvtu_step)
+        filepath = os.path.join(self.pyvista_outdir, filename)
+        pin_lines.save(filepath)
+        
+        print("%ssaved file %s" % (4*" ", filepath))
+
+        end = time.time()
+        print("\tPYVISTA_PROCESS_THD: %s" % func_name())
+        print("\ttakes %.1f s" % (end - start))
 
     def extract_additionals(self, *,
                       upper_lower_plate=True,
@@ -1082,7 +1222,11 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     if analyze_shortening:
         my_assert (include_topography and include_particles, PYVISTA_PROCESS_WORKFLOW_ERROR, 
                    "To perform analyze_shortening, include_topography and include_particles must be true")
-        # ProcessCollision.analyze_shortening_by_cell()
+
+        # pin vertial profiles
+        ProcessCollision.pin_vertical_profiles()
+
+        # analyze shortening by bins
         outputs_foo = ProcessCollision.analyze_shortening_by_bin()
         outputs.update(**outputs_foo)
     

@@ -88,6 +88,21 @@ def set_density_colorbar(renderView, fieldLUT):
     return scalarBar
 
 
+def set_pin_line_plot(sourceDisplay):
+    '''
+    set the pin line plot
+    Inputs:
+        sourceDisplay - source of the display (renderview)
+    '''
+    field = "initial_depth"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 0.0, 40e3)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("SCM_grayC", True)
+    fieldLUT.InvertTransferFunction()
+    return field, fieldLUT
+
+
 def set_data_axes_grid(renderView1):
     '''
     toggle the data axes for display geologic domain
@@ -140,6 +155,19 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times):
         else:
             filein = os.path.join(visualization_dir, "solution-%05d.pvtu" %snapshot) 
             XMLPartitionedUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
+
+        # Additional sources to load
+        # These include a suture profile
+        # Profiles of the pinned points
+        if FOO01:
+            # Add the suture profile
+            filein = os.path.join("PYVISTA_DIRECTORY", "%05d/suture_%05d.vtp" % (snapshot, snapshot)) 
+            XMLPolyDataReader(registrationName='suture-%05d' % snapshot, FileName=[filein])
+
+            # Add the pin lines and create a threshold based on the "local length"
+            filein = os.path.join("PYVISTA_DIRECTORY", "%05d/pin_lines_%05d.vtp" % (snapshot, snapshot)) 
+            XMLPolyDataReader(registrationName='pin_lines-%05d' % snapshot, FileName=[filein])
+            add_threshold_by_field('pin_lines-%05d' % snapshot, "local_length", [0.0, 20e3], registrationName="pin_lines_threshold1")
 
         plot_twod_basic("solution-%05d" % snapshot, _time, pv_output_dir)
 
@@ -337,6 +365,14 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         sourceDisplay.SetScalarBarVisibility(renderView1, False)
         renderView1.OrientationAxesVisibility = 0
 
+        # additional inputs when particles are included
+        if FOO01:
+            # turn on the pin lines
+            source_pin = possible_lookup_source("pin_lines_threshold1")
+            sourceDisplayPin = Show(source_pin, renderView1, 'GeometryRepresentation')
+            set_pin_line_plot(sourceDisplayPin)
+
+
     fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_%s_t%.4e.pdf" % (current_field, _time))
     fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_%s_t%.4e.png" % (current_field, _time))
     SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
@@ -434,8 +470,11 @@ output.GetPointData().AddArray(vtk_arr)
 # and needs to be loaded manually.
 PV_INTERFACE_PATH = os.environ["PV_INTERFACE_PATH"]
 if PV_INTERFACE_PATH != "" and os.path.isdir(PV_INTERFACE_PATH):
-    print("import files under: %s" % PV_INTERFACE_PATH)
-    import_xmls(PV_INTERFACE_PATH)
+    if not color_preset_exists("SCM_roma"):
+        print("import files under: %s" % PV_INTERFACE_PATH)
+        import_xmls(PV_INTERFACE_PATH)
+    else:
+        print("preset exists, skip importing color xml files.")
 
 # check consistency in setup
 if "PLOT_TYPE" == "orogen":
