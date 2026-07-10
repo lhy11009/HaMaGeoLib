@@ -5,7 +5,7 @@ import math
 import pyvista as pv
 from matplotlib import pyplot as plt
 from matplotlib import gridspec
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, NearestNDInterpolator
 from scipy.spatial import cKDTree
 from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
 from hamageolib.utils.exception_handler import my_assert
@@ -763,7 +763,6 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         return outputs
     
-    # todo_pin
     def get_active_deforming_region_near_suture(self, percentile, *,
         depth_bin=10e3,
         x_half_dist=500e3,
@@ -1003,9 +1002,50 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         
         print("%ssaved file %s" % (4*" ", filepath))
 
+        # Interpolate back the value of profile length to each grid point
+        interp = NearestNDInterpolator(
+            np.column_stack((pin_current_X.ravel(order="F"), pin_current_Y.ravel(order="F"))),
+            profile_lengths_point)
+        
+        profile_length_interp = interp(
+            self.grid.points[:, 0],
+            self.grid.points[:, 1]
+        )
+
+        self.grid["pin_profile_length"] = profile_length_interp
+
         end = time.time()
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
+
+    # todo_pin
+    def get_accreted_region(self, *,
+                            profile_length_threshold=80e3,
+                            sp_composition_threshold=0.5,
+                            depth_threshold=40e3):
+        """
+        Get the accreted_region
+        """
+
+        assert(self.include_particles)
+        my_assert((self.topography_func is not None), PYVISTA_PROCESS_WORKFLOW_ERROR,
+                  "%s requires the topography function, the particle results and the suture profile" % func_name())
+
+        # get depth at points 
+        points = self.grid.points
+        x_p = points[:, 0]
+        y_p = points[:, 1]
+
+        depth_p = self.Max0 + self.topography_func(x_p/self.Max0) - y_p
+
+        # create mask bese on value of pined profile length, total subduction composition
+        # and depth of points
+        accreted_mask = (self.grid["pin_profile_length"] > profile_length_threshold) & \
+        (self.grid["sp_total"] > sp_composition_threshold) & \
+        (depth_p < depth_threshold)
+        
+        self.grid["accreted"] = accreted_mask.astype(np.uint8)
+
 
     def extract_additionals(self, *,
                       upper_lower_plate=True,
@@ -1327,13 +1367,15 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
         # pin vertial profiles
         ProcessCollision.pin_vertical_profiles()
 
+        # get accreted region
+        ProcessCollision.get_accreted_region()       
+
         # analyze shortening by bins
         outputs_foo = ProcessCollision.analyze_shortening_by_bin()
         outputs.update(**outputs_foo)
 
     # analyze deforming region by percentile (first entry, e.g. 95)
     # near the suture by half-distance
-    # todo_pin
     if analyze_deformation:
         ProcessCollision.get_active_deforming_region_near_suture(95,
         depth_bin=10e3,

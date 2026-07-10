@@ -158,6 +158,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "include_fastscape" in use_keys:
         if variables["include_fastscape"]:
             case_name += "_FS"
+            if use_all or "customize_no_incision_width" in use_keys:
+                if variables["customize_no_incision_width"] > 0:
+                    case_name += "_Nw%.2e" % variables["customize_no_incision_width"]
 
     if use_all or "do_topography_test" in use_keys:
         if variables["do_topography_test"]:
@@ -170,6 +173,7 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if use_all or "customize_corner_temperature_fix" in use_keys:
         if variables["customize_corner_temperature_fix"]:
             case_name += "_CTF"
+    
         
 
     return case_name
@@ -3172,7 +3176,8 @@ class FastScapeRule(Rule):
 
     requires = ["include_fastscape", "topography_continent", "topography_ocean", "include_initial_topography",
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
-                "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent"]
+                "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
+                "customize_no_incision_width"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3185,8 +3190,11 @@ class FastScapeRule(Rule):
         "bedrock_river_incision_rate": 0.0,
         "slope_exponent": 1.0,
         "bedrock_deposition_coefficient": 1.0,
-        "multi_direction_slope_exponent": -1.0
+        "multi_direction_slope_exponent": -1.0,
+        "customize_no_incision_width": 0.0
     }
+
+    requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate"}
     
     def apply(self, config, prm_dict, wb_dict, context):
 
@@ -3201,6 +3209,7 @@ class FastScapeRule(Rule):
         bedrock_deposition_coefficient = config["bedrock_deposition_coefficient"]
         multi_direction_slope_exponent = config["multi_direction_slope_exponent"]
         slope_exponent = config["slope_exponent"]
+        customize_no_incision_width = config["customize_no_incision_width"]
 
         
         if include_fastscape:
@@ -3225,6 +3234,16 @@ class FastScapeRule(Rule):
                 "Bedrock deposition coefficient": str(bedrock_deposition_coefficient),
                 "Multi-direction slope exponent": str(multi_direction_slope_exponent)
             }
+
+            # todo_incision 
+            if (customize_no_incision_width > 0.0):
+                fastscape_dict["Erosional parameters"]["Use kf distribution function"] = "true"
+                fastscape_dict["Erosional parameters"].pop("Bedrock river incision rate")
+                fastscape_dict["Erosional parameters"]["kf distribution function"] = {
+                    "Variable names": "x, y",
+                    "Function constants": "width = %de3, xmax = %de3" % (customize_no_incision_width/1e3, context["domain_length"]/1e3),
+                    "Function expression": "(((x > width) && (x < xmax - width))? %.2e: 0.0)" % bedrock_river_incision_rate
+                }
 
             prm_dict["Mesh deformation"]["Mesh deformation boundary indicators"] = "top : fastscape"
             prm_dict["Mesh deformation"].pop("Free surface")
@@ -3349,3 +3368,5 @@ class FastScapeRule(Rule):
                                 temperature_model["max depth"] -= topography_continent
                             except KeyError:
                                 pass
+        
+            
