@@ -13450,6 +13450,10 @@ opcrust: 1e+31, opharz: 1e+31", \
             o_dict['Postprocess']["List of postprocessors"] += ', heat flux map'
             o_dict['Postprocess']["Visualization"]["List of output variables"] += ', heat flux map'
             o_dict['Postprocess']["Visualization"]["Heat flux map"] = {"Output point wise heat flux": "true"}
+        
+        # version-dependent setup
+        if version >= 4.0:
+            modify_prm_version_four(o_dict, dimension=2)
             
     def configure_wb(self, if_wb, geometry, potential_T, sp_age_trench, sp_rate, ov_ag,\
         if_ov_trans, ov_trans_age, ov_trans_length, is_box_longer, Dsz, wb_new_ridge, version,\
@@ -16422,6 +16426,7 @@ class CASE_THD(CASE):
         else:
             raise ValueError("stokes_solver_type must be in [block AMG, block GMG].")
 
+
         # Assign a looser solver scheme
         if use_loose_solver_scheme:
             o_dict["Max nonlinear iterations"] = "40"
@@ -16468,6 +16473,9 @@ class CASE_THD(CASE):
                 particle_visualization_options = {"Data output format": "vtu", "Time between data output": "0.1e6"}
                 o_dict["Particles"] = particle_options
                 o_dict["Postprocess"]["Particles"] = particle_visualization_options
+
+        if version >= 4.0:
+            modify_prm_version_four(o_dict, dimension=3)
 
         # metastable related features
         if include_meta:
@@ -20086,3 +20094,58 @@ def get_name_appendix(options, value):
     elif value < 1.0:
         num_str = "%.2e" % (value * scale)
     return key + num_str
+
+def modify_prm_version_four(o_dict, *,
+                            dimension=2):
+    """
+    modify parameter for cases with version newer than 4.0
+    For this version:
+        remove the old "Use years in output instead of seconds", this changed to a new name and
+        the default is true;
+        remove the newton solver section as we don't use that
+        use the "auto" option for "Resume computation";
+        change the "Skip expensive stokes solver" to the new "Linear solver failure strategy";
+        change the old "Prescribed temperatures" to the new "Prescribed solution"
+    """
+    try:
+        o_dict.pop("Use years in output instead of seconds")
+    except KeyError:
+        pass
+
+    o_dict["Resume computation"] = "auto"
+
+    try:
+        o_dict['Solver parameters'].pop("Newton solver parameters")
+    except KeyError:
+        pass
+
+    try:
+        o_dict['Solver parameters']["Stokes solver parameters"].pop("Skip expensive stokes solver")
+    except KeyError:
+        pass
+    o_dict["Nonlinear solver failure strategy"] = "continue with next timestep"
+    o_dict["Linear solver failure strategy"] = "continue with nonlinear solver"
+    o_dict['Solver parameters']["Stokes solver parameters"]["Maximum number of expensive Stokes solver steps"] = "0"
+
+    try:
+        o_dict.pop("Prescribe internal temperatures")
+    except KeyError:
+        pass
+    try:
+        o_dict.pop("Prescribed temperatures")
+    except KeyError:
+        pass
+
+    if dimension == 2:
+        o_dict["Prescribed solution"] = {
+            "List of model names": "initial temperature",
+            "Initial temperature": {
+                "Indicator function": {
+                    "Variable names": "x, y",
+                    "Function constants": "Depth=1.45e5, Width=9.0000e+05, Do=2.890e6, xm=8.8960e+06",
+                    "Function expression": "(((y>Do-Depth)&&((x<Width)||(xm-x<Width))) ? 1:0)"
+                }
+            }
+        }
+    else:
+        raise NotImplementedError("Dimension 3 is not implemented yet.")

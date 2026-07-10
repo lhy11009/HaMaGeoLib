@@ -375,7 +375,6 @@ class LOOKUP_TABLE():
         return results
 
     def CreateNew(self, new_data, _name, oheader):
-        # todo_new
         self.header[_name] = {'col': self.data.shape[1]}
         self.oheader[_name] = oheader
         self.ounit[_name] = oheader
