@@ -101,6 +101,7 @@ subsection Mesh deformation
             set Bedrock deposition coefficient = 1.0
             set Multi-direction slope exponent = -1.0
         end
+        set Y extent in 2d = 100e3
     end
 end
 

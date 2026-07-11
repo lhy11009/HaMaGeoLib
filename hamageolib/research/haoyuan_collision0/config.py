@@ -3177,7 +3177,7 @@ class FastScapeRule(Rule):
     requires = ["include_fastscape", "topography_continent", "topography_ocean", "include_initial_topography",
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
-                "customize_no_incision_width"]
+                "customize_no_incision_width", "fastscape_2d_extent"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3191,10 +3191,12 @@ class FastScapeRule(Rule):
         "slope_exponent": 1.0,
         "bedrock_deposition_coefficient": 1.0,
         "multi_direction_slope_exponent": -1.0,
-        "customize_no_incision_width": 0.0
+        "customize_no_incision_width": 0.0,
+        "fastscape_2d_extent": 100e3
     }
 
-    requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate"}
+    requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
+                         "fastscape_2d_extent": "The set the Y extent of Fastscape in 2d."}
     
     def apply(self, config, prm_dict, wb_dict, context):
 
@@ -3210,6 +3212,7 @@ class FastScapeRule(Rule):
         multi_direction_slope_exponent = config["multi_direction_slope_exponent"]
         slope_exponent = config["slope_exponent"]
         customize_no_incision_width = config["customize_no_incision_width"]
+        fastscape_2d_extent = config["fastscape_2d_extent"]
 
         
         if include_fastscape:
@@ -3218,6 +3221,8 @@ class FastScapeRule(Rule):
             fastscape_dict = parse_fastscape_configuration(prm_path)
 
             fastscape_dict["Maximum surface refinement level"] = str(context["total_refinement"])
+
+            fastscape_dict["Y extent in 2d"] = "%de3" % (fastscape_2d_extent/1e3)
 
             fastscape_dict["Boundary conditions"] = {
                 "Front": "0",
