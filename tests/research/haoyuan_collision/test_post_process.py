@@ -82,7 +82,7 @@ def test_main_postprocess_workflow():
     Test the main workflow for post-processing the collision0 project.
     Now only works for 2-d cases.
     Note the idea of this test is to check the workflow and see to it
-    the files are generated, but not to check the contents of the files.
+    the files are generated.
     '''
     
     source_case_path = big_fixture_root/"D2000_minV2.5e+19_Coh1.0e+02_WLS_WLF2.0e-02_WLM2.5e+19_CTboth_SL2.00e+06_Cn_PTr"
@@ -120,4 +120,48 @@ def test_main_postprocess_workflow():
                           analyze_shortening=False)
     
     final_vtu_file_path = os.path.join(pp_directory, "pyvista_outputs", "00350", "final_00350.vtu")
+    assert(os.path.isfile(final_vtu_file_path))
+
+
+def test_main_postprocess_workflow_particles():
+    '''
+    Test the main workflow for post-processing the collision0 project.
+    Now only works for 2-d cases.
+    Note this test builds upon the previous one and include particle output
+    '''
+    source_case_path = big_fixture_root/"D2000_minV2.5e+19_Coh1.0e+02_WLS_WLF2.0e-02_WLM2.5e+19_CTboth_SL2.00e+06_Cn_PTr"
+    pp_directory = os.path.join(test_dir, "test_main_postprocess_workflow_particles")
+
+    # make a new post-process directory
+    if os.path.isdir(pp_directory):
+        rmtree(pp_directory)
+    os.mkdir(pp_directory)
+
+    # Prepare case options
+    # The second option of the function is is_process_second_stage, this is not needed
+    # if not processing a dual-stage model 
+    Case_Options_2d = prepare_case_option_2d(source_case_path, False,
+                                            pp_directory=pp_directory)
+
+    # Plot run time information
+    # Note these "combined" functions are designed to address multiple cases
+    # in a series manner, therefore when there is only one case, it has to
+    # be put in a trivial array
+    plot_run_time_combined([source_case_path], [Case_Options_2d])
+
+    run_time_image_path = os.path.join(pp_directory, "img", "runtime_plots", "assembled.png")
+
+    assert(os.path.isfile(run_time_image_path))
+
+    # Post-processing the results involving vtu files
+    # For this test, we just run the processing of one step
+    process_all_vtu_steps(source_case_path, Case_Options_2d,
+                          graphical_step_min=None,
+                          graphical_step_max=None,
+                          one_vtu_step=351,
+                          include_particles=True,
+                          include_topography=True,
+                          analyze_shortening=True)
+    
+    final_vtu_file_path = os.path.join(pp_directory, "pyvista_outputs", "00351", "final_00351.vtu")
     assert(os.path.isfile(final_vtu_file_path))

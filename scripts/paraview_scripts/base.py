@@ -778,7 +778,6 @@ def color_preset_exists(name):
     return False
 
 
-# todo_pin
 def source_has_field(source_i, field_name, association="Point Data"):
     """
     Check whether a ParaView source has a given data array.

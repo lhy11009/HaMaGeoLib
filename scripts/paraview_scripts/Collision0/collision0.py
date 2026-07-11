@@ -103,7 +103,6 @@ def set_pin_line_plot(sourceDisplay):
     return field, fieldLUT
 
 
-# todo_pin
 def set_active_deforming_plot(sourceDisplay):
     '''
     set the active deforming plot
@@ -181,7 +180,6 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times):
             XMLPolyDataReader(registrationName='pin_lines-%05d' % snapshot, FileName=[filein])
             add_threshold_by_field('pin_lines-%05d' % snapshot, "local_length", [0.0, 20e3], registrationName="pin_lines_threshold1")
 
-            # todo_pin
             # Add the active deforming region. Ultimately this is from a percentile of strain rate
             if source_has_field('solution-%05d' % snapshot, "active_deforming"):
                 add_threshold_by_field('solution-%05d' % snapshot, "active_deforming", [0.8, 1.0], registrationName="solution_active_deforming_threshold1")
@@ -391,7 +389,6 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
             sourceDisplayPin = Show(source_pin, renderView1, 'GeometryRepresentation')
             set_pin_line_plot(sourceDisplayPin)
 
-            # todo_pin 
             # turn on the active deforming region if the "active_deforming" field exists
             if source_has_field(_source, "active_deforming"):
                 source_ad = possible_lookup_source("solution_active_deforming_threshold1")

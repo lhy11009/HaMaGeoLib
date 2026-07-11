@@ -10,6 +10,7 @@ from scipy.spatial import cKDTree
 from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
 from hamageolib.utils.exception_handler import my_assert
 from hamageolib.utils.interp_utilities import KNNInterpolatorND
+from hamageolib.utils.nump_utilities import assert_finite
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
 from hamageolib.utils.pyvista_utilities import get_corner_point_ids
@@ -48,8 +49,14 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         self.lithospheric_T = 1300 + 273.15 # K
 
         # placeholder for class variables
-        self.slab_surface_points = None
         self.iso_volume_dict = {}
+
+        # todo_pin
+        # placeholder for slab variables 
+        self.slab_surface_points = None
+        self.trench_center = None
+        self.trench_center_depth = None
+        self.trench_center_50km = None
 
         # placeholder for interpolation functions
         self.particle_ul_func = None
@@ -196,16 +203,18 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         dip_angle_300 = np.arctan2(depth1 - depth0, l2_1 - l2_0)
 
         # trench position
-        trench_center = l2[i0]
-        trench_center_50km = np.interp(self.Max0 - 50e3, l0, l2)
+        self.trench_center = l2_0
+        self.trench_center_depth = depth0
+        self.trench_center_50km = np.interp(self.Max0 - 50e3, l0, l2)
 
         # record results of slab depth, dip angle, trench position, etc
+        # todo_pin
         outputs = {} 
         outputs["slab_depth"] = slab_depth
         outputs["dip_100"] = dip_angle_100
         outputs["dip_300"] = dip_angle_300
-        outputs["trench_center"] = trench_center
-        outputs["trench_center_50"] = trench_center_50km
+        outputs["trench_center"] = self.trench_center
+        outputs["trench_center_50"] = self.trench_center_50km
         
         end = time.time()
         print("\ttakes %.1f s" % (end - start))
@@ -567,16 +576,40 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
 
+    # todo_pin
+    def analyze_trench_origin_from_particles(self, *,
+                                             pin_depth=20e3):
+
+        my_assert((self.trench_center is not None) and 
+                  (self.particle_initial_X_func is not None),
+                  PYVISTA_PROCESS_WORKFLOW_ERROR,
+                  "%s requires the trench center, and the initial function of particles." % func_name())
+
+        # Get initial X position of trench points
+        # Note these points are not computed from the surface topography
+        # But just using Max0 - depth as their y coordinate.
+        trench_initial_X = self.particle_initial_X_func(self.trench_center/self.Max0, 
+                                                        (self.Max0 - self.trench_center_depth - pin_depth) /self.Max0)
+        
+        trench_50km_initial_X = self.particle_initial_X_func(self.trench_center_50km/self.Max0, 
+                                                             (self.Max0 - 50e3 - pin_depth) /self.Max0)
+
+        # prepare the outputs
+        outputs = {} 
+        outputs["trench_initial_X"] = trench_initial_X
+        outputs["trench_50_initial_X"] = trench_50km_initial_X
+
+        return outputs
+
     def analyze_shortening_by_cell(self, *,
                            threshold=0.8):
         
         start = time.time()
 
-        my_assert((self.topography_func is not None) and 
-                  (self.particle_initial_X_func is not None) and 
+        my_assert((self.particle_initial_X_func is not None) and 
                   (self.suture_profile_x is not None), 
                   PYVISTA_PROCESS_WORKFLOW_ERROR,
-                  "%s requires the topography function, the particle results and the suture profile" % func_name())
+                  "%s requires the particle results and the suture profile" % func_name())
 
         # Get the crust field 
         crust_upper_comps = self.grid['crust_upper']
@@ -651,11 +684,10 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         
         start = time.time()
 
-        my_assert((self.topography_func is not None) and 
-                  (self.particle_initial_X_func is not None) and 
+        my_assert((self.particle_initial_X_func is not None) and 
                   (self.suture_profile_x is not None), 
                   PYVISTA_PROCESS_WORKFLOW_ERROR,
-                  "%s requires the topography function, the particle results and the suture profile" % func_name())
+                  "%s requires the particle results and the suture profile" % func_name())
 
         # dict for storing outputs 
         outputs = {}
@@ -724,7 +756,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
                               suture_shallow_x + profile_half_size + 0.1, 
                               profile_bin_size)
         
-        profile_y = self.Max0 + self.topography_func(profile_x/self.Max0) - profile_bury_depth
+        profile_y = np.full(profile_x.shape, self.Max0 - profile_bury_depth)
+        if self.topography_func is not None: 
+            profile_y += self.topography_func(profile_x/self.Max0)
 
         profile_dimention_ratio = self.dimention_ratio_func(profile_x/self.Max0, profile_y/self.Max0)
 
@@ -808,7 +842,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         
         # Depth below the local surface
         # Also parse option of depth and create edges of bins
-        surface_y = self.Max0 + self.topography_func(x / self.Max0)
+        surface_y = self.Max0
+        if self.topography_func is not None: 
+            surface_y += self.topography_func(x/self.Max0)
     
         depth = surface_y - y
     
@@ -873,9 +909,8 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         # This requires that particles are included
         # and that the topography is first processed.
-        assert(self.include_particles)
-        my_assert((self.topography_func is not None), PYVISTA_PROCESS_WORKFLOW_ERROR,
-                  "%s requires the topography function, the particle results and the suture profile" % func_name())
+        my_assert(self.include_particles, PYVISTA_PROCESS_WORKFLOW_ERROR, 
+                  "%s requires the particle results" % func_name())
         
         start = time.time()
 
@@ -896,7 +931,11 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         # Create pin grid
         pin_x = np.arange(0.0, self.Max2 + pin_dist_x, pin_dist_x)
 
-        pin_y_max = self.Max0 + self.topography_func(pin_x/self.Max0)
+        pin_y_max = np.full(pin_x.shape, self.Max0)
+        if self.topography_func is not None: 
+            pin_y_max += self.topography_func(pin_x/self.Max0)
+        assert_finite(pin_y_max)
+
         pin_depth = np.arange(0.0, pin_max_depth+pin_dist_y, pin_dist_y)
 
         # pin_X, pin_Y = np.meshgrid(pin_x, pin_y, indexing="xy")
@@ -908,6 +947,8 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
             pin_X.ravel(),
             pin_Y.ravel()
         ))
+
+        assert_finite(pin_points)
 
         # Build KD-tree using initial particle positions
         tree = cKDTree(np.column_stack((initial_X, initial_Y)))
@@ -978,7 +1019,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         pin_lines["local_length"] = np.concatenate(local_lengths)
 
         # Add current depth to pin_lines
-        pin_y_max = self.Max0 + self.topography_func(pin_x / self.Max0)
+        pin_y_max = np.full(pin_x.shape, self.Max0)
+        if self.topography_func is not None: 
+            pin_y_max += self.topography_func(pin_x/self.Max0)
 
         current_surface_y = np.repeat(pin_y_max, n_depth)
 
@@ -1018,25 +1061,68 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         print("\tPYVISTA_PROCESS_THD: %s" % func_name())
         print("\ttakes %.1f s" % (end - start))
 
-    # todo_pin
+
+
     def get_accreted_region(self, *,
                             profile_length_threshold=80e3,
                             sp_composition_threshold=0.5,
                             depth_threshold=40e3):
         """
-        Get the accreted_region
+        Identify the accreted region within the computational domain.
+
+        This method classifies grid points as belonging to the accreted region
+        based on three criteria:
+
+        - the pinned profile length exceeds a specified threshold,
+        - the total subducting-plate composition exceeds a specified threshold,
+        - the point lies shallower than a specified depth.
+
+        The resulting boolean mask is stored as the grid point-data field
+        ``"accreted"``, with values of 1 for accreted points and 0 otherwise.
+
+        Parameters
+        ----------
+        profile_length_threshold : float, optional
+            Minimum pinned profile length (m) required for a point to be
+            classified as accreted. Default is 80 km.
+
+        sp_composition_threshold : float, optional
+            Minimum total subducting-plate composition value required for a point
+            to be classified as accreted. Default is 0.5.
+
+        depth_threshold : float, optional
+            Maximum depth (m) below the surface at which points are considered
+            part of the accreted region. Default is 40 km.
+
+        Notes
+        -----
+        This method requires:
+
+        - particle data to be loaded (``self.include_particles == True``),
+        - topography to have been processed (``self.topography_func`` is defined),
+        - the grid point-data arrays ``"pin_profile_length"`` and ``"sp_total"``
+        to be available.
+
+        The depth of each point is computed relative to the processed surface
+        topography.
+
+        Returns
+        -------
+        None
+            The classification is stored in ``self.grid["accreted"]`` as an
+            unsigned 8-bit integer array.
         """
 
         assert(self.include_particles)
-        my_assert((self.topography_func is not None), PYVISTA_PROCESS_WORKFLOW_ERROR,
-                  "%s requires the topography function, the particle results and the suture profile" % func_name())
 
         # get depth at points 
         points = self.grid.points
         x_p = points[:, 0]
         y_p = points[:, 1]
 
-        depth_p = self.Max0 + self.topography_func(x_p/self.Max0) - y_p
+        depth_p = self.Max0 - y_p
+        if self.topography_func is not None: 
+            depth_p += self.topography_func(x_p/self.Max0)
 
         # create mask bese on value of pined profile length, total subduction composition
         # and depth of points
@@ -1322,11 +1408,17 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     ProcessCollision.read(pvtu_step)
 
     # read topography data
+    # there are options to extract topography anyway even if the
+    # topography file is missing. But that tends to leave nan 
+    # values in the topography_func that is used in other places.
+    # In this case, it might be more useful to leave topography_func
+    # as None.
     if include_topography:
         try:
             ProcessCollision.load_topograph(time_step)
         except FileExistsError:
-            ProcessCollision.extract_topography(dx=5e3, dr=0.001, interp_dx=5e3, output_surface=True)
+            pass
+            # ProcessCollision.extract_topography(dx=5e3, dr=0.001, interp_dx=5e3, output_surface=True)
 
     # extract slab
     ProcessCollision.extract_slab(output_surfuce=True)
@@ -1354,6 +1446,10 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
             ProcessCollision.process_particles()
         except PYVISTA_PROCESS_COLLISION.InitialParticlePositionException:
             upper_lower_plate = False
+        else:
+            # todo_pin
+            new_outputs = ProcessCollision.analyze_trench_origin_from_particles()
+            outputs.update(new_outputs)
     
     # extract the final output file
     if include_particles:

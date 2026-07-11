@@ -59,3 +59,34 @@ def interval_with_fraction(x, q, *, clamp=False):
     q = np.asarray(q, float)
     t = (q - x[i]) / (x[j] - x[i])
     return i, j, t
+
+def assert_finite(query_array, name="query_array"):
+    """
+    Assert that all values in a NumPy array are finite.
+
+    Parameters
+    ----------
+    query_array : np.ndarray
+        NumPy array of arbitrary dimension.
+    name : str, optional
+        Name of the array for use in error messages.
+
+    Raises
+    ------
+    ValueError
+        If the array contains NaN or Inf values.
+    """
+    invalid_mask = ~np.isfinite(query_array)
+
+    if np.any(invalid_mask):
+        invalid_indices = np.argwhere(invalid_mask)
+
+        print(f"Found invalid values (NaN or Inf) in '{name}':")
+        for idx in invalid_indices:
+            idx = tuple(idx)
+            print(f"  {name}{idx} = {query_array[idx]}")
+
+        raise ValueError(
+            f"{name} contains {len(invalid_indices)} invalid value(s) "
+            "(NaN or Inf)."
+        )
