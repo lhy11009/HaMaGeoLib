@@ -10,7 +10,7 @@ from ...research.haoyuan_2d_subduction.legacy_tools import RHEOLOGY_PRM, RHEOLOG
     RefitRheology
 from ...research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
 
-from gdmate.aspect.config_engine import Rule, RuleConflictError
+from gdmate.aspect.config_engine import Rule, RuleConflictError, RuleInternalError
 from gdmate.aspect.table import DepthAverageTable
 from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
     parse_isosurfaces_entry, format_isosurfaces_entry, parse_parameters_to_dict, parse_composition_entry_with_phases
@@ -132,10 +132,13 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if variables["customize_corner"]:
             case_name += "_Cn"
     
-    if use_all or "customize_corner_width" in use_keys:
-        if variables["customize_corner"]:
+    if variables["customize_corner"]:
+        if use_all or "customize_corner_width" in use_keys:
             if (not np.isclose(variables["customize_corner_width"], 600e3, atol=1e-6)):
                 case_name += "_Cw%.1e" % variables["customize_corner_width"]
+        if (use_all or "customize_ridge" in use_keys) and \
+            (variables["customize_ridge"]):
+            case_name += "_CR"
 
     # Phase transition
     if use_all or "include_phase_transition" in use_keys:
@@ -2164,7 +2167,6 @@ class ContinentRule(Rule):
             continent_end_point = context["plate_start_point"] + subducting_continent_length
 
             # Duplicate overriding plate feature to construct subducting continent
-            # todo_corner
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Overriding Plate")
             new_feature = deepcopy(feature)
 
@@ -2624,7 +2626,8 @@ class CornerRule(Rule):
     """
     requires = ["customize_corner", "customize_corner_width", "customize_corner_depth", "customize_corner_viscosity",
                 "customize_corner_temperature", "customize_ridge", "chapman_model_surface_heatflux",
-                "customize_corner_temperature_fix", "customize_corner_temperature_fix_width", "customize_corner_temperature_fix_depth"]
+                "customize_corner_temperature_fix", "customize_corner_temperature_fix_width", "customize_corner_temperature_fix_depth",
+                "customize_corner_composition"]
     
     defaults = {"customize_corner": False, 
                 "customize_corner_width": 600e3, 
@@ -2636,7 +2639,8 @@ class CornerRule(Rule):
                 "chapman_model_surface_heatflux": 0.055,
                 "customize_corner_temperature_fix": False,
                 "customize_corner_temperature_fix_width": 0.0,
-                "customize_corner_temperature_fix_depth": 0.0
+                "customize_corner_temperature_fix_depth": 0.0,
+                "customize_corner_composition": False
                 }
 
     requires_comments = {"customize_corner": "Allow user to customize corner property from prescribed conditions",
@@ -2644,7 +2648,8 @@ class CornerRule(Rule):
                          "customize_corner_depth": "Depth of the corner region",
                          "customize_corner_viscosity": "Viscosity of the corner region. If a positive value is given, \
 viscosity is being prescribed in the region",
-                         "customize_corner_temperature": "Whether to customize the corner temperature"}
+                         "customize_corner_temperature": "Whether to customize the corner temperature",
+                         "customize_corner_composition": "Whether to customize the corner composition to the initial composition"}
     
     provides = []
 
@@ -2662,6 +2667,7 @@ viscosity is being prescribed in the region",
         customize_corner_temperature_fix = config["customize_corner_temperature_fix"]
         customize_corner_temperature_fix_width = config["customize_corner_temperature_fix_width"]
         customize_corner_temperature_fix_depth = config["customize_corner_temperature_fix_depth"]
+        customize_corner_composition = config["customize_corner_composition"]
 
         # Read variables from the context
         domain_length = context["domain_length"]
@@ -2671,6 +2677,9 @@ viscosity is being prescribed in the region",
             
             # customize viscosity
             if customize_corner_viscosity > 0.0:
+                if customize_ridge:
+                    raise RuleInternalError("Base on tests, customize_corner_viscosity and customize_ridge don't work together.")
+
                 prm_dict["Material model"]["Visco Plastic"]["Reset viscosity"] = "true"
 
                 viscosity_function = {
@@ -2685,6 +2694,7 @@ viscosity is being prescribed in the region",
 
             # customize temperature from prescribed conditions
             if customize_corner_temperature:
+
                 indicator_function = {
                     "Variable names": "x, y",
                     "Function constants": "cwidth = %de3, cdepth = %de3, ymax = %de3, xmax = %de3" % \
@@ -2698,6 +2708,38 @@ viscosity is being prescribed in the region",
                     model_name = "initial temperature"
                     section_name = "Initial temperature"
 
+                try:
+                    prescribed_solution = prm_dict["Prescribed solution"]
+                except KeyError:
+                    # todo_rebase
+                    prm_dict["Prescribed solution"] = {
+                        "List of model names": model_name,
+                        section_name:{
+                            "Indicator function": indicator_function
+                        }
+                    }
+                else:
+                    foo_list = parse_entry_as_list(prescribed_solution["List of model names"])
+                    if model_name not in foo_list:
+                        prescribed_solution["List of model names"] += ", %s" % model_name
+
+                    prescribed_solution[section_name] = {
+                            "Indicator function": indicator_function
+                    }
+
+            # todo_corner
+            if customize_corner_composition:
+
+                indicator_function = {
+                    "Variable names": "x, y",
+                    "Function constants": "cwidth = %de3, cdepth = %de3, ymax = %de3, xmax = %de3" % \
+                        (customize_corner_width/1e3, customize_corner_depth/1e3, domain_depth/1e3, domain_length/1e3),
+                    "Function expression": "(((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? 1.0: 0.0)"
+                }
+
+                model_name = "initial composition"
+                section_name = "Initial composition"
+                    
                 try:
                     prescribed_solution = prm_dict["Prescribed solution"]
                 except KeyError:

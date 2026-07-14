@@ -27,4 +27,4 @@ source "$INSTALL_PREFIX/configuration/enable.sh"
 
 
 # for running aspect
-ibrun ${ASPECT_INSTALL_DIR}/build_master_TwoD_rebase/aspect-release ./case.prm
+ibrun ${ASPECT_SOURCE_DIR}/build_master_TwoD_rebase/aspect-release ./case.prm

@@ -138,7 +138,7 @@ def set_data_axes_grid(renderView1):
     renderView1.AxesGrid.ZTitle = 'Z [m]'
 
 
-def twod_workflow(pv_output_dir, visualization_dir, steps, times):
+def twod_workflow(pv_output_dir, visualization_dir, steps, times, timesteps):
     '''
     Workflow for the twod case
     Inputs:
@@ -146,6 +146,7 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times):
         visualization_dir - where the original case output locates
         steps - time steps
         times - corresponding times
+        timesteps - corresponding timesteps in numerical simulation
     '''
     for i, step in enumerate(steps):
         if PP_INITIAL_REFINEMENT:
@@ -153,6 +154,7 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times):
         else:
             snapshot = step
         _time = times[i]
+        timestep = timesteps[i]
 
         # add source
         # The original soure is the "solution" file.
@@ -166,6 +168,15 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times):
         else:
             filein = os.path.join(visualization_dir, "solution-%05d.pvtu" %snapshot) 
             XMLPartitionedUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
+
+        # Fastscape source
+        # These sources are loaded if input file exists
+        # Then, with a Transform filter, it's rotated and translated to the surface of the model.
+        filein = os.path.join(visualization_dir, "..", "fastscape", "Topography%07d.vtk" % timestep)
+        if os.path.isfile(filein):
+            LegacyVTKReader(registrationName='fastscape-%05d' % snapshot, FileNames=[filein])
+            # todo_pin
+            setup_fastscape('fastscape-%05d' % snapshot)
 
         # Additional sources to load
         # These include a suture profile
@@ -489,6 +500,43 @@ vtk_arr.SetName("composition_indicator")
 output.GetPointData().AddArray(vtk_arr)
 """
 
+# todo_pin
+def setup_fastscape(source_i):
+    """
+    Setup paraview object for fastscape.
+    With a Transform filter, it's rotated and translated to the surface of the model,
+    then, with a programmable filter, I compute the amount of sedimentation.
+    Inputs:
+    source_i - paraview source or source name
+    """
+
+    input_source = possible_lookup_source(source_i) 
+    transform = Transform(registrationName="fastscape_transform1", Input=input_source)
+    transform.Transform.Rotate = [-90.0, 0.0, 0.0]
+    transform.Transform.Translate = [0.0, TOP, 0.0]
+
+    transform_source = FindSource("fastscape_transform1")
+
+    sedimentation = ProgrammableFilter(
+        registrationName="fastscape_programmable1",
+        Input=transform_source
+    )
+
+    sedimentation.Script = """
+from paraview.vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
+import numpy as np
+
+Topography = inputs[0].PointData["topography"]
+Basement = inputs[0].PointData["basement"]
+
+# Create new array of sedimentation
+output.PointData.append(
+    Topography-Basement,
+    "sedimentation"
+)
+"""
+
+
 # For some reason, the SCM is not automatically loaded anymore
 # and needs to be loaded manually.
 PV_INTERFACE_PATH = os.environ["PV_INTERFACE_PATH"]
@@ -506,6 +554,7 @@ if "PLOT_TYPE" == "orogen":
 
 steps = GRAPHICAL_STEPS
 times = GRAPHICAL_TIMES
+timesteps = GRAPHICAL_TIME_STEPS
 visualization_dir = "VISUALIZATION_DIRECTORY"
 pv_output_dir = os.path.abspath(os.path.join("IMAGE_DIRECTORY", "pv_outputs"))
 
@@ -516,4 +565,4 @@ renderView1 = GetActiveViewOrCreate('RenderView')
 if int("DIMENSION") == 3:
     thd_workflow(pv_output_dir, visualization_dir, steps, times)
 else:
-    twod_workflow(pv_output_dir, visualization_dir, steps, times)
+    twod_workflow(pv_output_dir, visualization_dir, steps, times, timesteps)
