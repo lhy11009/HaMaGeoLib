@@ -139,6 +139,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if (use_all or "customize_ridge" in use_keys) and \
             (variables["customize_ridge"]):
             case_name += "_CR"
+            if (use_all or "customize_ridge_composition_remapping" in use_keys) and \
+                (variables["customize_ridge_composition_remapping"]):
+                case_name += "_CRC"
 
     # Phase transition
     if use_all or "include_phase_transition" in use_keys:
@@ -716,12 +719,14 @@ class SlabRule(Rule):
                          "slab_hinge_point_pre_modification": "Position of the trench",
                          "use_convergence_rate_for_ridge_position": "Whether to use convergence rate to inform ridge position",
                          "additional_initial_slab_length": "additional length of the slab to be added to the default 300 km segment with a continued dip angle"}
-    provides = ["spreading_velocity", "slab_hinge_point", "plate_start_point"]
+    provides = ["spreading_velocity", "slab_hinge_point", "plate_start_point", "slab_layer_compositions"]
 
     # todo_comments
     provides_comments = {
             "plate_start_point": "Start point of subducting plate",
             "slab_hinge_point": "Hinge point of the trench",
+            "slab_layer_compositions": "Slab compositions",
+            "slab_layer_depths": "Depths of the interfaces of slab compositions"
     }
     
     def apply(self, config, prm_dict, wb_dict, context):
@@ -882,6 +887,8 @@ class SlabRule(Rule):
         context["plate_start_point"] = plate_start_point
         context["plate_end_point"] = plate_end_point
         context["do_topography_test"] = do_topography_test
+        context["slab_layer_compositions"] = slab_layer_compositions
+        context["slab_layer_depths"] = slab_layer_depths
 
 class GeometryRule(Rule):
     """
@@ -2627,7 +2634,7 @@ class CornerRule(Rule):
     requires = ["customize_corner", "customize_corner_width", "customize_corner_depth", "customize_corner_viscosity",
                 "customize_corner_temperature", "customize_ridge", "chapman_model_surface_heatflux",
                 "customize_corner_temperature_fix", "customize_corner_temperature_fix_width", "customize_corner_temperature_fix_depth",
-                "customize_corner_composition"]
+                "customize_corner_composition", "customize_ridge_composition_remapping"]
     
     defaults = {"customize_corner": False, 
                 "customize_corner_width": 600e3, 
@@ -2640,7 +2647,8 @@ class CornerRule(Rule):
                 "customize_corner_temperature_fix": False,
                 "customize_corner_temperature_fix_width": 0.0,
                 "customize_corner_temperature_fix_depth": 0.0,
-                "customize_corner_composition": False
+                "customize_corner_composition": False,
+                "customize_ridge_composition_remapping": False
                 }
 
     requires_comments = {"customize_corner": "Allow user to customize corner property from prescribed conditions",
@@ -2649,7 +2657,8 @@ class CornerRule(Rule):
                          "customize_corner_viscosity": "Viscosity of the corner region. If a positive value is given, \
 viscosity is being prescribed in the region",
                          "customize_corner_temperature": "Whether to customize the corner temperature",
-                         "customize_corner_composition": "Whether to customize the corner composition to the initial composition"}
+                         "customize_corner_composition": "Whether to customize the corner composition to the initial composition",
+                         "customize_ridge_composition_remapping": "Whether to remap composition from background to oceanic compositions"}
     
     provides = []
 
@@ -2895,6 +2904,44 @@ viscosity is being prescribed in the region",
                 ov_ridge_feature["temperature models"] = [temperature_model]
             
                 wb_dict["features"].insert(idx_c_feature, ov_ridge_feature)
+
+                # todo_ridge
+                # insert a composition remapping section
+                # First, get the slab compositions, their depth
+                # and indices in the compositons
+                # Then use the functions in the "Initial composition" to assign
+                # remapping from background composition to ocean lithosphere compositions
+                slab_layer_compositions = context["slab_layer_compositions"]
+                slab_layer_depths = context["slab_layer_depths"]
+                names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
+                slab_composition_indices = [names_of_fields.index(composition) for composition in slab_layer_compositions]
+
+
+                foo_expression = """(y > ymax - Dharz)?\\
+    \t\t\t((y > ymax - Dgabbro)?\\
+        \t\t\t((y > ymax - Dmorb)?\\ 
+            \t\t\t((y > ymax - Dse)? %d: %d):\\
+            \t\t\t%d):\\
+        \t\t\t%d):\\
+    \t\t\t-1\
+"""% (slab_composition_indices[0], slab_composition_indices[1], slab_composition_indices[2], slab_composition_indices[3])
+                
+                prm_dict["Particles"]["Initial composition"] = {
+                    "Remap composition": "true",
+                    "From composition function": {
+                        "Variable names": "x, y",
+                        "Function constants": "ymax = %de3, Dharz = %.1fe3" % \
+                            (context["domain_depth"]/1e3, slab_layer_depths[4]/1e3),
+                        "Function expression": "(y > ymax - Dharz)? %d: -1" % (len(names_of_fields))
+                    },
+                    "To composition function": {
+                        "Variable names": "x, y",
+                        "Function constants": "ymax = %de3, Dse = %.1fe3, Dmorb= %.1fe3, Dgabbro = %.1fe3, Dharz = %.1fe3" % \
+                            (context["domain_depth"]/1e3, slab_layer_depths[1]/1e3, slab_layer_depths[2]/1e3,\
+                             slab_layer_depths[3]/1e3, slab_layer_depths[4]/1e3),
+                        "Function expression": foo_expression 
+                    }
+                }
 
             # Modify the composition boundary condition
             # Here we assume that both cofntinents start from / end at the side boundary
