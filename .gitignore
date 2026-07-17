@@ -3,7 +3,7 @@
 results/
 notebooks/experiments/data_set/
 temp
-temp.py
+temp.*
 dtemp
 tmp
 .vscode/

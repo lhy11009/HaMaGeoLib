@@ -201,12 +201,13 @@ class CompositionRule(Rule):
 
     requires_comments = {"remove_peridotite": "Remove the peridotitle composition options and modify other compositional indices consistently",
                          "slab_layer_depths": "Layer depths of the compositions, start from 0 and has number of layer compositions + 1",
-                         "add_harzburgite": "Add harzburgite composition."}
+                         "add_harzburgite": "Add harzburgite composition.",
+                         }
     
     defaults = {
         "remove_peridotite": False, 
         "slab_layer_depths": [0.0, 4e3, 7.5e3, 11.5e3],
-        "add_harzburgite": False
+        "add_harzburgite": False,
         }
     
     provides = ["removed_peridotite_compositional_indexes"]
@@ -294,6 +295,9 @@ class CompositionRule(Rule):
             names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
             condition_index = names_of_fields.index("gabbro")
             add_composition_to_wb_conditionally_recursive(wb_dict, condition_index, context["add_harzburgite_index"])
+
+
+
             
                 
 class RemoveFluidRule(Rule):
@@ -3266,7 +3270,7 @@ class FastScapeRule(Rule):
     requires = ["include_fastscape", "topography_continent", "topography_ocean", "include_initial_topography",
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
-                "customize_no_incision_width", "fastscape_2d_extent"]
+                "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3281,11 +3285,15 @@ class FastScapeRule(Rule):
         "bedrock_deposition_coefficient": 1.0,
         "multi_direction_slope_exponent": -1.0,
         "customize_no_incision_width": 0.0,
-        "fastscape_2d_extent": 100e3
+        "fastscape_2d_extent": 100e3,
+        "add_erosion_sediment": False,
+        "include_boundary_flow": False
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
-                         "fastscape_2d_extent": "The set the Y extent of Fastscape in 2d."}
+                         "fastscape_2d_extent": "The set the Y extent of Fastscape in 2d.",
+                         "add_erosion_sediment": "Add sediment composition from erosion",
+                         "include_boundary_flow": "include the flow of sediment into the model domain by setting the composition of erosional sediments"}
     
     def apply(self, config, prm_dict, wb_dict, context):
 
@@ -3302,6 +3310,8 @@ class FastScapeRule(Rule):
         slope_exponent = config["slope_exponent"]
         customize_no_incision_width = config["customize_no_incision_width"]
         fastscape_2d_extent = config["fastscape_2d_extent"]
+        include_boundary_flow = config["include_boundary_flow"]
+        add_erosion_sediment = config["add_erosion_sediment"]
 
         
         if include_fastscape:
@@ -3343,8 +3353,39 @@ class FastScapeRule(Rule):
             prm_dict["Mesh deformation"].pop("Free surface")
             prm_dict["Mesh deformation"].pop("Diffusion")
             prm_dict["Mesh deformation"]["Fastscape"] = fastscape_dict
+
+            # To add a sediment composition from erosion, copy the setup of the sediment composition otherwise.
+            if add_erosion_sediment:
+                duplicate_composition_from_prm(prm_dict, "sediment", "sediment1")
+                
+            # todo_erosion
+            if include_boundary_flow:
+
+                names_of_fields = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
+                
+                function_expr = ""
+                for i, _name in enumerate(names_of_fields):
+                    if _name == "sediment1":
+                        function_expr += "((y > Ymax - bd)? 1.0: 0.0);"
+                    else:
+                        function_expr += "0.0;"
+
+                foo_function = {
+                    "Coordinate system": "cartesian",
+                    "Variable names": "x, y, z, t",
+                    "Function constants": "Ymax = %de3, bd = 10e3" % (context["domain_depth"]/1e3),
+                    "Function expression": function_expr
+                }
+                prm_dict["Boundary composition model"] = {
+                    "Allow fixed composition on outflow boundaries": "true",
+                    "Fixed composition boundary indicators": "top, bottom",
+                    "Function": foo_function
+                }
+
         else:
             prm_dict["Mesh deformation"]["Diffusion"]["Hillslope transport coefficient"] = "%.3e" % (bedrock_diffusivity/year)
+
+
 
         if include_initial_topography:
 
@@ -3462,5 +3503,7 @@ class FastScapeRule(Rule):
                                 temperature_model["max depth"] -= topography_continent
                             except KeyError:
                                 pass
+
+
         
             
