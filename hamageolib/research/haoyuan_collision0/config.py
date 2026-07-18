@@ -122,7 +122,6 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         (not np.isclose(variables["lower_crust_water_fugacity"], 1.0, atol=1e-6)):
         case_name += "_LCwf%.2e" % variables["lower_crust_water_fugacity"]
 
-    # todo_taper
     if use_all or "continent_taper_length" in use_keys:
         if variables["continent_taper_length"] > 0.0:
             case_name += "_CTL%.2e" % variables["continent_taper_length"]
@@ -142,6 +141,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             if (use_all or "customize_ridge_composition_remapping" in use_keys) and \
                 (variables["customize_ridge_composition_remapping"]):
                 case_name += "_CRC"
+            if (use_all or "customize_ridge_taper_length" in use_keys) and \
+                (variables["customize_ridge_taper_length"]>0.0):
+                case_name += "_CRT%.2e" % (variables["customize_ridge_taper_length"])
 
     # Phase transition
     if use_all or "include_phase_transition" in use_keys:
@@ -2213,7 +2215,6 @@ class ContinentRule(Rule):
 
             # taper the margin
             if continent_taper_length > 0.0:
-                # todo_taper
                 new_feature_1 = deepcopy(new_feature)
 
                 new_feature_1["name"] = "Subducting Continent Margin"
@@ -2638,7 +2639,8 @@ class CornerRule(Rule):
     requires = ["customize_corner", "customize_corner_width", "customize_corner_depth", "customize_corner_viscosity",
                 "customize_corner_temperature", "customize_ridge", "chapman_model_surface_heatflux",
                 "customize_corner_temperature_fix", "customize_corner_temperature_fix_width", "customize_corner_temperature_fix_depth",
-                "customize_corner_composition", "customize_ridge_composition_remapping"]
+                "customize_corner_composition", "customize_ridge_composition_remapping", "customize_ridge_taper_length",
+                "continent_taper_sediment_thickness", "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness"]
     
     defaults = {"customize_corner": False, 
                 "customize_corner_width": 600e3, 
@@ -2652,7 +2654,11 @@ class CornerRule(Rule):
                 "customize_corner_temperature_fix_width": 0.0,
                 "customize_corner_temperature_fix_depth": 0.0,
                 "customize_corner_composition": False,
-                "customize_ridge_composition_remapping": False
+                "customize_ridge_composition_remapping": False,
+                "customize_ridge_taper_length": 0.0,
+                "continent_taper_sediment_thickness": 4e3,
+                "continent_taper_upper_crust_thickness": 3.5e3,
+                "continent_taper_lower_crust_thickness": 3.5e3
                 }
 
     requires_comments = {"customize_corner": "Allow user to customize corner property from prescribed conditions",
@@ -2662,7 +2668,12 @@ class CornerRule(Rule):
 viscosity is being prescribed in the region",
                          "customize_corner_temperature": "Whether to customize the corner temperature",
                          "customize_corner_composition": "Whether to customize the corner composition to the initial composition",
-                         "customize_ridge_composition_remapping": "Whether to remap composition from background to oceanic compositions"}
+                         "customize_ridge_composition_remapping": "Whether to remap composition from background to oceanic compositions",
+                         "customize_ridge_taper_length": "Create tapering near the ridge region from the subduction continents.",
+                         "continent_taper_sediment_thickness": "This value is reused to prescribe the tapered sediment thickness if that applies.",
+                        "continent_taper_upper_crust_thickness": "This value is reused to prescribe tapered upper crust thickness if that applies",
+                        "continent_taper_lower_crust_thickness": "This value is reused to prescribe tapered lower crust thickness if that applies"
+                        }
     
     provides = []
 
@@ -2681,6 +2692,10 @@ viscosity is being prescribed in the region",
         customize_corner_temperature_fix_width = config["customize_corner_temperature_fix_width"]
         customize_corner_temperature_fix_depth = config["customize_corner_temperature_fix_depth"]
         customize_corner_composition = config["customize_corner_composition"]
+        customize_ridge_taper_length = config["customize_ridge_taper_length"]
+        continent_taper_sediment_thickness = config["continent_taper_sediment_thickness"]
+        continent_taper_upper_crust_thickness = config["continent_taper_upper_crust_thickness"]
+        continent_taper_lower_crust_thickness = config["continent_taper_lower_crust_thickness"]
 
         # Read variables from the context
         domain_length = context["domain_length"]
@@ -2831,15 +2846,15 @@ viscosity is being prescribed in the region",
                         100000.0
                     ],
                     [
-                        customize_corner_width,
+                        customize_corner_width - customize_ridge_taper_length,
                         100000.0
                     ],
                     [
-                        customize_corner_width,
+                        customize_corner_width - customize_ridge_taper_length,
                         -100000.0
                     ]]
                 
-                spreading_velocity = customize_corner_width / plate_age  # m/yr
+                spreading_velocity = (customize_corner_width - customize_ridge_taper_length) / plate_age  # m/yr
                 temperature_model =  {
                     "model": "plate model",
                     "min depth": -10000.0,
@@ -2858,6 +2873,62 @@ viscosity is being prescribed in the region",
                 sb_ridge_feature["temperature models"] = [temperature_model]
             
                 wb_dict["features"].insert(idx_c_feature, sb_ridge_feature)
+
+                # taper between the ridge and the subducting continents
+                # similar to how we taper the continental margin
+                if customize_ridge_taper_length > 0.0:
+                    compositional_field_names = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
+                    index_sediment = compositional_field_names.index("sediment")
+            
+                    _, feature = find_WB_feature_by_name(wb_dict, "Subducting Continent")
+                    idx_ridge_feature, _ = find_WB_feature_by_name(wb_dict, "Subducting ridge")
+                    new_feature = deepcopy(feature)
+
+                    new_feature["name"] = "Subducting ridge margin"
+
+                    new_feature["coordinates"] = [
+                        [
+                            customize_corner_width - customize_ridge_taper_length,
+                            -100000.0
+                        ],
+                        [
+                            customize_corner_width - customize_ridge_taper_length,
+                            100000.0
+                        ],
+                        [
+                            customize_corner_width,
+                            100000.0
+                        ],
+                        [
+                            customize_corner_width,
+                            -100000.0
+                        ]
+                    ]
+
+                    compo_dict_0, compo_dict_1 = new_feature["composition models"][0], new_feature["composition models"][1]
+                    max_depth_0, max_depth_1 = compo_dict_0["max depth"], compo_dict_1["max depth"]
+
+                    taper_line = [[customize_corner_width,-100000.0],[customize_corner_width,100000.0]]
+
+                    depth_entry_s = [[continent_taper_sediment_thickness],\
+                    [0.0, taper_line]]
+                    depth_entry_0 = [[continent_taper_upper_crust_thickness+continent_taper_sediment_thickness],\
+                    [max_depth_0, taper_line]]
+                    depth_entry_1 = [[continent_taper_upper_crust_thickness+continent_taper_lower_crust_thickness+continent_taper_sediment_thickness],\
+                    [max_depth_1, taper_line]]
+                    
+                    compo_dict_0["min depth"] = deepcopy(depth_entry_s)
+                    compo_dict_0["max depth"] = deepcopy(depth_entry_0)
+                    compo_dict_1["min depth"] = deepcopy(depth_entry_0)
+                    compo_dict_1["max depth"] = deepcopy(depth_entry_1)
+
+                    compo_dict_s = deepcopy(compo_dict_0)
+                    compo_dict_s.pop("min depth")
+                    compo_dict_s["max depth"] = deepcopy(depth_entry_s)
+                    compo_dict_s["compositions"] = [index_sediment]
+                    new_feature["composition models"].insert(0, compo_dict_s)
+                    
+                    wb_dict["features"].insert(idx_ridge_feature+1, new_feature)
                 
                 # overriding side
                 idx_c_feature, ov_continent_feature = find_WB_feature_by_name(wb_dict, "Overriding Plate")
@@ -2873,11 +2944,11 @@ viscosity is being prescribed in the region",
 
                 ov_ridge_feature["coordinates"] = [
                     [   
-                        context["domain_length"] - customize_corner_width,
+                        context["domain_length"] - customize_corner_width + customize_ridge_taper_length,
                         -100000.0
                     ],
                     [
-                        context["domain_length"] - customize_corner_width,
+                        context["domain_length"] - customize_corner_width + customize_ridge_taper_length,
                         100000.0
                     ],
                     [
@@ -2889,7 +2960,7 @@ viscosity is being prescribed in the region",
                         -100000.0
                     ]]
                 
-                spreading_velocity = customize_corner_width / plate_age  # m/yr
+                spreading_velocity = (customize_corner_width - customize_ridge_taper_length) / plate_age  # m/yr
                 temperature_model =  {
                     "model": "plate model",
                     "min depth": -10000.0,
@@ -2908,6 +2979,63 @@ viscosity is being prescribed in the region",
                 ov_ridge_feature["temperature models"] = [temperature_model]
             
                 wb_dict["features"].insert(idx_c_feature, ov_ridge_feature)
+
+                # taper between the ridge and the subducting continents
+                # similar to how we taper the continental margin
+                if customize_ridge_taper_length > 0.0:
+                    compositional_field_names = parse_entry_as_list(prm_dict["Compositional fields"]["Names of fields"])
+                    index_sediment = compositional_field_names.index("sediment")
+            
+                    _, feature = find_WB_feature_by_name(wb_dict, "Subducting Continent")
+                    idx_ridge_feature, _ = find_WB_feature_by_name(wb_dict, "Overriding ridge")
+                    new_feature = deepcopy(feature)
+
+                    new_feature["name"] = "Overriding ridge margin"
+
+                    new_feature["coordinates"] = [
+                        [
+                            context["domain_length"] - customize_corner_width,
+                            -100000.0
+                        ],
+                        [
+                            context["domain_length"] - customize_corner_width,
+                            100000.0
+                        ],
+                        [
+                            context["domain_length"] - customize_corner_width + customize_ridge_taper_length,
+                            100000.0
+                        ],
+                        [
+                            context["domain_length"] - customize_corner_width + customize_ridge_taper_length,
+                            -100000.0
+                        ]
+                    ]
+
+                    compo_dict_0, compo_dict_1 = new_feature["composition models"][0], new_feature["composition models"][1]
+                    max_depth_0, max_depth_1 = compo_dict_0["max depth"], compo_dict_1["max depth"]
+
+                    taper_line = [[context["domain_length"] - customize_corner_width,-100000.0],
+                                  [context["domain_length"] - customize_corner_width,100000.0]]
+
+                    depth_entry_s = [[continent_taper_sediment_thickness],\
+                    [0.0, taper_line]]
+                    depth_entry_0 = [[continent_taper_upper_crust_thickness+continent_taper_sediment_thickness],\
+                    [max_depth_0, taper_line]]
+                    depth_entry_1 = [[continent_taper_upper_crust_thickness+continent_taper_lower_crust_thickness+continent_taper_sediment_thickness],\
+                    [max_depth_1, taper_line]]
+                    
+                    compo_dict_0["min depth"] = deepcopy(depth_entry_s)
+                    compo_dict_0["max depth"] = deepcopy(depth_entry_0)
+                    compo_dict_1["min depth"] = deepcopy(depth_entry_0)
+                    compo_dict_1["max depth"] = deepcopy(depth_entry_1)
+
+                    compo_dict_s = deepcopy(compo_dict_0)
+                    compo_dict_s.pop("min depth")
+                    compo_dict_s["max depth"] = deepcopy(depth_entry_s)
+                    compo_dict_s["compositions"] = [index_sediment]
+                    new_feature["composition models"].insert(0, compo_dict_s)
+                    
+                    wb_dict["features"].insert(idx_ridge_feature+1, new_feature)
 
                 # todo_ridge
                 # insert a composition remapping section
