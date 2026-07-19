@@ -2640,7 +2640,8 @@ class CornerRule(Rule):
                 "customize_corner_temperature", "customize_ridge", "chapman_model_surface_heatflux",
                 "customize_corner_temperature_fix", "customize_corner_temperature_fix_width", "customize_corner_temperature_fix_depth",
                 "customize_corner_composition", "customize_ridge_composition_remapping", "customize_ridge_taper_length",
-                "continent_taper_sediment_thickness", "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness"]
+                "continent_taper_sediment_thickness", "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness",
+                "include_boundary_flow"]
     
     defaults = {"customize_corner": False, 
                 "customize_corner_width": 600e3, 
@@ -2658,7 +2659,8 @@ class CornerRule(Rule):
                 "customize_ridge_taper_length": 0.0,
                 "continent_taper_sediment_thickness": 4e3,
                 "continent_taper_upper_crust_thickness": 3.5e3,
-                "continent_taper_lower_crust_thickness": 3.5e3
+                "continent_taper_lower_crust_thickness": 3.5e3,
+                "include_boundary_flow": False
                 }
 
     requires_comments = {"customize_corner": "Allow user to customize corner property from prescribed conditions",
@@ -2672,7 +2674,9 @@ viscosity is being prescribed in the region",
                          "customize_ridge_taper_length": "Create tapering near the ridge region from the subduction continents.",
                          "continent_taper_sediment_thickness": "This value is reused to prescribe the tapered sediment thickness if that applies.",
                         "continent_taper_upper_crust_thickness": "This value is reused to prescribe tapered upper crust thickness if that applies",
-                        "continent_taper_lower_crust_thickness": "This value is reused to prescribe tapered lower crust thickness if that applies"
+                        "continent_taper_lower_crust_thickness": "This value is reused to prescribe tapered lower crust thickness if that applies",
+                        "include_boundary_flow": "Whether to include boundary flow. Here it affects the total number of composition fields, as it\
+ would add new composition later."
                         }
     
     provides = []
@@ -2696,6 +2700,7 @@ viscosity is being prescribed in the region",
         continent_taper_sediment_thickness = config["continent_taper_sediment_thickness"]
         continent_taper_upper_crust_thickness = config["continent_taper_upper_crust_thickness"]
         continent_taper_lower_crust_thickness = config["continent_taper_lower_crust_thickness"]
+        include_boundary_flow = config["include_boundary_flow"]
 
         # Read variables from the context
         domain_length = context["domain_length"]
@@ -3049,14 +3054,17 @@ viscosity is being prescribed in the region",
                 slab_composition_indices = [names_of_fields.index(composition) for composition in slab_layer_compositions]
 
 
-                foo_expression = """(y > ymax - Dharz)?\\
-    \t\t\t((y > ymax - Dgabbro)?\\
-        \t\t\t((y > ymax - Dmorb)?\\ 
-            \t\t\t((y > ymax - Dse)? %d: %d):\\
+                foo_expression = """
+\t\t\t(y > ymax - Dharz)?\\
+\t((y > ymax - Dgabbro)?\\
+\t((y > ymax - Dmorb)?\\ 
+\t((y > ymax - Dse)? %d: %d):\\
             \t\t\t%d):\\
         \t\t\t%d):\\
     \t\t\t-1\
 """% (slab_composition_indices[0], slab_composition_indices[1], slab_composition_indices[2], slab_composition_indices[3])
+                
+                background_idx = len(names_of_fields) + 1 if include_boundary_flow else len(names_of_fields)
                 
                 prm_dict["Particles"]["Initial composition"] = {
                     "Remap composition": "true",
@@ -3064,7 +3072,7 @@ viscosity is being prescribed in the region",
                         "Variable names": "x, y",
                         "Function constants": "ymax = %de3, Dharz = %.1fe3" % \
                             (context["domain_depth"]/1e3, slab_layer_depths[4]/1e3),
-                        "Function expression": "(y > ymax - Dharz)? %d: -1" % (len(names_of_fields))
+                        "Function expression": "(y > ymax - Dharz)? %d: -1" % (background_idx)
                     },
                     "To composition function": {
                         "Variable names": "x, y",
