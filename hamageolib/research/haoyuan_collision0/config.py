@@ -3409,7 +3409,7 @@ class FastScapeRule(Rule):
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
                 "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
-                "fastscape_timesteps", "erosional_base_level"]
+                "fastscape_timesteps", "erosional_base_level", "include_initial_topography_with_gwb"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3428,7 +3428,8 @@ class FastScapeRule(Rule):
         "add_erosion_sediment": False,
         "include_boundary_flow": False,
         "fastscape_timesteps": 1,
-        "erosional_base_level": -1.0
+        "erosional_base_level": -1.0,
+        "include_initial_topography_with_gwb": False
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
@@ -3436,7 +3437,8 @@ class FastScapeRule(Rule):
                          "add_erosion_sediment": "Add sediment composition from erosion",
                          "include_boundary_flow": "include the flow of sediment into the model domain by setting the composition of erosional sediments",
                          "fastscape_timesteps": "Number of fastscape timesteps per aspect timestep",
-                         "erosional_base_level": "If a positive value is given, then a fixed erosional base level is used."}
+                         "erosional_base_level": "If a positive value is given, then a fixed erosional base level is used.",
+                         "include_initial_topography_with_gwb": "This options will use GWB to prescribe the initial topography"}
     
     def apply(self, config, prm_dict, wb_dict, context):
 
@@ -3457,6 +3459,7 @@ class FastScapeRule(Rule):
         add_erosion_sediment = config["add_erosion_sediment"]
         fastscape_timesteps = config["fastscape_timesteps"]
         erosional_base_level = config["erosional_base_level"]
+        include_initial_topography_with_gwb = config["include_initial_topography_with_gwb"]
 
         
         if include_fastscape:
@@ -3541,7 +3544,7 @@ class FastScapeRule(Rule):
             prm_dict["Mesh deformation"]["Diffusion"]["Hillslope transport coefficient"] = "%.3e" % (bedrock_diffusivity/year)
 
 
-
+        # todo_fast
         if include_initial_topography:
 
             initial_topography_model = {}
