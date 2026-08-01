@@ -163,12 +163,16 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
                 case_name += "Et%.2e" % variables["second_stage_earliest_time"]
 
     # Fastscape
-    if use_all or "include_fastscape" in use_keys:
-        if variables["include_fastscape"]:
+    if variables["include_fastscape"]:
+        if use_all or "include_fastscape" in use_keys:
             case_name += "_FS"
             if use_all or "customize_no_incision_width" in use_keys:
                 if variables["customize_no_incision_width"] > 0:
                     case_name += "_Nw%.2e" % variables["customize_no_incision_width"]
+
+            if use_all or "erosional_base_level" in use_keys:
+                if variables["erosional_base_level"] > 0:
+                    case_name += "_Ebl%.2e" % variables["erosional_base_level"]
 
     if use_all or "do_topography_test" in use_keys:
         if variables["do_topography_test"]:
@@ -2614,7 +2618,6 @@ def parse_contiental_extension_rheology(prm_path):
 
     return dislocation_aspect, friction_angle, cohesion 
 
-# todo_fast
 def parse_fastscape_configuration(prm_path):
 
     # Read the prm file from the original continental extension cookbook
@@ -3392,7 +3395,6 @@ class TwoStageRule(Rule):
             }
             prm_dict["Prescribed solution"]["Velocity function"] = velocity_func_dict
 
-# todo_fast
 class FastScapeRule(Rule):
     """
     This rule customizes fast scape setup
@@ -3406,7 +3408,8 @@ class FastScapeRule(Rule):
     requires = ["include_fastscape", "topography_continent", "topography_ocean", "include_initial_topography",
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
-                "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow"]
+                "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
+                "fastscape_timesteps", "erosional_base_level"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3423,13 +3426,17 @@ class FastScapeRule(Rule):
         "customize_no_incision_width": 0.0,
         "fastscape_2d_extent": 100e3,
         "add_erosion_sediment": False,
-        "include_boundary_flow": False
+        "include_boundary_flow": False,
+        "fastscape_timesteps": 1,
+        "erosional_base_level": -1.0
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
                          "fastscape_2d_extent": "The set the Y extent of Fastscape in 2d.",
                          "add_erosion_sediment": "Add sediment composition from erosion",
-                         "include_boundary_flow": "include the flow of sediment into the model domain by setting the composition of erosional sediments"}
+                         "include_boundary_flow": "include the flow of sediment into the model domain by setting the composition of erosional sediments",
+                         "fastscape_timesteps": "Number of fastscape timesteps per aspect timestep",
+                         "erosional_base_level": "If a positive value is given, then a fixed erosional base level is used."}
     
     def apply(self, config, prm_dict, wb_dict, context):
 
@@ -3448,6 +3455,8 @@ class FastScapeRule(Rule):
         fastscape_2d_extent = config["fastscape_2d_extent"]
         include_boundary_flow = config["include_boundary_flow"]
         add_erosion_sediment = config["add_erosion_sediment"]
+        fastscape_timesteps = config["fastscape_timesteps"]
+        erosional_base_level = config["erosional_base_level"]
 
         
         if include_fastscape:
@@ -3456,6 +3465,8 @@ class FastScapeRule(Rule):
             fastscape_dict = parse_fastscape_configuration(prm_path)
 
             fastscape_dict["Maximum surface refinement level"] = str(context["total_refinement"])
+
+            fastscape_dict["Number of fastscape timesteps per aspect timestep"] = str(fastscape_timesteps)
 
             fastscape_dict["Y extent in 2d"] = "%de3" % (fastscape_2d_extent/1e3)
 
@@ -3475,7 +3486,14 @@ class FastScapeRule(Rule):
                 "Multi-direction slope exponent": str(multi_direction_slope_exponent)
             }
 
-            # todo_incision 
+            # Add fixed erosion baselevel
+            if (erosional_base_level > 0):
+                fastscape_dict["Use ghost nodes"] = "true"
+                fastscape_dict["Erosional parameters"]["Use a fixed erosional base level"] = "true"
+                fastscape_dict["Erosional parameters"]["Erosional base level"] = str(erosional_base_level)
+                
+
+            # Add incission-rate function 
             if (customize_no_incision_width > 0.0):
                 fastscape_dict["Erosional parameters"]["Use kf distribution function"] = "true"
                 fastscape_dict["Erosional parameters"].pop("Bedrock river incision rate")
@@ -3508,13 +3526,14 @@ class FastScapeRule(Rule):
 
                 foo_function = {
                     "Coordinate system": "cartesian",
-                    "Variable names": "x, y, z, t",
+                    "Variable names": "x, y",
                     "Function constants": "Ymax = %de3, bd = 10e3" % (context["domain_depth"]/1e3),
                     "Function expression": function_expr
                 }
                 prm_dict["Boundary composition model"] = {
                     "Allow fixed composition on outflow boundaries": "true",
                     "Fixed composition boundary indicators": "top, bottom",
+                    "List of model names": "function",
                     "Function": foo_function
                 }
 
