@@ -3577,7 +3577,7 @@ class FastScapeRule(Rule):
             for feature in wb_dict["features"]:
                 
                 topography = None
-                if feature["name"] in ["Subducting Plate", "Slab"]:
+                if feature["name"] in ["Subducting Plate", "Slab", "Overriding ridge", "Subducting ridge"]:
                     topography = topography_ocean
                 elif feature["name"] in ["Subducting Continent", "Overriding Plate"]:
                     topography = topography_continent
@@ -3625,49 +3625,25 @@ class FastScapeRule(Rule):
                             except KeyError:
                                 pass
             
-            # fix the passive margin separately if it presents
-            # still, the "min depth" needs to present, if it doesn't, copy from the structure of "max depth"
-            # and then assign it the negative of topography value
-            # todo_fast
+            # fix the passive margins separately if they present
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Subducting Continent Margin")
-
             if feature is not None:
-                feature["min depth"] -= topography_continent
-                feature["max depth"] -= topography_ocean
+                index_continent = 1
+                index_ocean = 0
+                taper_feature_topography(feature, topography_continent, topography_ocean, index_continent, index_ocean)
 
-                composition_models = feature["composition models"]
-                for composition_model in composition_models:
-                    try: 
-                        # print("composition_model[\"min depth\"][0][0]: ", composition_model["min depth"][0][0])
-                        # print("topography_ocean: ", topography_ocean)
-                        composition_model["min depth"][0][0] -= topography_ocean
-                        composition_model["min depth"][1][0] -= topography_continent
-                    except KeyError:
-                        composition_model["min depth"] = deepcopy(composition_model["max depth"])
-                        composition_model["min depth"][0][0] = -topography_ocean
-                        composition_model["min depth"][1][0] = -topography_continent
-                    try: 
-                        composition_model["max depth"][0][0] -= topography_ocean
-                        composition_model["max depth"][1][0] -= topography_continent
-                        pass
-                    except KeyError:
-                        pass
+            idx_feature, feature = find_WB_feature_by_name(wb_dict, "Overriding ridge margin")
+            if feature is not None:
+                index_continent = 1
+                index_ocean = 0
+                taper_feature_topography(feature, topography_continent, topography_ocean, index_continent, index_ocean)
 
-                try:
-                    temperature_models = feature["temperature models"]
-                except KeyError:
-                    pass
-                else:
-                    for temperature_model in temperature_models:
-                        if ("min depth" in temperature_model) or ("max depth" in temperature_model):
-                            try:
-                                temperature_model["min depth"] -= topography_continent
-                            except KeyError:
-                                temperature_model["min depth"] = -topography_continent
-                            try:
-                                temperature_model["max depth"] -= topography_continent
-                            except KeyError:
-                                pass
+            idx_feature, feature = find_WB_feature_by_name(wb_dict, "Subducting ridge margin")
+            if feature is not None:
+                index_continent = 1
+                index_ocean = 0
+                taper_feature_topography(feature, topography_continent, topography_ocean, index_continent, index_ocean)
+
 
 def get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, plate_start_point,
                                    plate_end_point, continent_end_point, slab_hinge_point, continent_taper_length,
@@ -3720,4 +3696,54 @@ def get_initial_topography_funcion(topography_continent, topography_ocean, custo
 
     return function_constants, function_expression
 
-# todo_fast
+def taper_feature_topography(feature, topography_continent, topography_ocean, index_continent, index_ocean):
+    '''
+    Apply continental and oceanic topography offsets to a GWB feature and its associated composition
+    and temperature models.
+    Parameters:
+        feature (dict): GWB feature dictionary containing geometry, composition models, and optional
+            temperature models.
+        topography_continent (float): Topography offset applied to the continental side.
+        topography_ocean (float): Topography offset applied to the oceanic side.
+        index_continent (int): Index identifying the continental entry in composition model depth arrays.
+        index_ocean (int): Index identifying the oceanic entry in composition model depth arrays.
+    Returns:
+        None: The input feature dictionary is modified in place.
+    '''
+    feature["min depth"] -= topography_continent
+    feature["max depth"] -= topography_ocean
+
+    composition_models = feature["composition models"]
+    for composition_model in composition_models:
+        try:
+            composition_model["min depth"][index_ocean][0] -= topography_ocean
+            composition_model["min depth"][index_continent][0] -= topography_continent
+        except KeyError:
+            # still, the "min depth" needs to present, if it doesn't, copy from the structure of "max depth"
+            # and then assign it the negative of topography value
+            composition_model["min depth"] = deepcopy(composition_model["max depth"])
+            composition_model["min depth"][index_ocean][0] = -topography_ocean
+            composition_model["min depth"][index_continent][0] = -topography_continent
+        try:
+            composition_model["max depth"][index_ocean][0] -= topography_ocean
+            composition_model["max depth"][index_continent][0] -= topography_continent
+            pass
+        except KeyError:
+            pass
+
+    try:
+        temperature_models = feature["temperature models"]
+    except KeyError:
+        pass
+    else:
+        for temperature_model in temperature_models:
+            if ("min depth" in temperature_model) or ("max depth" in temperature_model):
+                try:
+                    temperature_model["min depth"] -= topography_continent
+                except KeyError:
+                    temperature_model["min depth"] = -topography_continent
+                try:
+                    temperature_model["max depth"] -= topography_continent
+                except KeyError:
+                    pass
+                
