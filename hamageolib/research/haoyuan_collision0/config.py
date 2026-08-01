@@ -3409,7 +3409,7 @@ class FastScapeRule(Rule):
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
                 "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
-                "fastscape_timesteps", "erosional_base_level", "include_initial_topography_with_gwb"]
+                "fastscape_timesteps", "erosional_base_level", "include_initial_topography_with_gwb", "customize_ridge"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3429,7 +3429,8 @@ class FastScapeRule(Rule):
         "include_boundary_flow": False,
         "fastscape_timesteps": 1,
         "erosional_base_level": -1.0,
-        "include_initial_topography_with_gwb": False
+        "include_initial_topography_with_gwb": False,
+        "customize_ridge": False,
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
@@ -3438,7 +3439,8 @@ class FastScapeRule(Rule):
                          "include_boundary_flow": "include the flow of sediment into the model domain by setting the composition of erosional sediments",
                          "fastscape_timesteps": "Number of fastscape timesteps per aspect timestep",
                          "erosional_base_level": "If a positive value is given, then a fixed erosional base level is used.",
-                         "include_initial_topography_with_gwb": "This options will use GWB to prescribe the initial topography"}
+                         "include_initial_topography_with_gwb": "This options will use GWB to prescribe the initial topography",
+                         "customize_ridge": "Here this decide whether we want to specify the topography for the ridge in the corner"}
     
     def apply(self, config, prm_dict, wb_dict, context):
 
@@ -3460,6 +3462,7 @@ class FastScapeRule(Rule):
         fastscape_timesteps = config["fastscape_timesteps"]
         erosional_base_level = config["erosional_base_level"]
         include_initial_topography_with_gwb = config["include_initial_topography_with_gwb"]
+        customize_ridge = config["customize_ridge"]
 
         
         if include_fastscape:
@@ -3547,19 +3550,19 @@ class FastScapeRule(Rule):
         # todo_fast
         if include_initial_topography:
 
+            # construct a initial topography function.
+            # This considers where are the ocean and continent plates as well as handling
+            # the tapering between them.
             initial_topography_model = {}
             initial_topography_model["Model name"] = "function"
-            initial_topography_model["Function"] = {
-                "Function constants": "x0 = %.2e, x1 = %.2e, x2 = %.2e, l0 = %.2e, l1 = %.2e, topoC = %.2e, topoO = %.2e" % \
-                (context["plate_start_point"], context["continent_end_point"], context["slab_hinge_point"],
-                 context["continent_taper_length"], include_initial_topography_trench_continent_taper,
-                topography_continent, topography_ocean),
-                "Function expression": rf"""(x>x2+l1)? topoC:\
-                              ((x>x2)? ((x2+l1-x)/l1*topoO + (x-x2)/l1*topoC):\
-                              ((x>x1)? topoO:\
-                              ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
-                              ((x>x0)? topoC: 0.0))))"""
-            }
+
+            func_constant, func_expression = \
+                get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, context["plate_start_point"], 
+                                               context["continent_end_point"], context["slab_hinge_point"],
+                                               context["continent_taper_length"], include_initial_topography_trench_continent_taper)
+
+            initial_topography_model["Function"] = {"Function constants": func_constant,
+                                                    "Function expression": func_expression}
 
             prm_dict["Geometry model"]["Initial topography model"] = initial_topography_model
 
@@ -3663,5 +3666,26 @@ class FastScapeRule(Rule):
                                 pass
 
 
-        
-            
+# todo_fast
+def get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, plate_start_point, 
+                                   continent_end_point, slab_hinge_point, continent_taper_length, 
+                                   include_initial_topography_trench_continent_taper):
+
+    """
+    Get the function constants and function expressions for the initial topography function
+    """
+
+    if customize_ridge:
+        pass
+    else:
+        function_constants = "x0 = %.2e, x1 = %.2e, x2 = %.2e, l0 = %.2e, l1 = %.2e, topoC = %.2e, topoO = %.2e" % \
+                    (plate_start_point, continent_end_point, slab_hinge_point, continent_taper_length, 
+                    include_initial_topography_trench_continent_taper, topography_continent, topography_ocean)
+
+        function_expression = rf"""(x>x2+l1)? topoC:\
+                            ((x>x2)? ((x2+l1-x)/l1*topoO + (x-x2)/l1*topoC):\
+                            ((x>x1)? topoO:\
+                            ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
+                            ((x>x0)? topoC: 0.0))))"""      
+
+    return function_constants, function_expression
