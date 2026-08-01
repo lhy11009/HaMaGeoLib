@@ -3091,6 +3091,9 @@ viscosity is being prescribed in the region",
             prm_dict["Boundary composition model"] = {
                 "List of model names": "initial composition"
                 }
+
+            context["customize_corner_width"] = customize_corner_width
+            context["customize_ridge_taper_length"] = customize_ridge_taper_length
             
 
 class PhaseTransitionRule(Rule):
@@ -3547,7 +3550,6 @@ class FastScapeRule(Rule):
             prm_dict["Mesh deformation"]["Diffusion"]["Hillslope transport coefficient"] = "%.3e" % (bedrock_diffusivity/year)
 
 
-        # todo_fast
         if include_initial_topography:
 
             # construct a initial topography function.
@@ -3558,8 +3560,9 @@ class FastScapeRule(Rule):
 
             func_constant, func_expression = \
                 get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, context["plate_start_point"], 
-                                               context["continent_end_point"], context["slab_hinge_point"],
-                                               context["continent_taper_length"], include_initial_topography_trench_continent_taper)
+                                               context["plate_end_point"], context["continent_end_point"], context["slab_hinge_point"],
+                                               context["continent_taper_length"], include_initial_topography_trench_continent_taper,
+                                               context["customize_corner_width"], context["customize_ridge_taper_length"])
 
             initial_topography_model["Function"] = {"Function constants": func_constant,
                                                     "Function expression": func_expression}
@@ -3625,6 +3628,7 @@ class FastScapeRule(Rule):
             # fix the passive margin separately if it presents
             # still, the "min depth" needs to present, if it doesn't, copy from the structure of "max depth"
             # and then assign it the negative of topography value
+            # todo_fast
             idx_feature, feature = find_WB_feature_by_name(wb_dict, "Subducting Continent Margin")
 
             if feature is not None:
@@ -3665,27 +3669,55 @@ class FastScapeRule(Rule):
                             except KeyError:
                                 pass
 
-
-# todo_fast
-def get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, plate_start_point, 
-                                   continent_end_point, slab_hinge_point, continent_taper_length, 
-                                   include_initial_topography_trench_continent_taper):
-
-    """
-    Get the function constants and function expressions for the initial topography function
-    """
+def get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, plate_start_point,
+                                   plate_end_point, continent_end_point, slab_hinge_point, continent_taper_length,
+                                   include_initial_topography_trench_continent_taper,
+                                   customize_corner_width, customize_ridge_taper_length):
+    '''
+    Construct the function constants and function expression for the initial topography profile.
+    Parameters:
+        topography_continent (float): Initial continental topography.
+        topography_ocean (float): Initial oceanic topography.
+        customize_ridge (bool): Whether to include a customized ridge geometry.
+        plate_start_point (float): Horizontal position of the plate start.
+        plate_end_point (float): Horizontal position of the plate end.
+        continent_end_point (float): Horizontal position of the continental edge.
+        slab_hinge_point (float): Horizontal position of the slab hinge.
+        continent_taper_length (float): Length of the continental taper region.
+        include_initial_topography_trench_continent_taper (float): Length of the trench-to-continent taper region.
+        customize_corner_width (float): Width of the customized ridge corner.
+        customize_ridge_taper_length (float): Length of the ridge taper region.
+    Returns:
+        tuple[str, str]: A tuple containing the function constants string and the function expression string.
+    '''
 
     if customize_ridge:
-        pass
+        # Note that the plate_start_point is the start point of everything,
+        # so the ridge in between plate_start_point and plate_start_point +
+        function_constants = "x0 = %.2e, x1 = %.2e, x2 = %.2e, x3 = %2e, l0 = %.2e, l1 = %.2e, l2 = %.2e, topoC = %.2e, topoO = %.2e" % \
+                    (plate_start_point+customize_corner_width, continent_end_point, slab_hinge_point, plate_end_point-customize_corner_width,
+                     continent_taper_length, include_initial_topography_trench_continent_taper, customize_ridge_taper_length,
+                     topography_continent, topography_ocean)
+
+        function_expression = rf"""(x>x3+l2)? topoO:\
+                            ((x>x3)? (x3+l2-x)/l2*topoC + (x-x3)/l2*topoO:\
+                            ((x>x2+l1)? topoC:\
+                            ((x>x2)? ((x2+l1-x)/l1*topoO + (x-x2)/l1*topoC):\
+                            ((x>x1)? topoO:\
+                            ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
+                            ((x>x0)? topoC:\
+                            ((x>x0-l2)? ((x-x0+l2)/l2*topoC + (x0-x)/l2*topoO):topoO)))))))"""
     else:
         function_constants = "x0 = %.2e, x1 = %.2e, x2 = %.2e, l0 = %.2e, l1 = %.2e, topoC = %.2e, topoO = %.2e" % \
-                    (plate_start_point, continent_end_point, slab_hinge_point, continent_taper_length, 
+                    (plate_start_point, continent_end_point, slab_hinge_point, continent_taper_length,
                     include_initial_topography_trench_continent_taper, topography_continent, topography_ocean)
 
         function_expression = rf"""(x>x2+l1)? topoC:\
                             ((x>x2)? ((x2+l1-x)/l1*topoO + (x-x2)/l1*topoC):\
                             ((x>x1)? topoO:\
                             ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
-                            ((x>x0)? topoC: 0.0))))"""      
+                            ((x>x0)? topoC: 0.0))))"""
 
     return function_constants, function_expression
+
+# todo_fast
