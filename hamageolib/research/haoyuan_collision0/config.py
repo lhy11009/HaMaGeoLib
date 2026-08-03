@@ -166,21 +166,25 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     if variables["include_fastscape"]:
         if use_all or "include_fastscape" in use_keys:
             case_name += "_FS"
-            if use_all or "customize_no_incision_width" in use_keys:
-                if variables["customize_no_incision_width"] > 0:
-                    case_name += "_Nw%.2e" % variables["customize_no_incision_width"]
-
-            if use_all or "erosional_base_level" in use_keys:
-                if variables["erosional_base_level"] > 0:
-                    case_name += "_Ebl%.2e" % variables["erosional_base_level"]
+        if use_all or "customize_no_incision_width" in use_keys:
+            if variables["customize_no_incision_width"] > 0:
+                case_name += "_Nw%.2e" % variables["customize_no_incision_width"]
+        if use_all or "erosional_base_level" in use_keys:
+            if variables["erosional_base_level"] > 0:
+                case_name += "_Ebl%.2e" % variables["erosional_base_level"]
 
     if use_all or "do_topography_test" in use_keys:
         if variables["do_topography_test"]:
             case_name += "_topoT"
 
-    if use_all or "include_initial_topography" in use_keys:
-        if variables["include_initial_topography"]:
+    if variables["include_initial_topography"]:
+        if use_all or "include_initial_topography" in use_keys:
             case_name += "_topoI"
+        if use_all or "topography_continent" in use_keys:
+            case_name += "_TC%.2e" % variables["topography_continent"]
+        if use_all or "topography_ocean" in use_keys:
+            case_name += "_TO%.2e" % variables["topography_ocean"]
+        
 
     if use_all or "customize_corner_temperature_fix" in use_keys:
         if variables["customize_corner_temperature_fix"]:
@@ -3443,7 +3447,10 @@ class FastScapeRule(Rule):
                          "fastscape_timesteps": "Number of fastscape timesteps per aspect timestep",
                          "erosional_base_level": "If a positive value is given, then a fixed erosional base level is used.",
                          "include_initial_topography_with_gwb": "This options will use GWB to prescribe the initial topography",
-                         "customize_ridge": "Here this decide whether we want to specify the topography for the ridge in the corner"}
+                         "customize_ridge": "Here this decide whether we want to specify the topography for the ridge in the corner",
+                         "topography_continent": "Topography of the continent, if the option of initial topography is turned on.",
+                         "topography_ocean": "Topography of the ocean, if the option of initial topography is turned on."
+                         }
     
     def apply(self, config, prm_dict, wb_dict, context):
 
@@ -3746,4 +3753,3 @@ def taper_feature_topography(feature, topography_continent, topography_ocean, in
                     temperature_model["max depth"] -= topography_continent
                 except KeyError:
                     pass
-                

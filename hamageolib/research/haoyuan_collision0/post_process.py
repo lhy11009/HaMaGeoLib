@@ -1418,7 +1418,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
             ProcessCollision.load_topograph(time_step)
         except FileExistsError:
             pass
-            # ProcessCollision.extract_topography(dx=5e3, dr=0.001, interp_dx=5e3, output_surface=True)
+            ProcessCollision.extract_topography(dx=5e3, dr=0.001, interp_dx=5e3, output_surface=True)
 
     # extract slab
     ProcessCollision.extract_slab(output_surfuce=True)
@@ -1451,8 +1451,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
             new_outputs = ProcessCollision.analyze_trench_origin_from_particles()
             outputs.update(new_outputs)
     
-    # extract the final output file
-    if include_particles:
+        # extract the final output file
         ProcessCollision.extract_additionals(upper_lower_plate=upper_lower_plate)
 
     # analyze shortening in continental crust
