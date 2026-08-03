@@ -165,3 +165,45 @@ def test_main_postprocess_workflow_particles():
     
     final_vtu_file_path = os.path.join(pp_directory, "pyvista_outputs", "00351", "final_00351.vtu")
     assert(os.path.isfile(final_vtu_file_path))
+
+
+def test_main_postprocess_fastscape():
+    '''
+    Test the main workflow for post-processing the collision0 project.
+    Now only works for 2-d cases.
+    Specifically, this test the workflow involving fastsacpe dataset as vtk outputs
+    '''
+    
+    source_case_path = big_fixture_root/"C_ar4_WLF5.0e-02_SA100.0_CR_CRT2.00e+05_FS_Ebl1.00e-02"
+    pp_directory = os.path.join(test_dir, "test_main_postprocess_workflow_fastscape")
+
+    # make a new post-process directory
+    if os.path.isdir(pp_directory):
+        rmtree(pp_directory)
+    os.mkdir(pp_directory)
+
+    # Prepare case options
+    # The second option of the function is is_process_second_stage, this is not needed
+    # if not processing a dual-stage model 
+    Case_Options_2d = prepare_case_option_2d(source_case_path, False,
+                                            pp_directory=pp_directory)
+
+
+    # Post-processing the results involving vtu files
+    # For this test, we just run the processing of one step
+    process_all_vtu_steps(source_case_path, Case_Options_2d,
+                          graphical_step_min=None,
+                          graphical_step_max=None,
+                          one_vtu_step=30,
+                          include_particles=False,
+                          include_fastscape=True,
+                          include_topography=False,
+                          analyze_shortening=False)
+    
+    final_vtu_file_path = os.path.join(pp_directory, "pyvista_outputs", "00030", "final_00030.vtu")
+    assert(os.path.isfile(final_vtu_file_path))
+
+    fastscape_average_file_path = os.path.join(pp_directory, "pyvista_outputs", "00030", "fastscape_00030.txt")
+    assert(os.path.isfile(fastscape_average_file_path))
+    fastscape_average_std_file_path = os.path.join(source_case_path, "fastscape_00030.txt")
+    assert(filecmp.cmp(fastscape_average_file_path, fastscape_average_std_file_path))

@@ -61,6 +61,9 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         # placeholder for interpolation functions
         self.particle_ul_func = None
 
+        # placeholder for fastscape horizontal interpolaters
+        self.fs_hz_interp = None
+
         # placeholder for topography functions
         self.topography_func = None
 
@@ -265,6 +268,88 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         print("\ttakes %.1f s" % (end - start))
         
         return outputs
+
+    def average_fastscape_horizontally(self,
+        x_tolerance: float = 1e3,
+        dx_export: float = 1e3
+    ):
+        '''
+        Compute x-dependent interpolation functions by averaging all point-data
+        fields along the y direction. Points whose x coordinates differ by less
+        than the specified tolerance are treated as belonging to the same x
+        location.
+
+        Parameters
+        ----------
+        x_tolerance : float, optional
+            Spacing used to group x coordinates. Coordinates are rounded to the
+            nearest multiple of this value before averaging.
+
+        Returns
+        -------
+        dict[str, interp1d]
+            Dictionary mapping each scalar point-data field name to a 1-D
+            interpolation function of x.
+        '''
+        start = time.time()
+        print("PYVISTA_PROCESS:\n\t%s" % func_name())
+
+        points = self.fs_grid.points
+        x = points[:, 0]
+
+        # Decide unique x values by a given tolerance
+        x_group = np.round(x / x_tolerance) * x_tolerance
+        unique_x, inverse = np.unique(x_group, return_inverse=True)
+
+        # Horizontal each fields based on the values and counts of 
+        # number of points that has the same x unique value.
+        self.fs_hz_interp = {}
+        for field_name, values in self.fs_grid.point_data.items():
+            if values.ndim != 1:
+                continue
+
+            sums = np.bincount(inverse, weights=values)
+            counts = np.bincount(inverse)
+
+            averages = sums / counts
+
+            self.fs_hz_interp[field_name] = interp1d(
+                unique_x,
+                averages,
+                kind="linear",
+                bounds_error=False,
+                fill_value="extrapolate",
+            )
+
+        # export to file
+        x_min = 0.0
+        x_max = x.max()
+
+        x_uniform = np.arange(x_min, x_max + 0.5 * dx_export, dx_export)
+
+        field_names = sorted(self.fs_hz_interp.keys())
+
+        output = np.empty((x_uniform.size, len(field_names) + 1))
+        output[:, 0] = x_uniform
+
+        for i, field_name in enumerate(field_names):
+            output[:, i + 1] = self.fs_hz_interp[field_name](x_uniform)
+
+        header = "# x " + " ".join(field_names)
+
+        output_file = os.path.join(self.pyvista_outdir, "fastscape_%05d.txt" % self.pvtu_step)
+        np.savetxt(
+            output_file,
+            output,
+            header=header,
+            comments="",
+            fmt="%.8e",
+        )
+        print("\twrite file %s" % output_file)
+
+        end = time.time()
+        print("\ttakes %.1f s" % (end - start))
+
     
     def extract_topography(self, *, 
                            dx=5e3, dr=0.001,
@@ -1367,6 +1452,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
                            pyvista_outdir=None,
                            include_particles=False,
                            include_topography=False,
+                           include_fastscape=False,
                            analyze_shortening=False,
                            analyze_deformation=False):
     '''
@@ -1406,6 +1492,12 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
 
     # read file
     ProcessCollision.read(pvtu_step)
+
+    # read fastscape file
+    # average the data in the fastscape file horizontally
+    if include_fastscape:
+        ProcessCollision.read_fastscape(time_step)
+        ProcessCollision.average_fastscape_horizontally()
 
     # read topography data
     # there are options to extract topography anyway even if the
@@ -2058,6 +2150,7 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
                           one_vtu_step=None,
                           include_particles=False,
                           include_topography=False,
+                          include_fastscape=False,
                           analyze_shortening=False,
                           analyze_deformation=False):
     """
@@ -2142,6 +2235,7 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
         outputs = ProcessVtuFileTwoDStep(dir_2d, pvtu_step, Case_Options_2d, 
                                          include_particles=include_particles, 
                                          include_topography=include_topography,
+                                         include_fastscape=include_fastscape,
                                          analyze_shortening=analyze_shortening,
                                          analyze_deformation=analyze_deformation)
         # print("outputs: ", outputs) # debug

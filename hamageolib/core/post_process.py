@@ -51,6 +51,7 @@ class PYVISTA_PROCESS():
         # Initialize global variables 
         self.pvtu_step = None
         self.grid = None
+        self.fs_grid = None
         self.particles = None
 
     def read(self, pvtu_step, *,
@@ -91,6 +92,25 @@ class PYVISTA_PROCESS():
             print("PYVISTA_PROCESS:\n\tRead file %s" % (p_filepath))
             print("\ttakes %.1f s" % (end - start))
             start = end
+
+    def read_fastscape(self, time_step):
+        '''
+        Read a FastScape topography VTK file for a specified time step and store it as a PyVista grid.
+        Parameters:
+            time_step (int): Simulation time step used to construct the FastScape output filename.
+        Returns:
+            None: The loaded PyVista grid is stored in self.fs_grid and timing information is printed.
+        '''
+
+        start = time.time()
+        filepath = os.path.join(self.data_dir, "..", "fastscape", "Topography%07d.vtk" % (time_step))
+
+        self.fs_grid = pv.read(filepath)
+        end = time.time()
+
+        print("PYVISTA_PROCESS:\n\tRead fastscape file %s" % (filepath))
+        print("\ttakes %.1f s" % (end - start))
+        start = end
 
     def process_piecewise(self, func_name, keys, **kwargs):
         '''
