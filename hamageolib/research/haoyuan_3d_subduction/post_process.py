@@ -2418,10 +2418,10 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
         # if no cell presents, assign trivial values
         # else compute the total cell area
-        if grid_metastable.n_cells == 0:
-            metastable_area = 0.0
-            metastable_area_cold = 0.0
-        else:
+        metastable_area = 0.0
+        metastable_area_cold = 0.0
+        metastable_max_depth = 0.0
+        if grid_metastable.n_cells > 0:
             sized = grid_metastable.compute_cell_sizes(length=False, area=True, volume=False)
             metastable_area = float(sized.cell_data["Area"].sum())
             filename = "metastable_region_%05d.vtu" % pvtu_step
