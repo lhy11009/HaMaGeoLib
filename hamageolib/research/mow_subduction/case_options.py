@@ -22,8 +22,12 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_TWOD1):
         # Add new columns you want to add
         # Mow area - metastable area
         # Mow area code - metastable area in cold slab
-        # todo_depth
-        new_columns = ["Mow area", "Mow area cold", "Mow area cold depth", "Sp velocity", "T depth 923.15", "T depth 973.15", "T depth 1023.15"]
+        # todo_depth   
+        # todo_by
+        new_columns = ["Mow area", "Mow area cold", "Mow area cold depth", "Sp velocity", 
+                       "T depth 923.15", "T depth 973.15", "T depth 1023.15",
+                       "Slab buoyancy equilibrium area cold", "Slab buoyancy MOW area cold", "Slab buoyancy thermal", 
+                       "Slab buoyancy thermal MTZ"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:

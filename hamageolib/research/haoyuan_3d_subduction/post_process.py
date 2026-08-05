@@ -14,6 +14,7 @@ from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
 from hamageolib.utils.interp_utilities import KNNInterpolatorND
 from hamageolib.research.haoyuan_3d_subduction.case_options import CASE_OPTIONS, CASE_OPTIONS_TWOD1
+from hamageolib.research.haoyuan_2d_subduction.legacy_tools import DEPTH_AVERAGE_PLOT
 from hamageolib.utils.plot_helper import convert_eps_to_pdf, extract_image_by_size, overlay_images_on_blank_canvas,\
     add_text_to_image, scale_matplotlib_params
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
@@ -2172,6 +2173,19 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
     idx = Case_Options.summary_df["Vtu snapshot"] == pvtu_step
     _time = Case_Options.summary_df.loc[idx, "Time"].values[0]
 
+    # Read the depth average file,
+    # and get the interpolator for temperature at this time step
+    depth_average_file = os.path.join(case_path, "output", "depth_average.txt")
+    my_assert(os.path.isfile(depth_average_file), FileExistsError, "%s doesn't exists." % depth_average_file)
+
+    depth_average = DEPTH_AVERAGE_PLOT('DepthAverage')
+    depth_average.ReadHeader(depth_average_file)
+    depth_average.ReadData(depth_average_file)
+    depth_average.SplitTimeStep()
+
+    da_T_func = depth_average.GetInterpolateFunc(_time, "temperature")
+
+
     # constant values
     # T_slab - value used to extract metastable region in cold slab
     T_slab = 900 + 273.15 # K
@@ -2244,6 +2258,11 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
         v2_u = slab_points[:, 0]
     rt_tree = cKDTree(rt_upper)
 
+    # For every position on the radius (or along y)
+    # Find the points within the slab points that has nearby radius (or y) 
+    # coordinate near this point.
+    # Then amoung these points, look for one has the largest phi or (x) value
+    # (radius, phi) or (x, y) would be point on the slab surface
     dr = 0.001
     for i, v0 in enumerate(vals0):
         query_pt = np.array([v0/Max0])
@@ -2324,13 +2343,13 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
     print("%s: Extract trench center takes %.1f s" % (func_name(), end - start))
     
     # plate movement, reuse the Kdtree in the last step
-    # query the points base on a depth, and select points within a distance to the trench.
+    # select points near the surface within a distance range to the trench.
     # get the velocity and project to the phi / x direction
     # last, take the average
     start = time.time()
 
-    query_plate_velocity_depth = 20e3 # depth to query m
-    query_plate_velocity_dist = 500e3 # distance from trench to query
+    query_plate_velocity_depth = 20e3 # depth to teh surface, a value near 0.0
+    query_plate_velocity_dist = 500e3 # distance from trench
     query_plate_velocity_dist_span = 200e3 # range of distance from trench to query
 
     query_v0 = Max0 - query_plate_velocity_depth
@@ -2375,11 +2394,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
     query_dist = kwargs.get("query_dist", 500e3)
     query_dist_span = kwargs.get("query_dist_span", 200e3)
     
-    # construct the kd tree
     v0, v2, _ = PUnified.points2unified3(points, (geometry == "chunk"), False)
     da_func = KNNInterpolatorND(np.vstack((v0/Max0, v2/Max2)).T, grid.point_data["nonadiabatic_pressure"], k=1, max_distance=0.05) # 0.05
 
-    # construct the query points
     query_v0s = np.linspace(Min0, Max0, 1001)
 
     if geometry == "chunk":
@@ -2391,15 +2408,14 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
         
     query_v2s = np.linspace(query_v2_range[0], query_v2_range[1], 11)
 
-    # loop and interpolate along v0
-    # take the average dynamic pressure value
     query_das = np.zeros(query_v0s.size)
     for i, query_v0 in enumerate(query_v0s):
+        # loop and interpolate along v0
+        # take the average dynamic pressure value
         da_array = da_func(np.full(query_v2s.shape, query_v0)/Max0, query_v2s/Max2)
         query_das[i] = np.mean(da_array)
 
-    # export to file
-    filename = "da_profile_%05d.txt" % (pvtu_step)
+    filename = "da_profile_%05d.txt" % (pvtu_step)  # export to file
     filepath = os.path.join(pyvista_outdir, filename)
     np.savetxt(filepath, np.column_stack((query_v0s, query_das)), fmt="%.6f", delimiter="\t")
     print("saved file: %s" % filepath)
@@ -2470,7 +2486,62 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
             contour_depth = ContourTDepth(grid_c, T0, Max0)
             output_dict["T_depth_%.2f" % T0] = contour_depth
 
+    # todo_by
+    grav_acc = 10.0  # m/s^2 gravity
+    slab_minimum_depth = 100e3
+
+    cell_centers = grid_c.cell_centers().points
+    cell_y = cell_centers[:, 1]
+    cell_depth = Max0 - cell_y
+
+    mask_indices = np.flatnonzero((grid_c.cell_data['T'] < T_slab)
+                          & (cell_depth > slab_minimum_depth))
+    grid_c_slab = grid_c.extract_cells(mask_indices)
+    cell_centers_slab = grid_c_slab.cell_centers().points
+    cell_depth_slab = Max0 - cell_centers_slab[:, 1]
+    mask_MTZ_slab = ((cell_depth_slab > 410e3) & (cell_depth_slab < 660e3))
+
+    sized_slab = grid_c_slab.compute_cell_sizes(length=False, area=True, volume=False)
+
+    # Compute the thermal buoyancy from the slab temperature and the adiabatic profile
+    # TODO: reference density and density difference is hard-coded. Instead, parse from
+    # a prm file.
+    alpha = 3e-5
+    cell_rho_ref_slab = 3300.0
+    drho_wd = 94.4
+
+    cell_da_T_slab = da_T_func(cell_depth_slab)
+    cell_buoyancy_slab = alpha*cell_rho_ref_slab*(grid_c_slab.cell_data['T']-cell_da_T_slab)\
+        *sized_slab.cell_data["Area"]*grav_acc
+    slab_buoyancy_thermal = float(cell_buoyancy_slab.sum())
+
+    output_dict["slab_buoyancy_thermal"] = slab_buoyancy_thermal
+
+    # From the slab buoyancy, filter the thermal buoyancy from in the MTZ depths
+    cell_buoyancy_MTZ_slab = cell_buoyancy_slab[mask_MTZ_slab]
+    slab_buoyancy_MTZ = float(cell_buoyancy_MTZ_slab.sum())
+    output_dict["slab_buoyancy_thermal_MTZ"] = slab_buoyancy_MTZ
+
+    # todo_by
+    # Compute the buoyancy related to the equilibrium transition at 410 km depth
+    cell_data_P_eq_slab =  (grid_c_slab.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
+    mask_eq_slab = (grid_c_slab.cell_data['p'] > cell_data_P_eq_slab)
+    mask_indices = np.flatnonzero(mask_eq_slab & (cell_depth_slab < 410e3))
+
+    grid_eq_410_slab = grid_c_slab.extract_cells(mask_indices)
+    sized_eq_410_slab = grid_eq_410_slab.compute_cell_sizes(length=False, area=True, volume=False)
+    slab_eq_410_area = float(sized_eq_410_slab.cell_data["Area"].sum())
+    slab_buoyancy_equilibrium = -slab_eq_410_area * drho_wd * grav_acc
+    output_dict["slab_buoyancy_equilibrium_area_cold"] = slab_buoyancy_equilibrium
+
+    if Case_Options.options["MODEL_TYPE"] == "mow":
+        # TODO: this density value is hard-coded. Instead, parse it from the prm file
+        drho_wd = 94.4
+        slab_buoyancy_metastable_area_cold = metastable_area_cold * drho_wd * grav_acc
+        output_dict["slab_buoyancy_metastable_area_cold"] = slab_buoyancy_metastable_area_cold
+
     return output_dict
+
 
 # todo_depth
 def ContourTDepth(grid_c, T0, Ro):

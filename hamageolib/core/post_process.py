@@ -9,6 +9,7 @@ from vtk import VTK_QUAD
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.exception_handler import my_assert
 from hamageolib.utils.vtk_utilities import get_pyvista_extension
+from hamageolib.research.haoyuan_2d_subduction.legacy_tools import DEPTH_AVERAGE_PLOT
 
 
 # todo_pyv
@@ -24,7 +25,9 @@ class PYVISTA_PROCESS():
     def __init__(self, data_dir, *,
                  pyvista_outdir=None,
                  include_particles=False,
-                 particles_dir=None):
+                 particles_dir=None,
+                 include_depth_average=None,
+                 depth_average_file=None):
         
         # data_directory
         self.data_dir = data_dir
@@ -46,13 +49,31 @@ class PYVISTA_PROCESS():
                 self.particles_dir = particles_dir
             
             my_assert(os.path.isdir(self.particles_dir), FileExistsError, "%s doesn't exists." % self.particles_dir)
-            
 
+        # include depth average file
+        self.include_depth_average = include_depth_average
+        if include_depth_average:
+            if depth_average_file is None:
+                self.depth_average_file = os.path.join(self.data_dir, "..", "depth_average.txt")
+            else:
+                self.depth_average_file = depth_average_file
+            my_assert(os.path.isfile(self.depth_average_file), FileExistsError, "%s doesn't exists." % self.depth_average_file)
+
+            
         # Initialize global variables 
         self.pvtu_step = None
         self.grid = None
         self.fs_grid = None
         self.particles = None
+        self.depth_average = None
+
+        # For depth average file, load the file during initiation
+        if include_depth_average:
+            self.depth_average = DEPTH_AVERAGE_PLOT('DepthAverage')
+            self.depth_average.ReadHeader(self.depth_average_file)
+            self.depth_average.ReadData(self.depth_average_file)
+            self.depth_average.SplitTimeStep()
+
 
     def read(self, pvtu_step, *,
              piece=None):
@@ -92,6 +113,11 @@ class PYVISTA_PROCESS():
             print("PYVISTA_PROCESS:\n\tRead file %s" % (p_filepath))
             print("\ttakes %.1f s" % (end - start))
             start = end
+
+    def process_depth_average(self, _time):
+        # TODO: this function is not implemented yet
+        raise NotImplementedError()
+
 
     def read_fastscape(self, time_step):
         '''
