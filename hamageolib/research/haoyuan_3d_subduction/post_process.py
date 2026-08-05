@@ -2419,18 +2419,29 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
     filepath = os.path.join(pyvista_outdir, filename)
     np.savetxt(filepath, np.column_stack((query_v0s, query_das)), fmt="%.6f", delimiter="\t")
     print("saved file: %s" % filepath)
-        
 
+    # Masks from grid_c
+    # These would help to extract certain areas within the slab.
+    slab_minimum_depth = 100e3
+    metastable_threshold = 0.5
+
+    cell_centers = grid_c.cell_centers().points
+    cell_data = grid_c.cell_data
+    cell_y = cell_centers[:, 1]
+    cell_depth = Max0 - cell_y
+    cell_eq_P = (cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
+
+    mask_c_deep = (cell_depth > slab_minimum_depth)
+    mask_c_slab = (grid_c.cell_data['T'] < T_slab)
+    mask_c_eq = (cell_data['p'] > cell_eq_P)
+    mask_c_meta = (mask_c_eq & (cell_data['metastable'] < metastable_threshold))
     
     # Process the region of slab metastablility, compute the area and output a vtu file
     # In addition, separately derive the area below a certain slab temperature (e.g 900 C)
     if Case_Options.options["MODEL_TYPE"] == "mow":
         start = time.time()
-        # filter the grid base on cell data of "metastable"
-        grid_metastable = grid_c.threshold(0.5, scalars="metastable", invert=True)
-        cell_data_P_eq =  (grid_metastable.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
-        mask = np.flatnonzero(grid_metastable.cell_data['p'] > cell_data_P_eq)
-        grid_metastable = grid_metastable.extract_cells(mask)
+
+        grid_metastable = grid_c.extract_cells((mask_c_meta))
 
         # if no cell presents, assign trivial values
         # else compute the total cell area
@@ -2447,8 +2458,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
             # now derive the cold area
             # and extract the depth of the mow
-            mask = np.flatnonzero(grid_metastable.cell_data['T'] < T_slab)
-            grid_metastable_slab = grid_metastable.extract_cells(mask)
+            grid_metastable_slab = grid_c.extract_cells((mask_c_slab & mask_c_meta))
             if grid_metastable_slab.n_cells == 0:
                 metastable_area_cold = 0.0
                 metastable_max_depth = 0.0
@@ -2466,10 +2476,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
                 min_y = points[deepest_id, 1]
                 metastable_max_depth = Max0 - min_y
                 deepest_points = grid.extract_points([deepest_id], adjacent_cells=False)
-                # print("=== Deepest cells: point coordinates ===")
-                # print(points[deepest_id, :])
-                # print("=== metastable max depth ===")
-                # print(metastable_max_depth)
 
         output_dict["metastable_area"] = metastable_area
         output_dict["metastable_area_cold"] = metastable_area_cold
@@ -2487,16 +2493,10 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
             output_dict["T_depth_%.2f" % T0] = contour_depth
 
     # todo_by
+    # Compute buoyancy forces
     grav_acc = 10.0  # m/s^2 gravity
-    slab_minimum_depth = 100e3
 
-    cell_centers = grid_c.cell_centers().points
-    cell_y = cell_centers[:, 1]
-    cell_depth = Max0 - cell_y
-
-    mask_indices = np.flatnonzero((grid_c.cell_data['T'] < T_slab)
-                          & (cell_depth > slab_minimum_depth))
-    grid_c_slab = grid_c.extract_cells(mask_indices)
+    grid_c_slab = grid_c.extract_cells((mask_c_slab & mask_c_deep))
     cell_centers_slab = grid_c_slab.cell_centers().points
     cell_depth_slab = Max0 - cell_centers_slab[:, 1]
     mask_MTZ_slab = ((cell_depth_slab > 410e3) & (cell_depth_slab < 660e3))
@@ -2522,13 +2522,8 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
     slab_buoyancy_MTZ = float(cell_buoyancy_MTZ_slab.sum())
     output_dict["slab_buoyancy_thermal_MTZ"] = slab_buoyancy_MTZ
 
-    # todo_by
     # Compute the buoyancy related to the equilibrium transition at 410 km depth
-    cell_data_P_eq_slab =  (grid_c_slab.cell_data['T'] - Case_Options.options["T_PT_EQ"]) * Case_Options.options["CL_PT_EQ"] + Case_Options.options["P_PT_EQ"]
-    mask_eq_slab = (grid_c_slab.cell_data['p'] > cell_data_P_eq_slab)
-    mask_indices = np.flatnonzero(mask_eq_slab & (cell_depth_slab < 410e3))
-
-    grid_eq_410_slab = grid_c_slab.extract_cells(mask_indices)
+    grid_eq_410_slab = grid_c.extract_cells((mask_c_slab & mask_c_eq & (cell_depth < 410e3)))
     sized_eq_410_slab = grid_eq_410_slab.compute_cell_sizes(length=False, area=True, volume=False)
     slab_eq_410_area = float(sized_eq_410_slab.cell_data["Area"].sum())
     slab_buoyancy_equilibrium = -slab_eq_410_area * drho_wd * grav_acc
@@ -2536,7 +2531,6 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
 
     if Case_Options.options["MODEL_TYPE"] == "mow":
         # TODO: this density value is hard-coded. Instead, parse it from the prm file
-        drho_wd = 94.4
         slab_buoyancy_metastable_area_cold = metastable_area_cold * drho_wd * grav_acc
         output_dict["slab_buoyancy_metastable_area_cold"] = slab_buoyancy_metastable_area_cold
 

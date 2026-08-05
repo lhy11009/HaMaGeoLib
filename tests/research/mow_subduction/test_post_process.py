@@ -45,11 +45,14 @@ def test_pyvista_process_twod_metastable_trivial():
     assert(abs(output_dict["metastable_area_cold"]) < 1e-6) 
 
 
+# todo_by
 @pytest.mark.big_test  # Optional marker for big tests
 def test_pyvista_process_twod_metastable():
     '''
     test generating the metastable grid, check the metastable_area_cold in a
-    step where the cold area is approximate the total metastable_area
+    step where the cold area is approximate the total metastable_area.
+    We also check the values of buoyancies from the thermal effects, the equilibrium
+    transitions and the metastable transitions.
     '''
 
     # test processing the 2d case
@@ -73,7 +76,23 @@ def test_pyvista_process_twod_metastable():
     
     # check value of cold metastable area
     metastable_area_cold_std = 6123460937.5 # m^3
-    assert(abs((output_dict["metastable_area_cold"] - metastable_area_cold_std)/metastable_area_cold_std) < 1e-6) 
+    assert(abs((output_dict["metastable_area_cold"] - metastable_area_cold_std)/metastable_area_cold_std) < 1e-6)
+
+    # check value of thermal buoyancy
+    slab_buoyancy_thermal_std = -22431318055341.266
+    assert(abs((output_dict["slab_buoyancy_thermal"] - slab_buoyancy_thermal_std)/slab_buoyancy_thermal_std) < 1e-6)
+
+    # check value of thermal buoyancy in the MTZ
+    slab_buoyancy_thermal_MTZ_std = -9227085036290.336
+    assert(abs((output_dict["slab_buoyancy_thermal_MTZ"] - slab_buoyancy_thermal_MTZ_std)/slab_buoyancy_thermal_MTZ_std) < 1e-6)
+
+    # check value of the phase-related buoyancy of ol - sp_alpha under equilirbium condition
+    slab_buoyancy_equilibrium_area_cold_std = -2107201593750.0
+    assert(abs((output_dict["slab_buoyancy_equilibrium_area_cold"] - slab_buoyancy_equilibrium_area_cold_std)/slab_buoyancy_equilibrium_area_cold_std) < 1e-6)
+
+    # check value of buoyancy in the metastable region from ol -> sp_alpha transition
+    slab_buoyancy_metastable_area_cold_std = 5780547125000.0
+    assert(abs((output_dict["slab_buoyancy_metastable_area_cold"] - slab_buoyancy_metastable_area_cold_std)/slab_buoyancy_metastable_area_cold_std) < 1e-6)
 
 
 @pytest.mark.big_test  # Optional marker for big tests
