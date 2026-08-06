@@ -509,8 +509,6 @@ def add_composition_to_wb_conditionally_recursive(wb_dict, condition_index, add_
 
 
 
-    
-
 def expand_phase_in_composition_from_prm_recursive(prm_dict:dict, composition:str, from_index:int, to_index:int, *, force_expand_entries=[], force_expand_length=2):
     """
     expand phase entries of composition in the prm file
@@ -524,7 +522,6 @@ def expand_phase_in_composition_from_prm_recursive(prm_dict:dict, composition:st
     to_index: int
         index of phase to expand to
     """
-    # todo_by
     for key, value in prm_dict.items():
         if isinstance(value, dict):
             # call function recursively in case value is dict
