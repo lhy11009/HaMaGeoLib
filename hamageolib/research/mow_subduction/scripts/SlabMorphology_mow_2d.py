@@ -48,16 +48,16 @@ for step in graphical_steps:
     if Case_Options_2d.options["MODEL_TYPE"] == "mow":
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area", step, output_dict["metastable_area"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area cold", step, output_dict["metastable_area_cold"])
-        # todo_depth
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Mow area cold depth", step, output_dict["metastable_area_cold_depth"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("T depth 973.15", step, output_dict["T_depth_973.15"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("T depth 923.15", step, output_dict["T_depth_923.15"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("T depth 1023.15", step, output_dict["T_depth_1023.15"])
-        # todo_by
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy thermal", step, output_dict["slab_buoyancy_thermal"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy thermal MTZ", step, output_dict["slab_buoyancy_thermal_MTZ"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy MOW area cold", step, output_dict["slab_buoyancy_metastable_area_cold"])
+        Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy beta MOW area cold", step, output_dict["slab_buoyancy_beta_metastable_area_cold"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy equilibrium area cold", step, output_dict["slab_buoyancy_equilibrium_area_cold"])
+        Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy beta equilibrium area cold", step, output_dict["slab_buoyancy_beta_equilibrium_area_cold"])
     # break # debug
 
 Case_Options_2d.SummaryCaseVtuStepExport(os.path.join(local_dir_2d, "summary.csv"))

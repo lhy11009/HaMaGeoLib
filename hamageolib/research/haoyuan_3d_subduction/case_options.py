@@ -2,6 +2,7 @@
 import os
 import numpy as np
 import pandas as pd
+from gdmate.aspect.io import parse_composition_entry
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import VISIT_OPTIONS_BASE, FindWBFeatures,\
     WBFeatureNotFoundError, COMPOSITION, GetSnapsSteps
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import CASE_SUMMARY as CASE_SUMMARY_BASE
@@ -185,6 +186,10 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             self.options["DEPTH_PT_EQ"] = metastable_dict.get("Phase transition depth", 410e3)
             self.options["P_PT_EQ"] = 1.34829e+10
             self.options["T_PT_EQ"] = metastable_dict.get("Phase transition temperature", 1740.0)
+
+        # phase transition parameters
+        parse_phase_transition_options(self.idict, self.options)
+
         
         self.options["MAX_PLOT_DEPTH_IN_SLICE"]  = 1300e3
 
@@ -421,6 +426,9 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
 
         self.options["MAX_PLOT_DEPTH_IN_SLICE"]  = 1300e3
 
+        # phase transition parameters
+        parse_phase_transition_options(self.idict, self.options)
+
     def SummaryCaseVtuStep(self, ifile=None):
         '''
         Summary case result
@@ -549,3 +557,44 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY_BASE):
         self.expand_attr("vsink1000s")
 
 
+def parse_phase_transition_options(prm_dict, options):
+    '''
+    Parse equilibrium phase transition parameters from an ASPECT parameter dictionary and
+    store the derived values in the options dictionary.
+    Parameters:
+        prm_dict (dict): Parsed ASPECT parameter dictionary containing the Visco Plastic TwoD
+            material model configuration.
+        options (dict): Dictionary to populate with parsed phase transition parameters.
+    Returns:
+        None: The input options dictionary is modified in place.
+    '''
+    # phase transition parameters
+    # note the values of density has (number of transition + 1) entries,
+    # and density jump of a phase transition is computed from subtracting adjacent entries
+    pt_depths_entry = prm_dict['Material model']['Visco Plastic TwoD']["Phase transition depths"]
+    pt_depths_dict = parse_composition_entry(pt_depths_entry)
+    pt_depths_background_list = pt_depths_dict["background"]
+
+    pt_temperatures_entry = prm_dict['Material model']['Visco Plastic TwoD']["Phase transition temperatures"]
+    pt_temperatures_dict = parse_composition_entry(pt_temperatures_entry)
+    pt_temperature_background_list = pt_temperatures_dict["background"]
+
+    pt_CL_slopes_entry = prm_dict['Material model']['Visco Plastic TwoD']["Phase transition Clapeyron slopes"]
+    pt_CL_slopes_dict = parse_composition_entry(pt_CL_slopes_entry)
+    pt_CL_slopes_list = pt_CL_slopes_dict["background"]
+
+    phase_densities_entry = prm_dict['Material model']['Visco Plastic TwoD']["Densities"]
+    phase_densities_dict = parse_composition_entry(phase_densities_entry)
+    phase_densities_list = phase_densities_dict["background"]
+
+    index_beta = 0  # index of the ol -> alpha sphinel transition
+    options["DEPTH_PT_ALPHA_EQ"] = pt_depths_background_list[index_beta]
+    options["T_PT_ALPHA_EQ"] = pt_temperature_background_list[index_beta]
+    options["CL_PT_ALPHA_EQ"] = pt_CL_slopes_list[index_beta]
+    options["DENSITY_PT_ALPHA_EQ"] = phase_densities_list[index_beta+1] - phase_densities_list[index_beta]
+
+    index_beta = 1  # index of the alpha -> beta sphinel transition
+    options["DEPTH_PT_BETA_EQ"] = pt_depths_background_list[index_beta]
+    options["T_PT_BETA_EQ"] = pt_temperature_background_list[index_beta]
+    options["CL_PT_BETA_EQ"] = pt_CL_slopes_list[index_beta]
+    options["DENSITY_PT_BETA_EQ"] = phase_densities_list[index_beta+1] - phase_densities_list[index_beta]
