@@ -9,11 +9,12 @@ from hamageolib.research.haoyuan_3d_subduction.post_process import PlotCaseRunTw
 from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_subduction_visualization
 
 # options
+# todo_by
 # one_graphical_step - If one graphical step is given, then only this step is executed.
 #   Otherwise loop for all the steps with vtu outputs
 #   Note this step is time / 0.1 Ma
 local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow01/C_mow_h2890.0_M_gr3_ar4_gz_2"
-one_graphical_step = 211 # None or int number
+one_graphical_step = None # None or int number
 
 
 assert(local_dir_2d is not None)
@@ -58,6 +59,7 @@ for step in graphical_steps:
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy beta MOW area cold", step, output_dict["slab_buoyancy_beta_metastable_area_cold"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy equilibrium area cold", step, output_dict["slab_buoyancy_equilibrium_area_cold"])
         Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy beta equilibrium area cold", step, output_dict["slab_buoyancy_beta_equilibrium_area_cold"])
+        Case_Options_2d.SummaryCaseVtuStepUpdateValue("Slab buoyancy pv equilibrium area cold", step, output_dict["slab_buoyancy_pv_equilibrium_area_cold"])
     # break # debug
 
 Case_Options_2d.SummaryCaseVtuStepExport(os.path.join(local_dir_2d, "summary.csv"))

@@ -2522,6 +2522,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
     output_dict["slab_buoyancy_thermal_MTZ"] = slab_buoyancy_MTZ
 
     # Compute the buoyancy related to the equilibrium transition at 410 km depth
+    # Note for this, choose the cells shallower than 410-km depth and beyond the transition boundary
     grid_eq_410_slab = grid_c.extract_cells((mask_c_slab & mask_c_eq & (cell_depth < 410e3)))
     sized_eq_410_slab = grid_eq_410_slab.compute_cell_sizes(length=False, area=True, volume=False)
     slab_eq_410_area = float(sized_eq_410_slab.cell_data["Area"].sum())
@@ -2529,6 +2530,7 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
     output_dict["slab_buoyancy_equilibrium_area_cold"] = slab_buoyancy_equilibrium
 
     # Compute the buoyancy related to the equilibrium transition at 520 km depth
+    # Note for this, choose the cells shallower than 520-km depth and beyond the transition boundary
     P_PT_BETA_EQ =  da_P_func(Case_Options.options["DEPTH_PT_BETA_EQ"])
     cell_beta_P_eq = (cell_data['T'] - Case_Options.options["T_PT_BETA_EQ"]) * Case_Options.options["CL_PT_BETA_EQ"] + P_PT_BETA_EQ
     mask_c_beta_eq = (cell_data['p'] > cell_beta_P_eq)
@@ -2537,6 +2539,18 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, **kwargs):
     slab_beta_eq_area = float(sized_beta_eq_slab.cell_data["Area"].sum())
     slab_buoyancy_beta_equilibrium = -slab_beta_eq_area * Case_Options.options["DENSITY_PT_BETA_EQ"] * grav_acc
     output_dict["slab_buoyancy_beta_equilibrium_area_cold"] = slab_buoyancy_beta_equilibrium
+
+    # Compute the buoyancy related to the equilibrium transition at 660 km depth
+    # Note for this, choose the cells deeper than 660-km depth and shallower than the the transition boundary
+    P_PT_PV_EQ =  da_P_func(Case_Options.options["DEPTH_PT_PV_EQ"])
+    cell_pv_P_eq = (cell_data['T'] - Case_Options.options["T_PT_PV_EQ"]) * Case_Options.options["CL_PT_PV_EQ"] + P_PT_PV_EQ
+    mask_c_pv_eq = (cell_data['p'] > cell_pv_P_eq)
+    grid_pv_eq_slab = grid_c.extract_cells((mask_c_slab & (~mask_c_pv_eq) & (cell_depth > Case_Options.options["DEPTH_PT_PV_EQ"])))
+    sized_pv_eq_slab = grid_pv_eq_slab.compute_cell_sizes(length=False, area=True, volume=False)
+    slab_pv_eq_area = float(sized_pv_eq_slab.cell_data["Area"].sum())
+    slab_buoyancy_pv_equilibrium = slab_pv_eq_area * Case_Options.options["DENSITY_PT_PV_EQ"] * grav_acc
+    output_dict["slab_buoyancy_pv_equilibrium_area_cold"] = slab_buoyancy_pv_equilibrium
+    
 
     if Case_Options.options["MODEL_TYPE"] == "mow":
         # Metastable transition beyond the 410-km boundary

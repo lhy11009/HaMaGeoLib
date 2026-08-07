@@ -15,18 +15,25 @@ def set_viscosity_plot(sourceDisplay, eta_min, eta_max):
     fieldLUT.InvertTransferFunction()
     return field, fieldLUT
 
-def set_viscosity_colorbar(renderView, fieldLUT):
+
+def set_viscosity_colorbar(renderView, fieldLUT, *, 
+                           position=None):
     '''
     set the viscosity colorbar
     Inputs:
         renderView - paraview object connect to visualization
         fieldLUT - color transfer function for viscosity
+        position - manual position of colorbar
     ''' 
     scalarBar = GetScalarBar(fieldLUT, renderView)
     scalarBar.Visibility = 1
     scalarBar.Title = 'Viscosity'
     scalarBar.ComponentTitle = '[Pa·s]'
     scalarBar.Orientation = 'Horizontal'
+
+    if position is not None:
+        scalarBar.WindowLocation = 'Any Location'
+        scalarBar.Position = position   # (x, y) in normalized viewport coordinates
     return scalarBar
 
 
@@ -112,6 +119,114 @@ def set_active_deforming_plot(sourceDisplay):
     ColorBy(sourceDisplay, None)
     sourceDisplay.DiffuseColor = [36/255.0, 0/255.0, 107/255.0] # 24006b
     sourceDisplay.Opacity = 0.5
+
+def set_fastscape_topography_plot(sourceDisplay):
+    '''
+    set the topography colorbar for fastscape outputs
+    Inputs:
+        renderView - paraview object connect to visualization
+        fieldLUT - color transfer function for viscosity
+    ''' 
+    field = "topography"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, -3000.0, 3000.0)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("SCM_romaO", True)
+    fieldLUT.InvertTransferFunction()
+    return field, fieldLUT
+
+def set_fastscape_topography_colorbar(renderView, fieldLUT, *,
+                                      position=None):
+    '''
+    set the fastscape topography colorbar
+    Inputs:
+        renderView - paraview object connect to visualization
+        fieldLUT - color transfer function for density
+        position - manual position of colorbar
+    ''' 
+    scalarBar = GetScalarBar(fieldLUT, renderView)
+    scalarBar.Visibility = 1
+    scalarBar.Title = 'Topography'
+    scalarBar.ComponentTitle = '[m]'
+    scalarBar.Orientation = 'Horizontal'
+
+    if position is not None:
+        scalarBar.WindowLocation = 'Any Location'
+        scalarBar.Position = position   # (x, y) in normalized viewport coordinates
+    return scalarBar
+
+def set_fastscape_erosion_rate_plot(sourceDisplay):
+    '''
+    set the erosion rate plot for fastscape outputs
+    Inputs:
+        renderView - paraview object connect to visualization
+        fieldLUT - color transfer function for viscosity
+    ''' 
+    field = "erosion_rate"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 1e-6, 1e-2)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.MapControlPointsToLogSpace()
+    fieldLUT.UseLogScale = 1
+    fieldLUT.ApplyPreset("SCM_batlow", True)
+    return field, fieldLUT
+
+def set_fastscape_erosion_rate_colorbar(renderView, fieldLUT, *,
+                                      position=None):
+    '''
+set the fastscape erosion rate colorbar
+    Inputs:
+        renderView - paraview object connect to visualization
+        fieldLUT - color transfer function for density
+        position - manual position of colorbar
+    ''' 
+    scalarBar = GetScalarBar(fieldLUT, renderView)
+    scalarBar.Visibility = 1
+    scalarBar.Title = 'Erosion rate'
+    scalarBar.ComponentTitle = '[m/yr]'
+    scalarBar.Orientation = 'Horizontal'
+
+    if position is not None:
+        scalarBar.WindowLocation = 'Any Location'
+        scalarBar.Position = position   # (x, y) in normalized viewport coordinates
+    return scalarBar
+
+def set_fastscape_total_erosion_plot(sourceDisplay):
+    '''
+    set the total erosion plot for fastscape outputs
+    Inputs:
+        renderView - paraview object connect to visualization
+        fieldLUT - color transfer function for viscosity
+    ''' 
+    field = "total_erosion"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, 1, 1e4)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.MapControlPointsToLogSpace()
+    fieldLUT.UseLogScale = 1
+    fieldLUT.ApplyPreset("SCM_batlow", True)
+    return field, fieldLUT
+
+def set_fastscape_total_erosion_colorbar(renderView, fieldLUT, *,
+                                      position=None):
+    '''
+    set the fastscape total erosion colorbar
+    Inputs:
+        renderView - paraview object connect to visualization
+        fieldLUT - color transfer function for density
+        position - manual position of colorbar
+    ''' 
+    scalarBar = GetScalarBar(fieldLUT, renderView)
+    scalarBar.Visibility = 1
+    scalarBar.Title = 'Total erosion'
+    scalarBar.ComponentTitle = '[m]'
+    scalarBar.Orientation = 'Horizontal'
+
+    if position is not None:
+        scalarBar.WindowLocation = 'Any Location'
+        scalarBar.Position = position   # (x, y) in normalized viewport coordinates
+    return scalarBar
+
 
 
 def set_data_axes_grid(renderView1):
@@ -414,6 +529,137 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     print("Figure saved: %s" % fig_png_path)
     print("Figure saved: %s" % fig_path)
 
+    # plot fastscape outputs
+    source_name = "fastscape_transform1" 
+    _sourceF = possible_lookup_source(source_name)
+    source_name_pg = "fastscape_programmable1" 
+    _sourceFPG = possible_lookup_source(source_name_pg)
+
+    if "PLOT_TYPE" == "full_domain":
+
+        # adjust cammera to an orthoganal position
+        layout_resolution = (1350, 704)
+
+        if ANIMATION:
+            # turn on axis grid when making animation
+            sourceDisplay.DataAxesGrid.GridAxesVisibility = 1
+
+        layout1 = GetLayout()
+        layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+
+        # adjust camera setup
+        # Camera position is adjusted relative to the position of the right and top boundary
+        if np.isclose(RIGHT, 5500e3, rtol=1e-6) and np.isclose(TOP, 2000e3, rtol=1e-6):
+            renderView1.InteractionMode = '2D'
+            renderView1.CameraPosition = [9156148.523443608, 8267916.494211691, 6066660.785268369]
+            renderView1.CameraFocalPoint = [2442318.849651574, 1554086.8204196477, -647168.8885236793]
+            renderView1.CameraViewUp=[-0.4082482904638625, 0.816496580927726, -0.4082482904638639]
+            renderView1.CameraParallelScale = 1698912.7130920088  # scale to the length
+        else:
+            raise NotImplementedError()
+
+        # turn on viscosity plot for the main source
+        # and the topography fro the fastscape source
+        # TODO: use the new functions in base.py to set up plot and colorbar
+        field, fieldLUT = set_viscosity_plot(sourceDisplay, 1e18, 1e24)
+        scalarBar = set_viscosity_colorbar(renderView1, fieldLUT, position=[0.05, 0.05])
+        
+        sourceDisplayF = Show(_sourceF, renderView1, 'GeometryRepresentation')
+
+        # set topography plot
+        field, fieldLUT = set_fastscape_topography_plot(sourceDisplayF)
+        scalarBar = set_fastscape_topography_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
+
+        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_topography_t%.4e.pdf" % (_time))
+        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_topography_t%.4e.png" % (_time))
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+
+        # set erosion plot
+        fieldLUT0 = fieldLUT
+        field, fieldLUT = set_fastscape_erosion_rate_plot(sourceDisplayF)
+        scalarBar = set_fastscape_erosion_rate_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
+        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_erosion_rate_t%.4e.pdf" % (_time))
+        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_erosion_rate_t%.4e.png" % (_time))
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+        
+        # set total erosion plot
+        fieldLUT0 = fieldLUT
+        field, fieldLUT = set_fastscape_total_erosion_plot(sourceDisplayF)
+        scalarBar = set_fastscape_total_erosion_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
+        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.pdf" % (_time))
+        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.png" % (_time))
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+
+        # Hide the "transformed" object
+        # and show the "programmable" object 
+        Hide(_sourceF, renderView1)
+        fieldLUT0 = fieldLUT
+        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+        
+        sourceDisplayFPG = Show(_sourceFPG, renderView1, 'GeometryRepresentation')
+
+        # set sedimentation-rate plot
+        fieldLUT0 = fieldLUT
+        field = "sedimentation_rate"
+
+        fieldLUT = set_field_plot_with_source(sourceDisplayFPG, field,
+                               ranges=(1e-6, 1e-2),
+                               color_scheme="SCM_batlow",
+                               use_log_scale=True,
+                               invert_color=False)
+        scalarBar = set_field_colorbar_in_render_view(renderView1, fieldLUT,
+                                      title="Sedimentation Rate",
+                                      unit="m/yr",
+                                      orentation="Horizontal",
+                                      position=[0.6, 0.05])
+
+        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+
+        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_sedimentation_rate_t%.4e.pdf" % (_time))
+        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_sedimentation_rate_t%.4e.png" % (_time))
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+
+
+        # set total sedimentation plot
+        fieldLUT0 = fieldLUT
+        field = "sedimentation"
+
+        fieldLUT = set_field_plot_with_source(sourceDisplayFPG, field,
+                               ranges=(1, 1e4),
+                               color_scheme="SCM_batlow",
+                               use_log_scale=True,
+                               invert_color=False)
+        scalarBar = set_field_colorbar_in_render_view(renderView1, fieldLUT,
+                                      title="Total sedimentation",
+                                      unit="m",
+                                      orentation="Horizontal",
+                                      position=[0.6, 0.05])
+
+        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+
+        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_sedimentation_t%.4e.pdf" % (_time))
+        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_sedimentation_t%.4e.png" % (_time))
+        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+        ExportView(fig_path, view=renderView1)
+        print("Figure saved: %s" % fig_png_path)
+        print("Figure saved: %s" % fig_path)
+
+
+
     # hide plot and colorbar
     # Hide(_source, renderView1)
     # HideScalarBarIfNotNeeded(fieldLUT, renderView1) # hide previous colorbar
@@ -500,7 +746,7 @@ vtk_arr.SetName("composition_indicator")
 output.GetPointData().AddArray(vtk_arr)
 """
 
-# todo_pin
+# todo_ani
 def setup_fastscape(source_i):
     """
     Setup paraview object for fastscape.
@@ -528,11 +774,16 @@ import numpy as np
 
 Topography = inputs[0].PointData["topography"]
 Basement = inputs[0].PointData["basement"]
+Sedimentation_rate = -inputs[0].PointData["erosion_rate"]
 
-# Create new array of sedimentation
+# Create new arrays of sedimentation
 output.PointData.append(
     Topography-Basement,
     "sedimentation"
+)
+output.PointData.append(
+    Sedimentation_rate,
+    "sedimentation_rate"
 )
 """
 

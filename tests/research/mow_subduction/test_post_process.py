@@ -4,6 +4,7 @@ import filecmp  # for compare file contents
 from shutil import rmtree
 from pathlib import Path
 import math
+import numpy as np
     
 from hamageolib.research.mow_subduction.case_options import CASE_OPTIONS_TWOD, CASE_OPTIONS
 from hamageolib.research.haoyuan_3d_subduction.post_process import ProcessVtuFileTwoDStep, ProcessVtuFileThDStep
@@ -93,6 +94,10 @@ def test_pyvista_process_twod_metastable():
     # check value of the phase-related buoyancy of ol - sp_beta under equilirbium condition
     slab_buoyancy_beta_equilibrium_area_cold_std = -2841761039062.4893
     assert(abs((output_dict["slab_buoyancy_beta_equilibrium_area_cold"] - slab_buoyancy_beta_equilibrium_area_cold_std)/slab_buoyancy_beta_equilibrium_area_cold_std) < 1e-6)
+
+    # check value of the phase-related buoyancy of sp - pv + mw under equilirbium condition
+    slab_buoyancy_pv_equilibrium_area_cold_std = 0.0
+    assert(np.isclose(output_dict["slab_buoyancy_pv_equilibrium_area_cold"], slab_buoyancy_pv_equilibrium_area_cold_std, atol=1e-6))
 
     # check value of buoyancy in the metastable region from ol -> sp_alpha transition
     slab_buoyancy_metastable_area_cold_std = 5780547125000.0

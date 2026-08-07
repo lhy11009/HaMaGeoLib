@@ -7,6 +7,7 @@
 # PV_INTERFACE_PATH - path to load xml files
 import os
 import math
+import numpy as np
 # trace generated using paraview version 5.10.1
 #import paraview
 #paraview.compatibility.major = 5
@@ -814,3 +815,72 @@ def source_has_field(source_i, field_name, association="Point Data"):
         raise ValueError(f"Unknown association: {association}")
 
     return arrays.HasArray(field_name) == 1
+
+# todo_ani
+def set_field_plot_with_source(sourceDisplay, field, *,
+                               ranges=None,
+                               color_scheme="Viridis",
+                               use_log_scale=False,
+                               invert_color=False):
+    '''
+    set the plot of a field with given display source
+    Inputs:
+        sourceDisplay - display source
+        field (str) - field to plot
+        ranges (list/tuple of 2) - plotted range of the field
+        color_scheme (str) - color scheme to use
+        use_log_scale (bool) - whether to use log scale in plot
+        invert_color (bool) - whether to invert the color scheme
+    Returns:
+        fieldLUT - a tranfer function that map data rate to color bar
+    ''' 
+    # assert the given values
+    assert(len(ranges) == 2)
+
+    # color option
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+
+    # map to the given range
+    if ranges is not None:
+        rescale_transfer_function_combined(field, ranges[0], ranges[1])
+    fieldLUT = GetColorTransferFunction(field)
+    if use_log_scale:
+        fieldLUT.MapControlPointsToLogSpace()
+        fieldLUT.UseLogScale = 1
+
+    # set color options
+    fieldLUT.ApplyPreset(color_scheme, True)
+
+    if invert_color:
+        fieldLUT.InvertTransferFunction()
+
+    return fieldLUT
+
+def set_field_colorbar_in_render_view(renderView, fieldLUT, *,
+                                      title="Foo",
+                                      unit="",
+                                      orentation="Vertical",
+                                      position=None):
+    '''
+    set the colorbar of a plotted field in render view
+    Inputs:
+        renderView - paraview object connect to visualization
+        fieldLUT - a tranfer function that map data rate to color bar
+        title (str) - title to show with the colorbar
+        unit (str) - unit to show with the color
+        position (tuple or list of 2) - manual position of colorbar (on the screen)
+    Returns:
+        scalarBar - paraview color object
+    ''' 
+    scalarBar = GetScalarBar(fieldLUT, renderView)
+    scalarBar.Visibility = 1
+    scalarBar.Title = title
+    scalarBar.ComponentTitle = "[%s]" % unit
+    scalarBar.Orientation = orentation
+
+    if position is not None:
+        assert(len(position) == 2)
+        scalarBar.WindowLocation = 'Any Location'
+        scalarBar.Position = position   # (x, y) in normalized viewport coordinates
+
+    return scalarBar

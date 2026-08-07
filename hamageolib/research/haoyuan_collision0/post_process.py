@@ -796,6 +796,7 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         continent_crust_points = points[mask_cr]
 
         # bin-left and bin-right points
+        # these pairs are then queried with their "initial_X" position
         continent_crust_points_left = continent_crust_points.copy()
         continent_crust_points_left[:, 0] -= bin_size/2.0
         continent_crust_points_right = continent_crust_points.copy()
@@ -1287,9 +1288,12 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
             for i, depth in enumerate(self.suture_profile_depths):
 
+                # the current interval
                 y_top = self.Max0 - depth
                 y_bottom = y_top - suture_depth_interval
 
+                # get points in this interval and have overriding crust
+                # composition
                 mask = (
                     (y_all <= y_top)
                     & (y_all > y_bottom)

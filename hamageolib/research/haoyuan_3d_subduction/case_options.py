@@ -587,14 +587,20 @@ def parse_phase_transition_options(prm_dict, options):
     phase_densities_dict = parse_composition_entry(phase_densities_entry)
     phase_densities_list = phase_densities_dict["background"]
 
-    index_beta = 0  # index of the ol -> alpha sphinel transition
-    options["DEPTH_PT_ALPHA_EQ"] = pt_depths_background_list[index_beta]
-    options["T_PT_ALPHA_EQ"] = pt_temperature_background_list[index_beta]
-    options["CL_PT_ALPHA_EQ"] = pt_CL_slopes_list[index_beta]
-    options["DENSITY_PT_ALPHA_EQ"] = phase_densities_list[index_beta+1] - phase_densities_list[index_beta]
+    index_pt = 0  # index of the ol -> alpha sphinel transition
+    options["DEPTH_PT_ALPHA_EQ"] = pt_depths_background_list[index_pt]
+    options["T_PT_ALPHA_EQ"] = pt_temperature_background_list[index_pt]
+    options["CL_PT_ALPHA_EQ"] = pt_CL_slopes_list[index_pt]
+    options["DENSITY_PT_ALPHA_EQ"] = phase_densities_list[index_pt+1] - phase_densities_list[index_pt]
 
-    index_beta = 1  # index of the alpha -> beta sphinel transition
-    options["DEPTH_PT_BETA_EQ"] = pt_depths_background_list[index_beta]
-    options["T_PT_BETA_EQ"] = pt_temperature_background_list[index_beta]
-    options["CL_PT_BETA_EQ"] = pt_CL_slopes_list[index_beta]
-    options["DENSITY_PT_BETA_EQ"] = phase_densities_list[index_beta+1] - phase_densities_list[index_beta]
+    index_pt = 1  # index of the alpha -> beta sphinel transition
+    options["DEPTH_PT_BETA_EQ"] = pt_depths_background_list[index_pt]
+    options["T_PT_BETA_EQ"] = pt_temperature_background_list[index_pt]
+    options["CL_PT_BETA_EQ"] = pt_CL_slopes_list[index_pt]
+    options["DENSITY_PT_BETA_EQ"] = phase_densities_list[index_pt+1] - phase_densities_list[index_pt]
+
+    index_pt = 3  # index of the spinel -> pv + mw transition
+    options["DEPTH_PT_PV_EQ"] = pt_depths_background_list[index_pt]
+    options["T_PT_PV_EQ"] = pt_temperature_background_list[index_pt]
+    options["CL_PT_PV_EQ"] = pt_CL_slopes_list[index_pt]
+    options["DENSITY_PT_PV_EQ"] = phase_densities_list[index_pt+1] - phase_densities_list[index_pt]
