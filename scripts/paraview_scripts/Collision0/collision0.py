@@ -746,7 +746,6 @@ vtk_arr.SetName("composition_indicator")
 output.GetPointData().AddArray(vtk_arr)
 """
 
-# todo_ani
 def setup_fastscape(source_i):
     """
     Setup paraview object for fastscape.

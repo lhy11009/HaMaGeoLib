@@ -4,7 +4,8 @@ import time
 import math
 import pyvista as pv
 from matplotlib import pyplot as plt
-from matplotlib import gridspec
+from matplotlib import gridspec, rcdefaults
+from matplotlib.ticker import MultipleLocator
 from scipy.interpolate import interp1d, NearestNDInterpolator
 from scipy.spatial import cKDTree
 from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
@@ -12,6 +13,7 @@ from hamageolib.utils.exception_handler import my_assert
 from hamageolib.utils.interp_utilities import KNNInterpolatorND
 from hamageolib.utils.nump_utilities import assert_finite
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
+from hamageolib.utils.plot_helper import scale_matplotlib_params
 from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
 from hamageolib.utils.pyvista_utilities import get_corner_point_ids
 
@@ -2044,8 +2046,6 @@ def plot_run_time_combined(dirs_2d, Case_Options_2d_array, *,
     None
     """
 
-    import hamageolib.utils.plot_helper as plot_helper
-    from matplotlib import rcdefaults
     from copy import deepcopy
 
     # Retrieve the default color cycle
@@ -2061,7 +2061,7 @@ def plot_run_time_combined(dirs_2d, Case_Options_2d_array, *,
     line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
 
     # scale the matplotlib params
-    plot_helper.scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+    scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
                             legend_font_scaling_multiplier=legend_font_scaling_multiplier,
                             line_width_scaling_multiplier=line_width_scaling_multiplier)
 
@@ -2250,4 +2250,324 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
     
     Case_Options_2d.SummaryCaseVtuStepExport(Case_Options_2d.summary_file)
 
-# todo_topo
+
+def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
+                                    time_interval=0.5e6,
+                                    prep_dir="."):
+    # Plot variables
+    topo_lim = [-5000, 5000]
+    topo_tick_interval = 1000.0
+    deformation_ratio_lim = [-0.5, 0.5]
+    deformation_ratio_tick_interval = 0.1
+
+
+    # Type of the plot hard-coded to trench_centered 
+    plot_type = "trench_centered"
+
+    # get the float number of time value and the rounded value
+    # then the index number of this time step
+    resampled_df = Case_Options_2d.resample_visualization_df(time_interval)
+    time_rounded = round(_time / float(resampled_df.attrs["Time between graphical output"]))\
+          * float(resampled_df.attrs["Time between graphical output"])
+    idx = (Case_Options_2d.summary_df["Time"] - _time).abs().idxmin()
+
+    # get additional information
+    vtu_step = Case_Options_2d.summary_df.loc[idx, "Vtu step"]
+    trench_center = Case_Options_2d.summary_df.loc[idx, "trench_center_50"]
+    lower_plate_deformation =  Case_Options_2d.summary_df.loc[idx, "lower_plate_deformation"]
+    upper_plate_deformation =  Case_Options_2d.summary_df.loc[idx, "upper_plate_deformation"]
+
+    my_assert((not np.isnan(trench_center)), ValueError, 
+              "trench_center is nan, this means it's not properly processed\n")
+
+    # read topography data
+    x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
+                        time_interval=time_interval)
+    
+    #  Extract shortening data
+    dimention_ratio_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
+
+    data_dr = None
+    x_dr = None
+    dimention_ratio = None
+    mask_dr = None
+    deformation_ratio = None
+    if os.path.isfile(dimention_ratio_file):
+        print("Read from %s" % dimention_ratio_file)
+
+        data_dr = np.loadtxt(dimention_ratio_file, comments="#")
+        x_dr = data_dr[:, 0]
+        dimention_ratio = data_dr[:, 4]
+        mask_dr = ~np.isnan(dimention_ratio)
+        deformation_ratio = dimention_ratio - 1.0
+
+    # Extract suture data
+    suture_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "suture_%05d.vtp" % vtu_step)
+
+    grid_su = None
+    suture_shallow_point = None
+    if os.path.isfile(suture_file):
+
+        grid_su = pv.read(suture_file)
+        suture_shallow_point = grid_su.points[0]
+
+    # Plot settings
+    # Rule of thumbs:
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 2. Set five major ticks for each axis
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 1.0 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.5
+    line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
+    n_minor_ticks = 4  # number of minor ticks between two major ones
+
+    # scale the matplotlib params
+    scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
+
+    # Retrieve the default color cycle
+    default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+
+    # plot for trench_centered animation
+    fig, ax = plt.subplots(figsize=[6.4, 1.2])
+    ax_twinx = ax.twinx()
+
+    # plot the topography
+    x_width = 2000e3
+    print("Plotting range (x): %.4e, %.4e m" % \
+          (trench_center-x_width/2.0, trench_center+x_width/2.0))
+    x_migrated = x - trench_center
+    mask = ((x_migrated > -x_width/2.0) & (x_migrated < x_width/2.0))
+    
+    ax.plot((x_migrated[mask])/1e3, topography[mask])
+
+    ax.set_xlim([-1000, 1000])
+    ax.tick_params(axis='x', which='both',  # erase the x axis
+                   bottom=False, top=False,
+                   labelbottom=False)
+
+    # plot the dimention ratio
+    if os.path.isfile(dimention_ratio_file):
+        x_dr_migrated = x_dr - trench_center
+        ax_twinx.plot(x_dr_migrated/1e3, deformation_ratio, color=default_colors[1])
+
+    # plot the suture 
+    if os.path.isfile(suture_file):
+        x_suture_migrated = suture_shallow_point[0]-trench_center
+        ax.axvline(x_suture_migrated/1e3, color="k", linestyle="--")
+
+        ax.text(x_suture_migrated/1e3, topo_lim[0] - 100.0,
+            "S",
+            ha="center", va="center"
+            )
+            
+        ax.text(x_suture_migrated/1e3 + 200.0, topo_lim[0] + 1000.0,
+            "upper = \n%.2e m" % upper_plate_deformation,
+            ha="center", va="center", alpha=0.5
+            )
+            
+        ax.text(x_suture_migrated/1e3 - 200.0, topo_lim[0] + 1000.0,
+            "lower = \n%.2e m" % lower_plate_deformation,
+            ha="center", va="center", alpha=0.5
+            )
+
+    x_tick_interval = 500.0
+    ax.xaxis.set_major_locator(MultipleLocator(x_tick_interval))
+    ax.xaxis.set_minor_locator(MultipleLocator(x_tick_interval/(n_minor_ticks+1)))
+
+    ax.set_ylabel("Topo (m)", color=default_colors[0])
+    ax.set_ylim(topo_lim)
+    ax.tick_params(axis="y", colors=default_colors[0])
+    ax.yaxis.set_major_locator(MultipleLocator(topo_tick_interval))
+    ax.yaxis.set_minor_locator(MultipleLocator(topo_tick_interval/(n_minor_ticks+1)))
+
+    if os.path.isfile(dimention_ratio_file):
+        ax_twinx.set_ylim(deformation_ratio_lim)
+        ax_twinx.set_ylabel("Deformation Ratio", color=default_colors[1])
+        ax_twinx.tick_params(axis="y", colors=default_colors[1])
+        ax_twinx.yaxis.set_major_locator(MultipleLocator(deformation_ratio_tick_interval))
+        ax_twinx.yaxis.set_minor_locator(MultipleLocator(deformation_ratio_tick_interval/(n_minor_ticks+1)))
+
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.5 * scaling_factor * line_width_scaling_multiplier)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+
+    ax.grid()
+
+    fig_path = os.path.join(prep_dir, "topography_%s_t%.4e" % (plot_type, time_rounded))
+    fig.savefig(fig_path + ".png")
+    print("Saved figure %s" % (fig_path + ".png"))
+    
+    fig.savefig(fig_path + ".pdf")
+    print("Saved figure %s" % (fig_path + ".pdf"))
+
+    rcdefaults()
+
+
+def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
+                                    time_interval=0.5e6,
+                                    prep_dir="."):
+    # Plot variables
+    topo_lim = [-5000, 5000]
+    topo_tick_interval = 1000.0
+    deformation_ratio_lim = [-0.5, 0.5]
+    deformation_ratio_tick_interval = 0.1
+
+    # plot type hard coded to "orogen"
+    plot_type = "orogen"
+
+    # get the float number of time value and the rounded value
+    # then the index number of this time step
+    resampled_df = Case_Options_2d.resample_visualization_df(time_interval)
+    time_rounded = round(_time / float(resampled_df.attrs["Time between graphical output"]))\
+          * float(resampled_df.attrs["Time between graphical output"])
+    idx = (Case_Options_2d.summary_df["Time"] - _time).abs().idxmin()
+
+    # get additional information
+    vtu_step = Case_Options_2d.summary_df.loc[idx, "Vtu step"]
+    trench_center = Case_Options_2d.summary_df.loc[idx, "trench_center_50"]
+    lower_plate_deformation =  Case_Options_2d.summary_df.loc[idx, "lower_plate_deformation"]
+    upper_plate_deformation =  Case_Options_2d.summary_df.loc[idx, "upper_plate_deformation"]
+
+    my_assert((not np.isnan(trench_center)), ValueError, 
+              "trench_center is nan, this means it's not properly processed\n")
+
+    # read topography data
+    x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
+                        time_interval=time_interval)
+    
+    #  Extract shortening data
+    dimention_ratio_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
+
+    data_dr = None
+    x_dr = None
+    dimention_ratio = None
+    mask_dr = None
+    deformation_ratio = None
+    if os.path.isfile(dimention_ratio_file):
+        print("Read from %s" % dimention_ratio_file)
+
+        data_dr = np.loadtxt(dimention_ratio_file, comments="#")
+        x_dr = data_dr[:, 0]
+        dimention_ratio = data_dr[:, 4]
+        mask_dr = ~np.isnan(dimention_ratio)
+        deformation_ratio = dimention_ratio - 1.0
+
+    # Extract suture data
+    suture_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "suture_%05d.vtp" % vtu_step)
+
+    grid_su = None
+    suture_shallow_point = None
+    if os.path.isfile(suture_file):
+
+        grid_su = pv.read(suture_file)
+        suture_shallow_point = grid_su.points[0]
+
+    # Plot settings
+    # Rule of thumbs:
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 2. Set five major ticks for each axis
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 1.0 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.5
+    line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
+    n_minor_ticks = 4  # number of minor ticks between two major ones
+
+    # scale the matplotlib params
+    scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
+
+    # Retrieve the default color cycle
+    default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+
+    # plot the topography
+    fig, ax = plt.subplots(figsize=[6.4, 1.2])
+    ax_twinx = ax.twinx()
+
+    x_migrated = x - trench_center
+    mask = ((x_migrated > -300e3) & (x_migrated < 300e3))
+    
+    ax.plot((x_migrated[mask])/1e3, topography[mask], color=default_colors[0])
+
+    # plot the dimention ratio 
+    if os.path.isfile(dimention_ratio_file):
+        x_dr_migrated = x_dr - trench_center
+        ax_twinx.plot(x_dr_migrated/1e3, deformation_ratio, color=default_colors[1])
+
+    # plot the suture
+    if os.path.isfile(suture_file):
+        x_suture_migrated = suture_shallow_point[0]-trench_center
+        ax.axvline(x_suture_migrated/1e3, color="k", linestyle="--")
+
+        ax.text(x_suture_migrated/1e3, topo_lim[0] - 100.0,
+            "S",
+            ha="center", va="center"
+            )
+            
+        ax.text(x_suture_migrated/1e3 + 100.0, topo_lim[0] + 1000.0,
+            "upper = \n%.2e m" % upper_plate_deformation,
+            ha="center", va="center", alpha=0.5
+            )
+            
+        ax.text(x_suture_migrated/1e3 - 100.0, topo_lim[0] + 1000.0,
+            "lower = \n%.2e m" % lower_plate_deformation,
+            ha="center", va="center", alpha=0.5
+            )
+
+    ax.set_xlim([-300, 300])
+    # ax.tick_params(axis='x', which='both',  # erase the x axis
+    #                bottom=False, top=False,
+    #                labelbottom=False)
+
+    x_tick_interval = 100.0
+    ax.xaxis.set_major_locator(MultipleLocator(x_tick_interval))
+    ax.xaxis.set_minor_locator(MultipleLocator(x_tick_interval/(n_minor_ticks+1)))
+
+    ax.set_ylabel("Topo (m)", color=default_colors[0])
+    ax.set_ylim(topo_lim)
+    ax.tick_params(axis="y", colors=default_colors[0])
+    ax.yaxis.set_major_locator(MultipleLocator(topo_tick_interval))
+    ax.yaxis.set_minor_locator(MultipleLocator(topo_tick_interval/(n_minor_ticks+1)))
+
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.5 * scaling_factor * line_width_scaling_multiplier)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+
+    ax.grid()
+
+    # plot the dimention ratio 
+    if os.path.isfile(dimention_ratio_file):
+        ax_twinx.set_ylim(deformation_ratio_lim)
+        ax_twinx.set_ylabel("Deformation Ratio", color=default_colors[1])
+        ax_twinx.tick_params(axis="y", colors=default_colors[1])
+        ax_twinx.yaxis.set_major_locator(MultipleLocator(deformation_ratio_tick_interval))
+        ax_twinx.yaxis.set_minor_locator(MultipleLocator(deformation_ratio_tick_interval/(n_minor_ticks+1)))
+
+    fig_path = os.path.join(prep_dir, "topography_%s_t%.4e" % (plot_type, time_rounded))
+    fig.savefig(fig_path + ".png")
+    print("Saved figure %s" % (fig_path + ".png"))
+    
+    fig.savefig(fig_path + ".pdf")
+    print("Saved figure %s" % (fig_path + ".pdf"))
+
+    plt.close(fig)
+
+# todo_ani

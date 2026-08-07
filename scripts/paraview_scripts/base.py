@@ -816,7 +816,7 @@ def source_has_field(source_i, field_name, association="Point Data"):
 
     return arrays.HasArray(field_name) == 1
 
-# todo_ani
+
 def set_field_plot_with_source(sourceDisplay, field, *,
                                ranges=None,
                                color_scheme="Viridis",
