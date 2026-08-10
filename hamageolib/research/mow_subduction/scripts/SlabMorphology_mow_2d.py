@@ -13,7 +13,7 @@ from hamageolib.research.haoyuan_2d_subduction.workflow_scripts import run_2d_su
 # one_graphical_step - If one graphical step is given, then only this step is executed.
 #   Otherwise loop for all the steps with vtu outputs
 #   Note this step is time / 0.1 Ma
-local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow01/C_mow_h2890.0_M_gr3_ar4_gz_2"
+local_dir_2d = "/mnt/lochy/ASPECT_DATA/MOW/mow01/C_mow_h2890.0_M_gr3_ar4"
 one_graphical_step = None # None or int number
 
 

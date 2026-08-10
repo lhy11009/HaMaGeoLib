@@ -27,7 +27,7 @@ graphical_step_max = None
 
 # if this is set to None, then loop all steps
 # if this is set to a number, only execute one step
-one_vtu_step = 30 # None
+one_vtu_step = None # None
 
 include_particles = False  # include particles in post-processing
 include_fastscape = True # include fastscape files

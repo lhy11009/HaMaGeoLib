@@ -28,6 +28,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         kwargs: options
             last_step(list): plot the last few steps
         """
+
         # additional inputs
         rotation_plus = kwargs.get("rotation_plus", 0.0) # additional rotation
         
@@ -36,6 +37,9 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
         CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         idx = FindWBFeatures(self.wb_dict, "Subducting plate")
+
+        # interpret depth average function if they exists
+        da_P_func = self.depth_average.GetInterpolateFunc(0.0, "adiabatic_pressure")
 
         # Geometry
         sub_plate_feature = self.wb_dict["features"][idx]
@@ -184,7 +188,7 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             metastable_dict = self.idict["Material model"].get("metastable", default_dict)
             self.options["CL_PT_EQ"] = metastable_dict.get("Phase transition Clapeyron slope", 2e6)
             self.options["DEPTH_PT_EQ"] = metastable_dict.get("Phase transition depth", 410e3)
-            self.options["P_PT_EQ"] = 1.34829e+10
+            self.options["P_PT_EQ"] = da_P_func(self.options["DEPTH_PT_EQ"])
             self.options["T_PT_EQ"] = metastable_dict.get("Phase transition temperature", 1740.0)
 
         # phase transition parameters
@@ -271,6 +275,9 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         # call function from parent
         CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
+
+        # Interpret the adiabatic pressure profile 
+        da_P_func = self.depth_average.GetInterpolateFunc(0.0, "adiabatic_pressure")
 
         # Rotation angles 
         self.options['ROTATION_ANGLE'] = 0.0
@@ -427,7 +434,7 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         self.options["MAX_PLOT_DEPTH_IN_SLICE"]  = 1300e3
 
         # phase transition parameters
-        parse_phase_transition_options(self.idict, self.options)
+        parse_phase_transition_options(self.idict, self.options, da_P_func)
 
     def SummaryCaseVtuStep(self, ifile=None):
         '''
@@ -557,7 +564,7 @@ class CASE_SUMMARY_TWOD(CASE_SUMMARY_BASE):
         self.expand_attr("vsink1000s")
 
 
-def parse_phase_transition_options(prm_dict, options):
+def parse_phase_transition_options(prm_dict, options, da_P_func):
     '''
     Parse equilibrium phase transition parameters from an ASPECT parameter dictionary and
     store the derived values in the options dictionary.
@@ -565,6 +572,7 @@ def parse_phase_transition_options(prm_dict, options):
         prm_dict (dict): Parsed ASPECT parameter dictionary containing the Visco Plastic TwoD
             material model configuration.
         options (dict): Dictionary to populate with parsed phase transition parameters.
+        da_P_func (func): Adiabatic pressure profile from depth average file
     Returns:
         None: The input options dictionary is modified in place.
     '''
@@ -589,18 +597,21 @@ def parse_phase_transition_options(prm_dict, options):
 
     index_pt = 0  # index of the ol -> alpha sphinel transition
     options["DEPTH_PT_ALPHA_EQ"] = pt_depths_background_list[index_pt]
+    options["P_PT_ALPHA_EQ"] = da_P_func(options["DEPTH_PT_ALPHA_EQ"])
     options["T_PT_ALPHA_EQ"] = pt_temperature_background_list[index_pt]
     options["CL_PT_ALPHA_EQ"] = pt_CL_slopes_list[index_pt]
     options["DENSITY_PT_ALPHA_EQ"] = phase_densities_list[index_pt+1] - phase_densities_list[index_pt]
 
     index_pt = 1  # index of the alpha -> beta sphinel transition
     options["DEPTH_PT_BETA_EQ"] = pt_depths_background_list[index_pt]
+    options["P_PT_BETA_EQ"] = da_P_func(options["DEPTH_PT_BETA_EQ"])
     options["T_PT_BETA_EQ"] = pt_temperature_background_list[index_pt]
     options["CL_PT_BETA_EQ"] = pt_CL_slopes_list[index_pt]
     options["DENSITY_PT_BETA_EQ"] = phase_densities_list[index_pt+1] - phase_densities_list[index_pt]
 
     index_pt = 3  # index of the spinel -> pv + mw transition
     options["DEPTH_PT_PV_EQ"] = pt_depths_background_list[index_pt]
+    options["P_PT_PV_EQ"] = da_P_func(options["DEPTH_PT_PV_EQ"])
     options["T_PT_PV_EQ"] = pt_temperature_background_list[index_pt]
     options["CL_PT_PV_EQ"] = pt_CL_slopes_list[index_pt]
     options["DENSITY_PT_PV_EQ"] = phase_densities_list[index_pt+1] - phase_densities_list[index_pt]

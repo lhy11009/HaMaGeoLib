@@ -57,7 +57,7 @@ def set_viscosity_plot(sourceDisplay, eta_min, eta_max):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.MapControlPointsToLogSpace()
     fieldLUT.UseLogScale = 1
-    fieldLUT.ApplyPreset("bilbao", True)
+    fieldLUT.ApplyPreset("SCM_bilbao", True)
 
 def set_metastable_plot(sourceDisplay):
     '''
@@ -101,7 +101,7 @@ def set_meta_grain_size_plot(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.MapControlPointsToLogSpace()
     fieldLUT.UseLogScale = 1
-    fieldLUT.ApplyPreset("batlow", True)
+    fieldLUT.ApplyPreset("SCM_batlow", True)
     fieldLUT.InvertTransferFunction()
 
 
@@ -115,7 +115,7 @@ def set_density_plot(sourceDisplay):
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, 3000.0, 4000.0)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("batlow", True)
+    fieldLUT.ApplyPreset("SCM_batlow", True)
 
 def set_temperature_plot(sourceDisplay):
     '''
@@ -127,7 +127,7 @@ def set_temperature_plot(sourceDisplay):
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, 273.15, 2273.15)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("lapaz", True)
+    fieldLUT.ApplyPreset("SCM_lapaz", True)
 
 def set_non_adiabatic_pressure_plot_slab(sourceDisplay):
     '''
@@ -139,7 +139,7 @@ def set_non_adiabatic_pressure_plot_slab(sourceDisplay):
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, -1e9, 1e9)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("roma", True)
+    fieldLUT.ApplyPreset("SCM_roma", True)
 
 def set_non_adiabatic_pressure_plot_mantle_with_ref_profile(sourceDisplay):
     '''
@@ -152,7 +152,7 @@ def set_non_adiabatic_pressure_plot_mantle_with_ref_profile(sourceDisplay):
     da_range = DA_RANGE
     rescale_transfer_function_combined(field, da_range[0], da_range[1])
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("roma", True)
+    fieldLUT.ApplyPreset("SCM_roma", True)
 
 def set_non_adiabatic_pressure_plot_mantle(sourceDisplay):
     '''
@@ -166,7 +166,7 @@ def set_non_adiabatic_pressure_plot_mantle(sourceDisplay):
     rescale_transfer_function_combined(field, da_range[0], da_range[1])
     # rescale_transfer_function_combined(field, -1e8, 1e8)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("roma", True)
+    fieldLUT.ApplyPreset("SCM_roma", True)
 
 def set_slab_volume_plot(sourceDisplay, max_depth, **kwargs):
     '''
@@ -179,7 +179,7 @@ def set_slab_volume_plot(sourceDisplay, max_depth, **kwargs):
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, OUTER_RADIUS-max_depth, OUTER_RADIUS)
     fieldLUT = GetColorTransferFunction(field)
-    fieldLUT.ApplyPreset("imola", True)
+    fieldLUT.ApplyPreset("SCM_imola", True)
     sourceDisplay.Opacity = opacity
 
 
@@ -504,19 +504,33 @@ output.SetPolys(triangles)""" % (cx, cy, cz, size)
 
 
 def add_eq_410_condition(source):
+    '''
+    Use a programmable filter to pin the boundary of equilibrium transitions
+    '''
     programmableFilter1 = ProgrammableFilter(registrationName="programmable_eq", Input=source)
     programmableFilter1.Script = \
 """
 import numpy as np 
 T = inputs[0].PointData["T"]
 p = inputs[0].PointData["p"]
-p_eq = (T - 1780.0)*2e6 + 1.34829e+10 
+strain_rate = inputs[0].PointData["strain_rate"]
+viscosity = inputs[0].PointData["viscosity"]
+p_eq = (T - T_PT_EQ)*CL_PT_EQ + P_PT_EQ 
 eq_trans = (p-p_eq)
+p_eq_beta = (T - T_PT_BETA_EQ)*CL_PT_BETA_EQ + P_PT_BETA_EQ 
+eq_trans_beta = (p-p_eq_beta)
+p_eq_pv = (T - T_PT_PV_EQ)*CL_PT_PV_EQ + P_PT_PV_EQ 
+eq_trans_pv = (p-p_eq_pv)
+dev_stress = 2 * strain_rate * viscosity
 output.PointData.append(eq_trans, 'eq_trans')
+output.PointData.append(eq_trans_beta, 'eq_trans_beta')
+output.PointData.append(eq_trans_pv, 'eq_trans_pv')
+output.PointData.append(dev_stress, 'dev_stress')
 """
     # programmableFilter1.RequestInformationScript = ''
     # programmableFilter1.RequestUpdateExtentScript = ''
     # programmableFilter1.PythonPath = ''
+
 
 def add_da_ref_profile(source, file_path):
     programmableFilter1 = ProgrammableFilter(registrationName="programmable_da_ref", Input=source)
@@ -556,14 +570,10 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
         transform1 = FindSource("%s_transform_%05d" % (source_name, snapshot))
     else:
         transform1 = FindSource("%s_%05d" % (source_name, snapshot))
-    
-    # Add programmable filter for equilibrium phase transition at 410.0
+
+    # Show contours for equilibrium phase transition at 410.0
     if "MODEL_TYPE" == "mow":
-        add_eq_410_condition(transform1)
-        source_eq_trans = FindSource("programmable_eq")
-        contourEq = Contour(registrationName='contour_eq_trans', Input=source_eq_trans)
-        contourEq.ContourBy = ['POINTS', 'eq_trans']
-        contourEq.Isosurfaces = [0.0]
+        contourEq = FindSource("contour_eq_trans")
         contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
         ColorBy(contourEqDisplay, None)
         contourEqDisplay.LineWidth = 2.0
@@ -572,25 +582,10 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
         if FOO00 == 0:
             # default: turn off plot
             Hide(contourEq, renderView1)
-
-    # Add T contour
-    # 1 - 725 C, for blockT of metastable region
-    # 2 - 900 C, for slab internal in upper mantle
-    # 3 and 4, 1100 and 1300 C, for an envelop of slab in the mantle
+    
+    # Show T contours
     if FOO01:
-        if FOO01 == 1:
-            contourT = 725.0+273.15
-        elif FOO01 == 2:
-            contourT = 900.0+273.15
-        elif FOO01 == 3:
-            contourT = 1100.0+273.15
-        elif FOO01 == 4:
-            contourT = 1300.0+273.15
-        else:
-            raise NotImplementedError()
-        contourT_block = Contour(registrationName='ContourT_block', Input=transform1)
-        contourT_block.ContourBy = ['POINTS', 'T']
-        contourT_block.Isosurfaces = [contourT]
+        contourT_block = FindSource("ContourT_block")
         contourT_blockDisplay = Show(contourT_block, renderView1, 'GeometryRepresentation')
         ColorBy(contourT_blockDisplay,"T")
         rescale_transfer_function_combined('T', 273.0, 1673.0)
@@ -598,11 +593,6 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
         fieldLUT.ApplyPreset("Viridis", True)
         contourT_blockDisplay.LineWidth = 2.0
         contourT_blockDisplay.Ambient = 1.0
-
-    # add the reference dynamic profile and the difference to it
-    if HAS_DYNAMIC_PRESSURE:
-        file_path = '%s/../pyvista_outputs/%05d/da_profile_%05d.txt' % (data_output_dir, snapshot, snapshot)
-        add_da_ref_profile(transform1, file_path)
 
     # Show the slab center plot and viscosities
     SetActiveSource(transform1)
@@ -867,13 +857,9 @@ def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwarg
     else:
         transform1 = FindSource("%s_%05d" % (source_name, snapshot))
     
-    # Add programmable filter for equilibrium phase transition at 410.0
+    # Show contours for equilibrium phase transition at 410.0
     if "MODEL_TYPE" == "mow":
-        add_eq_410_condition(transform1)
-        source_eq_trans = FindSource("programmable_eq")
-        contourEq = Contour(registrationName='contour_eq_trans', Input=source_eq_trans)
-        contourEq.ContourBy = ['POINTS', 'eq_trans']
-        contourEq.Isosurfaces = [0.0]
+        contourEq = FindSource("contour_eq_trans")
         contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
         ColorBy(contourEqDisplay, None)
         contourEqDisplay.LineWidth = 2.0
@@ -883,24 +869,9 @@ def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwarg
             # default: turn off plot
             Hide(contourEq, renderView1)
 
-    # Add T contour
-    # 1 - 725 C, for blockT of metastable region
-    # 2 - 900 C, for slab internal in upper mantle
-    # 3 and 4, 1100 and 1300 C, for an envelop of slab in the mantle
+    # Show T contours
     if FOO01:
-        if FOO01 == 1:
-            contourT = 725.0+273.15
-        elif FOO01 == 2:
-            contourT = 900.0+273.15
-        elif FOO01 == 3:
-            contourT = 1100.0+273.15
-        elif FOO01 == 4:
-            contourT = 1300.0+273.15
-        else:
-            raise NotImplementedError()
-        contourT_block = Contour(registrationName='ContourT_block', Input=transform1)
-        contourT_block.ContourBy = ['POINTS', 'T']
-        contourT_block.Isosurfaces = [contourT]
+        contourT_block = FindSource("ContourT_block")
         contourT_blockDisplay = Show(contourT_block, renderView1, 'GeometryRepresentation')
         ColorBy(contourT_blockDisplay,"T")
         rescale_transfer_function_combined('T', 273.0, 1673.0)
@@ -908,11 +879,6 @@ def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwarg
         fieldLUT.ApplyPreset("Viridis", True)
         contourT_blockDisplay.LineWidth = 2.0
         contourT_blockDisplay.Ambient = 1.0
-
-    # add the reference dynamic profile and the difference to it
-    if HAS_DYNAMIC_PRESSURE:
-        file_path = '%s/../pyvista_outputs/%05d/da_profile_%05d.txt' % (data_output_dir, snapshot, snapshot)
-        add_da_ref_profile(transform1, file_path)
 
     # Show the slab center plot and viscosities
     SetActiveSource(transform1)
@@ -1073,6 +1039,121 @@ def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwarg
     # hide objects
     if ANIMATION:
         hide_everything()
+
+
+# todo_strain
+def plot_slice_center_mtz(source_name, snapshot, pv_output_dir, _time, *,
+                                has_metastable_region=False,
+                                has_metastable_region_slab=False):
+    """
+    Plots focus on the MTZ
+    The plots should centered around the MTZ depth with a much smaller box (e.g. 600-km wide, 400-km deep)
+    """
+    
+    # Get the active view 
+    renderView1 = GetActiveViewOrCreate('RenderView')
+
+    # Select the slice center source
+    if "GEOMETRY" == "chunk":
+        transform1 = FindSource("%s_transform_%05d" % (source_name, snapshot))
+    else:
+        transform1 = FindSource("%s_%05d" % (source_name, snapshot))
+
+    # Show the slab center plot and viscosities
+    SetActiveSource(transform1)
+    transform1Display = Show(transform1, renderView1, 'GeometryRepresentation')
+
+    # Show the contours of equilibrium transitions
+    contourEq = FindSource('contour_eq_trans')
+    contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
+    ColorBy(contourEqDisplay, None)
+    contourEqDisplay.LineWidth = 2.0
+    contourEqDisplay.Ambient = 1.0
+
+    contourEqBeta = FindSource('contour_eq_beta_trans')
+    contourEqBetaDisplay = Show(contourEqBeta, renderView1, 'GeometryRepresentation')
+    ColorBy(contourEqBetaDisplay, None)
+    contourEqBetaDisplay.LineWidth = 2.0
+    contourEqBetaDisplay.Ambient = 1.0
+
+    contourEqPV = FindSource('contour_eq_pv_trans')
+    contourEqPVDisplay = Show(contourEqPV, renderView1, 'GeometryRepresentation')
+    ColorBy(contourEqPVDisplay, None)
+    contourEqPVDisplay.LineWidth = 2.0
+    contourEqPVDisplay.Ambient = 1.0
+    
+    if FOO00 == 0:
+        # default: turn off plot
+        Hide(contourEq, renderView1)
+
+    # Set the camera
+    layout_resolution = None
+    if "GEOMETRY" == "box":
+
+        if int("DIMENSION") == 2:
+                layout_resolution = (1350, 704)
+                layout1 = GetLayout()
+                layout1.SetSize((layout_resolution[0], layout_resolution[1]))
+                renderView1.InteractionMode = '2D'
+
+                renderView1.Set(
+                    InteractionMode='2D',
+                    CameraPosition=[4034652.2660400933, 2376879.951280339, -8150298.613651189],
+                    CameraFocalPoint=[4034652.2660400933, 2376879.951280339, 0.0],
+                    CameraViewUp=[2.220446049250313e-16, 1.0, 0.0],
+                    CameraParallelScale=211408.64023052176,
+                )
+
+        if int("DIMENSION") == 3:
+            raise NotImplementedError()
+        
+        
+    elif "GEOMETRY" == "chunk":
+        raise NotImplementedError()
+
+    # Plot the strain rate
+    fieldLUT = set_field_plot_with_source(transform1Display, "strain_rate",
+                               ranges=[1e-16, 1e-13],
+                               color_scheme="SCM_lipari",
+                               use_log_scale=True,
+                               invert_color=False)
+    set_field_colorbar_in_render_view(renderView1, fieldLUT,
+                                      title="Strain Rate",
+                                      unit="s^-1",
+                                      orentation="Vertical",
+                                      position=None)
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "mtz_strain_rate_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "mtz_strain_rate_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+
+    # Plot the deviatoric stress
+    Hide(transform1)
+    HideScalarBarIfNotNeeded(fieldLUT, renderView1)
+    programmableEq = FindSource("programmable_eq")
+    programmableEqDisplay = Show(programmableEq, renderView1, 'GeometryRepresentation')
+
+    fieldLUT = set_field_plot_with_source(programmableEqDisplay, "dev_stress",
+                               ranges=[1e5, 3e8],
+                               color_scheme="SCM_lipari",
+                               use_log_scale=True,
+                               invert_color=False)
+    set_field_colorbar_in_render_view(renderView1, fieldLUT,
+                                      title="Deviatoric Stress (Second Invariant)",
+                                      unit="Pa",
+                                      orentation="Vertical",
+                                      position=None)
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "mtz_dev_stress_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "mtz_dev_stress_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+        
 
 
 def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
@@ -1330,8 +1411,16 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
             contourEq = Contour(registrationName='contour_eq_trans', Input=source_eq_trans)
             contourEq.ContourBy = ['POINTS', 'eq_trans']
             contourEq.Isosurfaces = [0.0]
+            contourEqBeta = Contour(registrationName='contour_eq_beta_trans', Input=source_eq_trans)
+            contourEqBeta.ContourBy = ['POINTS', 'eq_trans_beta']
+            contourEqBeta.Isosurfaces = [0.0]
+            contourEqPV = Contour(registrationName='contour_eq_pv_trans', Input=source_eq_trans)
+            contourEqPV.ContourBy = ['POINTS', 'eq_trans_pv']
+            contourEqPV.Isosurfaces = [0.0]
 
             Hide(contourEq, renderView1)
+            Hide(contourEqBeta, renderView1)
+            Hide(contourEqPV, renderView1)
         
         # load slab surfaces
         load_pyvista_source(data_output_dir, "sp_upper_surface", snapshot, file_type="vtp", assign_field=True)
@@ -1350,6 +1439,8 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
             plot_slice_center_viscosity("slice_center_unbounded", snapshot, pv_output_dir, _time)
         if "wedge" in plot_types:
             plot_slice_center_wedge("slice_center_unbounded", snapshot, pv_output_dir, _time)
+        if "mtz" in plot_types:
+            plot_slice_center_mtz("slice_center_unbounded", snapshot, pv_output_dir, _time)
         
 
 def twod_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
@@ -1468,6 +1559,50 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
                     pass
                 has_metastable_region_slab = True
 
+        # Select the slice center source and add more filters
+        if "GEOMETRY" == "chunk":
+            transform1 = FindSource("solution_transform_%05d" % (snapshot))
+        else:
+            transform1 = FindSource("solution_%05d" % (snapshot))
+
+        # Add programmable filter for equilibrium phase transition at 410.0
+        if "MODEL_TYPE" == "mow":
+            add_eq_410_condition(transform1)
+            source_eq_trans = FindSource("programmable_eq")
+            contourEq = Contour(registrationName='contour_eq_trans', Input=source_eq_trans)
+            contourEq.ContourBy = ['POINTS', 'eq_trans']
+            contourEq.Isosurfaces = [0.0]
+            contourEqBeta = Contour(registrationName='contour_eq_beta_trans', Input=source_eq_trans)
+            contourEqBeta.ContourBy = ['POINTS', 'eq_trans_beta']
+            contourEqBeta.Isosurfaces = [0.0]
+            contourEqPV = Contour(registrationName='contour_eq_pv_trans', Input=source_eq_trans)
+            contourEqPV.ContourBy = ['POINTS', 'eq_trans_pv']
+            contourEqPV.Isosurfaces = [0.0]
+
+        # Add temperature contrours
+        # 1 - 725 C, for blockT of metastable region
+        # 2 - 900 C, for slab internal in upper mantle
+        # 3 and 4, 1100 and 1300 C, for an envelop of slab in the mantle
+        if FOO01:
+            if FOO01 == 1:
+                contourT = 725.0+273.15
+            elif FOO01 == 2:
+                contourT = 900.0+273.15
+            elif FOO01 == 3:
+                contourT = 1100.0+273.15
+            elif FOO01 == 4:
+                contourT = 1300.0+273.15
+            else:
+                raise NotImplementedError()
+            contourT_block = Contour(registrationName='ContourT_block', Input=transform1)
+            contourT_block.ContourBy = ['POINTS', 'T']
+            contourT_block.Isosurfaces = [contourT]
+
+        # Add the reference dynamic profile and the difference to it
+        if HAS_DYNAMIC_PRESSURE:
+            file_path = '%s/../pyvista_outputs/%05d/da_profile_%05d.txt' % (data_output_dir, snapshot, snapshot)
+            add_da_ref_profile(transform1, file_path)
+
         # plot slice
         if "upper_mantle" in plot_types:
             plot_slice_center_viscosity("solution", snapshot, pv_output_dir, _time, has_metastable_region=has_metastable_region,\
@@ -1475,6 +1610,9 @@ def twod_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
         if "wedge" in plot_types:
             plot_slice_center_wedge("solution", snapshot, pv_output_dir, _time, has_metastable_region=has_metastable_region,\
                                     has_metastable_region_slab=has_metastable_region_slab)
+        if "mtz" in plot_types:
+            plot_slice_center_mtz("solution", snapshot, pv_output_dir, _time, has_metastable_region=has_metastable_region,\
+                                        has_metastable_region_slab=has_metastable_region_slab)
 
 # types of plots included
 plot_types = PLOT_TYPES

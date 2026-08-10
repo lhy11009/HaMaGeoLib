@@ -300,12 +300,17 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         x = points[:, 0]
 
         # Decide unique x values by a given tolerance
+        # inverse is a grid data [inverse == i] gives the points
+        # that is mapped to the ith group
         x_group = np.round(x / x_tolerance) * x_tolerance
         unique_x, inverse = np.unique(x_group, return_inverse=True)
 
         # Horizontal each fields based on the values and counts of 
         # number of points that has the same x unique value.
         self.fs_hz_interp = {}
+        self.fs_hz_interp_min = {}
+        self.fs_hz_interp_max = {}
+
         for field_name, values in self.fs_grid.point_data.items():
             if values.ndim != 1:
                 continue
@@ -315,9 +320,35 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
             averages = sums / counts
 
+            # Horizontal minimum and maximum
+            minima = np.empty_like(unique_x, dtype=float)
+            maxima = np.empty_like(unique_x, dtype=float)
+
+            for i in range(len(unique_x)):
+                group_values = values[inverse == i]
+                minima[i] = group_values.min()
+                maxima[i] = group_values.max()
+
+
             self.fs_hz_interp[field_name] = interp1d(
                 unique_x,
                 averages,
+                kind="linear",
+                bounds_error=False,
+                fill_value="extrapolate",
+            )
+
+            self.fs_hz_interp_min[field_name] = interp1d(
+                unique_x,
+                minima,
+                kind="linear",
+                bounds_error=False,
+                fill_value="extrapolate",
+            )
+
+            self.fs_hz_interp_max[field_name] = interp1d(
+                unique_x,
+                maxima,
                 kind="linear",
                 bounds_error=False,
                 fill_value="extrapolate",
@@ -331,15 +362,20 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         field_names = sorted(self.fs_hz_interp.keys())
 
-        output = np.empty((x_uniform.size, len(field_names) + 1))
+        output = np.empty((x_uniform.size, 3*len(field_names) + 1))
         output[:, 0] = x_uniform
 
         for i, field_name in enumerate(field_names):
-            output[:, i + 1] = self.fs_hz_interp[field_name](x_uniform)
+            output[:, 3*i + 1] = self.fs_hz_interp[field_name](x_uniform)
+            output[:, 3*i + 2] = self.fs_hz_interp_min[field_name](x_uniform)
+            output[:, 3*i + 3] = self.fs_hz_interp_max[field_name](x_uniform)
 
-        header = "# x " + " ".join(field_names)
+        header = "# x " 
+        for i, field_name in enumerate(field_names):
+            header += " " + field_name + " " + field_name + "_min" + " " + field_name + "_max"
 
         output_file = os.path.join(self.pyvista_outdir, "fastscape_%05d.txt" % self.pvtu_step)
+
         np.savetxt(
             output_file,
             output,
@@ -2251,6 +2287,120 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
     Case_Options_2d.SummaryCaseVtuStepExport(Case_Options_2d.summary_file)
 
 
+def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*,
+                                    time_interval=0.5e6,
+                                    prep_dir="."):
+    # Plot variables
+    topo_lim = [-5000, 5000]
+    topo_tick_interval = 1000.0
+
+    # Type of the plot hard-coded to trench_centered 
+    plot_type = "full_domain_fastscape"
+
+    # get the float number of time value and the rounded value
+    # then the index number of this time step
+    resampled_df = Case_Options_2d.resample_visualization_df(time_interval)
+    time_rounded = round(_time / float(resampled_df.attrs["Time between graphical output"]))\
+          * float(resampled_df.attrs["Time between graphical output"])
+
+    idx = (Case_Options_2d.summary_df["Time"] - _time).abs().idxmin()
+    vtu_step = Case_Options_2d.summary_df.loc[idx, "Vtu step"]
+
+    # read topography data
+    x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
+                        time_interval=time_interval)
+
+    # read additional inputs from processing the fastscape outputs
+    fastscape_hz_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
+    fastscape_hz_header_dict = None
+    fastscape_x = None
+    fastscape_topography_min = None
+    fastscape_topography_max = None
+    if os.path.isfile(fastscape_hz_file):
+        with open(fastscape_hz_file) as f:
+            header = f.readline()
+
+        data = np.loadtxt(fastscape_hz_file, comments="#")
+
+        fastscape_hz_header_dict = {
+            name: i
+            for i, name in enumerate(header.lstrip("#").split())
+        }
+
+        column_idx = fastscape_hz_header_dict["x"]
+        fastscape_x = data[:, column_idx]
+
+        column_idx = fastscape_hz_header_dict["topography_min"]
+        fastscape_topography_min = data[:, column_idx]
+
+        column_idx = fastscape_hz_header_dict["topography_max"]
+        fastscape_topography_max = data[:, column_idx]
+    
+    # Plot settings
+    # Rule of thumbs:
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 2. Set five major ticks for each axis
+    scaling_factor = 1.0  # scale factor of plot
+    font_scaling_multiplier = 1.0 # extra scaling multiplier for font
+    legend_font_scaling_multiplier = 0.5
+    line_width_scaling_multiplier = 2.0 # extra scaling multiplier for lines
+    n_minor_ticks = 4  # number of minor ticks between two major ones
+
+    # scale the matplotlib params
+    scale_matplotlib_params(scaling_factor, font_scaling_multiplier=font_scaling_multiplier,\
+                            legend_font_scaling_multiplier=legend_font_scaling_multiplier,
+                            line_width_scaling_multiplier=line_width_scaling_multiplier)
+
+    # Update font settings for compatibility with publishing tools like Illustrator.
+    plt.rcParams.update({
+        'font.family': 'Times New Roman',
+        'pdf.fonttype': 42,
+        'ps.fonttype': 42
+    })
+
+    # Retrieve the default color cycle
+    default_colors = [color['color'] for color in plt.rcParams['axes.prop_cycle']]
+
+    # plot for animation with fastscape outputs
+    fig, ax = plt.subplots(figsize=[6.4, 2.4], tight_layout=True)
+
+    ax.plot(x/1e3, topography, linewidth=1, color=default_colors[0], label="Topo")
+    if fastscape_topography_min is not None:
+        ax.plot(fastscape_x/1e3, fastscape_topography_min, 
+                linewidth=1, linestyle="--", color=default_colors[0], label="Topo (fastscape min)")
+    if fastscape_topography_max is not None:
+        ax.plot(fastscape_x/1e3, fastscape_topography_max, 
+                linewidth=1, linestyle="-.", color=default_colors[0], label="Topo (fastscape max)")
+
+    ax.set_xlabel("X (km)")
+    ax.set_xlim([0, Case_Options_2d.options["RIGHT"]/1e3])
+
+    x_tick_interval = 500.0
+    ax.xaxis.set_major_locator(MultipleLocator(x_tick_interval))
+    ax.xaxis.set_minor_locator(MultipleLocator(x_tick_interval/(n_minor_ticks+1)))
+
+    ax.set_ylabel("Topo (m)", color=default_colors[0])
+    ax.set_ylim(topo_lim)
+    ax.tick_params(axis="y", colors=default_colors[0])
+    ax.yaxis.set_major_locator(MultipleLocator(topo_tick_interval))
+    ax.yaxis.set_minor_locator(MultipleLocator(topo_tick_interval/(n_minor_ticks+1)))
+
+    for spine in ax.spines.values():
+        spine.set_linewidth(0.5 * scaling_factor * line_width_scaling_multiplier)
+
+    ax.grid()
+    ax.legend()
+
+    fig_path = os.path.join(prep_dir, "topography_%s_t%.4e" % (plot_type, time_rounded))
+    fig.savefig(fig_path + ".png")
+    print("Saved figure %s" % (fig_path + ".png"))
+    
+    fig.savefig(fig_path + ".pdf")
+    print("Saved figure %s" % (fig_path + ".pdf"))
+
+    rcdefaults()
+
+
 def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
                                     time_interval=0.5e6,
                                     prep_dir="."):
@@ -2569,5 +2719,3 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     print("Saved figure %s" % (fig_path + ".pdf"))
 
     plt.close(fig)
-
-# todo_ani
