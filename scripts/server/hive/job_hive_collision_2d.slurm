@@ -1,8 +1,8 @@
 #!/bin/bash -l
 #SBATCH -N 1
-#SBATCH -n 32
+#SBATCH -n 64
 #SBATCH --threads-per-core=1
-#SBATCH --tasks-per-node=32
+#SBATCH --tasks-per-node=64
 #SBATCH -o job_%j.stdout
 #SBATCH -e job_%j.stderr
 #SBATCH -t 48:00:00
