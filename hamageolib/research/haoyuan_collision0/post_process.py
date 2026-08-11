@@ -2367,10 +2367,10 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
     ax.plot(x/1e3, topography, linewidth=1, color=default_colors[0], label="Topo")
     if fastscape_topography_min is not None:
         ax.plot(fastscape_x/1e3, fastscape_topography_min, 
-                linewidth=1, linestyle="--", color=default_colors[0], label="Topo (fastscape min)")
+                linewidth=1, linestyle="--", color=default_colors[1], label="Topo (fastscape min)")
     if fastscape_topography_max is not None:
         ax.plot(fastscape_x/1e3, fastscape_topography_max, 
-                linewidth=1, linestyle="-.", color=default_colors[0], label="Topo (fastscape max)")
+                linewidth=1, linestyle="-.", color=default_colors[2], label="Topo (fastscape max)")
 
     ax.set_xlabel("X (km)")
     ax.set_xlim([0, Case_Options_2d.options["RIGHT"]/1e3])

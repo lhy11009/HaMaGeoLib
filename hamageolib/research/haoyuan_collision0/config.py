@@ -172,6 +172,10 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if use_all or "erosional_base_level" in use_keys:
             if variables["erosional_base_level"] > 0:
                 case_name += "_Ebl%.2e" % variables["erosional_base_level"]
+        if use_all or "kf_start_time" in use_keys:
+            if variables["kf_start_time"] > 0:
+                case_name += "_Est%.2e" % variables["kf_start_time"]
+
 
     if use_all or "do_topography_test" in use_keys:
         if variables["do_topography_test"]:
@@ -3409,12 +3413,12 @@ class FastScapeRule(Rule):
     Provided configuration parameters:
 
     """
-
     requires = ["include_fastscape", "topography_continent", "topography_ocean", "include_initial_topography",
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
                 "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
-                "fastscape_timesteps", "erosional_base_level", "include_initial_topography_with_gwb", "customize_ridge"]
+                "fastscape_timesteps", "erosional_base_level", "include_initial_topography_with_gwb", "customize_ridge",
+                "kf_start_time"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3436,6 +3440,7 @@ class FastScapeRule(Rule):
         "erosional_base_level": -1.0,
         "include_initial_topography_with_gwb": False,
         "customize_ridge": False,
+        "kf_start_time": 0.0,
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
@@ -3447,7 +3452,8 @@ class FastScapeRule(Rule):
                          "include_initial_topography_with_gwb": "This options will use GWB to prescribe the initial topography",
                          "customize_ridge": "Here this decide whether we want to specify the topography for the ridge in the corner",
                          "topography_continent": "Topography of the continent, if the option of initial topography is turned on.",
-                         "topography_ocean": "Topography of the ocean, if the option of initial topography is turned on."
+                         "topography_ocean": "Topography of the ocean, if the option of initial topography is turned on.",
+                         "kf_start_time": "If a positive value is given, we use the kf function to turn on incision after a certain time."
                          }
     
     def apply(self, config, prm_dict, wb_dict, context):
@@ -3471,6 +3477,7 @@ class FastScapeRule(Rule):
         erosional_base_level = config["erosional_base_level"]
         include_initial_topography_with_gwb = config["include_initial_topography_with_gwb"]
         customize_ridge = config["customize_ridge"]
+        kf_start_time = config["kf_start_time"]
 
         
         if include_fastscape:
@@ -3515,6 +3522,16 @@ class FastScapeRule(Rule):
                     "Variable names": "x, y",
                     "Function constants": "width = %de3, xmax = %de3" % (customize_no_incision_width/1e3, context["domain_length"]/1e3),
                     "Function expression": "(((x > width) && (x < xmax - width))? %.2e: 0.0)" % bedrock_river_incision_rate
+                }
+
+            # Add incision after model start
+            if (kf_start_time > 0.0):
+                fastscape_dict["Erosional parameters"]["Use kf distribution function"] = "true"
+                fastscape_dict["Erosional parameters"].pop("Bedrock river incision rate")
+                fastscape_dict["Erosional parameters"]["kf distribution function"] = {
+                    "Variable names": "x, y, t",
+                    "Function constants": "t0=%.2e, IR0=%.2e" % (kf_start_time, bedrock_river_incision_rate),
+                    "Function expression": "(t>t0)? IR0: 0.0"
                 }
 
             prm_dict["Mesh deformation"]["Mesh deformation boundary indicators"] = "top : fastscape"
