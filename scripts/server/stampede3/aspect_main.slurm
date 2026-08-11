@@ -28,6 +28,7 @@
 INSTALL_PREFIX=/work2/06806/hyli/stampede3/Softwares/dealii/deal.ii-9.7.0-Native-32bits-candi-intel-24.0-impi-21.11
 ASPECT_INSTALL_DIR="/work2/06806/hyli/stampede3/Softwares/aspect"
 ASPECT_BRANCH="main"
+ASPECT_CMAKE_FLAGS='ASPECT_ADDITIONAL_CXX_FLAGS=-fno-finite-math-only'
 
 # Loading modules
 echo "Loading required modules and variables..."
@@ -86,16 +87,29 @@ git checkout $ASPECT_BRANCH
 # configuration
 echo "Configuring ASPECT with CMake..."  
 echo "Use dealii ${INSTALL_PREFIX}"
-if [ -z "$WORLD_BUILDER_DIR" ]; then
-	echo "Use built-in world builder"
-	cmake -DDEAL_II_DIR="${INSTALL_PREFIX}" ..
-elif [ ! -d "$WORLD_BUILDER_DIR" ]; then
-	echo "Error: WORLD_BUILDER_DIR is set to '$WORLD_BUILDER_DIR', but this is not a valid directory."
-	exit 1
+
+CMAKE_COMMAND=(
+    cmake
+    -D"${ASPECT_CMAKE_FLAGS}"
+    -DDEAL_II_DIR="${INSTALL_PREFIX}"
+) # Base CMake command
+
+if [ -z "${WORLD_BUILDER_DIR}" ]; then
+    echo "Use built-in World Builder"
+elif [ ! -d "${WORLD_BUILDER_DIR}" ]; then
+    echo "Error: WORLD_BUILDER_DIR is set to '${WORLD_BUILDER_DIR}', but this is not a valid directory."
+    exit 1
 else
-	echo "Using World Builder directory: $WORLD_BUILDER_DIR"
-	cmake -DDEAL_II_DIR="${INSTALL_PREFIX}" -DWORLD_BUILDER_SOURCE_DIR="$WORLD_BUILDER_DIR" ..
+    # add configuration of GWB if folder exists
+    echo "Using World Builder directory: ${WORLD_BUILDER_DIR}"
+    CMAKE_COMMAND+=(
+        -DWORLD_BUILDER_SOURCE_DIR="${WORLD_BUILDER_DIR}"
+    )
 fi
+
+CMAKE_COMMAND+=(..) # add source
+
+"${CMAKE_COMMAND[@]}"  # run cmake
 quit_if_fail "Error: Configuring ASPECT repository failed. Terminating job."
 
 # compile
