@@ -93,6 +93,15 @@ class Mute:
         self._warnings.__exit__(exc_type, exc_val, exc_tb)
 
 
+def str_to_bool(value):
+    if value.lower() == "true":
+        return True
+    elif value.lower() == "false":
+        return False
+    else:
+        raise ValueError(f"Invalid boolean string: {value}")
+
+
 def str_to_bool_int(value: str) -> int:
     """
     Convert a string to 0/1 based on True/False semantics.

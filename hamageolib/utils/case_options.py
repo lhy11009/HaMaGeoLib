@@ -322,6 +322,12 @@ class CASE_OPTIONS(CODESUB):
         self.options["PYVISTA_DIRECTORY"] = self.pyvista_dir
         self.options["IMAGE_DIRECTORY"] = self.img_dir
 
+        # fastscape
+        # todo_fs
+        self.options["INCLUDE_FASTSCAPE"] = "False"
+        if os.path.isdir(os.path.join(self.output_dir, "fastscape")):
+            self.options["INCLUDE_FASTSCAPE"] = "True"
+
         # default operations
         self.options["ANIMATION"] = "False"
 

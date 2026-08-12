@@ -271,6 +271,7 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times, timesteps):
         _time = times[i]
         timestep = timesteps[i]
 
+
         # add source
         # The original soure is the "solution" file.
         # The "final" source adds pyvista processed object to the original source and requires running
@@ -287,8 +288,10 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times, timesteps):
         # Fastscape source
         # These sources are loaded if input file exists
         # Then, with a Transform filter, it's rotated and translated to the surface of the model.
+        # todo_fs
         filein = os.path.join(visualization_dir, "..", "fastscape", "Topography%07d.vtk" % timestep)
-        if os.path.isfile(filein):
+        if INCLUDE_FASTSCAPE:
+            assert(os.path.isfile(filein))
             LegacyVTKReader(registrationName='fastscape-%05d' % snapshot, FileNames=[filein])
             # todo_pin
             setup_fastscape('fastscape-%05d' % snapshot)
@@ -530,10 +533,12 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
     print("Figure saved: %s" % fig_path)
 
     # plot fastscape outputs
-    source_name = "fastscape_transform1" 
-    _sourceF = possible_lookup_source(source_name)
-    source_name_pg = "fastscape_programmable1" 
-    _sourceFPG = possible_lookup_source(source_name_pg)
+    _sourceF = None; _sourceFPG = None
+    if INCLUDE_FASTSCAPE:
+        source_name = "fastscape_transform1" 
+        _sourceF = possible_lookup_source(source_name)
+        source_name_pg = "fastscape_programmable1" 
+        _sourceFPG = possible_lookup_source(source_name_pg)
 
     if "PLOT_TYPE" == "full_domain":
 
@@ -563,106 +568,107 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         # TODO: use the new functions in base.py to set up plot and colorbar
         field, fieldLUT = set_viscosity_plot(sourceDisplay, 1e18, 1e24)
         scalarBar = set_viscosity_colorbar(renderView1, fieldLUT, position=[0.05, 0.05])
+
+        if INCLUDE_FASTSCAPE: 
+            sourceDisplayF = Show(_sourceF, renderView1, 'GeometryRepresentation')
+
+            # set topography plot
+            field, fieldLUT = set_fastscape_topography_plot(sourceDisplayF)
+            scalarBar = set_fastscape_topography_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
+
+            fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_topography_t%.4e.pdf" % (_time))
+            fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_topography_t%.4e.png" % (_time))
+            SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+            ExportView(fig_path, view=renderView1)
+            print("Figure saved: %s" % fig_png_path)
+            print("Figure saved: %s" % fig_path)
+
+            # set erosion plot
+            fieldLUT0 = fieldLUT
+            field, fieldLUT = set_fastscape_erosion_rate_plot(sourceDisplayF)
+            scalarBar = set_fastscape_erosion_rate_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
+            HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+            fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_erosion_rate_t%.4e.pdf" % (_time))
+            fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_erosion_rate_t%.4e.png" % (_time))
+            SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+            ExportView(fig_path, view=renderView1)
+            print("Figure saved: %s" % fig_png_path)
+            print("Figure saved: %s" % fig_path)
         
-        sourceDisplayF = Show(_sourceF, renderView1, 'GeometryRepresentation')
+            # set total erosion plot
+            fieldLUT0 = fieldLUT
+            field, fieldLUT = set_fastscape_total_erosion_plot(sourceDisplayF)
+            scalarBar = set_fastscape_total_erosion_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
+            HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+            fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.pdf" % (_time))
+            fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.png" % (_time))
+            SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+            ExportView(fig_path, view=renderView1)
+            print("Figure saved: %s" % fig_png_path)
+            print("Figure saved: %s" % fig_path)
 
-        # set topography plot
-        field, fieldLUT = set_fastscape_topography_plot(sourceDisplayF)
-        scalarBar = set_fastscape_topography_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
+            # Hide the "transformed" object
+            # and show the "programmable" object 
+            Hide(_sourceF, renderView1)
+            fieldLUT0 = fieldLUT
+            HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+            
+            sourceDisplayFPG = Show(_sourceFPG, renderView1, 'GeometryRepresentation')
 
-        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_topography_t%.4e.pdf" % (_time))
-        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_topography_t%.4e.png" % (_time))
-        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
-        ExportView(fig_path, view=renderView1)
-        print("Figure saved: %s" % fig_png_path)
-        print("Figure saved: %s" % fig_path)
+            # set sedimentation-rate plot
+            fieldLUT0 = fieldLUT
+            field = "sedimentation_rate"
 
-        # set erosion plot
-        fieldLUT0 = fieldLUT
-        field, fieldLUT = set_fastscape_erosion_rate_plot(sourceDisplayF)
-        scalarBar = set_fastscape_erosion_rate_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
-        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
-        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_erosion_rate_t%.4e.pdf" % (_time))
-        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_erosion_rate_t%.4e.png" % (_time))
-        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
-        ExportView(fig_path, view=renderView1)
-        print("Figure saved: %s" % fig_png_path)
-        print("Figure saved: %s" % fig_path)
-        
-        # set total erosion plot
-        fieldLUT0 = fieldLUT
-        field, fieldLUT = set_fastscape_total_erosion_plot(sourceDisplayF)
-        scalarBar = set_fastscape_total_erosion_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
-        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
-        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.pdf" % (_time))
-        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.png" % (_time))
-        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
-        ExportView(fig_path, view=renderView1)
-        print("Figure saved: %s" % fig_png_path)
-        print("Figure saved: %s" % fig_path)
+            fieldLUT = set_field_plot_with_source(sourceDisplayFPG, field,
+                                ranges=(1e-6, 1e-2),
+                                color_scheme="SCM_batlow",
+                                use_log_scale=True,
+                                invert_color=False)
+            scalarBar = set_field_colorbar_in_render_view(renderView1, fieldLUT,
+                                        title="Sedimentation Rate",
+                                        unit="m/yr",
+                                        orentation="Horizontal",
+                                        position=[0.6, 0.05])
 
-        # Hide the "transformed" object
-        # and show the "programmable" object 
-        Hide(_sourceF, renderView1)
-        fieldLUT0 = fieldLUT
-        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
-        
-        sourceDisplayFPG = Show(_sourceFPG, renderView1, 'GeometryRepresentation')
+            HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
 
-        # set sedimentation-rate plot
-        fieldLUT0 = fieldLUT
-        field = "sedimentation_rate"
-
-        fieldLUT = set_field_plot_with_source(sourceDisplayFPG, field,
-                               ranges=(1e-6, 1e-2),
-                               color_scheme="SCM_batlow",
-                               use_log_scale=True,
-                               invert_color=False)
-        scalarBar = set_field_colorbar_in_render_view(renderView1, fieldLUT,
-                                      title="Sedimentation Rate",
-                                      unit="m/yr",
-                                      orentation="Horizontal",
-                                      position=[0.6, 0.05])
-
-        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
-
-        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_sedimentation_rate_t%.4e.pdf" % (_time))
-        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_sedimentation_rate_t%.4e.png" % (_time))
-        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
-        ExportView(fig_path, view=renderView1)
-        print("Figure saved: %s" % fig_png_path)
-        print("Figure saved: %s" % fig_path)
+            fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_sedimentation_rate_t%.4e.pdf" % (_time))
+            fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_sedimentation_rate_t%.4e.png" % (_time))
+            SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+            ExportView(fig_path, view=renderView1)
+            print("Figure saved: %s" % fig_png_path)
+            print("Figure saved: %s" % fig_path)
 
 
-        # set total sedimentation plot
-        fieldLUT0 = fieldLUT
-        field = "sedimentation"
+            # set total sedimentation plot
+            fieldLUT0 = fieldLUT
+            field = "sedimentation"
 
-        fieldLUT = set_field_plot_with_source(sourceDisplayFPG, field,
-                               ranges=(1, 1e4),
-                               color_scheme="SCM_batlow",
-                               use_log_scale=True,
-                               invert_color=False)
-        scalarBar = set_field_colorbar_in_render_view(renderView1, fieldLUT,
-                                      title="Total sedimentation",
-                                      unit="m",
-                                      orentation="Horizontal",
-                                      position=[0.6, 0.05])
+            fieldLUT = set_field_plot_with_source(sourceDisplayFPG, field,
+                                ranges=(1, 1e4),
+                                color_scheme="SCM_batlow",
+                                use_log_scale=True,
+                                invert_color=False)
+            scalarBar = set_field_colorbar_in_render_view(renderView1, fieldLUT,
+                                        title="Total sedimentation",
+                                        unit="m",
+                                        orentation="Horizontal",
+                                        position=[0.6, 0.05])
 
-        HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+            HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
 
-        fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_sedimentation_t%.4e.pdf" % (_time))
-        fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_sedimentation_t%.4e.png" % (_time))
-        SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
-        ExportView(fig_path, view=renderView1)
-        print("Figure saved: %s" % fig_png_path)
-        print("Figure saved: %s" % fig_path)
+            fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_sedimentation_t%.4e.pdf" % (_time))
+            fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_sedimentation_t%.4e.png" % (_time))
+            SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+            ExportView(fig_path, view=renderView1)
+            print("Figure saved: %s" % fig_png_path)
+            print("Figure saved: %s" % fig_path)
 
 
 
-    # hide plot and colorbar
-    # Hide(_source, renderView1)
-    # HideScalarBarIfNotNeeded(fieldLUT, renderView1) # hide previous colorbar
+            # hide plot and colorbar
+            # Hide(_source, renderView1)
+            # HideScalarBarIfNotNeeded(fieldLUT, renderView1) # hide previous colorbar
 
 
 
