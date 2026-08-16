@@ -188,7 +188,10 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_TC%.2e" % variables["topography_continent"]
         if use_all or "topography_ocean" in use_keys:
             case_name += "_TO%.2e" % variables["topography_ocean"]
-        
+
+    if variables["include_initial_isostacy"]:
+        if use_all or "include_initial_isostacy" in use_keys:
+            case_name += "_isoI"
 
     if use_all or "customize_corner_temperature_fix" in use_keys:
         if variables["customize_corner_temperature_fix"]:
@@ -3418,7 +3421,7 @@ class FastScapeRule(Rule):
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
                 "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
                 "fastscape_timesteps", "erosional_base_level", "include_initial_topography_with_gwb", "customize_ridge",
-                "kf_start_time"]
+                "kf_start_time", "include_initial_isostacy"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3441,6 +3444,8 @@ class FastScapeRule(Rule):
         "include_initial_topography_with_gwb": False,
         "customize_ridge": False,
         "kf_start_time": 0.0,
+        "include_initial_isostacy": False,
+        "include_initial_topograph_filepath": None
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
@@ -3449,11 +3454,12 @@ class FastScapeRule(Rule):
                          "include_boundary_flow": "include the flow of sediment into the model domain by setting the composition of erosional sediments",
                          "fastscape_timesteps": "Number of fastscape timesteps per aspect timestep",
                          "erosional_base_level": "If a positive value is given, then a fixed erosional base level is used.",
-                         "include_initial_topography_with_gwb": "This options will use GWB to prescribe the initial topography",
                          "customize_ridge": "Here this decide whether we want to specify the topography for the ridge in the corner",
                          "topography_continent": "Topography of the continent, if the option of initial topography is turned on.",
                          "topography_ocean": "Topography of the ocean, if the option of initial topography is turned on.",
-                         "kf_start_time": "If a positive value is given, we use the kf function to turn on incision after a certain time."
+                         "kf_start_time": "If a positive value is given, we use the kf function to turn on incision after a certain time.",
+                         "include_initial_isostacy": "Whether to include initial isostatic topography",
+                         "include_initial_topograph_filepath": "If a valid filepath is given, then we parse this topography to an input of initial topography to the model."
                          }
     
     def apply(self, config, prm_dict, wb_dict, context):
@@ -3475,9 +3481,13 @@ class FastScapeRule(Rule):
         add_erosion_sediment = config["add_erosion_sediment"]
         fastscape_timesteps = config["fastscape_timesteps"]
         erosional_base_level = config["erosional_base_level"]
-        include_initial_topography_with_gwb = config["include_initial_topography_with_gwb"]
         customize_ridge = config["customize_ridge"]
         kf_start_time = config["kf_start_time"]
+        include_initial_isostacy = config["include_initial_isostacy"]
+        include_initial_topograph_filepath = config["include_initial_topograph_filepath"]
+
+        my_assert(not (include_initial_isostacy and include_initial_topography), 
+                  ValueError, "One cannot turn on both initial isostacy and initial topography")
 
         
         if include_fastscape:
@@ -3665,6 +3675,24 @@ class FastScapeRule(Rule):
                 index_continent = 1
                 index_ocean = 0
                 taper_feature_topography(feature, topography_continent, topography_ocean, index_continent, index_ocean)
+
+        if include_initial_isostacy:
+            initial_topography_dict = {
+                "Model name": "isostatic topography",
+                "Isostatic topography":{
+                    "Number of lateral points": "2000",
+                    "Number of vertical points": "2000",
+                    "Compensation depth": "500e3",
+                    "Maximum isostatic topography": "10e3"
+                }
+            }
+
+            prm_dict["Geometry model"]["Initial topography model"] = initial_topography_dict
+
+        # todo_topo
+        if include_initial_topograph_filepath is not None:
+            my_assert(os.path.isfile(include_initial_topograph_filepath), 
+                      FileExistsError,  "%s doesn't exist." % include_initial_topograph_filepath)
 
 
 def get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, plate_start_point,

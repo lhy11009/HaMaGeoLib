@@ -146,6 +146,30 @@ def read_aspect_header_file(file_path):
 
     return data
 
+# todo_topo
+def read_one_line_header(file_path):
+    """
+    Read the first line header in a data file,
+    and parse it to a dict of "name" - index
+    
+    Args:
+        file_path (str): Path to the simulation log file.
+    
+    Return:
+        header_dict (dict): Dict contains the "name" - index mapping
+    """
+
+    with open(file_path) as f:
+        header = f.readline()
+
+    header_dict = {
+        name: i
+        for i, name in enumerate(header.lstrip("#").split())
+    }
+
+    return header_dict
+
+
 def get_directory_size_du(path, unit="B"):
     """
     Uses the Unix 'du' command to get the total size of a directory.

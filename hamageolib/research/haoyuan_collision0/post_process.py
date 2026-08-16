@@ -188,6 +188,16 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         # extract the x, y coordinates
         l0 = self.slab_surface_points[:, 1] 
         l2 = self.slab_surface_points[:, 0]
+
+        # in case of no point selected, return with NaN values
+        outputs = {} 
+        if l0.size == 0:
+            outputs["slab_depth"] = np.nan
+            outputs["dip_100"] = np.nan
+            outputs["dip_300"] = np.nan
+            outputs["trench_center"] = np.nan
+            outputs["trench_center_50"] = np.nan
+            return outputs
         
         # slab depth 
         slab_depth = self.Max0 - np.min(l0)
@@ -214,7 +224,6 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
         # record results of slab depth, dip angle, trench position, etc
         # todo_pin
-        outputs = {} 
         outputs["slab_depth"] = slab_depth
         outputs["dip_100"] = dip_angle_100
         outputs["dip_300"] = dip_angle_300
@@ -2300,8 +2309,12 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
     # get the float number of time value and the rounded value
     # then the index number of this time step
     resampled_df = Case_Options_2d.resample_visualization_df(time_interval)
-    time_rounded = round(_time / float(resampled_df.attrs["Time between graphical output"]))\
-          * float(resampled_df.attrs["Time between graphical output"])
+
+    time_rounded = _time
+    time_between_graphical_output = float(resampled_df.attrs["Time between graphical output"]) 
+    if time_between_graphical_output > 0:
+        time_rounded = round(_time / time_between_graphical_output)\
+          * time_between_graphical_output
 
     idx = (Case_Options_2d.summary_df["Time"] - _time).abs().idxmin()
     vtu_step = Case_Options_2d.summary_df.loc[idx, "Vtu step"]
