@@ -3694,7 +3694,6 @@ class FastScapeRule(Rule):
 
             prm_dict["Geometry model"]["Initial topography model"] = initial_topography_dict
 
-        # todo_topo
         # Generate the initial topography file from existing outputs
         if include_initial_topograph_filepath is not None:
             my_assert(os.path.isfile(include_initial_topograph_filepath), 
