@@ -146,7 +146,7 @@ def read_aspect_header_file(file_path):
 
     return data
 
-# todo_topo
+
 def read_one_line_header(file_path):
     """
     Read the first line header in a data file,

@@ -13,6 +13,7 @@ ssh $SERVER "mkdir -p ${selected_remote_folder}/${relative_case_path}"
 INCLUDES=(
     "--include=*.prm"
     "--include=*.wb"
+    "--include=*.txt"
 )
 
 REMOTE_PATH="${SERVER}:${selected_remote_folder}/${relative_case_path}/"

@@ -3,12 +3,14 @@ import json
 import numpy as np
 from pathlib import Path
 from copy import deepcopy
+from scipy.interpolate import interp1d
 from ...utils.exception_handler import my_assert
 from ...utils.handy_shortcuts_haoyuan import func_name
 from ...core.AnalyticalSolution import ContinentalThermChapmanPartition
 from ...research.haoyuan_2d_subduction.legacy_tools import RHEOLOGY_PRM, RHEOLOGY_OPR,\
     RefitRheology
 from ...research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
+from ...utils.file_reader import read_one_line_header
 
 from gdmate.aspect.config_engine import Rule, RuleConflictError, RuleInternalError
 from gdmate.aspect.table import DepthAverageTable
@@ -3421,7 +3423,7 @@ class FastScapeRule(Rule):
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
                 "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
                 "fastscape_timesteps", "erosional_base_level", "include_initial_topography_with_gwb", "customize_ridge",
-                "kf_start_time", "include_initial_isostacy"]
+                "kf_start_time", "include_initial_isostacy", "include_initial_topograph_filepath", "initial_topograph_fileout_x_interval"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3445,7 +3447,8 @@ class FastScapeRule(Rule):
         "customize_ridge": False,
         "kf_start_time": 0.0,
         "include_initial_isostacy": False,
-        "include_initial_topograph_filepath": None
+        "include_initial_topograph_filepath": None,
+        "initial_topograph_fileout_x_interval": 10e3
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
@@ -3459,7 +3462,8 @@ class FastScapeRule(Rule):
                          "topography_ocean": "Topography of the ocean, if the option of initial topography is turned on.",
                          "kf_start_time": "If a positive value is given, we use the kf function to turn on incision after a certain time.",
                          "include_initial_isostacy": "Whether to include initial isostatic topography",
-                         "include_initial_topograph_filepath": "If a valid filepath is given, then we parse this topography to an input of initial topography to the model."
+                         "include_initial_topograph_filepath": "If a valid filepath is given, then we parse this topography to an input of initial topography to the model.",
+                         "initial_topograph_fileout_x_interval": "Output interval along x, if include_initial_topograph_filepath is set to a valid path"
                          }
     
     def apply(self, config, prm_dict, wb_dict, context):
@@ -3485,6 +3489,7 @@ class FastScapeRule(Rule):
         kf_start_time = config["kf_start_time"]
         include_initial_isostacy = config["include_initial_isostacy"]
         include_initial_topograph_filepath = config["include_initial_topograph_filepath"]
+        initial_topograph_fileout_x_interval = config["initial_topograph_fileout_x_interval"]
 
         my_assert(not (include_initial_isostacy and include_initial_topography), 
                   ValueError, "One cannot turn on both initial isostacy and initial topography")
@@ -3690,9 +3695,55 @@ class FastScapeRule(Rule):
             prm_dict["Geometry model"]["Initial topography model"] = initial_topography_dict
 
         # todo_topo
+        # Generate the initial topography file from existing outputs
         if include_initial_topograph_filepath is not None:
             my_assert(os.path.isfile(include_initial_topograph_filepath), 
                       FileExistsError,  "%s doesn't exist." % include_initial_topograph_filepath)
+
+            # set the options in the prm file
+            initial_topography_dict = {
+                "Model name": "ascii data",
+                "Ascii data model":{
+                    "Data directory": ".",
+                    "Data file name": "inital_topography.txt"
+                }
+            }
+            prm_dict["Geometry model"]["Initial topography model"] = initial_topography_dict
+
+            # read topography file
+            topo_file_header = read_one_line_header(include_initial_topograph_filepath)
+
+            topo_data = np.loadtxt(include_initial_topograph_filepath, comments="#")
+
+            # read data of x and topography
+            x_col_idx = topo_file_header["x"]
+            Xs = topo_data[:, x_col_idx]
+
+            topo_col_idx = topo_file_header["topography"]
+            Topos = topo_data[:, topo_col_idx]
+
+            # Build interpolation function
+            topo_func = interp1d(Xs, Topos)
+
+            # interpolate onto new grid
+            X_new = np.arange(0.0, np.max(Xs) + initial_topograph_fileout_x_interval, initial_topograph_fileout_x_interval)
+            topo_new = topo_func(X_new)
+
+            # save to a new file
+            o_data = np.column_stack((X_new, topo_new))
+
+            header_lines = "Initial topography from original outputs of:\n"\
+                            + "%s\n" % include_initial_topograph_filepath\
+                            + "POINTS: %d 1\n" % (X_new.size)\
+                            + "Columns: x[m] InitialTopography[m]"
+
+            topo_file_outpath = os.path.join(context["temporary_output_directory"], "inital_topography.txt")
+            np.savetxt(
+                topo_file_outpath,
+                o_data,
+                header=header_lines
+                )
+
 
 
 def get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, plate_start_point,
