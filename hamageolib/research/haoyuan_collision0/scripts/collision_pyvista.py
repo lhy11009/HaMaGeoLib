@@ -16,7 +16,7 @@ assert(os.path.isdir(local_Collision_dir))
 # Options
 # one_vtu_step - if this option is not None, only execute one step
 local_dir_2d = os.path.join(local_Collision_dir, 
-                            "collision_setup30_test/C_gr4_main_df"
+                            "collision_setup31_test/C_ar4_SA100.0_CR_CRT2.00e+05_Ebl1.00e-02_Est1.00e+06_isoI"
                             )
 prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"; output_directory="output" # normal
 
