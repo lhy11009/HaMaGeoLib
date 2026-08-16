@@ -276,9 +276,6 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
 
-        # Interpret the adiabatic pressure profile 
-        da_P_func = self.depth_average.GetInterpolateFunc(0.0, "adiabatic_pressure")
-
         # Rotation angles 
         self.options['ROTATION_ANGLE'] = 0.0
         rotation_plus = kwargs.get("rotation_plus", 0.0) # additional rotation
@@ -434,7 +431,14 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         self.options["MAX_PLOT_DEPTH_IN_SLICE"]  = 1300e3
 
         # phase transition parameters
-        parse_phase_transition_options(self.idict, self.options, da_P_func)
+        # Interpret the adiabatic pressure profile:
+        #   This should succeed normally, except for tests
+        try:
+            da_P_func = self.depth_average.GetInterpolateFunc(0.0, "adiabatic_pressure")
+        except AttributeError:
+            pass
+        else:
+            parse_phase_transition_options(self.idict, self.options, da_P_func)
 
     def SummaryCaseVtuStep(self, ifile=None):
         '''
@@ -444,7 +448,7 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         CASE_OPTIONS_BASE.SummaryCaseVtuStep(self, ifile)
 
         # Add new columns you want to add
-        new_columns = ["Slab depth", "Trench", "Dip 100", "Dip 400", "Dip 100 400", "Trench (50 km)"]
+        new_columns = ["Slab depth", "Trench", "Dip 100", "Dip 400", "Slab 400", "Dip 100 400", "Trench (50 km)"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:

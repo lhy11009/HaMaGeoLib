@@ -666,6 +666,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
         metaRegionDisplay.DiffuseColor = [0.5, 0.5, 0.5] # gray
     
     if "MODEL_TYPE" == "mow" and has_metastable_region_slab and FOO03 == 1: 
+        # todo_strain
         # Select the metastable_region source
         if "GEOMETRY" == "chunk":
             metaRegion1 = FindSource("metastable_region_slab_transform_%05d" % (snapshot))
@@ -1041,7 +1042,6 @@ def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwarg
         hide_everything()
 
 
-# todo_strain
 def plot_slice_center_mtz(source_name, snapshot, pv_output_dir, _time, *,
                                 has_metastable_region=False,
                                 has_metastable_region_slab=False):
@@ -1096,10 +1096,11 @@ def plot_slice_center_mtz(source_name, snapshot, pv_output_dir, _time, *,
                 layout1.SetSize((layout_resolution[0], layout_resolution[1]))
                 renderView1.InteractionMode = '2D'
 
+# todo_strain
                 renderView1.Set(
                     InteractionMode='2D',
-                    CameraPosition=[4034652.2660400933, 2376879.951280339, -8150298.613651189],
-                    CameraFocalPoint=[4034652.2660400933, 2376879.951280339, 0.0],
+                    CameraPosition=[FOO04, 2376879.951280339, -8150298.613651189],
+                    CameraFocalPoint=[FOO04, 2376879.951280339, 0.0],
                     CameraViewUp=[2.220446049250313e-16, 1.0, 0.0],
                     CameraParallelScale=211408.64023052176,
                 )
@@ -1111,7 +1112,41 @@ def plot_slice_center_mtz(source_name, snapshot, pv_output_dir, _time, *,
     elif "GEOMETRY" == "chunk":
         raise NotImplementedError()
 
+    # Plot the viscosity
+    set_viscosity_plot(transform1Display, ETA_MIN, ETA_MAX)
+    fieldLUT = GetColorTransferFunction("viscosity")
+
+    # save figure
+    fig_path = os.path.join(pv_output_dir, "mtz_viscosity_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "mtz_viscosity_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+
+    # plot the viscosity with the mow extents
+    # Setup metastable plots
+    metaRegion1 = None
+    if "GEOMETRY" == "chunk":
+        metaRegion1 = FindSource("metastable_region_slab_transform_%05d" % (snapshot))
+    else:
+        metaRegion1 = FindSource("metastable_region_slab_%05d" % (snapshot))
+    metaRegion1Display = Show(metaRegion1, renderView1, 'GeometryRepresentation')
+    ColorBy(metaRegion1Display, None)
+    metaRegion1Display.AmbientColor = [1.0, 0.0, 1.0] # magenta
+    metaRegion1Display.DiffuseColor = [1.0, 0.0, 1.0]
+
+    fig_path = os.path.join(pv_output_dir, "mtz_viscosity_mow_t%.4e.pdf" % _time)
+    fig_png_path = os.path.join(pv_output_dir, "mtz_viscosity_mow_t%.4e.png" % _time)
+    SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+    ExportView(fig_path, view=renderView1)
+    print("Figure saved: %s" % fig_png_path)
+    print("Figure saved: %s" % fig_path)
+
+
     # Plot the strain rate
+    Hide(metaRegion1) # hide the mow
+    HideScalarBarIfNotNeeded(fieldLUT, renderView1) # hide the viscosity colorbar
     fieldLUT = set_field_plot_with_source(transform1Display, "strain_rate",
                                ranges=[1e-16, 1e-13],
                                color_scheme="SCM_lipari",
@@ -1153,7 +1188,6 @@ def plot_slice_center_mtz(source_name, snapshot, pv_output_dir, _time, *,
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)
     print("Figure saved: %s" % fig_path)
-        
 
 
 def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
@@ -1430,9 +1464,7 @@ def thd_workflow(pv_output_dir, data_output_dir, steps, times, plot_types):
         load_pyvista_source(data_output_dir, "trench_d0.00km", snapshot, file_type="vtp")
         load_pyvista_source(data_output_dir, "trench_d50.00km", snapshot, file_type="vtp")
 
-
         # plot slice center viscosity
-        
         if "slab_3d" in plot_types:
             plot_slab_velocity_field(snapshot, _time, pv_output_dir)
         if "upper_mantle" in plot_types:
