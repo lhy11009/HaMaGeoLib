@@ -1,0 +1,3 @@
+Temporary file created to verify the Codex local Git-to-GitHub workflow.
+
+This branch and file are for access verification only and must not be merged.
