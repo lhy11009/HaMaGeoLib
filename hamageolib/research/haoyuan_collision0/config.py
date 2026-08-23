@@ -129,6 +129,7 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_CTL%.2e" % variables["continent_taper_length"]
     
     # Corner
+    # todo_visc
     if use_all or "customize_corner" in use_keys:
         if variables["customize_corner"]:
             case_name += "_Cn"
@@ -146,6 +147,10 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             if (use_all or "customize_ridge_taper_length" in use_keys) and \
                 (variables["customize_ridge_taper_length"]>0.0):
                 case_name += "_CRT%.2e" % (variables["customize_ridge_taper_length"])
+
+    if variables["customize_corner_viscosity"] > 0.0:
+        if use_all or "customize_corner_viscosity" in use_keys:
+            case_name += "_CRV%.2e" % (variables["customize_corner_viscosity"])
 
     # Phase transition
     if use_all or "include_phase_transition" in use_keys:
@@ -190,6 +195,13 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_TC%.2e" % variables["topography_continent"]
         if use_all or "topography_ocean" in use_keys:
             case_name += "_TO%.2e" % variables["topography_ocean"]
+
+    if len(variables["include_initial_topograph_filepath"]) > 0:
+        if use_all or "include_initial_topograph_filepath" in use_keys:
+            case_name += "_topoIF"
+        if not np.isclose(variables["initial_topograph_fileout_migration"], 0, atol=1e-6):
+            if use_all or "initial_topograph_fileout_migration" in use_keys:
+                case_name += "_topoIM%.2e" % variables["initial_topograph_fileout_migration"]
 
     if variables["include_initial_isostacy"]:
         if use_all or "include_initial_isostacy" in use_keys:
@@ -2655,7 +2667,7 @@ class CornerRule(Rule):
                 "customize_corner_temperature_fix", "customize_corner_temperature_fix_width", "customize_corner_temperature_fix_depth",
                 "customize_corner_composition", "customize_ridge_composition_remapping", "customize_ridge_taper_length",
                 "continent_taper_sediment_thickness", "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness",
-                "include_boundary_flow"]
+                "include_boundary_flow", "customize_corner_viscosity_as_minimum"]
     
     defaults = {"customize_corner": False, 
                 "customize_corner_width": 600e3, 
@@ -2674,7 +2686,8 @@ class CornerRule(Rule):
                 "continent_taper_sediment_thickness": 4e3,
                 "continent_taper_upper_crust_thickness": 3.5e3,
                 "continent_taper_lower_crust_thickness": 3.5e3,
-                "include_boundary_flow": False
+                "include_boundary_flow": False,
+                "customize_corner_viscosity_as_minimum": False
                 }
 
     requires_comments = {"customize_corner": "Allow user to customize corner property from prescribed conditions",
@@ -2690,7 +2703,8 @@ viscosity is being prescribed in the region",
                         "continent_taper_upper_crust_thickness": "This value is reused to prescribe tapered upper crust thickness if that applies",
                         "continent_taper_lower_crust_thickness": "This value is reused to prescribe tapered lower crust thickness if that applies",
                         "include_boundary_flow": "Whether to include boundary flow. Here it affects the total number of composition fields, as it\
- would add new composition later."
+ would add new composition later.",   
+                         "customize_corner_viscosity_as_minimum": "Whether to treat the value the corner viscosity function as the minimum viscosity"
                         }
     
     provides = []
@@ -2715,6 +2729,7 @@ viscosity is being prescribed in the region",
         continent_taper_upper_crust_thickness = config["continent_taper_upper_crust_thickness"]
         continent_taper_lower_crust_thickness = config["continent_taper_lower_crust_thickness"]
         include_boundary_flow = config["include_boundary_flow"]
+        customize_corner_viscosity_as_minimum = config["customize_corner_viscosity_as_minimum"]
 
         # Read variables from the context
         domain_length = context["domain_length"]
@@ -2724,10 +2739,15 @@ viscosity is being prescribed in the region",
             
             # customize viscosity
             if customize_corner_viscosity > 0.0:
-                if customize_ridge:
-                    raise RuleInternalError("Base on tests, customize_corner_viscosity and customize_ridge don't work together.")
+                # todo_visc
+                if customize_ridge and (not customize_corner_viscosity_as_minimum):
+                    raise RuleInternalError("Base on tests, customize_corner_viscosity and customize_ridge don't work together, except " +\
+                                            "when the viscosity is treated as minimum")
 
                 prm_dict["Material model"]["Visco Plastic"]["Reset viscosity"] = "true"
+
+                if customize_corner_viscosity_as_minimum:
+                    prm_dict["Material model"]["Visco Plastic"]["Reset viscosity as minimum"] = "true"
 
                 viscosity_function = {
                     "Coordinate system": "cartesian",
@@ -3423,7 +3443,8 @@ class FastScapeRule(Rule):
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
                 "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
                 "fastscape_timesteps", "erosional_base_level", "include_initial_topography_with_gwb", "customize_ridge",
-                "kf_start_time", "include_initial_isostacy", "include_initial_topograph_filepath", "initial_topograph_fileout_x_interval"]
+                "kf_start_time", "include_initial_isostacy", "include_initial_topograph_filepath", "initial_topograph_fileout_x_interval",
+                "initial_topograph_fileout_migration"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3447,8 +3468,9 @@ class FastScapeRule(Rule):
         "customize_ridge": False,
         "kf_start_time": 0.0,
         "include_initial_isostacy": False,
-        "include_initial_topograph_filepath": None,
-        "initial_topograph_fileout_x_interval": 10e3
+        "include_initial_topograph_filepath": "",
+        "initial_topograph_fileout_x_interval": 10e3,
+        "initial_topograph_fileout_migration": 0.0
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
@@ -3463,7 +3485,8 @@ class FastScapeRule(Rule):
                          "kf_start_time": "If a positive value is given, we use the kf function to turn on incision after a certain time.",
                          "include_initial_isostacy": "Whether to include initial isostatic topography",
                          "include_initial_topograph_filepath": "If a valid filepath is given, then we parse this topography to an input of initial topography to the model.",
-                         "initial_topograph_fileout_x_interval": "Output interval along x, if include_initial_topograph_filepath is set to a valid path"
+                         "initial_topograph_fileout_x_interval": "Output interval along x, if include_initial_topograph_filepath is set to a valid path",
+                         "initial_topograph_fileout_migration": "Migration of the topography before file outputs."
                          }
     
     def apply(self, config, prm_dict, wb_dict, context):
@@ -3489,10 +3512,14 @@ class FastScapeRule(Rule):
         kf_start_time = config["kf_start_time"]
         include_initial_isostacy = config["include_initial_isostacy"]
         include_initial_topograph_filepath = config["include_initial_topograph_filepath"]
+        initial_topograph_fileout_migration = config["initial_topograph_fileout_migration"]
         initial_topograph_fileout_x_interval = config["initial_topograph_fileout_x_interval"]
 
-        my_assert(not (include_initial_isostacy and include_initial_topography), 
-                  ValueError, "One cannot turn on both initial isostacy and initial topography")
+        # First check only one of these options are selected.
+        sum_options = sum((include_initial_topography, include_initial_isostacy, 
+                           (len(include_initial_topograph_filepath) > 0)))
+        my_assert(sum_options <= 1, ValueError, 
+                  "Only one option for intial topography is accepted get %d" % sum_options)
 
         
         if include_fastscape:
@@ -3586,7 +3613,8 @@ class FastScapeRule(Rule):
         else:
             prm_dict["Mesh deformation"]["Diffusion"]["Hillslope transport coefficient"] = "%.3e" % (bedrock_diffusivity/year)
 
-
+        # Initial topography section
+        
         if include_initial_topography:
 
             # construct a initial topography function.
@@ -3695,7 +3723,7 @@ class FastScapeRule(Rule):
             prm_dict["Geometry model"]["Initial topography model"] = initial_topography_dict
 
         # Generate the initial topography file from existing outputs
-        if include_initial_topograph_filepath is not None:
+        if len(include_initial_topograph_filepath) > 0:
             my_assert(os.path.isfile(include_initial_topograph_filepath), 
                       FileExistsError,  "%s doesn't exist." % include_initial_topograph_filepath)
 
@@ -3725,8 +3753,9 @@ class FastScapeRule(Rule):
             topo_func = interp1d(Xs, Topos)
 
             # interpolate onto new grid
+            # at this step, add a constant assigned migration
             X_new = np.arange(0.0, np.max(Xs) + initial_topograph_fileout_x_interval, initial_topograph_fileout_x_interval)
-            topo_new = topo_func(X_new)
+            topo_new = topo_func(X_new) + initial_topograph_fileout_migration
 
             # save to a new file
             o_data = np.column_stack((X_new, topo_new))
@@ -3742,6 +3771,8 @@ class FastScapeRule(Rule):
                 o_data,
                 header=header_lines
                 )
+
+            print("Saved initial topography file %s" % topo_file_outpath)
 
 
 
