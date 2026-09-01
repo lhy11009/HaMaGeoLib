@@ -27,12 +27,13 @@
 # Build options
 # Note:
 # set up packages and options in the candi.cfg file beforehand
-CANDI_DIR=/work2/06806/hyli/stampede3/Softwares/candi # Path to candi (a script for installing deal.ii and dependencies)
-INSTALL_PREFIX=/work2/06806/hyli/stampede3/Softwares/dealii/deal.ii-9.7.0-Native-32bits-candi-intel-24.0-impi-21.11
+CANDI_DIR=/work2/06806/hyli/stampede3/Softwares/candi_9.8 # Path to candi (a script for installing deal.ii and dependencies)
+INSTALL_PREFIX=/work2/06806/hyli/stampede3/Softwares/dealii/deal.ii-9.8.0-Native-32bits-candi-intel-26.0-impi-21.18-20260831
 
 # Loading modules
+# loading the intel version 26 environment
 echo "Loading required modules and variables..."
-source ~/env/aspect_env.sh
+source ~/env/aspect_env_intel26.sh
 source ~/env/utilities.sh
 
 if [[ -z "$CC" || -z "$CXX" || -z "$FC" ]]; then
@@ -50,6 +51,9 @@ export BUILD_PATH=/tmp/build1
 remove_if_exists "$DOWNLOAD_PATH"
 remove_if_exists "$UNPACK_PATH"
 remove_if_exists "$BUILD_PATH"
+
+# Setting up MPI compilers
+echo "Setting up MPI compilers..."
 
 # Checking environment
 echo "Listing loaded modules:"
