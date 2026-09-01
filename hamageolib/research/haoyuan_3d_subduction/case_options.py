@@ -192,7 +192,14 @@ class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
             self.options["T_PT_EQ"] = metastable_dict.get("Phase transition temperature", 1740.0)
 
         # phase transition parameters
-        parse_phase_transition_options(self.idict, self.options)
+        # Interpret the adiabatic pressure profile:
+        #   This should succeed normally, except for tests
+        try:
+            da_P_func = self.depth_average.GetInterpolateFunc(0.0, "adiabatic_pressure")
+        except AttributeError:
+            pass
+        else:
+            parse_phase_transition_options(self.idict, self.options, da_P_func)
 
         
         self.options["MAX_PLOT_DEPTH_IN_SLICE"]  = 1300e3

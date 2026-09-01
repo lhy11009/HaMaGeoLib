@@ -2635,6 +2635,33 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
         grid_su = pv.read(suture_file)
         suture_shallow_point = grid_su.points[0]
 
+    # read additional inputs from processing the fastscape outputs
+    fastscape_hz_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
+    fastscape_hz_header_dict = None
+    fastscape_x = None
+    fastscape_topography_min = None
+    fastscape_topography_max = None
+    if os.path.isfile(fastscape_hz_file):
+        with open(fastscape_hz_file) as f:
+            header = f.readline()
+
+        data = np.loadtxt(fastscape_hz_file, comments="#")
+
+        fastscape_hz_header_dict = {
+            name: i
+            for i, name in enumerate(header.lstrip("#").split())
+        }
+
+        column_idx = fastscape_hz_header_dict["x"]
+        fastscape_x = data[:, column_idx]
+
+        column_idx = fastscape_hz_header_dict["topography_min"]
+        fastscape_topography_min = data[:, column_idx]
+
+        column_idx = fastscape_hz_header_dict["topography_max"]
+        fastscape_topography_max = data[:, column_idx]
+    
+
     # Plot settings
     # Rule of thumbs:
     # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
@@ -2693,6 +2720,17 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
             "lower = \n%.2e m" % lower_plate_deformation,
             ha="center", va="center", alpha=0.5
             )
+    # plot the fastscape data
+    if fastscape_topography_min is not None:
+        ax.plot((fastscape_x-trench_center)/1e3, fastscape_topography_min, 
+                linewidth=1, linestyle="--", color=default_colors[1], label="Topo (fastscape min)")
+    if fastscape_topography_max is not None:
+        ax.plot((fastscape_x-trench_center)/1e3, fastscape_topography_max, 
+                linewidth=1, linestyle="-.", color=default_colors[2], label="Topo (fastscape max)")
+
+    # Plot settings
+    # Rule of thumbs:
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
 
     ax.set_xlim([-300, 300])
     # ax.tick_params(axis='x', which='both',  # erase the x axis

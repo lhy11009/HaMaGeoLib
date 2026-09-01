@@ -344,6 +344,31 @@ def offset_profile(Xs, Ys, offset_distance):
     return offset_Xs, offset_Ys
 
 
+def haversine_distance(lon1, lat1, lon2, lat2):
+    """
+    Calculate great-circle distance between two points.
+
+    Parameters are in degrees.
+    Returns distance in km.
+    """
+    earth_radius_km = 6371.0
+
+    lon1 = np.radians(lon1)
+    lat1 = np.radians(lat1)
+    lon2 = np.radians(lon2)
+    lat2 = np.radians(lat2)
+
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    a = (
+        np.sin(dlat / 2.0)**2
+        + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0)**2
+    )
+
+    return 2.0 * earth_radius_km * np.arcsin(np.sqrt(a))
+
+
 def compute_pairwise_distances(X0, Y0, X1, Y1):
     """
     Compute the pairwise Euclidean distances between two 2D profiles.
@@ -510,3 +535,5 @@ def relative_velocity_parallel_perpendicular(
     v_perpendicular_2 = np.dot(v2, e_perp)
 
     return v_parallel, v_perpendicular, [v_parallel_1, v_perpendicular_1], [v_parallel_2, v_perpendicular_2]
+
+

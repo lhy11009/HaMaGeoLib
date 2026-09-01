@@ -67,8 +67,7 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_WLV%.1e" % variables["weak_layer_viscosity"]
 
     elif variables["weak_layer_rheology_scheme"] == "low friction":
-        if use_all or "weak_layer_friction_factor" in use_keys and \
-            (not np.isclose(variables["weak_layer_friction_factor"], 0.02, rtol=1e-6)):
+        if use_all or "weak_layer_friction_factor" in use_keys:
             case_name += "_WLF%.1e" % variables["weak_layer_friction_factor"]
         if use_all or "weak_layer_minimum_viscosity" in use_keys:
             case_name += "_WLM%.1e" % variables["weak_layer_minimum_viscosity"]
