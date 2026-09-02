@@ -16,15 +16,14 @@
 #SBATCH --error=candi_%j.err   # Redirect standard error to file
 
 # Dealii and ASPECT DIR
-INSTALL_PREFIX=/work2/06806/hyli/stampede3/Softwares/dealii/deal.ii-9.7.0-Native-32bits-candi-intel-24.0-impi-21.11-20260409
+INSTALL_PREFIX=/work2/06806/hyli/stampede3/Softwares/dealii/deal.ii-9.8.0-Native-32bits-candi-intel-26.0-impi-21.18-20260831
 ASPECT_INSTALL_DIR="/work2/06806/hyli/stampede3/Softwares/aspect"
 
 # environment
 echo "Loading required modules and variables..."
-source ~/env/aspect_env.sh
+source ~/env/aspect_env_intel26.sh
 echo "Sourcing up DEAL.II configuration..."
 source "$INSTALL_PREFIX/configuration/enable.sh"
 
-
 # for running aspect
-ibrun ${ASPECT_INSTALL_DIR}/build_main_collision_20260409/aspect-release ./case.prm
+ibrun ${ASPECT_INSTALL_DIR}/build_main_collision/aspect-release ./case.prm
