@@ -13084,7 +13084,9 @@ opcrust: 1e+31, opharz: 1e+31", \
         
         # version-dependent setup
         if version >= 4.0:
-            modify_prm_version_four(o_dict, dimension=2)
+            modify_prm_version_four(o_dict, 
+                                    prescribe_T_area_width, Do_str, box_length,
+                                    dimension=2)
             
     def configure_wb(self, if_wb, geometry, potential_T, sp_age_trench, sp_rate, ov_ag,\
         if_ov_trans, ov_trans_age, ov_trans_length, is_box_longer, Dsz, wb_new_ridge, version,\
@@ -16105,8 +16107,12 @@ class CASE_THD(CASE):
                 o_dict["Particles"] = particle_options
                 o_dict["Postprocess"]["Particles"] = particle_visualization_options
 
+        # Update for version 4.0
+        # Important features are:
+        # New solver failure schemes; prescribed field plugins;
+        # New particle generators, etc.
         if version >= 4.0:
-            modify_prm_version_four(o_dict, dimension=3)
+            modify_prm_version_four_thd(o_dict, prescribe_T_area_width, Do_str, box_length, sp_width)
 
         # metastable related features
         if include_meta:
@@ -19726,6 +19732,7 @@ def get_name_appendix(options, value):
         num_str = "%.2e" % (value * scale)
     return key + num_str
 
+
 def modify_prm_version_four(o_dict, *,
                             dimension=2):
     """
@@ -19739,12 +19746,17 @@ def modify_prm_version_four(o_dict, *,
         change the old "Prescribed temperatures" to the new "Prescribed solution"
     """
     try:
-        o_dict.pop("Use years in output instead of seconds")
+        foo_value = o_dict.pop("Use years in output instead of seconds")
     except KeyError:
         pass
+    else:
+        insert_dict_after(o_dict, "Use years instead of seconds", foo_value, "Dimension")
 
     o_dict["Resume computation"] = "auto"
 
+    # solver parameters
+    # use new strategies;
+    # use smaller linear solver tolerance
     try:
         o_dict['Solver parameters'].pop("Newton solver parameters")
     except KeyError:
@@ -19754,10 +19766,20 @@ def modify_prm_version_four(o_dict, *,
         o_dict['Solver parameters']["Stokes solver parameters"].pop("Skip expensive stokes solver")
     except KeyError:
         pass
-    o_dict["Nonlinear solver failure strategy"] = "continue with next timestep"
-    o_dict["Linear solver failure strategy"] = "continue with nonlinear solver"
-    o_dict['Solver parameters']["Stokes solver parameters"]["Maximum number of expensive Stokes solver steps"] = "0"
 
+    insert_dict_after(o_dict, "Nonlinear solver failure strategy", "continue with next timestep", "Nonlinear solver tolerance")
+    insert_dict_after(o_dict, "Linear solver failure strategy", "continue with nonlinear solver", "Nonlinear solver failure strategy")
+    o_dict['Solver parameters']["Stokes solver parameters"]["Maximum number of expensive Stokes solver steps"] = "0"
+    o_dict['Solver parameters']["Stokes solver parameters"]["Linear solver tolerance"] = "1e-5"
+
+    # particles
+    o_dict["Particles"]["Generator"] = {
+        "Reference cell": {
+            "Number of particles per cell per direction": "15"
+        }
+    }
+
+    # prescribe field
     try:
         o_dict.pop("Prescribe internal temperatures")
     except KeyError:
@@ -19779,4 +19801,25 @@ def modify_prm_version_four(o_dict, *,
             }
         }
     else:
-        raise NotImplementedError("Dimension 3 is not implemented yet.")
+        pass
+
+
+def modify_prm_version_four_thd(o_dict, prescribe_T_area_width, Do_str, box_length, sp_width):
+    """
+    modify parameter for cases with version newer than 4.0
+    Note the prescribed solution part needs to be separated from dimention 2.
+    """
+
+    modify_prm_version_four(o_dict, dimension=3)
+        
+    o_dict["Prescribed solution"] = {
+        "List of model names": "initial temperature",
+        "Initial temperature": {
+            "Indicator function": {
+                "Variable names": "x, y, z",
+                "Function constants": "Depth=1.45e5, Width=%.4e, Do=%s, xm=%.4e, Wp=%.4e" % \
+                    (prescribe_T_area_width, Do_str, box_length, sp_width),
+                "Function expression": "(((z>Do-Depth)&&(y<Wp)&&((x<Width)||(xm-x<Width))) ? 1:0)"
+            }
+        }
+    }
