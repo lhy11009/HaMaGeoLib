@@ -41,7 +41,7 @@
     "coupling the eclogite phase to shear zone viscosity": 0,
     "slurm": [
         {
-            "slurm file": "/home/lochy/ASPECT_PROJECT/HaMaGeoLib/scripts/slurm/250816/job_hive_high.sh",
+            "slurm file": "/home/lochy/ASPECT_PROJECT/HaMaGeoLib/scripts/slurm_templates/250816/job_hive_high.sh",
             "build directory": "master_TwoD_rebase_dealii-9.5",
             "tasks per node": 8,
             "cpus": 8
