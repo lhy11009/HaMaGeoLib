@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --partition=skx         # Partition to submit the job
-#SBATCH -N 1                         # Number of nodes
+#SBATCH -N 10                         # Number of nodes
 #SBATCH --ntasks-per-node=48
-#SBATCH --time=48:00:00              # Max execution time (24 hours)
+#SBATCH --time=2:00:00              # Max execution time (24 hours)
 #SBATCH --mem=0
 #SBATCH --switches=1
 
@@ -16,15 +16,15 @@
 #SBATCH --error=candi_%j.err   # Redirect standard error to file
 
 # Dealii and ASPECT DIR
-INSTALL_PREFIX=/work2/06806/hyli/stampede3/Softwares/dealii/deal.ii-9.7.0-Native-32bits-candi-intel-24.0-impi-21.11-20260409
+INSTALL_PREFIX=/work2/06806/hyli/stampede3/Softwares/dealii/deal.ii-9.8.0-Native-32bits-candi-intel-26.0-impi-21.18-20260831
 ASPECT_INSTALL_DIR="/work2/06806/hyli/stampede3/Softwares/aspect"
 
 # environment
 echo "Loading required modules and variables..."
-source ~/env/aspect_env.sh
+source ~/env/aspect_env_intel26.sh
 echo "Sourcing up DEAL.II configuration..."
 source "$INSTALL_PREFIX/configuration/enable.sh"
 
 
 # for running aspect
-ibrun ${ASPECT_SOURCE_DIR}/build_master_TwoD_rebase/aspect-release ./case.prm
+ibrun ${ASPECT_INSTALL_DIR}/build_master_TwoD_rebase_20260831/aspect-release ./case.prm
