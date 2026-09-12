@@ -3441,9 +3441,9 @@ class FastScapeRule(Rule):
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
                 "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
-                "fastscape_timesteps", "erosional_base_level", "include_initial_topography_with_gwb", "customize_ridge",
+                "fastscape_timesteps", "erosional_base_level", "customize_ridge",
                 "kf_start_time", "include_initial_isostacy", "include_initial_topograph_filepath", "initial_topograph_fileout_x_interval",
-                "initial_topograph_fileout_migration"]
+                "initial_topograph_fileout_migration", "include_initial_topography_mesh_deformation"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3463,13 +3463,13 @@ class FastScapeRule(Rule):
         "include_boundary_flow": False,
         "fastscape_timesteps": 1,
         "erosional_base_level": -1.0,
-        "include_initial_topography_with_gwb": False,
         "customize_ridge": False,
         "kf_start_time": 0.0,
         "include_initial_isostacy": False,
         "include_initial_topograph_filepath": "",
         "initial_topograph_fileout_x_interval": 10e3,
-        "initial_topograph_fileout_migration": 0.0
+        "initial_topograph_fileout_migration": 0.0,
+        "include_initial_topography_mesh_deformation": False
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
@@ -3513,6 +3513,7 @@ class FastScapeRule(Rule):
         include_initial_topograph_filepath = config["include_initial_topograph_filepath"]
         initial_topograph_fileout_migration = config["initial_topograph_fileout_migration"]
         initial_topograph_fileout_x_interval = config["initial_topograph_fileout_x_interval"]
+        include_initial_topography_mesh_deformation = config["include_initial_topography_mesh_deformation"]
 
         # First check only one of these options are selected.
         sum_options = sum((include_initial_topography, include_initial_isostacy, 
@@ -3619,19 +3620,34 @@ class FastScapeRule(Rule):
             # construct a initial topography function.
             # This considers where are the ocean and continent plates as well as handling
             # the tapering between them.
-            initial_topography_model = {}
-            initial_topography_model["Model name"] = "function"
+            # When initial topography is through the mesh deformation, this section is not needed
+            if not include_initial_topography_mesh_deformation:
+                initial_topography_model = {}
+                initial_topography_model["Model name"] = "function"
 
-            func_constant, func_expression = \
+                func_constant, func_expression = \
+                    get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, context["plate_start_point"], 
+                                                context["plate_end_point"], context["continent_end_point"], context["slab_hinge_point"],
+                                                context["continent_taper_length"], include_initial_topography_trench_continent_taper,
+                                                context["customize_corner_width"], context["customize_ridge_taper_length"])
+
+                initial_topography_model["Function"] = {"Function constants": func_constant,
+                                                        "Function expression": func_expression}
+
+                prm_dict["Geometry model"]["Initial topography model"] = initial_topography_model
+            else:
+                prm_dict["Mesh deformation"]["Mesh deformation boundary indicators"] = "top: ascii data & fastscape"
+                prm_dict["Mesh deformation"]["Ascii data model"] = {
+                    "Data directory": ".",
+                    "Data file name": "inital_topography.txt"
+                }
+
                 get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, context["plate_start_point"], 
-                                               context["plate_end_point"], context["continent_end_point"], context["slab_hinge_point"],
-                                               context["continent_taper_length"], include_initial_topography_trench_continent_taper,
-                                               context["customize_corner_width"], context["customize_ridge_taper_length"])
-
-            initial_topography_model["Function"] = {"Function constants": func_constant,
-                                                    "Function expression": func_expression}
-
-            prm_dict["Geometry model"]["Initial topography model"] = initial_topography_model
+                                                context["plate_end_point"], context["continent_end_point"], context["slab_hinge_point"],
+                                                context["continent_taper_length"], include_initial_topography_trench_continent_taper,
+                                                context["customize_corner_width"], context["customize_ridge_taper_length"],
+                                                is_write_txt_file=True, txt_file_path=os.path.join(context["temporary_output_directory"], "inital_topography.txt"),
+                                                x_min=0.0, x_max=context["domain_length"], spacing=0.5e3)
 
 
             # loop features and apply the configuration of topography
@@ -3662,7 +3678,7 @@ class FastScapeRule(Rule):
                 except KeyError:
                     pass
                 else:
-                    for composition_model in composition_models:
+                    for i, composition_model in enumerate(composition_models):
                         if ("min depth" in composition_model) or ("max depth" in composition_model):
                             try:
                                 composition_model["min depth"] -= topography
@@ -3722,7 +3738,8 @@ class FastScapeRule(Rule):
             prm_dict["Geometry model"]["Initial topography model"] = initial_topography_dict
 
         # Generate the initial topography file from existing outputs
-        if len(include_initial_topograph_filepath) > 0:
+        # if initial topography is prescribed through mesh deformation, this is achieve else where
+        if len(include_initial_topograph_filepath) > 0 and (not include_initial_topography_mesh_deformation):
             my_assert(os.path.isfile(include_initial_topograph_filepath), 
                       FileExistsError,  "%s doesn't exist." % include_initial_topograph_filepath)
 
@@ -3774,36 +3791,70 @@ class FastScapeRule(Rule):
             print("Saved initial topography file %s" % topo_file_outpath)
 
 
+def get_initial_topography_funcion(
+        topography_continent,
+        topography_ocean,
+        customize_ridge,
+        plate_start_point,
+        plate_end_point,
+        continent_end_point,
+        slab_hinge_point,
+        continent_taper_length,
+        include_initial_topography_trench_continent_taper,
+        customize_corner_width,
+        customize_ridge_taper_length,
+        is_write_txt_file=False,
+        txt_file_path=None,
+        x_min=None,
+        x_max=None,
+        spacing=None):
+    """
+    Construct the function constants and expression for the initial
+    topography profile, or write the profile to an ASPECT ASCII file.
 
-def get_initial_topography_funcion(topography_continent, topography_ocean, customize_ridge, plate_start_point,
-                                   plate_end_point, continent_end_point, slab_hinge_point, continent_taper_length,
-                                   include_initial_topography_trench_continent_taper,
-                                   customize_corner_width, customize_ridge_taper_length):
-    '''
-    Construct the function constants and function expression for the initial topography profile.
     Parameters:
         topography_continent (float): Initial continental topography.
         topography_ocean (float): Initial oceanic topography.
-        customize_ridge (bool): Whether to include a customized ridge geometry.
+        customize_ridge (bool): Whether to include customized ridge geometry.
         plate_start_point (float): Horizontal position of the plate start.
         plate_end_point (float): Horizontal position of the plate end.
         continent_end_point (float): Horizontal position of the continental edge.
         slab_hinge_point (float): Horizontal position of the slab hinge.
-        continent_taper_length (float): Length of the continental taper region.
-        include_initial_topography_trench_continent_taper (float): Length of the trench-to-continent taper region.
+        continent_taper_length (float): Length of the continental taper.
+        include_initial_topography_trench_continent_taper (float):
+            Length of the trench-to-continent taper.
         customize_corner_width (float): Width of the customized ridge corner.
-        customize_ridge_taper_length (float): Length of the ridge taper region.
+        customize_ridge_taper_length (float): Length of the ridge taper.
+        is_write_txt_file (bool): Whether to write an ASCII topography file.
+        txt_file_path (str, optional): Output ASCII file path.
+        x_min (float, optional): Minimum horizontal coordinate.
+        x_max (float, optional): Maximum horizontal coordinate.
+        spacing (float, optional): Horizontal point spacing.
+
     Returns:
-        tuple[str, str]: A tuple containing the function constants string and the function expression string.
-    '''
+        tuple[str | None, str | None]:
+            Function constants and expression. Both are None when the
+            topography is written to a text file.
+    """
 
     if customize_ridge:
-        # Note that the plate_start_point is the start point of everything,
-        # so the ridge in between plate_start_point and plate_start_point +
-        function_constants = "x0 = %.2e, x1 = %.2e, x2 = %.2e, x3 = %2e, l0 = %.2e, l1 = %.2e, l2 = %.2e, topoC = %.2e, topoO = %.2e" % \
-                    (plate_start_point+customize_corner_width, continent_end_point, slab_hinge_point, plate_end_point-customize_corner_width,
-                     continent_taper_length, include_initial_topography_trench_continent_taper, customize_ridge_taper_length,
-                     topography_continent, topography_ocean)
+        x0 = plate_start_point + customize_corner_width
+        x1 = continent_end_point
+        x2 = slab_hinge_point
+        x3 = plate_end_point - customize_corner_width
+        l0 = continent_taper_length
+        l1 = include_initial_topography_trench_continent_taper
+        l2 = customize_ridge_taper_length
+
+        function_constants = (
+            "x0 = %.2e, x1 = %.2e, x2 = %.2e, x3 = %.2e, "
+            "l0 = %.2e, l1 = %.2e, l2 = %.2e, "
+            "topoC = %.2e, topoO = %.2e"
+            % (
+                x0, x1, x2, x3, l0, l1, l2,
+                topography_continent, topography_ocean
+            )
+        )
 
         function_expression = rf"""(x>x3+l2)? topoO:\
                             ((x>x3)? (x3+l2-x)/l2*topoC + (x-x3)/l2*topoO:\
@@ -3813,10 +3864,53 @@ def get_initial_topography_funcion(topography_continent, topography_ocean, custo
                             ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
                             ((x>x0)? topoC:\
                             ((x>x0-l2)? ((x-x0+l2)/l2*topoC + (x0-x)/l2*topoO):topoO)))))))"""
+
+        def evaluate_topography(x):
+            if x > x3 + l2:
+                return topography_ocean
+            if x > x3:
+                return (
+                    (x3 + l2 - x) / l2 * topography_continent
+                    + (x - x3) / l2 * topography_ocean
+                )
+            if x > x2 + l1:
+                return topography_continent
+            if x > x2:
+                return (
+                    (x2 + l1 - x) / l1 * topography_ocean
+                    + (x - x2) / l1 * topography_continent
+                )
+            if x > x1:
+                return topography_ocean
+            if x > x1 - l0:
+                return (
+                    (x1 - x) / l0 * topography_continent
+                    + (x - x1 + l0) / l0 * topography_ocean
+                )
+            if x > x0:
+                return topography_continent
+            if x > x0 - l2:
+                return (
+                    (x - x0 + l2) / l2 * topography_continent
+                    + (x0 - x) / l2 * topography_ocean
+                )
+            return topography_ocean
+
     else:
-        function_constants = "x0 = %.2e, x1 = %.2e, x2 = %.2e, l0 = %.2e, l1 = %.2e, topoC = %.2e, topoO = %.2e" % \
-                    (plate_start_point, continent_end_point, slab_hinge_point, continent_taper_length,
-                    include_initial_topography_trench_continent_taper, topography_continent, topography_ocean)
+        x0 = plate_start_point
+        x1 = continent_end_point
+        x2 = slab_hinge_point
+        l0 = continent_taper_length
+        l1 = include_initial_topography_trench_continent_taper
+
+        function_constants = (
+            "x0 = %.2e, x1 = %.2e, x2 = %.2e, "
+            "l0 = %.2e, l1 = %.2e, topoC = %.2e, topoO = %.2e"
+            % (
+                x0, x1, x2, l0, l1,
+                topography_continent, topography_ocean
+            )
+        )
 
         function_expression = rf"""(x>x2+l1)? topoC:\
                             ((x>x2)? ((x2+l1-x)/l1*topoO + (x-x2)/l1*topoC):\
@@ -3824,7 +3918,75 @@ def get_initial_topography_funcion(topography_continent, topography_ocean, custo
                             ((x>x1-l0)? ((x1-x)/l0*topoC + (x-x1+l0)/l0*topoO):\
                             ((x>x0)? topoC: 0.0))))"""
 
+        def evaluate_topography(x):
+            if x > x2 + l1:
+                return topography_continent
+            if x > x2:
+                return (
+                    (x2 + l1 - x) / l1 * topography_ocean
+                    + (x - x2) / l1 * topography_continent
+                )
+            if x > x1:
+                return topography_ocean
+            if x > x1 - l0:
+                return (
+                    (x1 - x) / l0 * topography_continent
+                    + (x - x1 + l0) / l0 * topography_ocean
+                )
+            if x > x0:
+                return topography_continent
+            return 0.0
+
+    if is_write_txt_file:
+        if txt_file_path is None:
+            raise ValueError(
+                "txt_file_path must be provided when "
+                "is_write_txt_file is True."
+            )
+
+        if x_min is None or x_max is None or spacing is None:
+            raise ValueError(
+                "x_min, x_max, and spacing must be provided when "
+                "is_write_txt_file is True."
+            )
+
+        if x_max <= x_min:
+            raise ValueError("x_max must be greater than x_min.")
+
+        if spacing <= 0.0:
+            raise ValueError("spacing must be greater than zero.")
+
+        number_of_intervals = round((x_max - x_min) / spacing)
+
+        if number_of_intervals < 1:
+            raise ValueError(
+                "spacing must not be larger than x_max - x_min."
+            )
+
+        calculated_x_max = x_min + number_of_intervals * spacing
+        tolerance = 1.0e-10 * max(
+            1.0, abs(x_min), abs(x_max), abs(spacing)
+        )
+
+        if abs(calculated_x_max - x_max) > tolerance:
+            raise ValueError(
+                "x_max - x_min must be evenly divisible by spacing."
+            )
+
+        number_of_points = number_of_intervals + 1
+
+        with open(txt_file_path, "w", encoding="utf-8") as output_file:
+            output_file.write(f"# POINTS: {number_of_points}\n")
+
+            for i in range(number_of_points):
+                x = x_min + i * spacing
+                topography = evaluate_topography(x)
+                output_file.write(f"{x:.8e} {topography:.8e}\n")
+
+        return None, None
+
     return function_constants, function_expression
+
 
 def taper_feature_topography(feature, topography_continent, topography_ocean, index_continent, index_ocean):
     '''

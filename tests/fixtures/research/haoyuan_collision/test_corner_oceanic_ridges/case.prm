@@ -152,7 +152,7 @@ subsection Geometry model
     subsection Initial topography model
         set Model name = function
         subsection Function
-            set Function constants = x0 = 7.00e+05, x1 = 2.00e+06, x2 = 3.00e+06, x3 = 4.800000e+06, l0 = 3.00e+05, l1 = 3.00e+05, l2 = 2.00e+05, topoC = 9.40e+02, topoO = -3.20e+03
+            set Function constants = x0 = 7.00e+05, x1 = 2.00e+06, x2 = 3.00e+06, x3 = 4.80e+06, l0 = 3.00e+05, l1 = 3.00e+05, l2 = 2.00e+05, topoC = 9.40e+02, topoO = -3.20e+03
             set Function expression = (x>x3+l2)? topoO:\
                             ((x>x3)? (x3+l2-x)/l2*topoC + (x-x3)/l2*topoO:\
                             ((x>x2+l1)? topoC:\

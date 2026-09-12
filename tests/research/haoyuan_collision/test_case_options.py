@@ -1,18 +1,22 @@
 import json
-import os
+import os, sys
 import filecmp
 import shutil
 from pathlib import Path
 from gdmate.aspect.config_engine import RuleEngine
 from gdmate.aspect.builtin_rules import CasePathRule
 from gdmate.aspect.io import parse_parameters_to_dict, save_parameters_from_dict
+
+# Derive the root of this package
+package_root = Path(__file__).resolve().parents[3]
+
+# Include this pakage
 from hamageolib.research.haoyuan_collision0.config import GeometryRule, PostProcessorRule, RemoveFluidRule, CompositionRule,\
     RheologyRule, WeakLayerRule, SlabRule, SolverRule, PrescribConditionRule, ContinentRule, KinematicDrivenRule, CornerRule,\
     PhaseTransitionRule, StrainWeakeningRule, TwoStageRule, FastScapeRule, OceanRule
 
 # Resolve the root of the pakage and set up
 # test directory
-package_root = Path(__file__).resolve().parents[3]
 fixture_root = package_root/"tests/fixtures/research/haoyuan_collision"
 test_root = package_root/".test"
 test_root.mkdir(exist_ok=True)
