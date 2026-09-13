@@ -10879,6 +10879,16 @@ def FastZeroStep(Inputs, output_first_step = False):
     else:
         Inputs['End time'] = '0' # end time is 0
         # don't solve it
+    
+    try:
+        Inputs.pop("Nonlinear solver failure strategy")
+    except KeyError:
+        pass
+    try:
+        Inputs.pop("Linear solver failure strategy")
+    except KeyError:
+        pass
+
 
 def TestInitalSteps(Inputs, n_outputs, output_interval):
     '''
@@ -13085,7 +13095,6 @@ opcrust: 1e+31, opharz: 1e+31", \
         # version-dependent setup
         if version >= 4.0:
             modify_prm_version_four(o_dict, 
-                                    prescribe_T_area_width, Do_str, box_length,
                                     dimension=2)
             
     def configure_wb(self, if_wb, geometry, potential_T, sp_age_trench, sp_rate, ov_ag,\

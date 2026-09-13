@@ -178,6 +178,31 @@ def test_viscosity_profile_middle_mantle_metastable_grain_size():
     assert(filecmp.cmp(wb_path, wb_std_path))
 
 
+def test_haoyuan_metastable_subduction_2d_version_four():
+    '''
+    test for including metastable_subduction and grain size evolution
+    cartesian, 2d geometry; using the 4th version of model
+    '''
+    source_dir = os.path.join(fixture_root, "metastable_subduction_2d_version_four")
+    json_path = os.path.join(source_dir, 'case0.json')
+
+    # output directory
+    output_dir = os.path.join(test_dir,'metastable_subduction_2d_version_four')
+    if os.path.isdir(output_dir):
+        rmtree(output_dir)
+
+    # print("output_dir: ", output_dir) # debug
+
+    create_case_with_json(json_path, CASE_TWOD, CASE_OPT_TWOD)  # create case
+    assert(os.path.isdir(output_dir))  # check case generation
+    prm_std_path = os.path.join(source_dir, 'case_std.prm')
+    prm_path = os.path.join(output_dir, 'case.prm')
+    assert(filecmp.cmp(prm_path, prm_std_path))
+    wb_std_path = os.path.join(source_dir, 'case_std.wb')
+    wb_path = os.path.join(output_dir, 'case.wb')
+    assert(filecmp.cmp(wb_path, wb_std_path))
+
+
 def test_haoyuan_metastable_subduction_3d():
     '''
     test for including metastable_subduction
