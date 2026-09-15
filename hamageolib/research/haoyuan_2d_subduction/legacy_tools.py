@@ -19782,6 +19782,7 @@ def modify_prm_version_four(o_dict, *,
     o_dict['Solver parameters']["Stokes solver parameters"]["Linear solver tolerance"] = "1e-5"
 
     # particles
+    o_dict["Particles"]["Particle generator name"] = "reference cell"
     o_dict["Particles"]["Generator"] = {
         "Reference cell": {
             "Number of particles per cell per direction": "15"
