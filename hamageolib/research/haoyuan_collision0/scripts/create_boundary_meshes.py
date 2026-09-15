@@ -1,9 +1,9 @@
-"""Create VTK structured-grid meshes for a regional spherical chunk.
+"""Create and sample VTK structured-grid meshes for a spherical chunk.
 
 The four meshes use the same sampling layout as ``extract_local_velocity.py``:
 west and east vary in radius and latitude, while north and south vary in
-radius and longitude.  Only mesh geometry is written; no model fields are
-sampled by this script.
+radius and longitude.  Mesh geometry can be written by itself or populated
+with velocity sampled from a model solution.
 """
 
 import argparse
@@ -102,6 +102,73 @@ def create_boundary_grid(
     return grid
 
 
+def interpolate_velocity(source_dataset, boundary_grid):
+    """Interpolate a Cartesian velocity vector onto a boundary grid.
+
+    The vector is probed once so all components use the same source-cell
+    lookup and validity mask.  The returned grid retains the three-component
+    ``velocity`` array and also contains scalar ``Vx``, ``Vy``, and
+    ``Vz`` arrays.  Neither input dataset is modified.
+
+    Let M be the number of source-mesh cells and N the number of boundary-mesh
+    vertices.  Building the spatial locator and probing the points generally
+    costs O(M + N log M), though an efficient locator often gives near
+    O(M + N) behavior in practice.  Splitting the resulting vector into three
+    scalar arrays costs O(N).  Probing the vector once avoids repeating the
+    source-cell search separately for Vx, Vy, and Vz.
+    """
+    if isinstance(source_dataset, vtk.vtkCompositeDataSet):
+        probe = vtk.vtkCompositeDataProbeFilter()
+    else:
+        probe = vtk.vtkProbeFilter()
+    probe.SetInputData(boundary_grid)
+    probe.SetSourceData(source_dataset)
+    probe.ComputeToleranceOn()
+    probe.Update()
+
+    interpolated_grid = vtk.vtkStructuredGrid()
+    interpolated_grid.DeepCopy(probe.GetOutput())
+    point_data = interpolated_grid.GetPointData()
+
+    valid_point_mask = point_data.GetArray("vtkValidPointMask")
+    if valid_point_mask is not None:
+        invalid_point_count = sum(
+            valid_point_mask.GetTuple1(index) == 0
+            for index in range(valid_point_mask.GetNumberOfTuples())
+        )
+        if invalid_point_count:
+            raise ValueError(
+                f"{invalid_point_count} boundary points lie outside the source mesh"
+            )
+
+    velocity = point_data.GetArray("velocity")
+    if velocity is None:
+        raise ValueError("source mesh does not provide point-data array 'velocity'")
+    if velocity.GetNumberOfComponents() != 3:
+        raise ValueError("'velocity' must have exactly three components")
+
+    for component_index, component_name in enumerate(("Vx", "Vy", "Vz")):
+        component = vtk.vtkDoubleArray()
+        component.SetName(component_name)
+        component.SetNumberOfTuples(velocity.GetNumberOfTuples())
+        for point_index in range(velocity.GetNumberOfTuples()):
+            component.SetValue(
+                point_index, velocity.GetComponent(point_index, component_index)
+            )
+        point_data.AddArray(component)
+
+    return interpolated_grid
+
+
+def _write_boundary_grid(grid, output_path):
+    """Write one structured boundary grid and report write failures."""
+    writer = vtk.vtkXMLStructuredGridWriter()
+    writer.SetFileName(str(output_path))
+    writer.SetInputData(grid)
+    if writer.Write() != 1:
+        raise OSError(f"failed to write {output_path}")
+
+
 def write_boundary_meshes(
     output_directory,
     radius_bounds,
@@ -125,14 +192,48 @@ def write_boundary_meshes(
             lateral_spacing,
         )
         output_path = output_directory / f"chunk_3d_{boundary_name}_mesh.vts"
-        writer = vtk.vtkXMLStructuredGridWriter()
-        writer.SetFileName(str(output_path))
-        writer.SetInputData(grid)
-        if writer.Write() != 1:
-            raise OSError(f"failed to write {output_path}")
+        _write_boundary_grid(grid, output_path)
         output_paths[boundary_name] = output_path
 
     return output_paths
+
+
+def write_boundary_velocity_meshes(
+    output_directory,
+    source_dataset,
+    radius_bounds,
+    latitude_bounds,
+    longitude_bounds,
+    radius_spacing,
+    lateral_spacing,
+):
+    """Create four boundary grids, sample velocity, and write VTK XML grids."""
+    output_directory = Path(output_directory)
+    output_directory.mkdir(parents=True, exist_ok=True)
+    output_paths = {}
+
+    for boundary_name in ("west", "east", "north", "south"):
+        boundary_grid = create_boundary_grid(
+            boundary_name,
+            radius_bounds,
+            latitude_bounds,
+            longitude_bounds,
+            radius_spacing,
+            lateral_spacing,
+        )
+        interpolated_grid = interpolate_velocity(source_dataset, boundary_grid)
+        output_path = output_directory / f"chunk_3d_{boundary_name}_mesh.vts"
+        _write_boundary_grid(interpolated_grid, output_path)
+        output_paths[boundary_name] = output_path
+
+    return output_paths
+
+
+def read_solution_dataset(solution_path):
+    """Read a VTK or ParaView solution file, including PVD collections."""
+    import pyvista as pv
+
+    return pv.read(solution_path)
 
 
 def main():
@@ -145,10 +246,22 @@ def main():
         default=DEFAULT_OUTPUT_DIRECTORY,
         help="directory in which to write the four .vts files",
     )
+    parser.add_argument(
+        "--solution",
+        type=Path,
+        help="optional VTK/PVD solution whose velocity is sampled onto the meshes",
+    )
     args = parser.parse_args()
 
-    output_paths = write_boundary_meshes(
+    writer = write_boundary_meshes
+    writer_arguments = ()
+    if args.solution is not None:
+        writer = write_boundary_velocity_meshes
+        writer_arguments = (read_solution_dataset(args.solution),)
+
+    output_paths = writer(
         args.output_directory,
+        *writer_arguments,
         RADIUS_BOUNDS,
         LATITUDE_BOUNDS,
         LONGITUDE_BOUNDS,

@@ -4,14 +4,33 @@ import vtk
 
 from hamageolib.research.haoyuan_collision0.scripts.create_boundary_meshes import (
     create_boundary_grid,
+    interpolate_velocity,
     uniform_coordinates,
     write_boundary_meshes,
+    write_boundary_velocity_meshes,
 )
 
 
 RADIUS_BOUNDS = (4_760e3, 6_360e3)
 LATITUDE_BOUNDS = (-55.0, -20.0)
 LONGITUDE_BOUNDS = (150.0, 210.0)
+
+
+def create_linear_velocity_source():
+    """Create a volume with velocity=(x, 2*y, 3*z) at its vertices."""
+    source = vtk.vtkImageData()
+    source.SetOrigin(-7e6, -7e6, -7e6)
+    source.SetSpacing(14e6, 14e6, 14e6)
+    source.SetDimensions(2, 2, 2)
+
+    velocity = vtk.vtkDoubleArray()
+    velocity.SetName("velocity")
+    velocity.SetNumberOfComponents(3)
+    for point_index in range(source.GetNumberOfPoints()):
+        x, y, z = source.GetPoint(point_index)
+        velocity.InsertNextTuple3(x, 2.0 * y, 3.0 * z)
+    source.GetPointData().AddArray(velocity)
+    return source
 
 
 def test_uniform_coordinates_include_evenly_divisible_bounds():
@@ -78,3 +97,92 @@ def test_write_boundary_meshes_creates_readable_vts_files(tmp_path):
         grid = reader.GetOutput()
         assert grid.GetNumberOfPoints() > 0
         assert grid.GetNumberOfCells() > 0
+
+
+def test_interpolate_velocity_adds_vector_and_scalar_components():
+    source = create_linear_velocity_source()
+    boundary_grid = create_boundary_grid(
+        "west",
+        RADIUS_BOUNDS,
+        LATITUDE_BOUNDS,
+        LONGITUDE_BOUNDS,
+        radius_spacing=100e3,
+        lateral_spacing=2.5,
+    )
+    original_number_of_arrays = boundary_grid.GetPointData().GetNumberOfArrays()
+
+    interpolated_grid = interpolate_velocity(source, boundary_grid)
+
+    interpolated_dimensions = [0, 0, 0]
+    boundary_dimensions = [0, 0, 0]
+    interpolated_grid.GetDimensions(interpolated_dimensions)
+    boundary_grid.GetDimensions(boundary_dimensions)
+    assert interpolated_dimensions == boundary_dimensions
+    assert interpolated_grid.GetNumberOfPoints() == boundary_grid.GetNumberOfPoints()
+    assert boundary_grid.GetPointData().GetNumberOfArrays() == original_number_of_arrays
+
+    velocity = interpolated_grid.GetPointData().GetArray("velocity")
+    components = [
+        interpolated_grid.GetPointData().GetArray(name)
+        for name in ("Vx", "Vy", "Vz")
+    ]
+    assert velocity is not None
+    assert all(component is not None for component in components)
+
+    for point_index in range(interpolated_grid.GetNumberOfPoints()):
+        x, y, z = interpolated_grid.GetPoint(point_index)
+        expected_velocity = (x, 2.0 * y, 3.0 * z)
+        assert velocity.GetTuple3(point_index) == pytest.approx(expected_velocity)
+        assert tuple(
+            component.GetValue(point_index) for component in components
+        ) == pytest.approx(expected_velocity)
+
+
+def test_interpolate_velocity_rejects_points_outside_source():
+    source = create_linear_velocity_source()
+    boundary_grid = vtk.vtkStructuredGrid()
+    boundary_grid.SetDimensions(1, 1, 1)
+    points = vtk.vtkPoints()
+    points.InsertNextPoint(20e6, 0.0, 0.0)
+    boundary_grid.SetPoints(points)
+
+    with pytest.raises(ValueError, match="outside the source mesh"):
+        interpolate_velocity(source, boundary_grid)
+
+
+def test_interpolate_velocity_requires_velocity_array_name():
+    source = create_linear_velocity_source()
+    source.GetPointData().GetArray("velocity").SetName("other_velocity")
+    boundary_grid = create_boundary_grid(
+        "west",
+        RADIUS_BOUNDS,
+        LATITUDE_BOUNDS,
+        LONGITUDE_BOUNDS,
+        radius_spacing=100e3,
+        lateral_spacing=2.5,
+    )
+
+    with pytest.raises(ValueError, match="point-data array 'velocity'"):
+        interpolate_velocity(source, boundary_grid)
+
+
+def test_write_boundary_velocity_meshes_preserves_interpolated_arrays(tmp_path):
+    output_paths = write_boundary_velocity_meshes(
+        tmp_path,
+        create_linear_velocity_source(),
+        RADIUS_BOUNDS,
+        LATITUDE_BOUNDS,
+        LONGITUDE_BOUNDS,
+        radius_spacing=100e3,
+        lateral_spacing=2.5,
+    )
+
+    for output_path in output_paths.values():
+        reader = vtk.vtkXMLStructuredGridReader()
+        reader.SetFileName(str(output_path))
+        reader.Update()
+        point_data = reader.GetOutput().GetPointData()
+        assert point_data.GetArray("velocity") is not None
+        assert point_data.GetArray("Vx") is not None
+        assert point_data.GetArray("Vy") is not None
+        assert point_data.GetArray("Vz") is not None
