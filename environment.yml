@@ -2,7 +2,7 @@ name: hmgeolib
 channels:
   - defaults
 dependencies:
-  - python=3.9
+  - python=3.12
   - pytest
   - numpy
   - scipy
@@ -19,7 +19,7 @@ dependencies:
     - markdown
     - mkdocs
     - notebook
-    - pandas
+    - pandas<3
     - pytest-cov
     - pyvista
     - xarray
