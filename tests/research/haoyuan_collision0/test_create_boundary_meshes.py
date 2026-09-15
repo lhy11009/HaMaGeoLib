@@ -1,3 +1,5 @@
+import runpy
+
 import numpy as np
 import pytest
 import vtk
@@ -8,6 +10,7 @@ from hamageolib.research.haoyuan_collision0.scripts.create_boundary_meshes impor
     uniform_coordinates,
     write_boundary_meshes,
     write_boundary_velocity_meshes,
+    write_visualization_script,
 )
 
 
@@ -186,3 +189,29 @@ def test_write_boundary_velocity_meshes_preserves_interpolated_arrays(tmp_path):
         assert point_data.GetArray("Vx") is not None
         assert point_data.GetArray("Vy") is not None
         assert point_data.GetArray("Vz") is not None
+
+
+def test_write_visualization_script_embeds_absolute_input_paths(tmp_path):
+    output_directory = tmp_path / "boundary meshes"
+    solution_path = tmp_path / "solution's mesh.pvtu"
+    solution_path.touch()
+
+    script_path = write_visualization_script(output_directory, solution_path)
+
+    assert script_path == output_directory / "visualize_boundary_meshes.py"
+    script_contents = script_path.read_text(encoding="utf-8")
+    assert "__SOLUTION_PATH__" not in script_contents
+    assert "__BOUNDARY_DIRECTORY__" not in script_contents
+    assert "__STATE_FILE__" not in script_contents
+    assert "__VALIDATION_FILE__" not in script_contents
+
+    configured_values = runpy.run_path(str(script_path))
+    assert configured_values["SOLUTION_PATH"] == solution_path.resolve()
+    assert configured_values["BOUNDARY_DIRECTORY"] == output_directory.resolve()
+    assert configured_values["STATE_FILE"] == (
+        output_directory / "boundary_meshes.pvsm"
+    ).resolve()
+    assert configured_values["VALIDATION_FILE"] == (
+        output_directory / "boundary_meshes_validation.json"
+    ).resolve()
+    assert configured_values["LONGITUDE_BOUNDS"] == LONGITUDE_BOUNDS

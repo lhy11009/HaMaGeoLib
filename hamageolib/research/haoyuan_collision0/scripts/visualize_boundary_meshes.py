@@ -11,12 +11,13 @@ import json
 import math
 from pathlib import Path
 
-try:
-    from .create_boundary_meshes import LONGITUDE_BOUNDS
-except ImportError:  # Direct execution with pvpython places this folder on sys.path.
-    from create_boundary_meshes import LONGITUDE_BOUNDS
-
-
+# These uppercase strings are replaced when ``create_boundary_meshes.py``
+# writes a configured copy beside the generated boundary meshes.
+SOLUTION_PATH = Path("__SOLUTION_PATH__")
+BOUNDARY_DIRECTORY = Path("__BOUNDARY_DIRECTORY__")
+STATE_FILE = Path("__STATE_FILE__")
+VALIDATION_FILE = Path("__VALIDATION_FILE__")
+LONGITUDE_BOUNDS = (150.0, 210.0)
 BOUNDARY_NAMES = ("west", "east", "north", "south")
 
 
@@ -84,12 +85,15 @@ def _parse_arguments():
             "east/west slices, and save the ParaView state."
         )
     )
-    parser.add_argument("--solution", type=Path, required=True)
-    parser.add_argument("--boundary-directory", type=Path, required=True)
-    parser.add_argument("--state-file", type=Path, required=True)
+    parser.add_argument("--solution", type=Path, default=SOLUTION_PATH)
+    parser.add_argument(
+        "--boundary-directory", type=Path, default=BOUNDARY_DIRECTORY
+    )
+    parser.add_argument("--state-file", type=Path, default=STATE_FILE)
     parser.add_argument(
         "--validation-file",
         type=Path,
+        default=VALIDATION_FILE,
         help="optional JSON file receiving pipeline validation details",
     )
     return parser.parse_args()

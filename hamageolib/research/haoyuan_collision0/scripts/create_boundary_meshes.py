@@ -22,6 +22,7 @@ LATITUDE_BOUNDS = (-55.0, -20.0)
 LONGITUDE_BOUNDS = (150.0, 210.0)
 RADIUS_SPACING = 100e3
 LATERAL_SPACING = 2.5
+VISUALIZATION_SCRIPT_NAME = "visualize_boundary_meshes.py"
 
 
 def uniform_coordinates(minimum, maximum, spacing):
@@ -236,6 +237,37 @@ def read_solution_dataset(solution_path):
     return pv.read(solution_path)
 
 
+def write_visualization_script(output_directory, solution_path):
+    """Write a self-contained ParaView GUI script beside the boundary meshes."""
+    output_directory = Path(output_directory).resolve()
+    solution_path = Path(solution_path).resolve()
+    output_directory.mkdir(parents=True, exist_ok=True)
+
+    template_path = Path(__file__).with_name(VISUALIZATION_SCRIPT_NAME)
+    configured_path = output_directory / VISUALIZATION_SCRIPT_NAME
+    configured_values = {
+        "__SOLUTION_PATH__": solution_path,
+        "__BOUNDARY_DIRECTORY__": output_directory,
+        "__STATE_FILE__": output_directory / "boundary_meshes.pvsm",
+        "__VALIDATION_FILE__": output_directory
+        / "boundary_meshes_validation.json",
+    }
+
+    configured_script = template_path.read_text(encoding="utf-8")
+    for placeholder, configured_value in configured_values.items():
+        quoted_placeholder = f'"{placeholder}"'
+        if configured_script.count(quoted_placeholder) != 1:
+            raise ValueError(
+                f"visualization template must contain {quoted_placeholder} exactly once"
+            )
+        configured_script = configured_script.replace(
+            quoted_placeholder, repr(str(configured_value))
+        )
+
+    configured_path.write_text(configured_script, encoding="utf-8")
+    return configured_path
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Write the four structured boundary meshes for a spherical chunk."
@@ -270,6 +302,8 @@ def main():
     )
     for output_path in output_paths.values():
         print(output_path)
+    if args.solution is not None:
+        print(write_visualization_script(args.output_directory, args.solution))
 
 
 if __name__ == "__main__":
