@@ -596,17 +596,33 @@ class PostProcessorRule(Rule):
       Time interval (in model time units) used to synchronize output frequency
       across supported postprocessors.
       Default value: 100000.0
+    - configure_checkpointing (bool):
+      Controls whether checkpoint frequency and retention are configured.
+      Default value: False
+    - steps_between_checkpoint (int):
+      Number of timesteps between checkpoints when checkpoint configuration is
+      enabled. Default value: 100
+    - number_of_checkpoints_to_keep (int):
+      Number of checkpoint slots retained when checkpoint configuration is
+      enabled. Default value: 10000
     """
 
-    requires = ["use_my_setup_of_postprocess", "time_between_output", "include_initial_particle_position", "include_topography_output"]
+    requires = ["use_my_setup_of_postprocess", "time_between_output", "include_initial_particle_position", "include_topography_output",
+                "configure_checkpointing", "steps_between_checkpoint", "number_of_checkpoints_to_keep"]
     
     defaults = {"use_my_setup_of_postprocess": False,
                 "time_between_output": 100e3,
                 "include_initial_particle_position": False,
-                "include_topography_output": False}
+                "include_topography_output": False,
+                "configure_checkpointing": False,
+                "steps_between_checkpoint": 100,
+                "number_of_checkpoints_to_keep": 10000}
 
     requires_comments = {"use_my_setup_of_postprocess": "Add depth_average plot",
-                        "time_between_output": "Set time between output for all postprocess modules"}
+                        "time_between_output": "Set time between output for all postprocess modules",
+                        "configure_checkpointing": "Configure checkpoint frequency and retention",
+                        "steps_between_checkpoint": "Set the number of timesteps between checkpoints",
+                        "number_of_checkpoints_to_keep": "Set the number of checkpoint slots to retain"}
 
     provides = []
 
@@ -642,6 +658,9 @@ class PostProcessorRule(Rule):
         time_between_output = config["time_between_output"]
         include_initial_particle_position = config["include_initial_particle_position"]
         include_topography_output = config["include_topography_output"]
+        configure_checkpointing = config["configure_checkpointing"]
+        steps_between_checkpoint = config["steps_between_checkpoint"]
+        number_of_checkpoints_to_keep = config["number_of_checkpoints_to_keep"]
 
         # Things to add in my own setup of the postprocessors
         if use_my_setup_of_postprocess:
@@ -665,6 +684,11 @@ class PostProcessorRule(Rule):
             prm_dict["Postprocess"]["Topography"] = {
                 "Output to file": "true"
             }
+
+        if configure_checkpointing:
+            checkpointing = prm_dict.setdefault("Checkpointing", {})
+            checkpointing["Steps between checkpoint"] = str(steps_between_checkpoint)
+            checkpointing["Number of checkpoints to keep"] = str(number_of_checkpoints_to_keep)
 
 
         # Fix the section of post-process

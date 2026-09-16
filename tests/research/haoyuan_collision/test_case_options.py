@@ -29,6 +29,25 @@ rules = [PostProcessorRule(), CasePathRule(), RemoveFluidRule(), CompositionRule
          CornerRule(), PhaseTransitionRule(), StrainWeakeningRule(), TwoStageRule(),
          FastScapeRule()]
 
+
+def test_checkpoint_options():
+    """Configure checkpoint frequency and retain all expected checkpoints."""
+    prm_dict = {
+        "Checkpointing": {
+            "Steps between checkpoint": "10"
+        }
+    }
+    config = {
+        "configure_checkpointing": True,
+        "steps_between_checkpoint": 100,
+        "number_of_checkpoints_to_keep": 10000
+    }
+
+    RuleEngine([PostProcessorRule()]).apply_all(config, prm_dict, {})
+
+    assert prm_dict["Checkpointing"]["Steps between checkpoint"] == "100"
+    assert prm_dict["Checkpointing"]["Number of checkpoints to keep"] == "10000"
+
 def test_default_options():
     """
     Test default configurations.
