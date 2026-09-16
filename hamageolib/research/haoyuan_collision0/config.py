@@ -181,6 +181,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if use_all or "kf_start_time" in use_keys:
             if variables["kf_start_time"] > 0:
                 case_name += "_Est%.2e" % variables["kf_start_time"]
+        if use_all or "include_marine_component" in use_keys:
+            if variables["include_marine_component"]:
+                case_name += "_marine"
 
 
     if use_all or "do_topography_test" in use_keys:
@@ -3467,7 +3470,8 @@ class FastScapeRule(Rule):
                 "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
                 "fastscape_timesteps", "erosional_base_level", "customize_ridge",
                 "kf_start_time", "include_initial_isostacy", "include_initial_topograph_filepath", "initial_topograph_fileout_x_interval",
-                "initial_topograph_fileout_migration", "include_initial_topography_mesh_deformation"]
+                "initial_topograph_fileout_migration", "include_initial_topography_mesh_deformation",
+                "include_marine_component", "sand_transport_coefficient", "silt_transport_coefficient"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3493,7 +3497,10 @@ class FastScapeRule(Rule):
         "include_initial_topograph_filepath": "",
         "initial_topograph_fileout_x_interval": 10e3,
         "initial_topograph_fileout_migration": 0.0,
-        "include_initial_topography_mesh_deformation": False
+        "include_initial_topography_mesh_deformation": False,
+        "include_marine_component": False,
+        "sand_transport_coefficient": 100.0,
+        "silt_transport_coefficient": 500.0
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
@@ -3509,7 +3516,10 @@ class FastScapeRule(Rule):
                          "include_initial_isostacy": "Whether to include initial isostatic topography",
                          "include_initial_topograph_filepath": "If a valid filepath is given, then we parse this topography to an input of initial topography to the model.",
                          "initial_topograph_fileout_x_interval": "Output interval along x, if include_initial_topograph_filepath is set to a valid path",
-                         "initial_topograph_fileout_migration": "Migration of the topography before file outputs."
+                         "initial_topograph_fileout_migration": "Migration of the topography before file outputs.",
+                         "include_marine_component": "Enable the FastScape marine component.",
+                         "sand_transport_coefficient": "FastScape marine transport coefficient for sand in m^2/yr.",
+                         "silt_transport_coefficient": "FastScape marine transport coefficient for silt in m^2/yr."
                          }
     
     def apply(self, config, prm_dict, wb_dict, context):
@@ -3538,6 +3548,9 @@ class FastScapeRule(Rule):
         initial_topograph_fileout_migration = config["initial_topograph_fileout_migration"]
         initial_topograph_fileout_x_interval = config["initial_topograph_fileout_x_interval"]
         include_initial_topography_mesh_deformation = config["include_initial_topography_mesh_deformation"]
+        include_marine_component = config["include_marine_component"]
+        sand_transport_coefficient = config["sand_transport_coefficient"]
+        silt_transport_coefficient = config["silt_transport_coefficient"]
 
         # First check only one of these options are selected.
         sum_options = sum((include_initial_topography, include_initial_isostacy, 
@@ -3572,6 +3585,13 @@ class FastScapeRule(Rule):
                 "Bedrock deposition coefficient": str(bedrock_deposition_coefficient),
                 "Multi-direction slope exponent": str(multi_direction_slope_exponent)
             }
+
+            if include_marine_component:
+                fastscape_dict["Use marine component"] = "true"
+                fastscape_dict["Marine parameters"] = {
+                    "Sand transport coefficient": str(sand_transport_coefficient),
+                    "Silt transport coefficient": str(silt_transport_coefficient)
+                }
 
             # Add fixed erosion baselevel
             if (erosional_base_level > 0):

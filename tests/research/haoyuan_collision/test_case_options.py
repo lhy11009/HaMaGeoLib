@@ -11,7 +11,7 @@ from gdmate.aspect.io import parse_parameters_to_dict, save_parameters_from_dict
 package_root = Path(__file__).resolve().parents[3]
 
 # Include this pakage
-from hamageolib.research.haoyuan_collision0.config import GeometryRule, PostProcessorRule, RemoveFluidRule, CompositionRule,\
+from hamageolib.research.haoyuan_collision0.config import CaseNameFromVariables, GeometryRule, PostProcessorRule, RemoveFluidRule, CompositionRule,\
     RheologyRule, WeakLayerRule, SlabRule, SolverRule, PrescribConditionRule, ContinentRule, KinematicDrivenRule, CornerRule,\
     PhaseTransitionRule, StrainWeakeningRule, TwoStageRule, FastScapeRule, OceanRule
 
@@ -47,6 +47,55 @@ def test_checkpoint_options():
 
     assert prm_dict["Checkpointing"]["Steps between checkpoint"] == "100"
     assert prm_dict["Checkpointing"]["Number of checkpoints to keep"] == "10000"
+
+
+def test_fastscape_marine_component_defaults():
+    """Enable FastScape marine transport with the Collision defaults."""
+    prm_dict = {
+        "Mesh deformation": {
+            "Free surface": {},
+            "Diffusion": {}
+        }
+    }
+    config = {
+        "include_fastscape": True,
+        "include_marine_component": True
+    }
+    rule = FastScapeRule()
+    rule.add_default(config)
+
+    rule.apply(config, prm_dict, {}, {"total_refinement": 8})
+
+    fastscape = prm_dict["Mesh deformation"]["Fastscape"]
+    assert fastscape["Use marine component"] == "true"
+    assert fastscape["Marine parameters"] == {
+        "Sand transport coefficient": "100.0",
+        "Silt transport coefficient": "500.0"
+    }
+
+
+def test_fastscape_marine_component_case_name():
+    """Append the marine tag when it is selected for the case name."""
+    variables = {
+        "weak_layer_rheology_scheme": "low friction",
+        "customize_corner": False,
+        "customize_corner_viscosity": 0.0,
+        "include_fastscape": True,
+        "include_marine_component": True,
+        "include_initial_topography": False,
+        "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False
+    }
+
+    case_name = CaseNameFromVariables(
+        variables,
+        prefix="C",
+        use_all=False,
+        use_keys=["include_marine_component"]
+    )
+
+    assert case_name == "C_marine"
+
 
 def test_default_options():
     """
