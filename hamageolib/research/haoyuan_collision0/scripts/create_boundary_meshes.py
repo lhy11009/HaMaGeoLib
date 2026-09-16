@@ -246,10 +246,43 @@ def write_boundary_velocity_meshes(
     return output_paths
 
 
+def _read_xml_unstructured_grid(solution_path):
+    """Read PVTU/VTU geometry and velocity without unrelated data arrays."""
+    reader_types = {
+        ".pvtu": vtk.vtkXMLPUnstructuredGridReader,
+        ".vtu": vtk.vtkXMLUnstructuredGridReader,
+    }
+    reader = reader_types[solution_path.suffix.lower()]()
+    reader.SetFileName(str(solution_path))
+
+    report_progress(f"Reading VTK metadata: {solution_path}")
+    reader.UpdateInformation()
+    point_arrays = {
+        reader.GetPointArrayName(index)
+        for index in range(reader.GetNumberOfPointArrays())
+    }
+    if "velocity" not in point_arrays:
+        raise ValueError("source mesh does not provide point-data array 'velocity'")
+
+    reader.GetPointDataArraySelection().DisableAllArrays()
+    reader.GetPointDataArraySelection().EnableArray("velocity")
+    reader.GetCellDataArraySelection().DisableAllArrays()
+    report_progress("Loading mesh geometry and velocity only")
+    reader.Update()
+    return reader.GetOutput()
+
+
 def read_solution_dataset(solution_path):
     """Read a VTK or ParaView solution file, including PVD collections."""
+    solution_path = Path(solution_path)
+    if solution_path.suffix.lower() in {".pvtu", ".vtu"}:
+        return _read_xml_unstructured_grid(solution_path)
+
     import pyvista as pv
 
+    report_progress(
+        f"Loading all arrays with the PyVista fallback: {solution_path}"
+    )
     return pv.read(solution_path)
 
 

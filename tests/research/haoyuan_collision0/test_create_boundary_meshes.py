@@ -1,5 +1,7 @@
 import re
 import runpy
+import sys
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -8,6 +10,7 @@ import vtk
 from hamageolib.research.haoyuan_collision0.scripts.create_boundary_meshes import (
     create_boundary_grid,
     interpolate_velocity,
+    read_solution_dataset,
     uniform_coordinates,
     write_boundary_meshes,
     write_boundary_velocity_meshes,
@@ -43,6 +46,48 @@ def create_linear_velocity_source():
         velocity.InsertNextTuple3(x, 2.0 * y, 3.0 * z)
     source.GetPointData().AddArray(velocity)
     return source
+
+
+def write_parallel_unstructured_grid(path, include_velocity=True):
+    """Write a one-piece PVTU containing wanted and unwanted data arrays."""
+    points = vtk.vtkPoints()
+    for point in ((0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)):
+        points.InsertNextPoint(*point)
+
+    tetrahedron = vtk.vtkTetra()
+    for point_index in range(4):
+        tetrahedron.GetPointIds().SetId(point_index, point_index)
+
+    grid = vtk.vtkUnstructuredGrid()
+    grid.SetPoints(points)
+    grid.InsertNextCell(tetrahedron.GetCellType(), tetrahedron.GetPointIds())
+
+    if include_velocity:
+        velocity = vtk.vtkFloatArray()
+        velocity.SetName("velocity")
+        velocity.SetNumberOfComponents(3)
+        for point_index in range(4):
+            velocity.InsertNextTuple3(point_index, 2 * point_index, 3 * point_index)
+        grid.GetPointData().AddArray(velocity)
+
+    temperature = vtk.vtkFloatArray()
+    temperature.SetName("temperature")
+    for point_index in range(4):
+        temperature.InsertNextValue(300 + point_index)
+    grid.GetPointData().AddArray(temperature)
+
+    material_id = vtk.vtkIntArray()
+    material_id.SetName("material_id")
+    material_id.InsertNextValue(7)
+    grid.GetCellData().AddArray(material_id)
+
+    writer = vtk.vtkXMLPUnstructuredGridWriter()
+    writer.SetFileName(str(path))
+    writer.SetInputData(grid)
+    writer.SetNumberOfPieces(1)
+    writer.SetStartPiece(0)
+    writer.SetEndPiece(0)
+    assert writer.Write() == 1
 
 
 def test_uniform_coordinates_include_evenly_divisible_bounds():
@@ -176,6 +221,42 @@ def test_interpolate_velocity_requires_velocity_array_name():
 
     with pytest.raises(ValueError, match="point-data array 'velocity'"):
         interpolate_velocity(source, boundary_grid)
+
+
+def test_read_pvtu_loads_only_velocity(tmp_path, capsys):
+    solution_path = tmp_path / "solution.pvtu"
+    write_parallel_unstructured_grid(solution_path)
+
+    dataset = read_solution_dataset(solution_path)
+
+    assert dataset.GetPointData().GetArray("velocity") is not None
+    assert dataset.GetPointData().GetArray("temperature") is None
+    assert dataset.GetCellData().GetArray("material_id") is None
+    lines = capsys.readouterr().out.splitlines()
+    assert_timestamped(lines)
+    assert any("Reading VTK metadata" in line for line in lines)
+    assert any("Loading mesh geometry and velocity only" in line for line in lines)
+
+
+def test_read_pvtu_requires_velocity_array(tmp_path):
+    solution_path = tmp_path / "solution.pvtu"
+    write_parallel_unstructured_grid(solution_path, include_velocity=False)
+
+    with pytest.raises(ValueError, match="point-data array 'velocity'"):
+        read_solution_dataset(solution_path)
+
+
+def test_read_solution_dataset_preserves_pyvista_fallback(monkeypatch, tmp_path):
+    solution_path = tmp_path / "solution.pvd"
+    expected_dataset = object()
+    fake_pyvista = SimpleNamespace(
+        read=lambda actual_path: (
+            expected_dataset if actual_path == solution_path else None
+        )
+    )
+    monkeypatch.setitem(sys.modules, "pyvista", fake_pyvista)
+
+    assert read_solution_dataset(solution_path) is expected_dataset
 
 
 def test_write_boundary_velocity_meshes_preserves_interpolated_arrays(tmp_path):
