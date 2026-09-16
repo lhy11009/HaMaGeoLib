@@ -1,3 +1,4 @@
+import re
 import runpy
 
 import numpy as np
@@ -17,6 +18,14 @@ from hamageolib.research.haoyuan_collision0.scripts.create_boundary_meshes impor
 RADIUS_BOUNDS = (4_760e3, 6_360e3)
 LATITUDE_BOUNDS = (-55.0, -20.0)
 LONGITUDE_BOUNDS = (150.0, 210.0)
+TIMESTAMP_PATTERN = re.compile(
+    r"^\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [^\]]+\] .+$"
+)
+
+
+def assert_timestamped(lines):
+    assert lines
+    assert all(TIMESTAMP_PATTERN.match(line) for line in lines)
 
 
 def create_linear_velocity_source():
@@ -189,6 +198,52 @@ def test_write_boundary_velocity_meshes_preserves_interpolated_arrays(tmp_path):
         assert point_data.GetArray("Vx") is not None
         assert point_data.GetArray("Vy") is not None
         assert point_data.GetArray("Vz") is not None
+
+
+def test_write_boundary_velocity_meshes_reports_timestamped_progress(
+    tmp_path, capsys
+):
+    write_boundary_velocity_meshes(
+        tmp_path,
+        create_linear_velocity_source(),
+        RADIUS_BOUNDS,
+        LATITUDE_BOUNDS,
+        LONGITUDE_BOUNDS,
+        radius_spacing=100e3,
+        lateral_spacing=2.5,
+    )
+
+    lines = capsys.readouterr().out.splitlines()
+    assert_timestamped(lines)
+    for boundary_name in ("west", "east", "north", "south"):
+        assert any(f"Creating {boundary_name} boundary grid" in line for line in lines)
+        assert any(
+            f"Interpolating velocity onto {boundary_name} boundary" in line
+            for line in lines
+        )
+        assert any(f"Writing {boundary_name} boundary mesh" in line for line in lines)
+        assert any(f"Finished {boundary_name} boundary" in line for line in lines)
+
+
+def test_write_boundary_meshes_reports_progress_without_interpolation(
+    tmp_path, capsys
+):
+    write_boundary_meshes(
+        tmp_path,
+        RADIUS_BOUNDS,
+        LATITUDE_BOUNDS,
+        LONGITUDE_BOUNDS,
+        radius_spacing=100e3,
+        lateral_spacing=2.5,
+    )
+
+    lines = capsys.readouterr().out.splitlines()
+    assert_timestamped(lines)
+    assert not any("Interpolating velocity" in line for line in lines)
+    for boundary_name in ("west", "east", "north", "south"):
+        assert any(f"Creating {boundary_name} boundary grid" in line for line in lines)
+        assert any(f"Writing {boundary_name} boundary mesh" in line for line in lines)
+        assert any(f"Finished {boundary_name} boundary" in line for line in lines)
 
 
 def test_write_visualization_script_embeds_absolute_input_paths(tmp_path):

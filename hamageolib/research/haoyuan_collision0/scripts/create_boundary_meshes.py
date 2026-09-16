@@ -7,6 +7,7 @@ with velocity sampled from a model solution.
 """
 
 import argparse
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +24,12 @@ LONGITUDE_BOUNDS = (150.0, 210.0)
 RADIUS_SPACING = 100e3
 LATERAL_SPACING = 2.5
 VISUALIZATION_SCRIPT_NAME = "visualize_boundary_meshes.py"
+
+
+def report_progress(message):
+    """Print a timestamped progress message and flush it immediately."""
+    timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %Z")
+    print(f"[{timestamp}] {message}", flush=True)
 
 
 def uniform_coordinates(minimum, maximum, spacing):
@@ -184,6 +191,7 @@ def write_boundary_meshes(
     output_paths = {}
 
     for boundary_name in ("west", "east", "north", "south"):
+        report_progress(f"Creating {boundary_name} boundary grid")
         grid = create_boundary_grid(
             boundary_name,
             radius_bounds,
@@ -193,8 +201,10 @@ def write_boundary_meshes(
             lateral_spacing,
         )
         output_path = output_directory / f"chunk_3d_{boundary_name}_mesh.vts"
+        report_progress(f"Writing {boundary_name} boundary mesh: {output_path}")
         _write_boundary_grid(grid, output_path)
         output_paths[boundary_name] = output_path
+        report_progress(f"Finished {boundary_name} boundary")
 
     return output_paths
 
@@ -214,6 +224,7 @@ def write_boundary_velocity_meshes(
     output_paths = {}
 
     for boundary_name in ("west", "east", "north", "south"):
+        report_progress(f"Creating {boundary_name} boundary grid")
         boundary_grid = create_boundary_grid(
             boundary_name,
             radius_bounds,
@@ -222,10 +233,15 @@ def write_boundary_velocity_meshes(
             radius_spacing,
             lateral_spacing,
         )
+        report_progress(
+            f"Interpolating velocity onto {boundary_name} boundary"
+        )
         interpolated_grid = interpolate_velocity(source_dataset, boundary_grid)
         output_path = output_directory / f"chunk_3d_{boundary_name}_mesh.vts"
+        report_progress(f"Writing {boundary_name} boundary mesh: {output_path}")
         _write_boundary_grid(interpolated_grid, output_path)
         output_paths[boundary_name] = output_path
+        report_progress(f"Finished {boundary_name} boundary")
 
     return output_paths
 
@@ -288,9 +304,12 @@ def main():
     writer = write_boundary_meshes
     writer_arguments = ()
     if args.solution is not None:
+        report_progress(f"Loading source solution: {args.solution}")
         writer = write_boundary_velocity_meshes
         writer_arguments = (read_solution_dataset(args.solution),)
+        report_progress("Finished loading source solution")
 
+    report_progress("Starting boundary mesh processing")
     output_paths = writer(
         args.output_directory,
         *writer_arguments,
@@ -301,9 +320,14 @@ def main():
         LATERAL_SPACING,
     )
     for output_path in output_paths.values():
-        print(output_path)
+        report_progress(f"Created boundary mesh: {output_path}")
     if args.solution is not None:
-        print(write_visualization_script(args.output_directory, args.solution))
+        report_progress("Generating configured ParaView visualization script")
+        visualization_script = write_visualization_script(
+            args.output_directory, args.solution
+        )
+        report_progress(f"Created visualization script: {visualization_script}")
+    report_progress("Finished boundary mesh processing")
 
 
 if __name__ == "__main__":
