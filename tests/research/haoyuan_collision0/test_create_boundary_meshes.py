@@ -1,3 +1,4 @@
+import csv
 import re
 import runpy
 import sys
@@ -11,6 +12,7 @@ from hamageolib.research.haoyuan_collision0.scripts.create_boundary_meshes impor
     create_boundary_grid,
     interpolate_velocity,
     read_solution_dataset,
+    report_solution_bounds,
     uniform_coordinates,
     write_boundary_meshes,
     write_boundary_velocity_meshes,
@@ -207,6 +209,51 @@ def test_interpolate_velocity_rejects_points_outside_source():
         interpolate_velocity(source, boundary_grid)
 
 
+def test_interpolate_velocity_writes_invalid_points_before_raising(tmp_path):
+    source = create_linear_velocity_source()
+    boundary_grid = vtk.vtkStructuredGrid()
+    boundary_grid.SetDimensions(2, 1, 1)
+    points = vtk.vtkPoints()
+    points.InsertNextPoint(0.0, 0.0, 0.0)
+    points.InsertNextPoint(20e6, 1e6, -2e6)
+    boundary_grid.SetPoints(points)
+    diagnostic_path = tmp_path / "chunk_3d_west_invalid_points.csv"
+
+    with pytest.raises(ValueError, match=str(diagnostic_path)):
+        interpolate_velocity(source, boundary_grid, diagnostic_path)
+
+    with diagnostic_path.open(newline="", encoding="utf-8") as diagnostic_file:
+        rows = list(csv.DictReader(diagnostic_file))
+    assert rows == [
+        {
+            "point_index": "1",
+            "x": "20000000.0",
+            "y": "1000000.0",
+            "z": "-2000000.0",
+        }
+    ]
+
+
+def test_interpolate_velocity_removes_stale_diagnostic_when_all_points_valid(
+    tmp_path,
+):
+    source = create_linear_velocity_source()
+    boundary_grid = create_boundary_grid(
+        "west",
+        RADIUS_BOUNDS,
+        LATITUDE_BOUNDS,
+        LONGITUDE_BOUNDS,
+        radius_spacing=100e3,
+        lateral_spacing=2.5,
+    )
+    diagnostic_path = tmp_path / "chunk_3d_west_invalid_points.csv"
+    diagnostic_path.write_text("stale data\n", encoding="utf-8")
+
+    interpolate_velocity(source, boundary_grid, diagnostic_path)
+
+    assert not diagnostic_path.exists()
+
+
 def test_interpolate_velocity_requires_velocity_array_name():
     source = create_linear_velocity_source()
     source.GetPointData().GetArray("velocity").SetName("other_velocity")
@@ -259,6 +306,21 @@ def test_read_solution_dataset_preserves_pyvista_fallback(monkeypatch, tmp_path)
     assert read_solution_dataset(solution_path) is expected_dataset
 
 
+def test_report_solution_bounds_supports_composite_dataset(capsys):
+    source = create_linear_velocity_source()
+    composite = vtk.vtkMultiBlockDataSet()
+    composite.SetBlock(0, source)
+
+    report_solution_bounds(composite)
+
+    lines = capsys.readouterr().out.splitlines()
+    assert_timestamped(lines)
+    assert "Source solution bounds" in lines[0]
+    assert "x=[-7.000000e+06, 7.000000e+06] m" in lines[0]
+    assert "y=[-7.000000e+06, 7.000000e+06] m" in lines[0]
+    assert "z=[-7.000000e+06, 7.000000e+06] m" in lines[0]
+
+
 def test_write_boundary_velocity_meshes_preserves_interpolated_arrays(tmp_path):
     output_paths = write_boundary_velocity_meshes(
         tmp_path,
@@ -279,6 +341,29 @@ def test_write_boundary_velocity_meshes_preserves_interpolated_arrays(tmp_path):
         assert point_data.GetArray("Vx") is not None
         assert point_data.GetArray("Vy") is not None
         assert point_data.GetArray("Vz") is not None
+
+
+def test_write_boundary_velocity_meshes_names_invalid_point_file(tmp_path):
+    source = create_linear_velocity_source()
+    source.SetOrigin(-1e6, -1e6, -1e6)
+    source.SetSpacing(2e6, 2e6, 2e6)
+    expected_path = tmp_path / "chunk_3d_west_invalid_points.csv"
+
+    with pytest.raises(ValueError, match=str(expected_path)):
+        write_boundary_velocity_meshes(
+            tmp_path,
+            source,
+            RADIUS_BOUNDS,
+            LATITUDE_BOUNDS,
+            LONGITUDE_BOUNDS,
+            radius_spacing=100e3,
+            lateral_spacing=2.5,
+        )
+
+    assert expected_path.is_file()
+    with expected_path.open(newline="", encoding="utf-8") as diagnostic_file:
+        rows = list(csv.DictReader(diagnostic_file))
+    assert len(rows) == 255
 
 
 def test_write_boundary_velocity_meshes_reports_timestamped_progress(

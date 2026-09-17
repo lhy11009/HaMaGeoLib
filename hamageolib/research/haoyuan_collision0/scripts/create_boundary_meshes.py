@@ -7,6 +7,7 @@ with velocity sampled from a model solution.
 """
 
 import argparse
+import csv
 from datetime import datetime
 from pathlib import Path
 
@@ -110,7 +111,20 @@ def create_boundary_grid(
     return grid
 
 
-def interpolate_velocity(source_dataset, boundary_grid):
+def _write_invalid_points(boundary_grid, invalid_point_indices, output_path):
+    """Write invalid boundary-point indices and Cartesian coordinates to CSV."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", newline="", encoding="utf-8") as output_file:
+        writer = csv.writer(output_file)
+        writer.writerow(("point_index", "x", "y", "z"))
+        for point_index in invalid_point_indices:
+            writer.writerow((point_index, *boundary_grid.GetPoint(point_index)))
+
+
+def interpolate_velocity(
+    source_dataset, boundary_grid, invalid_points_path=None
+):
     """Interpolate a Cartesian velocity vector onto a boundary grid.
 
     The vector is probed once so all components use the same source-cell
@@ -139,15 +153,32 @@ def interpolate_velocity(source_dataset, boundary_grid):
     point_data = interpolated_grid.GetPointData()
 
     valid_point_mask = point_data.GetArray("vtkValidPointMask")
+    invalid_point_indices = []
     if valid_point_mask is not None:
-        invalid_point_count = sum(
-            valid_point_mask.GetTuple1(index) == 0
+        invalid_point_indices = [
+            index
             for index in range(valid_point_mask.GetNumberOfTuples())
-        )
-        if invalid_point_count:
-            raise ValueError(
-                f"{invalid_point_count} boundary points lie outside the source mesh"
+            if valid_point_mask.GetTuple1(index) == 0
+        ]
+
+    if invalid_point_indices:
+        diagnostic_message = ""
+        if invalid_points_path is not None:
+            _write_invalid_points(
+                boundary_grid, invalid_point_indices, invalid_points_path
             )
+            report_progress(
+                f"Wrote {len(invalid_point_indices)} invalid boundary points: "
+                f"{invalid_points_path}"
+            )
+            diagnostic_message = f"; coordinates written to {invalid_points_path}"
+        raise ValueError(
+            f"{len(invalid_point_indices)} boundary points lie outside the source "
+            f"mesh{diagnostic_message}"
+        )
+
+    if invalid_points_path is not None:
+        Path(invalid_points_path).unlink(missing_ok=True)
 
     velocity = point_data.GetArray("velocity")
     if velocity is None:
@@ -236,7 +267,13 @@ def write_boundary_velocity_meshes(
         report_progress(
             f"Interpolating velocity onto {boundary_name} boundary"
         )
-        interpolated_grid = interpolate_velocity(source_dataset, boundary_grid)
+        invalid_points_path = (
+            output_directory
+            / f"chunk_3d_{boundary_name}_invalid_points.csv"
+        )
+        interpolated_grid = interpolate_velocity(
+            source_dataset, boundary_grid, invalid_points_path
+        )
         output_path = output_directory / f"chunk_3d_{boundary_name}_mesh.vts"
         report_progress(f"Writing {boundary_name} boundary mesh: {output_path}")
         _write_boundary_grid(interpolated_grid, output_path)
@@ -284,6 +321,22 @@ def read_solution_dataset(solution_path):
         f"Loading all arrays with the PyVista fallback: {solution_path}"
     )
     return pv.read(solution_path)
+
+
+def report_solution_bounds(source_dataset):
+    """Print the Cartesian bounds of a VTK dataset in metres."""
+    if isinstance(source_dataset, vtk.vtkCompositeDataSet):
+        bounds = [0.0] * 6
+        source_dataset.GetBounds(bounds)
+    else:
+        bounds = source_dataset.GetBounds()
+    x_min, x_max, y_min, y_max, z_min, z_max = bounds
+    report_progress(
+        "Source solution bounds: "
+        f"x=[{x_min:.6e}, {x_max:.6e}] m, "
+        f"y=[{y_min:.6e}, {y_max:.6e}] m, "
+        f"z=[{z_min:.6e}, {z_max:.6e}] m"
+    )
 
 
 def write_visualization_script(output_directory, solution_path):
@@ -339,8 +392,10 @@ def main():
     if args.solution is not None:
         report_progress(f"Loading source solution: {args.solution}")
         writer = write_boundary_velocity_meshes
-        writer_arguments = (read_solution_dataset(args.solution),)
+        source_dataset = read_solution_dataset(args.solution)
         report_progress("Finished loading source solution")
+        report_solution_bounds(source_dataset)
+        writer_arguments = (source_dataset,)
 
     report_progress("Starting boundary mesh processing")
     output_paths = writer(
