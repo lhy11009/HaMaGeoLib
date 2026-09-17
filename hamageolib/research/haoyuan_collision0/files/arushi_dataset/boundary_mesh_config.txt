@@ -13,3 +13,6 @@ longitude_max = 210.0
 [resolution]
 radius_spacing = 100000
 lateral_spacing = 2.5
+
+[interpolation]
+retry_tolerance = 10.0

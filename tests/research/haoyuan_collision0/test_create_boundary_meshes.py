@@ -9,6 +9,9 @@ import numpy as np
 import pytest
 import vtk
 
+from hamageolib.research.haoyuan_collision0.scripts import (
+    create_boundary_meshes as boundary_meshes,
+)
 from hamageolib.research.haoyuan_collision0.scripts.create_boundary_meshes import (
     create_boundary_grid,
     interpolate_velocity,
@@ -65,6 +68,7 @@ def write_boundary_mesh_config(path, **overrides):
         "longitude_max": "210.0",
         "radius_spacing": "100000",
         "lateral_spacing": "2.5",
+        "retry_tolerance": "10.0",
     }
     values.update(overrides)
     path.write_text(
@@ -80,7 +84,9 @@ def write_boundary_mesh_config(path, **overrides):
         f"longitude_max = {values['longitude_max']}\n\n"
         "[resolution]\n"
         f"radius_spacing = {values['radius_spacing']}\n"
-        f"lateral_spacing = {values['lateral_spacing']}\n",
+        f"lateral_spacing = {values['lateral_spacing']}\n\n"
+        "[interpolation]\n"
+        f"retry_tolerance = {values['retry_tolerance']}\n",
         encoding="utf-8",
     )
 
@@ -155,6 +161,7 @@ def test_load_boundary_mesh_config_reads_all_runtime_inputs(tmp_path, monkeypatc
     assert config.longitude_bounds == LONGITUDE_BOUNDS
     assert config.radius_spacing == 100e3
     assert config.lateral_spacing == 2.5
+    assert config.retry_tolerance == 10.0
 
 
 @pytest.mark.parametrize(
@@ -164,6 +171,7 @@ def test_load_boundary_mesh_config_reads_all_runtime_inputs(tmp_path, monkeypatc
         ({"longitude_max": "140"}, "longitude_max must be greater"),
         ({"lateral_spacing": "4"}, "divide the interval evenly"),
         ({"radius_min": "not-a-number"}, "must be a number"),
+        ({"retry_tolerance": "0"}, "retry_tolerance must be positive"),
     ],
 )
 def test_load_boundary_mesh_config_rejects_invalid_values(
@@ -198,6 +206,7 @@ def test_standard_arushi_configuration_preserves_original_mesh_parameters():
     assert config.longitude_bounds == LONGITUDE_BOUNDS
     assert config.radius_spacing == 100e3
     assert config.lateral_spacing == 2.5
+    assert config.retry_tolerance == 10.0
     assert str(config.solution).endswith("solution/solution-00000.pvtu")
 
 
@@ -325,8 +334,87 @@ def test_interpolate_velocity_writes_invalid_points_before_raising(tmp_path):
             "x": "20000000.0",
             "y": "1000000.0",
             "z": "-2000000.0",
+            "retry_tolerance": "",
+            "retry_succeeded": "false",
         }
     ]
+
+
+def add_probe_arrays(dataset, valid_values, velocity_values):
+    """Add controlled probe arrays to a copy of an input point dataset."""
+    result = dataset.NewInstance()
+    result.DeepCopy(dataset)
+    valid_mask = vtk.vtkUnsignedCharArray()
+    valid_mask.SetName("vtkValidPointMask")
+    velocity = vtk.vtkDoubleArray()
+    velocity.SetName("velocity")
+    velocity.SetNumberOfComponents(3)
+    for valid, velocity_value in zip(valid_values, velocity_values):
+        valid_mask.InsertNextValue(valid)
+        velocity.InsertNextTuple3(*velocity_value)
+    result.GetPointData().AddArray(valid_mask)
+    result.GetPointData().AddArray(velocity)
+    return result
+
+
+def test_interpolate_velocity_retries_only_invalid_points(monkeypatch, tmp_path):
+    boundary_grid = vtk.vtkStructuredGrid()
+    boundary_grid.SetDimensions(2, 1, 1)
+    points = vtk.vtkPoints()
+    points.InsertNextPoint(1.0, 2.0, 3.0)
+    points.InsertNextPoint(4.0, 5.0, 6.0)
+    boundary_grid.SetPoints(points)
+    probe_calls = []
+
+    def controlled_probe(source_dataset, input_dataset, tolerance=None):
+        probe_calls.append((input_dataset.GetNumberOfPoints(), tolerance))
+        if tolerance is None:
+            return add_probe_arrays(
+                input_dataset, [1, 0], [(1, 2, 3), (0, 0, 0)]
+            )
+        return add_probe_arrays(input_dataset, [1], [(7, 8, 9)])
+
+    monkeypatch.setattr(boundary_meshes, "_probe_dataset", controlled_probe)
+    diagnostic_path = tmp_path / "invalid.csv"
+
+    result = interpolate_velocity(
+        object(), boundary_grid, diagnostic_path, retry_tolerance=10.0
+    )
+
+    assert probe_calls == [(2, None), (1, 10.0)]
+    assert result.GetPointData().GetArray("velocity").GetTuple3(0) == (1, 2, 3)
+    assert result.GetPointData().GetArray("velocity").GetTuple3(1) == (7, 8, 9)
+    assert result.GetPointData().GetArray("vtkValidPointMask").GetTuple1(1) == 1
+    with diagnostic_path.open(newline="", encoding="utf-8") as diagnostic_file:
+        rows = list(csv.DictReader(diagnostic_file))
+    assert rows[0]["point_index"] == "1"
+    assert rows[0]["retry_tolerance"] == "10.0"
+    assert rows[0]["retry_succeeded"] == "true"
+
+
+def test_interpolate_velocity_raises_when_retry_does_not_recover_point(
+    monkeypatch, tmp_path
+):
+    boundary_grid = vtk.vtkStructuredGrid()
+    boundary_grid.SetDimensions(1, 1, 1)
+    points = vtk.vtkPoints()
+    points.InsertNextPoint(4.0, 5.0, 6.0)
+    boundary_grid.SetPoints(points)
+
+    def controlled_probe(source_dataset, input_dataset, tolerance=None):
+        return add_probe_arrays(input_dataset, [0], [(0, 0, 0)])
+
+    monkeypatch.setattr(boundary_meshes, "_probe_dataset", controlled_probe)
+    diagnostic_path = tmp_path / "invalid.csv"
+
+    with pytest.raises(ValueError, match="1 boundary points remain outside"):
+        interpolate_velocity(
+            object(), boundary_grid, diagnostic_path, retry_tolerance=10.0
+        )
+
+    with diagnostic_path.open(newline="", encoding="utf-8") as diagnostic_file:
+        rows = list(csv.DictReader(diagnostic_file))
+    assert rows[0]["retry_succeeded"] == "false"
 
 
 def test_interpolate_velocity_removes_stale_diagnostic_when_all_points_valid(

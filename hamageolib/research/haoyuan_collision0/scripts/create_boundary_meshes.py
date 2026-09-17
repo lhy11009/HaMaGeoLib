@@ -31,6 +31,7 @@ class BoundaryMeshConfig:
     longitude_bounds: tuple
     radius_spacing: float
     lateral_spacing: float
+    retry_tolerance: float
 
 
 def report_progress(message):
@@ -115,6 +116,9 @@ def load_boundary_mesh_config(config_path):
     lateral_spacing = _required_config_float(
         parser, "resolution", "lateral_spacing"
     )
+    retry_tolerance = _required_config_float(
+        parser, "interpolation", "retry_tolerance"
+    )
 
     for bounds_name, bounds in (
         ("radius", radius_bounds),
@@ -129,6 +133,8 @@ def load_boundary_mesh_config(config_path):
         raise ValueError("radius_spacing must be positive")
     if lateral_spacing <= 0:
         raise ValueError("lateral_spacing must be positive")
+    if retry_tolerance <= 0:
+        raise ValueError("retry_tolerance must be positive")
 
     uniform_coordinates(*radius_bounds, spacing=radius_spacing)
     uniform_coordinates(*latitude_bounds, spacing=lateral_spacing)
@@ -141,6 +147,7 @@ def load_boundary_mesh_config(config_path):
         longitude_bounds,
         radius_spacing,
         lateral_spacing,
+        retry_tolerance,
     )
 
 
@@ -204,19 +211,80 @@ def create_boundary_grid(
     return grid
 
 
-def _write_invalid_points(boundary_grid, invalid_point_indices, output_path):
+def _write_invalid_points(
+    boundary_grid,
+    invalid_point_indices,
+    output_path,
+    retry_tolerance=None,
+    retry_succeeded=None,
+):
     """Write invalid boundary-point indices and Cartesian coordinates to CSV."""
+    if retry_succeeded is None:
+        retry_succeeded = [False] * len(invalid_point_indices)
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as output_file:
         writer = csv.writer(output_file)
-        writer.writerow(("point_index", "x", "y", "z"))
-        for point_index in invalid_point_indices:
-            writer.writerow((point_index, *boundary_grid.GetPoint(point_index)))
+        writer.writerow(
+            (
+                "point_index",
+                "x",
+                "y",
+                "z",
+                "retry_tolerance",
+                "retry_succeeded",
+            )
+        )
+        tolerance_value = "" if retry_tolerance is None else retry_tolerance
+        for point_index, succeeded in zip(
+            invalid_point_indices, retry_succeeded
+        ):
+            writer.writerow(
+                (
+                    point_index,
+                    *boundary_grid.GetPoint(point_index),
+                    tolerance_value,
+                    str(succeeded).lower(),
+                )
+            )
+
+
+def _probe_dataset(source_dataset, input_dataset, tolerance=None):
+    """Probe an input dataset, optionally using an explicit tolerance."""
+    if isinstance(source_dataset, vtk.vtkCompositeDataSet):
+        probe = vtk.vtkCompositeDataProbeFilter()
+    else:
+        probe = vtk.vtkProbeFilter()
+    probe.SetInputData(input_dataset)
+    probe.SetSourceData(source_dataset)
+    if tolerance is None:
+        probe.ComputeToleranceOn()
+    else:
+        probe.ComputeToleranceOff()
+        probe.SetTolerance(tolerance)
+    probe.Update()
+
+    output = probe.GetOutput().NewInstance()
+    output.DeepCopy(probe.GetOutput())
+    return output
+
+
+def _point_subset(dataset, point_indices):
+    """Return a point-only dataset containing the selected input points."""
+    points = vtk.vtkPoints()
+    points.SetDataTypeToDouble()
+    for point_index in point_indices:
+        points.InsertNextPoint(dataset.GetPoint(point_index))
+    subset = vtk.vtkPolyData()
+    subset.SetPoints(points)
+    return subset
 
 
 def interpolate_velocity(
-    source_dataset, boundary_grid, invalid_points_path=None
+    source_dataset,
+    boundary_grid,
+    invalid_points_path=None,
+    retry_tolerance=None,
 ):
     """Interpolate a Cartesian velocity vector onto a boundary grid.
 
@@ -232,17 +300,7 @@ def interpolate_velocity(
     scalar arrays costs O(N).  Probing the vector once avoids repeating the
     source-cell search separately for Vx, Vy, and Vz.
     """
-    if isinstance(source_dataset, vtk.vtkCompositeDataSet):
-        probe = vtk.vtkCompositeDataProbeFilter()
-    else:
-        probe = vtk.vtkProbeFilter()
-    probe.SetInputData(boundary_grid)
-    probe.SetSourceData(source_dataset)
-    probe.ComputeToleranceOn()
-    probe.Update()
-
-    interpolated_grid = vtk.vtkStructuredGrid()
-    interpolated_grid.DeepCopy(probe.GetOutput())
+    interpolated_grid = _probe_dataset(source_dataset, boundary_grid)
     point_data = interpolated_grid.GetPointData()
 
     valid_point_mask = point_data.GetArray("vtkValidPointMask")
@@ -254,23 +312,68 @@ def interpolate_velocity(
             if valid_point_mask.GetTuple1(index) == 0
         ]
 
+    retry_succeeded = [False] * len(invalid_point_indices)
+    if invalid_point_indices and retry_tolerance is not None:
+        report_progress(
+            f"Retrying {len(invalid_point_indices)} invalid boundary points "
+            f"with tolerance {retry_tolerance} m"
+        )
+        retry_output = _probe_dataset(
+            source_dataset,
+            _point_subset(boundary_grid, invalid_point_indices),
+            retry_tolerance,
+        )
+        retry_point_data = retry_output.GetPointData()
+        retry_valid_mask = retry_point_data.GetArray("vtkValidPointMask")
+        retry_velocity = retry_point_data.GetArray("velocity")
+        velocity = point_data.GetArray("velocity")
+        if retry_velocity is None or velocity is None:
+            raise ValueError(
+                "source mesh does not provide point-data array 'velocity'"
+            )
+        if retry_velocity.GetNumberOfComponents() != 3:
+            raise ValueError("'velocity' must have exactly three components")
+        if retry_valid_mask is not None:
+            for retry_index, point_index in enumerate(invalid_point_indices):
+                if retry_valid_mask.GetTuple1(retry_index) != 0:
+                    velocity.SetTuple(
+                        point_index, retry_velocity.GetTuple(retry_index)
+                    )
+                    valid_point_mask.SetTuple1(point_index, 1)
+                    retry_succeeded[retry_index] = True
+        report_progress(
+            f"Recovered {sum(retry_succeeded)} of "
+            f"{len(invalid_point_indices)} invalid boundary points"
+        )
+
     if invalid_point_indices:
         diagnostic_message = ""
         if invalid_points_path is not None:
             _write_invalid_points(
-                boundary_grid, invalid_point_indices, invalid_points_path
+                boundary_grid,
+                invalid_point_indices,
+                invalid_points_path,
+                retry_tolerance,
+                retry_succeeded,
             )
             report_progress(
                 f"Wrote {len(invalid_point_indices)} invalid boundary points: "
                 f"{invalid_points_path}"
             )
             diagnostic_message = f"; coordinates written to {invalid_points_path}"
-        raise ValueError(
-            f"{len(invalid_point_indices)} boundary points lie outside the source "
-            f"mesh{diagnostic_message}"
-        )
+        remaining_invalid_count = retry_succeeded.count(False)
+        if remaining_invalid_count:
+            if retry_tolerance is None:
+                raise ValueError(
+                    f"{remaining_invalid_count} boundary points lie outside the "
+                    f"source mesh{diagnostic_message}"
+                )
+            raise ValueError(
+                f"{remaining_invalid_count} boundary points remain outside the "
+                f"source mesh after retry{diagnostic_message}"
+            )
 
-    if invalid_points_path is not None:
+    if invalid_points_path is not None and not invalid_point_indices:
         Path(invalid_points_path).unlink(missing_ok=True)
 
     velocity = point_data.GetArray("velocity")
@@ -341,6 +444,7 @@ def write_boundary_velocity_meshes(
     longitude_bounds,
     radius_spacing,
     lateral_spacing,
+    retry_tolerance=None,
 ):
     """Create four boundary grids, sample velocity, and write VTK XML grids."""
     output_directory = Path(output_directory)
@@ -365,7 +469,10 @@ def write_boundary_velocity_meshes(
             / f"chunk_3d_{boundary_name}_invalid_points.csv"
         )
         interpolated_grid = interpolate_velocity(
-            source_dataset, boundary_grid, invalid_points_path
+            source_dataset,
+            boundary_grid,
+            invalid_points_path,
+            retry_tolerance,
         )
         output_path = output_directory / f"chunk_3d_{boundary_name}_mesh.vts"
         report_progress(f"Writing {boundary_name} boundary mesh: {output_path}")
@@ -487,6 +594,7 @@ def main():
     report_progress(f"Longitude bounds: {config.longitude_bounds} degrees")
     report_progress(f"Radius spacing: {config.radius_spacing} m")
     report_progress(f"Lateral spacing: {config.lateral_spacing} degrees")
+    report_progress(f"Invalid-point retry tolerance: {config.retry_tolerance} m")
     if not config.solution.is_file():
         raise FileNotFoundError(
             f"configured solution file does not exist: {config.solution}"
@@ -506,6 +614,7 @@ def main():
         config.longitude_bounds,
         config.radius_spacing,
         config.lateral_spacing,
+        config.retry_tolerance,
     )
     for output_path in output_paths.values():
         report_progress(f"Created boundary mesh: {output_path}")
