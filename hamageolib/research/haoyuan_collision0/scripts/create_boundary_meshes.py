@@ -7,7 +7,9 @@ with velocity sampled from a model solution.
 """
 
 import argparse
+import configparser
 import csv
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
@@ -15,16 +17,20 @@ import numpy as np
 import vtk
 
 
-DEFAULT_OUTPUT_DIRECTORY = Path(
-    "/mnt/lochy/ASPECT_DATA/Collision0/collision_test/S20RTS/"
-    "output-S20RTS/regional_velocity_files"
-)
-RADIUS_BOUNDS = (4_760e3, 6_360e3)
-LATITUDE_BOUNDS = (-55.0, -20.0)
-LONGITUDE_BOUNDS = (150.0, 210.0)
-RADIUS_SPACING = 100e3
-LATERAL_SPACING = 2.5
 VISUALIZATION_SCRIPT_NAME = "visualize_boundary_meshes.py"
+
+
+@dataclass(frozen=True)
+class BoundaryMeshConfig:
+    """Validated runtime inputs for boundary mesh generation."""
+
+    solution: Path
+    output_directory: Path
+    radius_bounds: tuple
+    latitude_bounds: tuple
+    longitude_bounds: tuple
+    radius_spacing: float
+    lateral_spacing: float
 
 
 def report_progress(message):
@@ -49,6 +55,93 @@ def uniform_coordinates(minimum, maximum, spacing):
         )
 
     return np.linspace(minimum, maximum, rounded_intervals + 1)
+
+
+def _required_config_value(parser, section, key):
+    """Return a required configuration string with a concise error."""
+    try:
+        return parser[section][key]
+    except KeyError as error:
+        raise ValueError(
+            f"missing required configuration value [{section}] {key}"
+        ) from error
+
+
+def _required_config_float(parser, section, key):
+    """Return a required finite floating-point configuration value."""
+    value = _required_config_value(parser, section, key)
+    try:
+        number = float(value)
+    except ValueError as error:
+        raise ValueError(
+            f"configuration value [{section}] {key} must be a number"
+        ) from error
+    if not np.isfinite(number):
+        raise ValueError(
+            f"configuration value [{section}] {key} must be a finite number"
+        )
+    return number
+
+
+def load_boundary_mesh_config(config_path):
+    """Load and validate all runtime inputs from an INI-style text file."""
+    config_path = Path(config_path)
+    if not config_path.is_file():
+        raise FileNotFoundError(f"configuration file does not exist: {config_path}")
+
+    parser = configparser.ConfigParser()
+    parser.read(config_path, encoding="utf-8")
+    solution = Path(
+        _required_config_value(parser, "paths", "solution")
+    ).expanduser().resolve()
+    output_directory = Path(
+        _required_config_value(parser, "paths", "output_directory")
+    ).expanduser().resolve()
+    radius_bounds = (
+        _required_config_float(parser, "geometry", "radius_min"),
+        _required_config_float(parser, "geometry", "radius_max"),
+    )
+    latitude_bounds = (
+        _required_config_float(parser, "geometry", "latitude_min"),
+        _required_config_float(parser, "geometry", "latitude_max"),
+    )
+    longitude_bounds = (
+        _required_config_float(parser, "geometry", "longitude_min"),
+        _required_config_float(parser, "geometry", "longitude_max"),
+    )
+    radius_spacing = _required_config_float(
+        parser, "resolution", "radius_spacing"
+    )
+    lateral_spacing = _required_config_float(
+        parser, "resolution", "lateral_spacing"
+    )
+
+    for bounds_name, bounds in (
+        ("radius", radius_bounds),
+        ("latitude", latitude_bounds),
+        ("longitude", longitude_bounds),
+    ):
+        if bounds[1] <= bounds[0]:
+            raise ValueError(
+                f"{bounds_name}_max must be greater than {bounds_name}_min"
+            )
+    if radius_spacing <= 0:
+        raise ValueError("radius_spacing must be positive")
+    if lateral_spacing <= 0:
+        raise ValueError("lateral_spacing must be positive")
+
+    uniform_coordinates(*radius_bounds, spacing=radius_spacing)
+    uniform_coordinates(*latitude_bounds, spacing=lateral_spacing)
+    uniform_coordinates(*longitude_bounds, spacing=lateral_spacing)
+    return BoundaryMeshConfig(
+        solution,
+        output_directory,
+        radius_bounds,
+        latitude_bounds,
+        longitude_bounds,
+        radius_spacing,
+        lateral_spacing,
+    )
 
 
 def spherical_to_cartesian(radius, latitude, longitude):
@@ -339,7 +432,9 @@ def report_solution_bounds(source_dataset):
     )
 
 
-def write_visualization_script(output_directory, solution_path):
+def write_visualization_script(
+    output_directory, solution_path, longitude_bounds
+):
     """Write a self-contained ParaView GUI script beside the boundary meshes."""
     output_directory = Path(output_directory).resolve()
     solution_path = Path(solution_path).resolve()
@@ -353,6 +448,8 @@ def write_visualization_script(output_directory, solution_path):
         "__STATE_FILE__": output_directory / "boundary_meshes.pvsm",
         "__VALIDATION_FILE__": output_directory
         / "boundary_meshes_validation.json",
+        "__LONGITUDE_MIN__": min(longitude_bounds),
+        "__LONGITUDE_MAX__": max(longitude_bounds),
     }
 
     configured_script = template_path.read_text(encoding="utf-8")
@@ -362,8 +459,12 @@ def write_visualization_script(output_directory, solution_path):
             raise ValueError(
                 f"visualization template must contain {quoted_placeholder} exactly once"
             )
+        if isinstance(configured_value, Path):
+            replacement = repr(str(configured_value))
+        else:
+            replacement = repr(configured_value)
         configured_script = configured_script.replace(
-            quoted_placeholder, repr(str(configured_value))
+            quoted_placeholder, replacement
         )
 
     configured_path.write_text(configured_script, encoding="utf-8")
@@ -374,47 +475,45 @@ def main():
     parser = argparse.ArgumentParser(
         description="Write the four structured boundary meshes for a spherical chunk."
     )
-    parser.add_argument(
-        "--output-directory",
-        type=Path,
-        default=DEFAULT_OUTPUT_DIRECTORY,
-        help="directory in which to write the four .vts files",
-    )
-    parser.add_argument(
-        "--solution",
-        type=Path,
-        help="optional VTK/PVD solution whose velocity is sampled onto the meshes",
-    )
+    parser.add_argument("--config", type=Path, required=True)
     args = parser.parse_args()
+    config = load_boundary_mesh_config(args.config)
 
-    writer = write_boundary_meshes
-    writer_arguments = ()
-    if args.solution is not None:
-        report_progress(f"Loading source solution: {args.solution}")
-        writer = write_boundary_velocity_meshes
-        source_dataset = read_solution_dataset(args.solution)
-        report_progress("Finished loading source solution")
-        report_solution_bounds(source_dataset)
-        writer_arguments = (source_dataset,)
+    report_progress(f"Configuration file: {args.config.resolve()}")
+    report_progress(f"Source solution: {config.solution}")
+    report_progress(f"Output directory: {config.output_directory}")
+    report_progress(f"Radius bounds: {config.radius_bounds} m")
+    report_progress(f"Latitude bounds: {config.latitude_bounds} degrees")
+    report_progress(f"Longitude bounds: {config.longitude_bounds} degrees")
+    report_progress(f"Radius spacing: {config.radius_spacing} m")
+    report_progress(f"Lateral spacing: {config.lateral_spacing} degrees")
+    if not config.solution.is_file():
+        raise FileNotFoundError(
+            f"configured solution file does not exist: {config.solution}"
+        )
+
+    report_progress(f"Loading source solution: {config.solution}")
+    source_dataset = read_solution_dataset(config.solution)
+    report_progress("Finished loading source solution")
+    report_solution_bounds(source_dataset)
 
     report_progress("Starting boundary mesh processing")
-    output_paths = writer(
-        args.output_directory,
-        *writer_arguments,
-        RADIUS_BOUNDS,
-        LATITUDE_BOUNDS,
-        LONGITUDE_BOUNDS,
-        RADIUS_SPACING,
-        LATERAL_SPACING,
+    output_paths = write_boundary_velocity_meshes(
+        config.output_directory,
+        source_dataset,
+        config.radius_bounds,
+        config.latitude_bounds,
+        config.longitude_bounds,
+        config.radius_spacing,
+        config.lateral_spacing,
     )
     for output_path in output_paths.values():
         report_progress(f"Created boundary mesh: {output_path}")
-    if args.solution is not None:
-        report_progress("Generating configured ParaView visualization script")
-        visualization_script = write_visualization_script(
-            args.output_directory, args.solution
-        )
-        report_progress(f"Created visualization script: {visualization_script}")
+    report_progress("Generating configured ParaView visualization script")
+    visualization_script = write_visualization_script(
+        config.output_directory, config.solution, config.longitude_bounds
+    )
+    report_progress(f"Created visualization script: {visualization_script}")
     report_progress("Finished boundary mesh processing")
 
 

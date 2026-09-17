@@ -1,0 +1,15 @@
+[paths]
+solution = /scratch/06806/hyli/Collision0/dataset_from_Arushi/gem_thin-fault_2e20_mid-mantle_1e20_asth1e20_stein_var-lith_strong_slabs_stronger_trench/solution/solution-00000.pvtu
+output_directory = .
+
+[geometry]
+radius_min = 4760000
+radius_max = 6360000
+latitude_min = -55.0
+latitude_max = -20.0
+longitude_min = 150.0
+longitude_max = 210.0
+
+[resolution]
+radius_spacing = 100000
+lateral_spacing = 2.5

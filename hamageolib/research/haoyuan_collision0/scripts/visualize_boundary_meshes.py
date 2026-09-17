@@ -17,7 +17,7 @@ SOLUTION_PATH = Path("__SOLUTION_PATH__")
 BOUNDARY_DIRECTORY = Path("__BOUNDARY_DIRECTORY__")
 STATE_FILE = Path("__STATE_FILE__")
 VALIDATION_FILE = Path("__VALIDATION_FILE__")
-LONGITUDE_BOUNDS = (150.0, 210.0)
+LONGITUDE_BOUNDS = ("__LONGITUDE_MIN__", "__LONGITUDE_MAX__")
 BOUNDARY_NAMES = ("west", "east", "north", "south")
 
 
@@ -137,8 +137,9 @@ def build_pipeline(solution_path, boundary_directory):
         "boundaries": {},
         "slices": {},
     }
+    longitude_bounds = tuple(float(value) for value in LONGITUDE_BOUNDS)
     for boundary_name in ("west", "east"):
-        longitude = boundary_longitude(boundary_name, LONGITUDE_BOUNDS)
+        longitude = boundary_longitude(boundary_name, longitude_bounds)
         normal = longitude_slice_normal(longitude)
         global_slice = simple.Slice(
             registrationName=f"{boundary_name.title()}GlobalSlice",

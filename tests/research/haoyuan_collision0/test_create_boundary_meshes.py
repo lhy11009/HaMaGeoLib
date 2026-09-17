@@ -2,6 +2,7 @@ import csv
 import re
 import runpy
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
@@ -11,6 +12,7 @@ import vtk
 from hamageolib.research.haoyuan_collision0.scripts.create_boundary_meshes import (
     create_boundary_grid,
     interpolate_velocity,
+    load_boundary_mesh_config,
     read_solution_dataset,
     report_solution_bounds,
     uniform_coordinates,
@@ -48,6 +50,39 @@ def create_linear_velocity_source():
         velocity.InsertNextTuple3(x, 2.0 * y, 3.0 * z)
     source.GetPointData().AddArray(velocity)
     return source
+
+
+def write_boundary_mesh_config(path, **overrides):
+    """Write a complete test configuration with optional value overrides."""
+    values = {
+        "solution": "solution/solution-00000.pvtu",
+        "output_directory": "output",
+        "radius_min": "4760000",
+        "radius_max": "6360000",
+        "latitude_min": "-55.0",
+        "latitude_max": "-20.0",
+        "longitude_min": "150.0",
+        "longitude_max": "210.0",
+        "radius_spacing": "100000",
+        "lateral_spacing": "2.5",
+    }
+    values.update(overrides)
+    path.write_text(
+        "[paths]\n"
+        f"solution = {values['solution']}\n"
+        f"output_directory = {values['output_directory']}\n\n"
+        "[geometry]\n"
+        f"radius_min = {values['radius_min']}\n"
+        f"radius_max = {values['radius_max']}\n"
+        f"latitude_min = {values['latitude_min']}\n"
+        f"latitude_max = {values['latitude_max']}\n"
+        f"longitude_min = {values['longitude_min']}\n"
+        f"longitude_max = {values['longitude_max']}\n\n"
+        "[resolution]\n"
+        f"radius_spacing = {values['radius_spacing']}\n"
+        f"lateral_spacing = {values['lateral_spacing']}\n",
+        encoding="utf-8",
+    )
 
 
 def write_parallel_unstructured_grid(path, include_velocity=True):
@@ -104,6 +139,66 @@ def test_uniform_coordinates_include_evenly_divisible_bounds():
 def test_uniform_coordinates_reject_nondivisible_interval():
     with pytest.raises(ValueError, match="divide the interval evenly"):
         uniform_coordinates(4_770e3, 6_360e3, spacing=100e3)
+
+
+def test_load_boundary_mesh_config_reads_all_runtime_inputs(tmp_path, monkeypatch):
+    config_path = tmp_path / "boundary_mesh_config.txt"
+    write_boundary_mesh_config(config_path)
+    monkeypatch.chdir(tmp_path)
+
+    config = load_boundary_mesh_config(config_path)
+
+    assert config.solution == (tmp_path / "solution/solution-00000.pvtu").resolve()
+    assert config.output_directory == (tmp_path / "output").resolve()
+    assert config.radius_bounds == RADIUS_BOUNDS
+    assert config.latitude_bounds == LATITUDE_BOUNDS
+    assert config.longitude_bounds == LONGITUDE_BOUNDS
+    assert config.radius_spacing == 100e3
+    assert config.lateral_spacing == 2.5
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"radius_spacing": "0"}, "radius_spacing must be positive"),
+        ({"longitude_max": "140"}, "longitude_max must be greater"),
+        ({"lateral_spacing": "4"}, "divide the interval evenly"),
+        ({"radius_min": "not-a-number"}, "must be a number"),
+    ],
+)
+def test_load_boundary_mesh_config_rejects_invalid_values(
+    tmp_path, override, message
+):
+    config_path = tmp_path / "boundary_mesh_config.txt"
+    write_boundary_mesh_config(config_path, **override)
+
+    with pytest.raises(ValueError, match=message):
+        load_boundary_mesh_config(config_path)
+
+
+def test_load_boundary_mesh_config_reports_missing_key(tmp_path):
+    config_path = tmp_path / "boundary_mesh_config.txt"
+    config_path.write_text("[paths]\nsolution = solution.pvtu\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="missing required configuration value"):
+        load_boundary_mesh_config(config_path)
+
+
+def test_standard_arushi_configuration_preserves_original_mesh_parameters():
+    config_path = (
+        Path(__file__).parents[3]
+        / "hamageolib/research/haoyuan_collision0/files/arushi_dataset"
+        / "boundary_mesh_config.txt"
+    )
+
+    config = load_boundary_mesh_config(config_path)
+
+    assert config.radius_bounds == RADIUS_BOUNDS
+    assert config.latitude_bounds == LATITUDE_BOUNDS
+    assert config.longitude_bounds == LONGITUDE_BOUNDS
+    assert config.radius_spacing == 100e3
+    assert config.lateral_spacing == 2.5
+    assert str(config.solution).endswith("solution/solution-00000.pvtu")
 
 
 @pytest.mark.parametrize(
@@ -417,7 +512,10 @@ def test_write_visualization_script_embeds_absolute_input_paths(tmp_path):
     solution_path = tmp_path / "solution's mesh.pvtu"
     solution_path.touch()
 
-    script_path = write_visualization_script(output_directory, solution_path)
+    longitude_bounds = (151.0, 209.0)
+    script_path = write_visualization_script(
+        output_directory, solution_path, longitude_bounds
+    )
 
     assert script_path == output_directory / "visualize_boundary_meshes.py"
     script_contents = script_path.read_text(encoding="utf-8")
@@ -425,6 +523,8 @@ def test_write_visualization_script_embeds_absolute_input_paths(tmp_path):
     assert "__BOUNDARY_DIRECTORY__" not in script_contents
     assert "__STATE_FILE__" not in script_contents
     assert "__VALIDATION_FILE__" not in script_contents
+    assert "__LONGITUDE_MIN__" not in script_contents
+    assert "__LONGITUDE_MAX__" not in script_contents
 
     configured_values = runpy.run_path(str(script_path))
     assert configured_values["SOLUTION_PATH"] == solution_path.resolve()
@@ -435,4 +535,4 @@ def test_write_visualization_script_embeds_absolute_input_paths(tmp_path):
     assert configured_values["VALIDATION_FILE"] == (
         output_directory / "boundary_meshes_validation.json"
     ).resolve()
-    assert configured_values["LONGITUDE_BOUNDS"] == LONGITUDE_BOUNDS
+    assert configured_values["LONGITUDE_BOUNDS"] == longitude_bounds
