@@ -32,6 +32,7 @@ class BoundaryMeshConfig:
     radius_spacing: float
     lateral_spacing: float
     retry_tolerance: float
+    use_nearest_valid_point: bool
 
 
 def report_progress(message):
@@ -84,6 +85,18 @@ def _required_config_float(parser, section, key):
     return number
 
 
+def _config_boolean(parser, section, key, fallback=False):
+    """Return a boolean configuration value or its fallback when omitted."""
+    if not parser.has_option(section, key):
+        return fallback
+    value = parser[section][key].lower()
+    if value not in parser.BOOLEAN_STATES:
+        raise ValueError(
+            f"configuration value [{section}] {key} must be a boolean"
+        )
+    return parser.BOOLEAN_STATES[value]
+
+
 def load_boundary_mesh_config(config_path):
     """Load and validate all runtime inputs from an INI-style text file."""
     config_path = Path(config_path)
@@ -119,6 +132,9 @@ def load_boundary_mesh_config(config_path):
     retry_tolerance = _required_config_float(
         parser, "interpolation", "retry_tolerance"
     )
+    use_nearest_valid_point = _config_boolean(
+        parser, "interpolation", "use_nearest_valid_point"
+    )
 
     for bounds_name, bounds in (
         ("radius", radius_bounds),
@@ -148,6 +164,7 @@ def load_boundary_mesh_config(config_path):
         radius_spacing,
         lateral_spacing,
         retry_tolerance,
+        use_nearest_valid_point,
     )
 
 
@@ -217,10 +234,19 @@ def _write_invalid_points(
     output_path,
     retry_tolerance=None,
     retry_succeeded=None,
+    nearest_point_fallback_used=None,
+    nearest_point_indices=None,
+    nearest_point_distances=None,
 ):
     """Write invalid boundary-point indices and Cartesian coordinates to CSV."""
     if retry_succeeded is None:
         retry_succeeded = [False] * len(invalid_point_indices)
+    if nearest_point_fallback_used is None:
+        nearest_point_fallback_used = [False] * len(invalid_point_indices)
+    if nearest_point_indices is None:
+        nearest_point_indices = [None] * len(invalid_point_indices)
+    if nearest_point_distances is None:
+        nearest_point_distances = [None] * len(invalid_point_indices)
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as output_file:
@@ -233,11 +259,18 @@ def _write_invalid_points(
                 "z",
                 "retry_tolerance",
                 "retry_succeeded",
+                "nearest_point_fallback_used",
+                "nearest_point_index",
+                "nearest_point_distance",
             )
         )
         tolerance_value = "" if retry_tolerance is None else retry_tolerance
-        for point_index, succeeded in zip(
-            invalid_point_indices, retry_succeeded
+        for point_index, succeeded, fallback_used, nearest_index, distance in zip(
+            invalid_point_indices,
+            retry_succeeded,
+            nearest_point_fallback_used,
+            nearest_point_indices,
+            nearest_point_distances,
         ):
             writer.writerow(
                 (
@@ -245,6 +278,9 @@ def _write_invalid_points(
                     *boundary_grid.GetPoint(point_index),
                     tolerance_value,
                     str(succeeded).lower(),
+                    str(fallback_used).lower(),
+                    "" if nearest_index is None else nearest_index,
+                    "" if distance is None else distance,
                 )
             )
 
@@ -285,6 +321,7 @@ def interpolate_velocity(
     boundary_grid,
     invalid_points_path=None,
     retry_tolerance=None,
+    use_nearest_valid_point=False,
 ):
     """Interpolate a Cartesian velocity vector onto a boundary grid.
 
@@ -346,6 +383,57 @@ def interpolate_velocity(
             f"{len(invalid_point_indices)} invalid boundary points"
         )
 
+    nearest_point_fallback_used = [False] * len(invalid_point_indices)
+    nearest_point_indices = [None] * len(invalid_point_indices)
+    nearest_point_distances = [None] * len(invalid_point_indices)
+    fallback_error = None
+    unresolved_positions = [
+        position
+        for position, succeeded in enumerate(retry_succeeded)
+        if not succeeded
+    ]
+    if unresolved_positions and use_nearest_valid_point:
+        valid_indices = [
+            point_index
+            for point_index in range(valid_point_mask.GetNumberOfTuples())
+            if valid_point_mask.GetTuple1(point_index) != 0
+        ]
+        if not valid_indices:
+            fallback_error = (
+                "nearest-point fallback cannot run because there are no valid "
+                "boundary points"
+            )
+        else:
+            report_progress(
+                f"Applying nearest-valid-point fallback to "
+                f"{len(unresolved_positions)} boundary points"
+            )
+            velocity = point_data.GetArray("velocity")
+            if velocity is None:
+                raise ValueError(
+                    "source mesh does not provide point-data array 'velocity'"
+                )
+            if velocity.GetNumberOfComponents() != 3:
+                raise ValueError("'velocity' must have exactly three components")
+            valid_coordinates = np.array(
+                [boundary_grid.GetPoint(index) for index in valid_indices]
+            )
+            for position in unresolved_positions:
+                point_index = invalid_point_indices[position]
+                point = np.array(boundary_grid.GetPoint(point_index))
+                distances = np.linalg.norm(valid_coordinates - point, axis=1)
+                nearest_position = int(np.argmin(distances))
+                nearest_index = valid_indices[nearest_position]
+                velocity.SetTuple(point_index, velocity.GetTuple(nearest_index))
+                valid_point_mask.SetTuple1(point_index, 1)
+                nearest_point_fallback_used[position] = True
+                nearest_point_indices[position] = nearest_index
+                nearest_point_distances[position] = distances[nearest_position]
+            report_progress(
+                f"Recovered {len(unresolved_positions)} boundary points with "
+                "nearest-valid-point fallback"
+            )
+
     if invalid_point_indices:
         diagnostic_message = ""
         if invalid_points_path is not None:
@@ -355,14 +443,24 @@ def interpolate_velocity(
                 invalid_points_path,
                 retry_tolerance,
                 retry_succeeded,
+                nearest_point_fallback_used,
+                nearest_point_indices,
+                nearest_point_distances,
             )
             report_progress(
                 f"Wrote {len(invalid_point_indices)} invalid boundary points: "
                 f"{invalid_points_path}"
             )
             diagnostic_message = f"; coordinates written to {invalid_points_path}"
-        remaining_invalid_count = retry_succeeded.count(False)
+        remaining_invalid_count = sum(
+            not retry_success and not fallback_success
+            for retry_success, fallback_success in zip(
+                retry_succeeded, nearest_point_fallback_used
+            )
+        )
         if remaining_invalid_count:
+            if fallback_error is not None:
+                raise ValueError(f"{fallback_error}{diagnostic_message}")
             if retry_tolerance is None:
                 raise ValueError(
                     f"{remaining_invalid_count} boundary points lie outside the "
@@ -445,6 +543,7 @@ def write_boundary_velocity_meshes(
     radius_spacing,
     lateral_spacing,
     retry_tolerance=None,
+    use_nearest_valid_point=False,
 ):
     """Create four boundary grids, sample velocity, and write VTK XML grids."""
     output_directory = Path(output_directory)
@@ -473,6 +572,7 @@ def write_boundary_velocity_meshes(
             boundary_grid,
             invalid_points_path,
             retry_tolerance,
+            use_nearest_valid_point,
         )
         output_path = output_directory / f"chunk_3d_{boundary_name}_mesh.vts"
         report_progress(f"Writing {boundary_name} boundary mesh: {output_path}")
@@ -595,6 +695,10 @@ def main():
     report_progress(f"Radius spacing: {config.radius_spacing} m")
     report_progress(f"Lateral spacing: {config.lateral_spacing} degrees")
     report_progress(f"Invalid-point retry tolerance: {config.retry_tolerance} m")
+    report_progress(
+        "Use nearest valid point after retry: "
+        f"{config.use_nearest_valid_point}"
+    )
     if not config.solution.is_file():
         raise FileNotFoundError(
             f"configured solution file does not exist: {config.solution}"
@@ -615,6 +719,7 @@ def main():
         config.radius_spacing,
         config.lateral_spacing,
         config.retry_tolerance,
+        config.use_nearest_valid_point,
     )
     for output_path in output_paths.values():
         report_progress(f"Created boundary mesh: {output_path}")

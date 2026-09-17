@@ -16,3 +16,4 @@ lateral_spacing = 2.5
 
 [interpolation]
 retry_tolerance = 10.0
+use_nearest_valid_point = true

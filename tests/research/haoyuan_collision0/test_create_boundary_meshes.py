@@ -69,6 +69,7 @@ def write_boundary_mesh_config(path, **overrides):
         "radius_spacing": "100000",
         "lateral_spacing": "2.5",
         "retry_tolerance": "10.0",
+        "use_nearest_valid_point": "true",
     }
     values.update(overrides)
     path.write_text(
@@ -86,7 +87,9 @@ def write_boundary_mesh_config(path, **overrides):
         f"radius_spacing = {values['radius_spacing']}\n"
         f"lateral_spacing = {values['lateral_spacing']}\n\n"
         "[interpolation]\n"
-        f"retry_tolerance = {values['retry_tolerance']}\n",
+        f"retry_tolerance = {values['retry_tolerance']}\n"
+        "use_nearest_valid_point = "
+        f"{values['use_nearest_valid_point']}\n",
         encoding="utf-8",
     )
 
@@ -162,6 +165,7 @@ def test_load_boundary_mesh_config_reads_all_runtime_inputs(tmp_path, monkeypatc
     assert config.radius_spacing == 100e3
     assert config.lateral_spacing == 2.5
     assert config.retry_tolerance == 10.0
+    assert config.use_nearest_valid_point is True
 
 
 @pytest.mark.parametrize(
@@ -172,6 +176,7 @@ def test_load_boundary_mesh_config_reads_all_runtime_inputs(tmp_path, monkeypatc
         ({"lateral_spacing": "4"}, "divide the interval evenly"),
         ({"radius_min": "not-a-number"}, "must be a number"),
         ({"retry_tolerance": "0"}, "retry_tolerance must be positive"),
+        ({"use_nearest_valid_point": "sometimes"}, "must be a boolean"),
     ],
 )
 def test_load_boundary_mesh_config_rejects_invalid_values(
@@ -192,6 +197,23 @@ def test_load_boundary_mesh_config_reports_missing_key(tmp_path):
         load_boundary_mesh_config(config_path)
 
 
+def test_load_boundary_mesh_config_disables_omitted_nearest_point_fallback(
+    tmp_path,
+):
+    config_path = tmp_path / "boundary_mesh_config.txt"
+    write_boundary_mesh_config(config_path)
+    config_path.write_text(
+        config_path.read_text(encoding="utf-8").replace(
+            "use_nearest_valid_point = true\n", ""
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_boundary_mesh_config(config_path)
+
+    assert config.use_nearest_valid_point is False
+
+
 def test_standard_arushi_configuration_preserves_original_mesh_parameters():
     config_path = (
         Path(__file__).parents[3]
@@ -207,6 +229,7 @@ def test_standard_arushi_configuration_preserves_original_mesh_parameters():
     assert config.radius_spacing == 100e3
     assert config.lateral_spacing == 2.5
     assert config.retry_tolerance == 10.0
+    assert config.use_nearest_valid_point is True
     assert str(config.solution).endswith("solution/solution-00000.pvtu")
 
 
@@ -336,6 +359,9 @@ def test_interpolate_velocity_writes_invalid_points_before_raising(tmp_path):
             "z": "-2000000.0",
             "retry_tolerance": "",
             "retry_succeeded": "false",
+            "nearest_point_fallback_used": "false",
+            "nearest_point_index": "",
+            "nearest_point_distance": "",
         }
     ]
 
@@ -415,6 +441,75 @@ def test_interpolate_velocity_raises_when_retry_does_not_recover_point(
     with diagnostic_path.open(newline="", encoding="utf-8") as diagnostic_file:
         rows = list(csv.DictReader(diagnostic_file))
     assert rows[0]["retry_succeeded"] == "false"
+
+
+def test_interpolate_velocity_uses_nearest_valid_point_after_retry(
+    monkeypatch, tmp_path
+):
+    boundary_grid = vtk.vtkStructuredGrid()
+    boundary_grid.SetDimensions(3, 1, 1)
+    points = vtk.vtkPoints()
+    points.InsertNextPoint(0.0, 0.0, 0.0)
+    points.InsertNextPoint(2.0, 0.0, 0.0)
+    points.InsertNextPoint(10.0, 0.0, 0.0)
+    boundary_grid.SetPoints(points)
+
+    def controlled_probe(source_dataset, input_dataset, tolerance=None):
+        if tolerance is None:
+            return add_probe_arrays(
+                input_dataset,
+                [1, 0, 1],
+                [(10, 11, 12), (0, 0, 0), (20, 21, 22)],
+            )
+        return add_probe_arrays(input_dataset, [0], [(0, 0, 0)])
+
+    monkeypatch.setattr(boundary_meshes, "_probe_dataset", controlled_probe)
+    diagnostic_path = tmp_path / "invalid.csv"
+
+    result = interpolate_velocity(
+        object(),
+        boundary_grid,
+        diagnostic_path,
+        retry_tolerance=10.0,
+        use_nearest_valid_point=True,
+    )
+
+    assert result.GetPointData().GetArray("velocity").GetTuple3(1) == (
+        10,
+        11,
+        12,
+    )
+    assert result.GetPointData().GetArray("vtkValidPointMask").GetTuple1(1) == 1
+    with diagnostic_path.open(newline="", encoding="utf-8") as diagnostic_file:
+        rows = list(csv.DictReader(diagnostic_file))
+    assert rows[0]["retry_succeeded"] == "false"
+    assert rows[0]["nearest_point_fallback_used"] == "true"
+    assert rows[0]["nearest_point_index"] == "0"
+    assert float(rows[0]["nearest_point_distance"]) == pytest.approx(2.0)
+
+
+def test_interpolate_velocity_rejects_fallback_without_valid_points(
+    monkeypatch, tmp_path
+):
+    boundary_grid = vtk.vtkStructuredGrid()
+    boundary_grid.SetDimensions(1, 1, 1)
+    points = vtk.vtkPoints()
+    points.InsertNextPoint(4.0, 5.0, 6.0)
+    boundary_grid.SetPoints(points)
+
+    def controlled_probe(source_dataset, input_dataset, tolerance=None):
+        return add_probe_arrays(input_dataset, [0], [(0, 0, 0)])
+
+    monkeypatch.setattr(boundary_meshes, "_probe_dataset", controlled_probe)
+
+    with pytest.raises(ValueError, match="no valid boundary points"):
+        interpolate_velocity(
+            object(),
+            boundary_grid,
+            tmp_path / "invalid.csv",
+            retry_tolerance=10.0,
+            use_nearest_valid_point=True,
+        )
 
 
 def test_interpolate_velocity_removes_stale_diagnostic_when_all_points_valid(
