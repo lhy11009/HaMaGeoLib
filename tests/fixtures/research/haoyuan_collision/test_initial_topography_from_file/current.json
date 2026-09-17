@@ -133,7 +133,7 @@
   "multi_direction_slope_exponent": -1.0,
   "topography_continent": 940.0,
   "bedrock_deposition_coefficient": 1.0,
-  "topography_ocean": -3200.0,
+  "topography_different_ocean_continent": 4140.0,
   "include_initial_topography": false,
   "include_initial_topography_trench_continent_taper": 300000.0,
   "drainage_area_exponent": 0.5,

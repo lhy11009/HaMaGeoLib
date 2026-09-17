@@ -3,6 +3,7 @@ import os, sys
 import filecmp
 import shutil
 from pathlib import Path
+import pytest
 from gdmate.aspect.config_engine import RuleEngine
 from gdmate.aspect.builtin_rules import CasePathRule
 from gdmate.aspect.io import parse_parameters_to_dict, save_parameters_from_dict
@@ -14,6 +15,7 @@ package_root = Path(__file__).resolve().parents[3]
 from hamageolib.research.haoyuan_collision0.config import CaseNameFromVariables, GeometryRule, PostProcessorRule, RemoveFluidRule, CompositionRule,\
     RheologyRule, WeakLayerRule, SlabRule, SolverRule, PrescribConditionRule, ContinentRule, KinematicDrivenRule, CornerRule,\
     PhaseTransitionRule, StrainWeakeningRule, TwoStageRule, FastScapeRule, OceanRule
+import hamageolib.research.haoyuan_collision0.config as collision_config
 
 # Resolve the root of the pakage and set up
 # test directory
@@ -95,6 +97,97 @@ def test_fastscape_marine_component_case_name():
     )
 
     assert case_name == "C_marine"
+
+
+def test_fastscape_topography_difference_defaults():
+    """Preserve the former 940 m continent and -3200 m ocean defaults."""
+    rule = FastScapeRule()
+
+    assert rule.defaults["topography_continent"] == 940.0
+    assert rule.defaults["topography_different_ocean_continent"] == 4140.0
+    assert (
+        rule.defaults["topography_continent"]
+        - rule.defaults["topography_different_ocean_continent"]
+    ) == -3200.0
+
+
+def test_fastscape_ocean_topography_is_derived(monkeypatch):
+    """Derive ocean topography below the configured continent topography."""
+    captured_topographies = []
+
+    def capture_topographies(topography_continent, topography_ocean, *args, **kwargs):
+        captured_topographies.append((topography_continent, topography_ocean))
+        return "", "0.0"
+
+    monkeypatch.setattr(
+        collision_config,
+        "get_initial_topography_funcion",
+        capture_topographies,
+    )
+
+    config = {
+        "include_initial_topography": True,
+        "topography_continent": 1200.0,
+        "topography_different_ocean_continent": 4500.0,
+    }
+    rule = FastScapeRule()
+    rule.add_default(config)
+    prm_dict = {
+        "Mesh deformation": {"Diffusion": {}},
+        "Geometry model": {},
+    }
+    context = {
+        "plate_start_point": 0.0,
+        "plate_end_point": 1.0,
+        "continent_end_point": 2.0,
+        "slab_hinge_point": 3.0,
+        "continent_taper_length": 1.0,
+        "customize_corner_width": 1.0,
+        "customize_ridge_taper_length": 1.0,
+    }
+
+    rule.apply(config, prm_dict, {"features": []}, context)
+
+    assert captured_topographies == [(1200.0, -3300.0)]
+
+
+def test_fastscape_topography_difference_must_be_positive():
+    """Reject differences that would place the ocean at or above the continent."""
+    config = {"topography_different_ocean_continent": 0.0}
+    rule = FastScapeRule()
+    rule.add_default(config)
+
+    with pytest.raises(ValueError, match="has to be positive"):
+        rule.apply(
+            config,
+            {"Mesh deformation": {"Diffusion": {}}},
+            {"features": []},
+            {},
+        )
+
+
+def test_initial_topography_difference_case_name():
+    """Use the new topography-difference variable in generated case names."""
+    variables = {
+        "weak_layer_rheology_scheme": "low friction",
+        "customize_corner": False,
+        "customize_corner_viscosity": 0.0,
+        "include_fastscape": False,
+        "include_initial_topography": True,
+        "topography_continent": 940.0,
+        "topography_different_ocean_continent": 4140.0,
+        "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False,
+    }
+
+    case_name = CaseNameFromVariables(
+        variables,
+        prefix="C",
+        use_all=False,
+        use_keys=["topography_different_ocean_continent"],
+    )
+
+    assert case_name == "C_TDOC4.14e+03"
 
 
 def test_default_options():

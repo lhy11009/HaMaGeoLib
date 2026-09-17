@@ -195,8 +195,8 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_topoI"
         if use_all or "topography_continent" in use_keys:
             case_name += "_TC%.2e" % variables["topography_continent"]
-        if use_all or "topography_ocean" in use_keys:
-            case_name += "_TO%.2e" % variables["topography_ocean"]
+        if use_all or "topography_different_ocean_continent" in use_keys:
+            case_name += "_TDOC%.2e" % variables["topography_different_ocean_continent"]
 
     if len(variables["include_initial_topograph_filepath"]) > 0:
         if use_all or "include_initial_topograph_filepath" in use_keys:
@@ -3464,7 +3464,7 @@ class FastScapeRule(Rule):
     Provided configuration parameters:
 
     """
-    requires = ["include_fastscape", "topography_continent", "topography_ocean", "include_initial_topography",
+    requires = ["include_fastscape", "topography_continent", "topography_different_ocean_continent", "include_initial_topography",
                 "include_initial_topography_trench_continent_taper", "drainage_area_exponent", "bedrock_diffusivity",
                 "bedrock_river_incision_rate", "slope_exponent", "bedrock_deposition_coefficient", "multi_direction_slope_exponent", 
                 "customize_no_incision_width", "fastscape_2d_extent", "add_erosion_sediment", "include_boundary_flow",
@@ -3476,7 +3476,7 @@ class FastScapeRule(Rule):
     defaults = {
         "include_fastscape": False, 
         "topography_continent": 940.0,
-        "topography_ocean": -3200.0,
+        "topography_different_ocean_continent": 4140.0,
         "include_initial_topography": False,
         "include_initial_topography_trench_continent_taper": 300e3,
         "drainage_area_exponent": 0.4,
@@ -3511,7 +3511,7 @@ class FastScapeRule(Rule):
                          "erosional_base_level": "If a positive value is given, then a fixed erosional base level is used.",
                          "customize_ridge": "Here this decide whether we want to specify the topography for the ridge in the corner",
                          "topography_continent": "Topography of the continent, if the option of initial topography is turned on.",
-                         "topography_ocean": "Topography of the ocean, if the option of initial topography is turned on.",
+                         "topography_different_ocean_continent": "Positive topography difference from the continent down to the ocean, if the option of initial topography is turned on.",
                          "kf_start_time": "If a positive value is given, we use the kf function to turn on incision after a certain time.",
                          "include_initial_isostacy": "Whether to include initial isostatic topography",
                          "include_initial_topograph_filepath": "If a valid filepath is given, then we parse this topography to an input of initial topography to the model.",
@@ -3527,7 +3527,10 @@ class FastScapeRule(Rule):
         include_fastscape = config["include_fastscape"]
         include_initial_topography = config["include_initial_topography"]
         topography_continent = config["topography_continent"]
-        topography_ocean = config["topography_ocean"]
+        topography_different_ocean_continent = config["topography_different_ocean_continent"]
+        my_assert(topography_different_ocean_continent > 0.0, ValueError,
+                  "The ocean-continent topography difference has to be positive")
+        topography_ocean = topography_continent - topography_different_ocean_continent
         include_initial_topography_trench_continent_taper = config["include_initial_topography_trench_continent_taper"]
         drainage_area_exponent = config["drainage_area_exponent"]
         bedrock_diffusivity = config["bedrock_diffusivity"]
