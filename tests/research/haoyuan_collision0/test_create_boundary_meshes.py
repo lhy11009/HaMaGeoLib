@@ -18,6 +18,7 @@ from hamageolib.research.haoyuan_collision0.scripts.create_boundary_meshes impor
     load_boundary_mesh_config,
     read_solution_dataset,
     report_solution_bounds,
+    source_radial_bounds,
     uniform_coordinates,
     write_boundary_meshes,
     write_boundary_velocity_meshes,
@@ -599,6 +600,23 @@ def test_report_solution_bounds_supports_composite_dataset(capsys):
     assert "z=[-7.000000e+06, 7.000000e+06] m" in lines[0]
 
 
+def test_source_radial_bounds_supports_composite_dataset():
+    first_block = vtk.vtkPolyData()
+    first_points = vtk.vtkPoints()
+    first_points.InsertNextPoint(2.0, 0.0, 0.0)
+    first_points.InsertNextPoint(0.0, 3.0, 0.0)
+    first_block.SetPoints(first_points)
+    second_block = vtk.vtkPolyData()
+    second_points = vtk.vtkPoints()
+    second_points.InsertNextPoint(0.0, 0.0, 5.0)
+    second_block.SetPoints(second_points)
+    composite = vtk.vtkMultiBlockDataSet()
+    composite.SetBlock(0, first_block)
+    composite.SetBlock(1, second_block)
+
+    assert source_radial_bounds(composite) == pytest.approx((2.0, 5.0))
+
+
 def test_write_boundary_velocity_meshes_preserves_interpolated_arrays(tmp_path):
     output_paths = write_boundary_velocity_meshes(
         tmp_path,
@@ -690,27 +708,23 @@ def test_write_boundary_meshes_reports_progress_without_interpolation(
         assert any(f"Finished {boundary_name} boundary" in line for line in lines)
 
 
-def test_write_visualization_script_embeds_absolute_input_paths(tmp_path):
+def test_write_visualization_script_embeds_radii_and_output_paths(tmp_path):
     output_directory = tmp_path / "boundary meshes"
-    solution_path = tmp_path / "solution's mesh.pvtu"
-    solution_path.touch()
-
-    longitude_bounds = (151.0, 209.0)
     script_path = write_visualization_script(
-        output_directory, solution_path, longitude_bounds
+        output_directory, (4_760_000.0, 6_360_000.0)
     )
 
     assert script_path == output_directory / "visualize_boundary_meshes.py"
     script_contents = script_path.read_text(encoding="utf-8")
-    assert "__SOLUTION_PATH__" not in script_contents
     assert "__BOUNDARY_DIRECTORY__" not in script_contents
     assert "__STATE_FILE__" not in script_contents
     assert "__VALIDATION_FILE__" not in script_contents
-    assert "__LONGITUDE_MIN__" not in script_contents
-    assert "__LONGITUDE_MAX__" not in script_contents
+    assert "__INNER_RADIUS__" not in script_contents
+    assert "__OUTER_RADIUS__" not in script_contents
+    assert "GlobalSolution" not in script_contents
+    assert "GlobalSlice" not in script_contents
 
     configured_values = runpy.run_path(str(script_path))
-    assert configured_values["SOLUTION_PATH"] == solution_path.resolve()
     assert configured_values["BOUNDARY_DIRECTORY"] == output_directory.resolve()
     assert configured_values["STATE_FILE"] == (
         output_directory / "boundary_meshes.pvsm"
@@ -718,4 +732,4 @@ def test_write_visualization_script_embeds_absolute_input_paths(tmp_path):
     assert configured_values["VALIDATION_FILE"] == (
         output_directory / "boundary_meshes_validation.json"
     ).resolve()
-    assert configured_values["LONGITUDE_BOUNDS"] == longitude_bounds
+    assert configured_values["RADIAL_BOUNDS"] == (4_760_000.0, 6_360_000.0)

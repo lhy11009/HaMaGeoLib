@@ -639,24 +639,52 @@ def report_solution_bounds(source_dataset):
     )
 
 
-def write_visualization_script(
-    output_directory, solution_path, longitude_bounds
-):
+def _dataset_blocks(dataset):
+    """Yield point-containing blocks from a dataset or composite dataset."""
+    if not isinstance(dataset, vtk.vtkCompositeDataSet):
+        yield dataset
+        return
+
+    iterator = dataset.NewIterator()
+    iterator.InitTraversal()
+    while not iterator.IsDoneWithTraversal():
+        block = iterator.GetCurrentDataObject()
+        if block is not None and hasattr(block, "GetNumberOfPoints"):
+            yield block
+        iterator.GoToNextItem()
+
+
+def source_radial_bounds(source_dataset):
+    """Return minimum and maximum source-mesh vertex radii in metres."""
+    minimum_radius = float("inf")
+    maximum_radius = 0.0
+    point_count = 0
+    for block in _dataset_blocks(source_dataset):
+        for point_index in range(block.GetNumberOfPoints()):
+            x, y, z = block.GetPoint(point_index)
+            radius = np.sqrt(x * x + y * y + z * z)
+            minimum_radius = min(minimum_radius, radius)
+            maximum_radius = max(maximum_radius, radius)
+            point_count += 1
+    if point_count == 0:
+        raise ValueError("source mesh does not contain any points")
+    return float(minimum_radius), float(maximum_radius)
+
+
+def write_visualization_script(output_directory, radial_bounds):
     """Write a self-contained ParaView GUI script beside the boundary meshes."""
     output_directory = Path(output_directory).resolve()
-    solution_path = Path(solution_path).resolve()
     output_directory.mkdir(parents=True, exist_ok=True)
 
     template_path = Path(__file__).with_name(VISUALIZATION_SCRIPT_NAME)
     configured_path = output_directory / VISUALIZATION_SCRIPT_NAME
     configured_values = {
-        "__SOLUTION_PATH__": solution_path,
         "__BOUNDARY_DIRECTORY__": output_directory,
         "__STATE_FILE__": output_directory / "boundary_meshes.pvsm",
         "__VALIDATION_FILE__": output_directory
         / "boundary_meshes_validation.json",
-        "__LONGITUDE_MIN__": min(longitude_bounds),
-        "__LONGITUDE_MAX__": max(longitude_bounds),
+        "__INNER_RADIUS__": float(min(radial_bounds)),
+        "__OUTER_RADIUS__": float(max(radial_bounds)),
     }
 
     configured_script = template_path.read_text(encoding="utf-8")
@@ -708,6 +736,11 @@ def main():
     source_dataset = read_solution_dataset(config.solution)
     report_progress("Finished loading source solution")
     report_solution_bounds(source_dataset)
+    radial_bounds = source_radial_bounds(source_dataset)
+    report_progress(
+        "Source solution radial bounds: "
+        f"r=[{radial_bounds[0]:.6e}, {radial_bounds[1]:.6e}] m"
+    )
 
     report_progress("Starting boundary mesh processing")
     output_paths = write_boundary_velocity_meshes(
@@ -725,7 +758,7 @@ def main():
         report_progress(f"Created boundary mesh: {output_path}")
     report_progress("Generating configured ParaView visualization script")
     visualization_script = write_visualization_script(
-        config.output_directory, config.solution, config.longitude_bounds
+        config.output_directory, radial_bounds
     )
     report_progress(f"Created visualization script: {visualization_script}")
     report_progress("Finished boundary mesh processing")
