@@ -671,20 +671,26 @@ def source_radial_bounds(source_dataset):
     return float(minimum_radius), float(maximum_radius)
 
 
-def write_visualization_script(output_directory, radial_bounds):
+def write_visualization_script(
+    output_directory, solution_path, longitude_bounds, radial_bounds
+):
     """Write a self-contained ParaView GUI script beside the boundary meshes."""
     output_directory = Path(output_directory).resolve()
+    solution_path = Path(solution_path).resolve()
     output_directory.mkdir(parents=True, exist_ok=True)
 
     template_path = Path(__file__).with_name(VISUALIZATION_SCRIPT_NAME)
     configured_path = output_directory / VISUALIZATION_SCRIPT_NAME
     configured_values = {
+        "__SOLUTION_PATH__": solution_path,
         "__BOUNDARY_DIRECTORY__": output_directory,
         "__STATE_FILE__": output_directory / "boundary_meshes.pvsm",
         "__VALIDATION_FILE__": output_directory
         / "boundary_meshes_validation.json",
         "__INNER_RADIUS__": float(min(radial_bounds)),
         "__OUTER_RADIUS__": float(max(radial_bounds)),
+        "__LONGITUDE_MIN__": float(min(longitude_bounds)),
+        "__LONGITUDE_MAX__": float(max(longitude_bounds)),
     }
 
     configured_script = template_path.read_text(encoding="utf-8")
@@ -758,7 +764,10 @@ def main():
         report_progress(f"Created boundary mesh: {output_path}")
     report_progress("Generating configured ParaView visualization script")
     visualization_script = write_visualization_script(
-        config.output_directory, radial_bounds
+        config.output_directory,
+        config.solution,
+        config.longitude_bounds,
+        radial_bounds,
     )
     report_progress(f"Created visualization script: {visualization_script}")
     report_progress("Finished boundary mesh processing")

@@ -710,8 +710,12 @@ def test_write_boundary_meshes_reports_progress_without_interpolation(
 
 def test_write_visualization_script_embeds_radii_and_output_paths(tmp_path):
     output_directory = tmp_path / "boundary meshes"
+    solution_path = tmp_path / "solution.pvtu"
     script_path = write_visualization_script(
-        output_directory, (4_760_000.0, 6_360_000.0)
+        output_directory,
+        solution_path,
+        (151.0, 209.0),
+        (4_760_000.0, 6_360_000.0),
     )
 
     assert script_path == output_directory / "visualize_boundary_meshes.py"
@@ -721,8 +725,9 @@ def test_write_visualization_script_embeds_radii_and_output_paths(tmp_path):
     assert "__VALIDATION_FILE__" not in script_contents
     assert "__INNER_RADIUS__" not in script_contents
     assert "__OUTER_RADIUS__" not in script_contents
-    assert "GlobalSolution" not in script_contents
-    assert "GlobalSlice" not in script_contents
+    assert "__SOLUTION_PATH__" not in script_contents
+    assert "__LONGITUDE_MIN__" not in script_contents
+    assert "__LONGITUDE_MAX__" not in script_contents
 
     configured_values = runpy.run_path(str(script_path))
     assert configured_values["BOUNDARY_DIRECTORY"] == output_directory.resolve()
@@ -733,3 +738,6 @@ def test_write_visualization_script_embeds_radii_and_output_paths(tmp_path):
         output_directory / "boundary_meshes_validation.json"
     ).resolve()
     assert configured_values["RADIAL_BOUNDS"] == (4_760_000.0, 6_360_000.0)
+    assert configured_values["SOLUTION_PATH"] == solution_path.resolve()
+    assert configured_values["LONGITUDE_BOUNDS"] == (151.0, 209.0)
+    assert configured_values["LOAD_ORIGINAL_SOLUTION"] is False

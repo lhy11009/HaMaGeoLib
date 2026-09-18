@@ -2,22 +2,84 @@
 
 Run this file with ``pvpython`` after creating the four structured boundary
 meshes with ``create_boundary_meshes.py``.  The configured copy embeds the
-source mesh's inner and outer radii, so it does not load the original solution.
+source mesh's radii and location.  Set ``LOAD_ORIGINAL_SOLUTION`` to ``True``
+in that copy to load the original solution and create west/east slices.
 """
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 # These uppercase strings are replaced when ``create_boundary_meshes.py``
 # writes a configured copy beside the generated boundary meshes.
+LOAD_ORIGINAL_SOLUTION = False
+SOLUTION_PATH = Path("__SOLUTION_PATH__")
 BOUNDARY_DIRECTORY = Path("__BOUNDARY_DIRECTORY__")
 STATE_FILE = Path("__STATE_FILE__")
 VALIDATION_FILE = Path("__VALIDATION_FILE__")
 RADIAL_BOUNDS = ("__INNER_RADIUS__", "__OUTER_RADIUS__")
+LONGITUDE_BOUNDS = ("__LONGITUDE_MIN__", "__LONGITUDE_MAX__")
 BOUNDARY_NAMES = ("west", "east", "north", "south")
 SPHERE_RESOLUTION = 128
 SPHERE_OPACITY = 0.02
+
+
+def boundary_longitude(boundary_name, longitude_bounds):
+    """Return the longitude defining an east or west chunk boundary."""
+    if boundary_name == "west":
+        return min(longitude_bounds)
+    if boundary_name == "east":
+        return max(longitude_bounds)
+    raise ValueError("boundary_name must be east or west")
+
+
+def longitude_slice_normal(longitude):
+    """Return a unit normal for the origin-crossing longitude plane."""
+    longitude_radians = math.radians(longitude)
+    return (
+        -math.sin(longitude_radians),
+        math.cos(longitude_radians),
+        0.0,
+    )
+
+
+def maximum_plane_distance(points, normal, origin=(0.0, 0.0, 0.0)):
+    """Return the greatest point-to-plane distance in a VTK point array."""
+    if hasattr(points, "GetNumberOfTuples"):
+        point_iterator = (
+            points.GetTuple3(index) for index in range(points.GetNumberOfTuples())
+        )
+    else:
+        point_iterator = points
+
+    return max(
+        abs(
+            sum(
+                (coordinate - origin_coordinate) * normal_component
+                for coordinate, origin_coordinate, normal_component in zip(
+                    point, origin, normal
+                )
+            )
+        )
+        for point in point_iterator
+    )
+
+
+def _number_of_points(dataset):
+    """Return the total point count for a VTK dataset or composite dataset."""
+    if hasattr(dataset, "GetNumberOfPoints"):
+        return dataset.GetNumberOfPoints()
+
+    point_count = 0
+    iterator = dataset.NewIterator()
+    iterator.InitTraversal()
+    while not iterator.IsDoneWithTraversal():
+        block = iterator.GetCurrentDataObject()
+        if block is not None and hasattr(block, "GetNumberOfPoints"):
+            point_count += block.GetNumberOfPoints()
+        iterator.GoToNextItem()
+    return point_count
 
 
 def _parse_arguments():
@@ -53,7 +115,13 @@ def create_radius_spheres(simple, radial_bounds):
     }
 
 
-def build_pipeline(boundary_directory, radial_bounds):
+def build_pipeline(
+    boundary_directory,
+    radial_bounds,
+    load_original_solution=False,
+    solution_path=None,
+    longitude_bounds=None,
+):
     """Create and validate boundary readers and radial sphere sources."""
     from paraview import servermanager, simple
 
@@ -95,10 +163,59 @@ def build_pipeline(boundary_directory, radial_bounds):
             "opacity": SPHERE_OPACITY,
         }
 
-    return boundaries, spheres, validation
+    solution = None
+    slices = {}
+    if load_original_solution:
+        solution_path = Path(solution_path).resolve()
+        if not solution_path.is_file():
+            raise FileNotFoundError(
+                f"solution file does not exist: {solution_path}"
+            )
+        solution = simple.OpenDataFile(str(solution_path))
+        simple.RenameSource("GlobalSolution", solution)
+        solution.UpdatePipeline()
+        validation["solution"] = str(solution_path)
+        validation["slices"] = {}
+        for boundary_name in ("west", "east"):
+            longitude = boundary_longitude(boundary_name, longitude_bounds)
+            normal = longitude_slice_normal(longitude)
+            global_slice = simple.Slice(
+                registrationName=f"{boundary_name.title()}GlobalSlice",
+                Input=solution,
+            )
+            global_slice.SliceType = "Plane"
+            global_slice.SliceType.Origin = (0.0, 0.0, 0.0)
+            global_slice.SliceType.Normal = normal
+            global_slice.UpdatePipeline()
+            slices[boundary_name] = global_slice
+
+            boundary_data = servermanager.Fetch(boundaries[boundary_name])
+            slice_data = servermanager.Fetch(global_slice)
+            maximum_distance = maximum_plane_distance(
+                boundary_data.GetPoints().GetData(), normal
+            )
+            slice_point_count = _number_of_points(slice_data)
+            if slice_point_count == 0:
+                raise RuntimeError(f"{boundary_name} global slice is empty")
+            if maximum_distance > 1e-6:
+                raise RuntimeError(
+                    f"{boundary_name} boundary is {maximum_distance} m "
+                    "from its slice plane"
+                )
+            validation["boundaries"][boundary_name][
+                "maximum_plane_distance"
+            ] = maximum_distance
+            validation["slices"][boundary_name] = {
+                "longitude": longitude,
+                "origin": [0.0, 0.0, 0.0],
+                "normal": list(normal),
+                "point_count": slice_point_count,
+            }
+
+    return solution, boundaries, spheres, slices, validation
 
 
-def show_pipeline(simple, boundaries, spheres):
+def show_pipeline(simple, boundaries, spheres, solution=None, slices=None):
     """Show boundary meshes and transparent radial spheres in one view."""
     render_view = simple.GetActiveViewOrCreate("RenderView")
     boundary_colors = {
@@ -123,6 +240,18 @@ def show_pipeline(simple, boundaries, spheres):
         sphere_display.DiffuseColor = sphere_colors[sphere_name]
         sphere_display.Opacity = SPHERE_OPACITY
 
+    if solution is not None:
+        solution_display = simple.Show(solution, render_view)
+        solution_display.Representation = "Surface"
+        solution_display.Opacity = 0.15
+
+    if slices is not None:
+        for boundary_name, global_slice in slices.items():
+            slice_display = simple.Show(global_slice, render_view)
+            slice_display.Representation = "Surface"
+            slice_display.Opacity = 0.35
+            slice_display.DiffuseColor = boundary_colors[boundary_name]
+
     render_view.ResetCamera()
     return render_view
 
@@ -132,10 +261,15 @@ def main():
 
     args = _parse_arguments()
     radial_bounds = tuple(float(radius) for radius in RADIAL_BOUNDS)
-    boundaries, spheres, validation = build_pipeline(
-        args.boundary_directory, radial_bounds
+    longitude_bounds = tuple(float(value) for value in LONGITUDE_BOUNDS)
+    solution, boundaries, spheres, slices, validation = build_pipeline(
+        args.boundary_directory,
+        radial_bounds,
+        LOAD_ORIGINAL_SOLUTION,
+        SOLUTION_PATH,
+        longitude_bounds,
     )
-    show_pipeline(simple, boundaries, spheres)
+    show_pipeline(simple, boundaries, spheres, solution, slices)
 
     args.state_file.parent.mkdir(parents=True, exist_ok=True)
     simple.SaveState(str(args.state_file.resolve()))
