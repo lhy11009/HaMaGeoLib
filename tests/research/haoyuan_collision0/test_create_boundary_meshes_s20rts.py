@@ -141,7 +141,10 @@ def test_create_boundary_meshes_with_s20rts_solution():
     )
     assert visualization["VELOCITY_GLYPH_SCALE_FACTOR"] == 1.0e6
     assert visualization["VELOCITY_COLOR_RANGE"] == (0.0, 1.0)
-    assert visualization["VELOCITY_COLOR_PRESET"] == "Blue Green Orange"
+    assert visualization["VELOCITY_COLOR_PRESETS"] == (
+        "Blue - Green - Orange",
+        "Blue Green Orange",
+    )
     assert visualization["SPHERE_OPACITIES"] == {
         "inner": 1.0,
         "outer": 0.2,

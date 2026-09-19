@@ -22,7 +22,7 @@ LONGITUDE_BOUNDS = (150.0, 210.0)
 
 
 class FakeSimple:
-    def __init__(self):
+    def __init__(self, rejected_presets=()):
         self.sphere_calls = []
         self.glyph_calls = []
         self.displays = {}
@@ -30,13 +30,17 @@ class FakeSimple:
         self.lookup_table = SimpleNamespace(
             presets=[],
             ranges=[],
-            ApplyPreset=lambda preset, rescale: self.lookup_table.presets.append(
-                (preset, rescale)
-            ),
             RescaleTransferFunction=lambda minimum, maximum: (
                 self.lookup_table.ranges.append((minimum, maximum))
             ),
         )
+        self.rejected_presets = set(rejected_presets)
+        self.lookup_table.ApplyPreset = self.apply_preset
+
+    def apply_preset(self, preset, rescale):
+        self.lookup_table.presets.append((preset, rescale))
+        if preset in self.rejected_presets:
+            raise RuntimeError(f"no preset named {preset}")
 
     def Sphere(self, **kwargs):
         sphere = SimpleNamespace(**kwargs)
@@ -154,7 +158,7 @@ def test_show_pipeline_colors_boundaries_by_velocity_and_glyphs_white():
 
     show_pipeline(simple, boundaries, {}, glyphs)
 
-    assert simple.lookup_table.presets == [("Blue Green Orange", True)]
+    assert simple.lookup_table.presets == [("Blue - Green - Orange", True)]
     assert simple.lookup_table.ranges == [(0.0, 1.0)]
     assert [specification for _, specification in simple.color_by_calls] == [
         ("POINTS", "velocity", "Magnitude")
@@ -166,6 +170,17 @@ def test_show_pipeline_colors_boundaries_by_velocity_and_glyphs_white():
         display = simple.displays[id(glyph)]
         assert display.ColorArrayName == [None, ""]
         assert display.DiffuseColor == (1.0, 1.0, 1.0)
+
+
+def test_show_pipeline_falls_back_to_legacy_velocity_color_preset():
+    simple = FakeSimple(rejected_presets={"Blue - Green - Orange"})
+
+    show_pipeline(simple, {}, {}, {})
+
+    assert simple.lookup_table.presets == [
+        ("Blue - Green - Orange", True),
+        ("Blue Green Orange", True),
+    ]
 
 
 def test_show_pipeline_renders_radius_spheres_with_requested_opacity():

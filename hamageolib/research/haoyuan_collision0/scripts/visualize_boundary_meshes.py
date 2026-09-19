@@ -25,7 +25,10 @@ SPHERE_RESOLUTION = 128
 SPHERE_OPACITIES = {"inner": 1.0, "outer": 0.2}
 VELOCITY_GLYPH_SCALE_FACTOR = 1.0e6
 VELOCITY_COLOR_RANGE = (0.0, 1.0)
-VELOCITY_COLOR_PRESET = "Blue Green Orange"
+VELOCITY_COLOR_PRESETS = (
+    "Blue - Green - Orange",
+    "Blue Green Orange",
+)
 SOLID_WHITE = (1.0, 1.0, 1.0)
 
 
@@ -136,6 +139,18 @@ def create_velocity_glyphs(simple, boundaries):
     return glyphs
 
 
+def apply_velocity_color_preset(lookup_table):
+    """Apply the first Blue-Green-Orange preset supported by ParaView."""
+    last_error = None
+    for preset_name in VELOCITY_COLOR_PRESETS:
+        try:
+            lookup_table.ApplyPreset(preset_name, True)
+            return preset_name
+        except RuntimeError as error:
+            last_error = error
+    raise last_error
+
+
 def build_pipeline(
     boundary_directory,
     radial_bounds,
@@ -167,7 +182,7 @@ def build_pipeline(
         "velocity_coloring": {
             "array": "velocity",
             "component": "Magnitude",
-            "preset": VELOCITY_COLOR_PRESET,
+            "preset_candidates": list(VELOCITY_COLOR_PRESETS),
             "range": list(VELOCITY_COLOR_RANGE),
         },
     }
@@ -258,7 +273,7 @@ def show_pipeline(
     """Show velocity-colored boundaries, glyphs, and radial spheres."""
     render_view = simple.GetActiveViewOrCreate("RenderView")
     velocity_lookup_table = simple.GetColorTransferFunction("velocity")
-    velocity_lookup_table.ApplyPreset(VELOCITY_COLOR_PRESET, True)
+    apply_velocity_color_preset(velocity_lookup_table)
     velocity_lookup_table.RescaleTransferFunction(*VELOCITY_COLOR_RANGE)
     for boundary in boundaries.values():
         boundary_display = simple.Show(boundary, render_view)
