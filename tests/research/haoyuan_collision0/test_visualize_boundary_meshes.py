@@ -60,10 +60,16 @@ class FakeSimple:
         self.color_by_calls.append((display, array_specification))
 
     def GetActiveViewOrCreate(self, view_type):
-        return SimpleNamespace(view_type=view_type, ResetCamera=lambda: None)
+        self.render_view = SimpleNamespace(
+            view_type=view_type, ResetCamera=lambda: None
+        )
+        return self.render_view
 
     def Show(self, source, render_view):
-        display = SimpleNamespace()
+        display = SimpleNamespace(scalar_bar_visibilities=[])
+        display.SetScalarBarVisibility = lambda view, visible: (
+            display.scalar_bar_visibilities.append((view, visible))
+        )
         self.displays[id(source)] = display
         return display
 
@@ -166,6 +172,12 @@ def test_show_pipeline_colors_boundaries_by_velocity_and_glyphs_white():
     for boundary in boundaries.values():
         display = simple.displays[id(boundary)]
         assert display.Representation == "Surface"
+    first_boundary = next(iter(boundaries.values()))
+    assert simple.displays[id(first_boundary)].scalar_bar_visibilities == [
+        (simple.render_view, True)
+    ]
+    for boundary in list(boundaries.values())[1:]:
+        assert simple.displays[id(boundary)].scalar_bar_visibilities == []
     for glyph in glyphs.values():
         display = simple.displays[id(glyph)]
         assert display.ColorArrayName == [None, ""]

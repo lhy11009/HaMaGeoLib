@@ -275,12 +275,17 @@ def show_pipeline(
     velocity_lookup_table = simple.GetColorTransferFunction("velocity")
     apply_velocity_color_preset(velocity_lookup_table)
     velocity_lookup_table.RescaleTransferFunction(*VELOCITY_COLOR_RANGE)
+    first_boundary_display = None
     for boundary in boundaries.values():
         boundary_display = simple.Show(boundary, render_view)
         boundary_display.Representation = "Surface"
         simple.ColorBy(
             boundary_display, ("POINTS", "velocity", "Magnitude")
         )
+        if first_boundary_display is None:
+            first_boundary_display = boundary_display
+    if first_boundary_display is not None:
+        first_boundary_display.SetScalarBarVisibility(render_view, True)
 
     for sphere_name, sphere in spheres.items():
         sphere_display = simple.Show(sphere, render_view)
