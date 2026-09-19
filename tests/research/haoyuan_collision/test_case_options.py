@@ -69,10 +69,41 @@ def test_fastscape_marine_component_defaults():
     rule.apply(config, prm_dict, {}, {"total_refinement": 8})
 
     fastscape = prm_dict["Mesh deformation"]["Fastscape"]
+    assert fastscape["Boundary conditions"] == {
+        "Front": "0",
+        "Back": "0",
+        "Left": "1",
+        "Right": "1",
+    }
     assert fastscape["Use marine component"] == "true"
     assert fastscape["Marine parameters"] == {
         "Sand transport coefficient": "100.0",
         "Silt transport coefficient": "500.0"
+    }
+
+
+def test_fastscape_reflective_left_right_boundaries():
+    """Make both lateral FastScape boundaries reflective when requested."""
+    prm_dict = {
+        "Mesh deformation": {
+            "Free surface": {},
+            "Diffusion": {},
+        }
+    }
+    config = {
+        "include_fastscape": True,
+        "use_reflective_left_right": True,
+    }
+    rule = FastScapeRule()
+    rule.add_default(config)
+
+    rule.apply(config, prm_dict, {}, {"total_refinement": 8})
+
+    assert prm_dict["Mesh deformation"]["Fastscape"]["Boundary conditions"] == {
+        "Front": "0",
+        "Back": "0",
+        "Left": "0",
+        "Right": "0",
     }
 
 
@@ -97,6 +128,37 @@ def test_fastscape_marine_component_case_name():
     )
 
     assert case_name == "C_marine"
+
+
+@pytest.mark.parametrize(
+    ("use_reflective_left_right", "expected_name"),
+    [(False, "C"), (True, "C_RLR")],
+)
+def test_fastscape_reflective_left_right_case_name(
+    use_reflective_left_right,
+    expected_name,
+):
+    """Append the reflective-side tag only when the option is enabled."""
+    variables = {
+        "weak_layer_rheology_scheme": "low friction",
+        "customize_corner": False,
+        "customize_corner_viscosity": 0.0,
+        "include_fastscape": True,
+        "include_marine_component": False,
+        "use_reflective_left_right": use_reflective_left_right,
+        "include_initial_topography": False,
+        "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False,
+    }
+
+    case_name = CaseNameFromVariables(
+        variables,
+        prefix="C",
+        use_all=False,
+        use_keys=["use_reflective_left_right"],
+    )
+
+    assert case_name == expected_name
 
 
 def test_fastscape_topography_difference_defaults():

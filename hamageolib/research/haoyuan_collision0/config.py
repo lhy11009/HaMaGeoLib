@@ -184,6 +184,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if use_all or "include_marine_component" in use_keys:
             if variables["include_marine_component"]:
                 case_name += "_marine"
+        if use_all or "use_reflective_left_right" in use_keys:
+            if variables["use_reflective_left_right"]:
+                case_name += "_RLR"
 
 
     if use_all or "do_topography_test" in use_keys:
@@ -3471,7 +3474,8 @@ class FastScapeRule(Rule):
                 "fastscape_timesteps", "erosional_base_level", "customize_ridge",
                 "kf_start_time", "include_initial_isostacy", "include_initial_topograph_filepath", "initial_topograph_fileout_x_interval",
                 "initial_topograph_fileout_migration", "include_initial_topography_mesh_deformation",
-                "include_marine_component", "sand_transport_coefficient", "silt_transport_coefficient"]
+                "include_marine_component", "sand_transport_coefficient", "silt_transport_coefficient",
+                "use_reflective_left_right"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3500,7 +3504,8 @@ class FastScapeRule(Rule):
         "include_initial_topography_mesh_deformation": False,
         "include_marine_component": False,
         "sand_transport_coefficient": 100.0,
-        "silt_transport_coefficient": 500.0
+        "silt_transport_coefficient": 500.0,
+        "use_reflective_left_right": False
     }
 
     requires_comments = {"customize_no_incision_width": "This set a region at both left and right of the model domain with 0.0 incision rate",
@@ -3519,7 +3524,8 @@ class FastScapeRule(Rule):
                          "initial_topograph_fileout_migration": "Migration of the topography before file outputs.",
                          "include_marine_component": "Enable the FastScape marine component.",
                          "sand_transport_coefficient": "FastScape marine transport coefficient for sand in m^2/yr.",
-                         "silt_transport_coefficient": "FastScape marine transport coefficient for silt in m^2/yr."
+                         "silt_transport_coefficient": "FastScape marine transport coefficient for silt in m^2/yr.",
+                         "use_reflective_left_right": "Use reflective rather than fixed FastScape left and right boundaries."
                          }
     
     def apply(self, config, prm_dict, wb_dict, context):
@@ -3554,6 +3560,7 @@ class FastScapeRule(Rule):
         include_marine_component = config["include_marine_component"]
         sand_transport_coefficient = config["sand_transport_coefficient"]
         silt_transport_coefficient = config["silt_transport_coefficient"]
+        use_reflective_left_right = config["use_reflective_left_right"]
 
         # First check only one of these options are selected.
         sum_options = sum((include_initial_topography, include_initial_isostacy, 
@@ -3576,8 +3583,8 @@ class FastScapeRule(Rule):
             fastscape_dict["Boundary conditions"] = {
                 "Front": "0",
                 "Back": "0",
-                "Left": "1",
-                "Right": "1"
+                "Left": "0" if use_reflective_left_right else "1",
+                "Right": "0" if use_reflective_left_right else "1"
             }
 
             fastscape_dict["Erosional parameters"] = {
