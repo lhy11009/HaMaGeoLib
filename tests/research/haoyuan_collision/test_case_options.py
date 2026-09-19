@@ -69,6 +69,7 @@ def test_fastscape_marine_component_defaults():
     rule.apply(config, prm_dict, {}, {"total_refinement": 8})
 
     fastscape = prm_dict["Mesh deformation"]["Fastscape"]
+    assert fastscape["Use ghost nodes"] == "false"
     assert fastscape["Boundary conditions"] == {
         "Front": "0",
         "Back": "0",
@@ -105,6 +106,69 @@ def test_fastscape_reflective_left_right_boundaries():
         "Left": "0",
         "Right": "0",
     }
+
+
+def test_fastscape_ghost_nodes_enabled():
+    """Enable FastScape ghost nodes independently of the erosional base level."""
+    prm_dict = {
+        "Mesh deformation": {
+            "Free surface": {},
+            "Diffusion": {},
+        }
+    }
+    config = {
+        "include_fastscape": True,
+        "use_ghost_nodes": True,
+    }
+    rule = FastScapeRule()
+    rule.add_default(config)
+
+    rule.apply(config, prm_dict, {}, {"total_refinement": 8})
+
+    assert prm_dict["Mesh deformation"]["Fastscape"]["Use ghost nodes"] == "true"
+
+
+def test_fastscape_erosional_base_level_requires_ghost_nodes():
+    """Reject a fixed erosional base level when ghost nodes are disabled."""
+    config = {
+        "include_fastscape": True,
+        "erosional_base_level": 0.01,
+        "use_ghost_nodes": False,
+    }
+    rule = FastScapeRule()
+    rule.add_default(config)
+
+    with pytest.raises(ValueError, match="erosional base level requires ghost nodes"):
+        rule.apply(
+            config,
+            {"Mesh deformation": {"Free surface": {}, "Diffusion": {}}},
+            {},
+            {"total_refinement": 8},
+        )
+
+
+def test_fastscape_erosional_base_level_with_ghost_nodes():
+    """Configure the fixed erosional base level when ghost nodes are enabled."""
+    prm_dict = {
+        "Mesh deformation": {
+            "Free surface": {},
+            "Diffusion": {},
+        }
+    }
+    config = {
+        "include_fastscape": True,
+        "erosional_base_level": 0.01,
+        "use_ghost_nodes": True,
+    }
+    rule = FastScapeRule()
+    rule.add_default(config)
+
+    rule.apply(config, prm_dict, {}, {"total_refinement": 8})
+
+    fastscape = prm_dict["Mesh deformation"]["Fastscape"]
+    assert fastscape["Use ghost nodes"] == "true"
+    assert fastscape["Erosional parameters"]["Use a fixed erosional base level"] == "true"
+    assert fastscape["Erosional parameters"]["Erosional base level"] == "0.01"
 
 
 def test_fastscape_marine_component_case_name():
@@ -156,6 +220,33 @@ def test_fastscape_reflective_left_right_case_name(
         prefix="C",
         use_all=False,
         use_keys=["use_reflective_left_right"],
+    )
+
+    assert case_name == expected_name
+
+
+@pytest.mark.parametrize(
+    ("use_ghost_nodes", "expected_name"),
+    [(False, "C"), (True, "C_GN")],
+)
+def test_fastscape_ghost_nodes_case_name(use_ghost_nodes, expected_name):
+    """Append the ghost-node tag only when ghost nodes are enabled."""
+    variables = {
+        "weak_layer_rheology_scheme": "low friction",
+        "customize_corner": False,
+        "customize_corner_viscosity": 0.0,
+        "include_fastscape": True,
+        "use_ghost_nodes": use_ghost_nodes,
+        "include_initial_topography": False,
+        "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False,
+    }
+
+    case_name = CaseNameFromVariables(
+        variables,
+        prefix="C",
+        use_all=False,
+        use_keys=["use_ghost_nodes"],
     )
 
     assert case_name == expected_name

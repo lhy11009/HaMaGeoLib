@@ -149,6 +149,7 @@
   "customize_no_incision_width": 0.0,
   "fastscape_timesteps": 5,
   "erosional_base_level": 0.01,
+  "use_ghost_nodes": true,
   "include_initial_topograph_filepath": "/mnt/lochy/ASPECT_DATA/Collision0/collision_setup30/C_ar4_SA100.0_CR_CRT2.00e+05_Est1.00e+06_TC5.00e+02_TO-3.50e+03_SMT_DF/output/topography/topography.00015",
   "initial_topograph_fileout_migration": 500.0,
   "temporary_output_directory": "/home/lochy/ASPECT_PROJECT/HaMaGeoLib/dtemp/new_case_foo",

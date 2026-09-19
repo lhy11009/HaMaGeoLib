@@ -149,6 +149,7 @@
   "customize_no_incision_width": 0.0,
   "fastscape_timesteps": 5,
   "erosional_base_level": 1500.0,
+  "use_ghost_nodes": true,
   "customize_ridge_taper_length": 200000.0,
   "include_initial_topography_with_gwb": false
 }
