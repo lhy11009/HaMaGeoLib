@@ -1,3 +1,4 @@
+import json
 import runpy
 import shutil
 import subprocess
@@ -20,6 +21,11 @@ SCRIPT_PATH = (
     PACKAGE_ROOT
     / "hamageolib/research/haoyuan_collision0/scripts"
     / "create_boundary_meshes.py"
+)
+GENERATOR_PATH = (
+    PACKAGE_ROOT
+    / "hamageolib/research/haoyuan_collision0/scripts"
+    / "generate_boundary_visualization.py"
 )
 TEST_DIRECTORY = (
     PACKAGE_ROOT
@@ -101,7 +107,31 @@ def test_create_boundary_meshes_with_s20rts_solution():
             if array_name == "velocity":
                 assert np.any(np.abs(values) > 0.0)
 
+    metadata_path = TEST_DIRECTORY / "boundary_mesh_metadata.json"
+    assert metadata_path.is_file()
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata["solution"] == str(SOLUTION_PATH.resolve())
+    assert metadata["radial_bounds"] == pytest.approx(
+        (3_481_000.0, 6_371_000.0), abs=2.0
+    )
+
     visualization_path = TEST_DIRECTORY / "visualize_boundary_meshes.py"
+    assert not visualization_path.exists()
+    visualization_result = subprocess.run(
+        [sys.executable, str(GENERATOR_PATH), "--metadata", str(metadata_path)],
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    (TEST_DIRECTORY / "generate_boundary_visualization.stdout").write_text(
+        visualization_result.stdout, encoding="utf-8"
+    )
+    (TEST_DIRECTORY / "generate_boundary_visualization.stderr").write_text(
+        visualization_result.stderr, encoding="utf-8"
+    )
+    assert visualization_result.returncode == 0, visualization_result.stderr
     assert visualization_path.is_file()
     visualization = runpy.run_path(str(visualization_path))
     assert visualization["SOLUTION_PATH"] == SOLUTION_PATH.resolve()

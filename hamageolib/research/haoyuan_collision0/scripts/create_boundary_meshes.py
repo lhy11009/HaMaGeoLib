@@ -9,6 +9,7 @@ with velocity sampled from a model solution.
 import argparse
 import configparser
 import csv
+import json
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -17,7 +18,7 @@ import numpy as np
 import vtk
 
 
-VISUALIZATION_SCRIPT_NAME = "visualize_boundary_meshes.py"
+BOUNDARY_METADATA_NAME = "boundary_mesh_metadata.json"
 
 
 @dataclass(frozen=True)
@@ -671,45 +672,32 @@ def source_radial_bounds(source_dataset):
     return float(minimum_radius), float(maximum_radius)
 
 
-def write_visualization_script(
-    output_directory, solution_path, longitude_bounds, radial_bounds
+def write_boundary_mesh_metadata(
+    output_directory,
+    solution_path,
+    longitude_bounds,
+    radial_bounds,
+    boundary_paths,
 ):
-    """Write a self-contained ParaView GUI script beside the boundary meshes."""
+    """Write reusable metadata describing processed boundary-mesh outputs."""
     output_directory = Path(output_directory).resolve()
     solution_path = Path(solution_path).resolve()
     output_directory.mkdir(parents=True, exist_ok=True)
-
-    template_path = Path(__file__).with_name(VISUALIZATION_SCRIPT_NAME)
-    configured_path = output_directory / VISUALIZATION_SCRIPT_NAME
-    configured_values = {
-        "__SOLUTION_PATH__": solution_path,
-        "__BOUNDARY_DIRECTORY__": output_directory,
-        "__STATE_FILE__": output_directory / "boundary_meshes.pvsm",
-        "__VALIDATION_FILE__": output_directory
-        / "boundary_meshes_validation.json",
-        "__INNER_RADIUS__": float(min(radial_bounds)),
-        "__OUTER_RADIUS__": float(max(radial_bounds)),
-        "__LONGITUDE_MIN__": float(min(longitude_bounds)),
-        "__LONGITUDE_MAX__": float(max(longitude_bounds)),
+    metadata = {
+        "solution": str(solution_path),
+        "boundary_directory": str(output_directory),
+        "longitude_bounds": [float(value) for value in longitude_bounds],
+        "radial_bounds": [float(value) for value in radial_bounds],
+        "boundary_meshes": {
+            name: str(Path(path).resolve()) for name, path in boundary_paths.items()
+        },
     }
-
-    configured_script = template_path.read_text(encoding="utf-8")
-    for placeholder, configured_value in configured_values.items():
-        quoted_placeholder = f'"{placeholder}"'
-        if configured_script.count(quoted_placeholder) != 1:
-            raise ValueError(
-                f"visualization template must contain {quoted_placeholder} exactly once"
-            )
-        if isinstance(configured_value, Path):
-            replacement = repr(str(configured_value))
-        else:
-            replacement = repr(configured_value)
-        configured_script = configured_script.replace(
-            quoted_placeholder, replacement
-        )
-
-    configured_path.write_text(configured_script, encoding="utf-8")
-    return configured_path
+    metadata_path = output_directory / BOUNDARY_METADATA_NAME
+    metadata_path.write_text(
+        json.dumps(metadata, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return metadata_path
 
 
 def main():
@@ -762,14 +750,15 @@ def main():
     )
     for output_path in output_paths.values():
         report_progress(f"Created boundary mesh: {output_path}")
-    report_progress("Generating configured ParaView visualization script")
-    visualization_script = write_visualization_script(
+    report_progress("Writing boundary mesh metadata")
+    metadata_path = write_boundary_mesh_metadata(
         config.output_directory,
         config.solution,
         config.longitude_bounds,
         radial_bounds,
+        output_paths,
     )
-    report_progress(f"Created visualization script: {visualization_script}")
+    report_progress(f"Created boundary mesh metadata: {metadata_path}")
     report_progress("Finished boundary mesh processing")
 
 

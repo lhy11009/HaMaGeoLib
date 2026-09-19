@@ -1,6 +1,6 @@
 import csv
+import json
 import re
-import runpy
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -20,9 +20,9 @@ from hamageolib.research.haoyuan_collision0.scripts.create_boundary_meshes impor
     report_solution_bounds,
     source_radial_bounds,
     uniform_coordinates,
+    write_boundary_mesh_metadata,
     write_boundary_meshes,
     write_boundary_velocity_meshes,
-    write_visualization_script,
 )
 
 
@@ -708,36 +708,30 @@ def test_write_boundary_meshes_reports_progress_without_interpolation(
         assert any(f"Finished {boundary_name} boundary" in line for line in lines)
 
 
-def test_write_visualization_script_embeds_radii_and_output_paths(tmp_path):
+def test_write_boundary_mesh_metadata_records_processing_outputs(tmp_path):
     output_directory = tmp_path / "boundary meshes"
     solution_path = tmp_path / "solution.pvtu"
-    script_path = write_visualization_script(
+    output_paths = {
+        name: output_directory / f"chunk_3d_{name}_mesh.vts"
+        for name in ("west", "east", "north", "south")
+    }
+
+    metadata_path = write_boundary_mesh_metadata(
         output_directory,
         solution_path,
         (151.0, 209.0),
         (4_760_000.0, 6_360_000.0),
+        output_paths,
     )
 
-    assert script_path == output_directory / "visualize_boundary_meshes.py"
-    script_contents = script_path.read_text(encoding="utf-8")
-    assert "__BOUNDARY_DIRECTORY__" not in script_contents
-    assert "__STATE_FILE__" not in script_contents
-    assert "__VALIDATION_FILE__" not in script_contents
-    assert "__INNER_RADIUS__" not in script_contents
-    assert "__OUTER_RADIUS__" not in script_contents
-    assert "__SOLUTION_PATH__" not in script_contents
-    assert "__LONGITUDE_MIN__" not in script_contents
-    assert "__LONGITUDE_MAX__" not in script_contents
-
-    configured_values = runpy.run_path(str(script_path))
-    assert configured_values["BOUNDARY_DIRECTORY"] == output_directory.resolve()
-    assert configured_values["STATE_FILE"] == (
-        output_directory / "boundary_meshes.pvsm"
-    ).resolve()
-    assert configured_values["VALIDATION_FILE"] == (
-        output_directory / "boundary_meshes_validation.json"
-    ).resolve()
-    assert configured_values["RADIAL_BOUNDS"] == (4_760_000.0, 6_360_000.0)
-    assert configured_values["SOLUTION_PATH"] == solution_path.resolve()
-    assert configured_values["LONGITUDE_BOUNDS"] == (151.0, 209.0)
-    assert configured_values["LOAD_ORIGINAL_SOLUTION"] is False
+    assert metadata_path == output_directory / "boundary_mesh_metadata.json"
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    assert metadata == {
+        "boundary_directory": str(output_directory.resolve()),
+        "boundary_meshes": {
+            name: str(path.resolve()) for name, path in output_paths.items()
+        },
+        "longitude_bounds": [151.0, 209.0],
+        "radial_bounds": [4_760_000.0, 6_360_000.0],
+        "solution": str(solution_path.resolve()),
+    }
