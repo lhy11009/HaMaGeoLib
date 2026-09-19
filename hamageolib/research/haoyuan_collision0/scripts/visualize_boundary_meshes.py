@@ -22,7 +22,11 @@ RADIAL_BOUNDS = ("__INNER_RADIUS__", "__OUTER_RADIUS__")
 LONGITUDE_BOUNDS = ("__LONGITUDE_MIN__", "__LONGITUDE_MAX__")
 BOUNDARY_NAMES = ("west", "east", "north", "south")
 SPHERE_RESOLUTION = 128
-SPHERE_OPACITY = 0.02
+SPHERE_OPACITIES = {"inner": 1.0, "outer": 0.2}
+VELOCITY_GLYPH_SCALE_FACTOR = 1.0e6
+VELOCITY_COLOR_RANGE = (0.0, 1.0)
+VELOCITY_COLOR_PRESET = "Blue Green Orange"
+SOLID_WHITE = (1.0, 1.0, 1.0)
 
 
 def boundary_longitude(boundary_name, longitude_bounds):
@@ -115,6 +119,23 @@ def create_radius_spheres(simple, radial_bounds):
     }
 
 
+def create_velocity_glyphs(simple, boundaries):
+    """Create arrow glyphs oriented and scaled by boundary velocity."""
+    glyphs = {}
+    for boundary_name, boundary in boundaries.items():
+        glyph = simple.Glyph(
+            registrationName=f"{boundary_name.title()}VelocityGlyphs",
+            Input=boundary,
+            GlyphType="Arrow",
+        )
+        glyph.OrientationArray = ["POINTS", "velocity"]
+        glyph.ScaleArray = ["POINTS", "velocity"]
+        glyph.ScaleFactor = VELOCITY_GLYPH_SCALE_FACTOR
+        glyph.GlyphMode = "All Points"
+        glyphs[boundary_name] = glyph
+    return glyphs
+
+
 def build_pipeline(
     boundary_directory,
     radial_bounds,
@@ -142,6 +163,13 @@ def build_pipeline(
         "boundary_directory": str(boundary_directory),
         "boundaries": {},
         "spheres": {},
+        "glyphs": {},
+        "velocity_coloring": {
+            "array": "velocity",
+            "component": "Magnitude",
+            "preset": VELOCITY_COLOR_PRESET,
+            "range": list(VELOCITY_COLOR_RANGE),
+        },
     }
     for boundary_name, boundary_path in boundary_paths.items():
         boundary = simple.OpenDataFile(str(boundary_path))
@@ -160,7 +188,16 @@ def build_pipeline(
             "radius": sphere.Radius,
             "theta_resolution": sphere.ThetaResolution,
             "phi_resolution": sphere.PhiResolution,
-            "opacity": SPHERE_OPACITY,
+            "opacity": SPHERE_OPACITIES[sphere_name],
+        }
+
+    glyphs = create_velocity_glyphs(simple, boundaries)
+    for boundary_name in glyphs:
+        validation["glyphs"][boundary_name] = {
+            "orientation_array": "velocity",
+            "scale_array": "velocity",
+            "scale_factor": VELOCITY_GLYPH_SCALE_FACTOR,
+            "glyph_mode": "All Points",
         }
 
     solution = None
@@ -212,33 +249,36 @@ def build_pipeline(
                 "point_count": slice_point_count,
             }
 
-    return solution, boundaries, spheres, slices, validation
+    return solution, boundaries, spheres, glyphs, slices, validation
 
 
-def show_pipeline(simple, boundaries, spheres, solution=None, slices=None):
-    """Show boundary meshes and transparent radial spheres in one view."""
+def show_pipeline(
+    simple, boundaries, spheres, glyphs, solution=None, slices=None
+):
+    """Show velocity-colored boundaries, glyphs, and radial spheres."""
     render_view = simple.GetActiveViewOrCreate("RenderView")
-    boundary_colors = {
-        "west": (0.85, 0.15, 0.15),
-        "east": (0.15, 0.35, 0.85),
-        "north": (0.85, 0.65, 0.15),
-        "south": (0.25, 0.75, 0.35),
-    }
-    for boundary_name, boundary in boundaries.items():
+    velocity_lookup_table = simple.GetColorTransferFunction("velocity")
+    velocity_lookup_table.ApplyPreset(VELOCITY_COLOR_PRESET, True)
+    velocity_lookup_table.RescaleTransferFunction(*VELOCITY_COLOR_RANGE)
+    for boundary in boundaries.values():
         boundary_display = simple.Show(boundary, render_view)
-        boundary_display.Representation = "Surface With Edges"
-        boundary_display.DiffuseColor = boundary_colors[boundary_name]
+        boundary_display.Representation = "Surface"
+        simple.ColorBy(
+            boundary_display, ("POINTS", "velocity", "Magnitude")
+        )
 
-    sphere_colors = {
-        "inner": (0.35, 0.55, 0.85),
-        "outer": (0.75, 0.75, 0.75),
-    }
     for sphere_name, sphere in spheres.items():
         sphere_display = simple.Show(sphere, render_view)
         sphere_display.ColorArrayName = [None, ""]
         sphere_display.Representation = "Surface"
-        sphere_display.DiffuseColor = sphere_colors[sphere_name]
-        sphere_display.Opacity = SPHERE_OPACITY
+        sphere_display.DiffuseColor = SOLID_WHITE
+        sphere_display.Opacity = SPHERE_OPACITIES[sphere_name]
+
+    for glyph in glyphs.values():
+        glyph_display = simple.Show(glyph, render_view)
+        glyph_display.ColorArrayName = [None, ""]
+        glyph_display.Representation = "Surface"
+        glyph_display.DiffuseColor = SOLID_WHITE
 
     if solution is not None:
         solution_display = simple.Show(solution, render_view)
@@ -250,7 +290,8 @@ def show_pipeline(simple, boundaries, spheres, solution=None, slices=None):
             slice_display = simple.Show(global_slice, render_view)
             slice_display.Representation = "Surface"
             slice_display.Opacity = 0.35
-            slice_display.DiffuseColor = boundary_colors[boundary_name]
+            slice_display.ColorArrayName = [None, ""]
+            slice_display.DiffuseColor = SOLID_WHITE
 
     render_view.ResetCamera()
     return render_view
@@ -262,14 +303,14 @@ def main():
     args = _parse_arguments()
     radial_bounds = tuple(float(radius) for radius in RADIAL_BOUNDS)
     longitude_bounds = tuple(float(value) for value in LONGITUDE_BOUNDS)
-    solution, boundaries, spheres, slices, validation = build_pipeline(
+    solution, boundaries, spheres, glyphs, slices, validation = build_pipeline(
         args.boundary_directory,
         radial_bounds,
         LOAD_ORIGINAL_SOLUTION,
         SOLUTION_PATH,
         longitude_bounds,
     )
-    show_pipeline(simple, boundaries, spheres, solution, slices)
+    show_pipeline(simple, boundaries, spheres, glyphs, solution, slices)
 
     args.state_file.parent.mkdir(parents=True, exist_ok=True)
     simple.SaveState(str(args.state_file.resolve()))
