@@ -27,6 +27,11 @@ GENERATOR_PATH = (
     / "hamageolib/research/haoyuan_collision0/scripts"
     / "generate_boundary_visualization.py"
 )
+PROJECTOR_PATH = (
+    PACKAGE_ROOT
+    / "hamageolib/research/haoyuan_collision0/scripts"
+    / "project_boundary_velocities.py"
+)
 TEST_DIRECTORY = (
     PACKAGE_ROOT
     / ".test/research-haoyuan_collision0-create-boundary-meshes-s20rts"
@@ -114,6 +119,53 @@ def test_create_boundary_meshes_with_s20rts_solution():
     assert metadata["radial_bounds"] == pytest.approx(
         (3_481_000.0, 6_371_000.0), abs=2.0
     )
+
+    projection_result = subprocess.run(
+        [sys.executable, str(PROJECTOR_PATH), "--metadata", str(metadata_path)],
+        cwd=PACKAGE_ROOT,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    (TEST_DIRECTORY / "project_boundary_velocities.stdout").write_text(
+        projection_result.stdout, encoding="utf-8"
+    )
+    (TEST_DIRECTORY / "project_boundary_velocities.stderr").write_text(
+        projection_result.stderr, encoding="utf-8"
+    )
+    assert projection_result.returncode == 0, projection_result.stderr
+    assert "Finished boundary velocity projection" in projection_result.stdout
+
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    projection = metadata["velocity_projection"]
+    assert set(projection["boundaries"]) == set(expected_dimensions)
+    for boundary_name in expected_dimensions:
+        reader = vtk.vtkXMLStructuredGridReader()
+        reader.SetFileName(str(metadata["boundary_meshes"][boundary_name]))
+        reader.Update()
+        point_data = reader.GetOutput().GetPointData()
+        arrays = {
+            name: vtk_to_numpy(point_data.GetArray(name))
+            for name in (
+                "velocity",
+                "boundary_normal",
+                "velocity_normal",
+                "velocity_parallel",
+                "velocity_normal_signed",
+            )
+        }
+        assert np.linalg.norm(arrays["boundary_normal"], axis=1) == pytest.approx(
+            1.0
+        )
+        assert arrays["velocity_normal"] + arrays["velocity_parallel"] == (
+            pytest.approx(arrays["velocity"])
+        )
+        assert np.einsum(
+            "ij,ij->i",
+            arrays["velocity_parallel"],
+            arrays["boundary_normal"],
+        ) == pytest.approx(0.0, abs=1e-12)
 
     visualization_path = TEST_DIRECTORY / "visualize_boundary_meshes.py"
     assert not visualization_path.exists()
