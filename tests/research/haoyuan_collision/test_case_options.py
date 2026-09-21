@@ -79,8 +79,51 @@ def test_fastscape_marine_component_defaults():
     assert fastscape["Use marine component"] == "true"
     assert fastscape["Marine parameters"] == {
         "Sand transport coefficient": "100.0",
-        "Silt transport coefficient": "500.0"
+        "Silt transport coefficient": "500.0",
+        "Silt fraction": "0.5",
     }
+
+
+def test_fastscape_custom_silt_fraction():
+    """Configure the fraction of marine sediment represented by silt."""
+    prm_dict = {
+        "Mesh deformation": {
+            "Free surface": {},
+            "Diffusion": {},
+        }
+    }
+    config = {
+        "include_fastscape": True,
+        "include_marine_component": True,
+        "silt_fraction": 0.2,
+    }
+    rule = FastScapeRule()
+    rule.add_default(config)
+
+    rule.apply(config, prm_dict, {}, {"total_refinement": 8})
+
+    marine = prm_dict["Mesh deformation"]["Fastscape"]["Marine parameters"]
+    assert marine["Silt fraction"] == "0.2"
+
+
+@pytest.mark.parametrize("silt_fraction", [-0.1, 1.1])
+def test_fastscape_silt_fraction_bounds(silt_fraction):
+    """Reject silt fractions outside the physical zero-to-one range."""
+    config = {
+        "include_fastscape": True,
+        "include_marine_component": True,
+        "silt_fraction": silt_fraction,
+    }
+    rule = FastScapeRule()
+    rule.add_default(config)
+
+    with pytest.raises(ValueError, match="Silt fraction must be between 0 and 1"):
+        rule.apply(
+            config,
+            {"Mesh deformation": {"Free surface": {}, "Diffusion": {}}},
+            {},
+            {"total_refinement": 8},
+        )
 
 
 def test_fastscape_reflective_left_right_boundaries():
@@ -192,6 +235,30 @@ def test_fastscape_marine_component_case_name():
     )
 
     assert case_name == "C_marine"
+
+
+def test_fastscape_silt_fraction_case_name():
+    """Append the configured silt fraction to marine FastScape case names."""
+    variables = {
+        "weak_layer_rheology_scheme": "low friction",
+        "customize_corner": False,
+        "customize_corner_viscosity": 0.0,
+        "include_fastscape": True,
+        "include_marine_component": True,
+        "silt_fraction": 0.2,
+        "include_initial_topography": False,
+        "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False,
+    }
+
+    case_name = CaseNameFromVariables(
+        variables,
+        prefix="C",
+        use_all=False,
+        use_keys=["silt_fraction"],
+    )
+
+    assert case_name == "C_SF2.00e-01"
 
 
 @pytest.mark.parametrize(

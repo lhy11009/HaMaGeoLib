@@ -184,6 +184,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if use_all or "include_marine_component" in use_keys:
             if variables["include_marine_component"]:
                 case_name += "_marine"
+        if use_all or "silt_fraction" in use_keys:
+            if variables["include_marine_component"]:
+                case_name += "_SF%.2e" % variables["silt_fraction"]
         if use_all or "use_reflective_left_right" in use_keys:
             if variables["use_reflective_left_right"]:
                 case_name += "_RLR"
@@ -3478,7 +3481,7 @@ class FastScapeRule(Rule):
                 "kf_start_time", "include_initial_isostacy", "include_initial_topograph_filepath", "initial_topograph_fileout_x_interval",
                 "initial_topograph_fileout_migration", "include_initial_topography_mesh_deformation",
                 "include_marine_component", "sand_transport_coefficient", "silt_transport_coefficient",
-                "use_reflective_left_right", "use_ghost_nodes"]
+                "silt_fraction", "use_reflective_left_right", "use_ghost_nodes"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3508,6 +3511,7 @@ class FastScapeRule(Rule):
         "include_marine_component": False,
         "sand_transport_coefficient": 100.0,
         "silt_transport_coefficient": 500.0,
+        "silt_fraction": 0.5,
         "use_reflective_left_right": False,
         "use_ghost_nodes": False
     }
@@ -3529,6 +3533,7 @@ class FastScapeRule(Rule):
                          "include_marine_component": "Enable the FastScape marine component.",
                          "sand_transport_coefficient": "FastScape marine transport coefficient for sand in m^2/yr.",
                          "silt_transport_coefficient": "FastScape marine transport coefficient for silt in m^2/yr.",
+                         "silt_fraction": "Fraction of sediment leaving the continent that is silt.",
                          "use_reflective_left_right": "Use reflective rather than fixed FastScape left and right boundaries.",
                          "use_ghost_nodes": "Use ghost nodes at the FastScape boundaries."
                          }
@@ -3565,6 +3570,7 @@ class FastScapeRule(Rule):
         include_marine_component = config["include_marine_component"]
         sand_transport_coefficient = config["sand_transport_coefficient"]
         silt_transport_coefficient = config["silt_transport_coefficient"]
+        silt_fraction = config["silt_fraction"]
         use_reflective_left_right = config["use_reflective_left_right"]
         use_ghost_nodes = config["use_ghost_nodes"]
 
@@ -3572,6 +3578,11 @@ class FastScapeRule(Rule):
             not include_fastscape or erosional_base_level <= 0.0 or use_ghost_nodes,
             ValueError,
             "A positive erosional base level requires ghost nodes",
+        )
+        my_assert(
+            0.0 <= silt_fraction <= 1.0,
+            ValueError,
+            "Silt fraction must be between 0 and 1",
         )
 
         # First check only one of these options are selected.
@@ -3614,7 +3625,8 @@ class FastScapeRule(Rule):
                 fastscape_dict["Use marine component"] = "true"
                 fastscape_dict["Marine parameters"] = {
                     "Sand transport coefficient": str(sand_transport_coefficient),
-                    "Silt transport coefficient": str(silt_transport_coefficient)
+                    "Silt transport coefficient": str(silt_transport_coefficient),
+                    "Silt fraction": str(silt_fraction)
                 }
 
             # Add fixed erosion baselevel
