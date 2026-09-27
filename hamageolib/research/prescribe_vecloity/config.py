@@ -136,7 +136,7 @@ class StegmanSlabRule(Rule):
     requires = [
         "plate_name", "plate_start", "trench_position", "plate_thickness",
         "slab_segment_lengths", "slab_segment_angles", "slab_max_depth",
-        "dip_point",
+        "dip_point", "long_slab", "long_slab_length", "long_slab_end_angle",
     ]
     defaults = {
         "plate_name": "plate",
@@ -147,6 +147,9 @@ class StegmanSlabRule(Rule):
         "slab_segment_angles": [[0.0, 45.0], [45.0, 90.0]],
         "slab_max_depth": 300e3,
         "dip_point": [4000e3, 0.0],
+        "long_slab": False,
+        "long_slab_length": 300e3,
+        "long_slab_end_angle": 60.0,
     }
     provides = ["plate_length", "trench_position"]
 
@@ -178,6 +181,19 @@ class StegmanSlabRule(Rule):
                 config["slab_segment_lengths"], config["slab_segment_angles"]
             )
         ]
+        if config["long_slab"]:
+            if config["long_slab_length"] <= 0:
+                raise ValueError("long_slab_length must be positive.")
+            if not 0 <= config["long_slab_end_angle"] <= 180:
+                raise ValueError("long_slab_end_angle must be between 0 and 180 degrees.")
+            segments.append({
+                "length": config["long_slab_length"],
+                "thickness": [thickness],
+                "angle": [
+                    config["slab_segment_angles"][-1][-1],
+                    config["long_slab_end_angle"],
+                ],
+            })
         wb_dict.clear()
         wb_dict.update({
             "version": "1.2",

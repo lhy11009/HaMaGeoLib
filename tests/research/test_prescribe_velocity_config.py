@@ -67,6 +67,48 @@ def test_plate_isosurface_refinement():
     assert wb_dict == expected_wb
 
 
+def test_long_slab():
+    """Append the long-slab segment without changing slab-relative max depth."""
+    expected_prm, expected_wb = load_fixture("long_slab")
+    prm_dict, wb_dict, _ = make_stegman_case({"long_slab": True})
+
+    assert prm_dict == expected_prm
+    assert wb_dict == expected_wb
+    slab = wb_dict["features"][1]
+    assert slab["segments"][-1] == {
+        "length": 300e3,
+        "thickness": [100e3],
+        "angle": [90.0, 60.0],
+    }
+    assert slab["max depth"] == 300e3
+
+
+def test_long_slab_options_are_configurable():
+    """Allow the extension length and final dip angle to be customized."""
+    _, wb_dict, _ = make_stegman_case({
+        "long_slab": True,
+        "long_slab_length": 200e3,
+        "long_slab_end_angle": 45.0,
+    })
+
+    assert wb_dict["features"][1]["segments"][-1]["length"] == 200e3
+    assert wb_dict["features"][1]["segments"][-1]["angle"] == [90.0, 45.0]
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"long_slab": True, "long_slab_length": 0},
+        {"long_slab": True, "long_slab_end_angle": -1},
+        {"long_slab": True, "long_slab_end_angle": 181},
+    ],
+)
+def test_long_slab_validates_extension(config):
+    """Reject nonphysical long-slab extension parameters."""
+    with pytest.raises(ValueError):
+        make_stegman_case(config)
+
+
 def test_custom_plate_isosurface_refinement():
     """Allow custom plate thresholds and refinement-level selectors."""
     prm_dict, _, _ = make_stegman_case({
