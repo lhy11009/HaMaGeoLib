@@ -18,6 +18,41 @@ test_root.mkdir(exist_ok=True)
 test_dir = test_root/"research-haoyuan-post-process"
 test_dir.mkdir(exist_ok=True)
 
+
+def test_integrate_topography_sorts_coordinates():
+    x = np.array([2.0, 0.0, 1.0])
+    topography = np.array([4.0, 0.0, 2.0])
+
+    integrated, average = integrate_topography(x, topography)
+
+    assert np.isclose(integrated, 4.0)
+    assert np.isclose(average, 2.0)
+
+
+def test_integrate_topography_averages_duplicate_coordinates():
+    x = np.array([2.0, 1.0, 0.0, 1.0])
+    topography = np.array([4.0, 1.0, 0.0, 3.0])
+
+    integrated, average = integrate_topography(x, topography)
+
+    assert np.isclose(integrated, 4.0)
+    assert np.isclose(average, 2.0)
+
+
+@pytest.mark.parametrize(
+    "x, topography, message",
+    [
+        ([0.0], [1.0], "at least two topography points"),
+        ([0.0, 1.0], [1.0], "same length"),
+        ([1.0, 1.0], [0.0, 2.0], "two distinct coordinates"),
+        ([0.0, np.nan], [0.0, 1.0], "finite values"),
+    ],
+)
+def test_integrate_topography_rejects_invalid_inputs(x, topography, message):
+    with pytest.raises(ValueError, match=message):
+        integrate_topography(x, topography)
+
+
 @pytest.mark.big_test
 def test_extract_slab_2d():
 

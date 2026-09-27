@@ -1863,6 +1863,65 @@ def finalize_visualization_2d_05012026(local_dir, file_name, _time, frame_png_fi
     return output_image_file
 
 
+def integrate_topography(x, topography):
+    """Integrate topography over horizontal distance and compute its average.
+
+    The input coordinates may be unsorted. Repeated coordinates are combined
+    by averaging their topography values before trapezoidal integration.
+
+    Parameters
+    ----------
+    x : array-like
+        Horizontal coordinates.
+    topography : array-like
+        Topography values corresponding to ``x``.
+
+    Returns
+    -------
+    integrated_topography : float
+        Integral of topography over the horizontal coordinate range.
+    average_topography : float
+        Integrated topography divided by the horizontal coordinate range.
+
+    Raises
+    ------
+    ValueError
+        If the inputs are not finite one-dimensional arrays of equal length,
+        or if they contain fewer than two distinct horizontal coordinates.
+    """
+    x = np.asarray(x, dtype=float)
+    topography = np.asarray(topography, dtype=float)
+
+    if x.ndim != 1 or topography.ndim != 1:
+        raise ValueError("x and topography must be one-dimensional")
+    if x.size != topography.size:
+        raise ValueError("x and topography must have the same length")
+    if x.size < 2:
+        raise ValueError("at least two topography points are required")
+    if not np.all(np.isfinite(x)) or not np.all(np.isfinite(topography)):
+        raise ValueError("x and topography must contain only finite values")
+
+    order = np.argsort(x, kind="stable")
+    x_sorted = x[order]
+    topography_sorted = topography[order]
+
+    unique_x, inverse, counts = np.unique(
+        x_sorted,
+        return_inverse=True,
+        return_counts=True,
+    )
+    if unique_x.size < 2:
+        raise ValueError("x must contain at least two distinct coordinates")
+
+    unique_topography = (
+        np.bincount(inverse, weights=topography_sorted) / counts
+    )
+    integrated_topography = np.trapezoid(unique_topography, unique_x)
+    average_topography = integrated_topography / (unique_x[-1] - unique_x[0])
+
+    return float(integrated_topography), float(average_topography)
+
+
 def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
                          time_interval=1e5):
     """
