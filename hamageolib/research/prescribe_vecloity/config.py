@@ -27,7 +27,9 @@ class StegmanGeometryRule(Rule):
         "dimension", "end_time", "output_directory", "world_builder_file",
         "domain_length", "domain_depth", "x_repetitions", "y_repetitions",
         "global_refinement", "adaptive_refinement", "gravity",
-        "reference_temperature",
+        "reference_temperature", "refine_plate_with_isosurfaces",
+        "plate_isosurface_min_value", "plate_isosurface_max_value",
+        "plate_isosurface_min_level", "plate_isosurface_max_level",
     ]
     defaults = {
         "dimension": 2,
@@ -42,11 +44,43 @@ class StegmanGeometryRule(Rule):
         "adaptive_refinement": 0,
         "gravity": 10.0,
         "reference_temperature": 1573.0,
+        "refine_plate_with_isosurfaces": False,
+        "plate_isosurface_min_value": 0.5,
+        "plate_isosurface_max_value": 1.0,
+        "plate_isosurface_min_level": "max",
+        "plate_isosurface_max_level": "max",
     }
     provides = ["domain_length", "domain_depth"]
 
     def apply(self, config, prm_dict, wb_dict, context):
         temperature = _number(config["reference_temperature"])
+        mesh_refinement = {
+            "Initial global refinement": str(config["global_refinement"]),
+            "Initial adaptive refinement": str(config["adaptive_refinement"]),
+            "Time steps between mesh refinement": "1",
+        }
+        if config["refine_plate_with_isosurfaces"]:
+            if config["adaptive_refinement"] <= 0:
+                raise ValueError(
+                    "adaptive_refinement must be positive when plate isosurface "
+                    "refinement is enabled."
+                )
+            min_value = config["plate_isosurface_min_value"]
+            max_value = config["plate_isosurface_max_value"]
+            if not 0 <= min_value < max_value <= 1:
+                raise ValueError(
+                    "Plate isosurface values must satisfy 0 <= min < max <= 1."
+                )
+            mesh_refinement.update({
+                "Strategy": "isosurfaces",
+                "Isosurfaces": {
+                    "Isosurfaces": (
+                        f"{config['plate_isosurface_min_level']}, "
+                        f"{config['plate_isosurface_max_level']}, plate: "
+                        f"{_number(min_value)} | {_number(max_value)}"
+                    ),
+                },
+            })
         prm_dict.update({
             "Dimension": str(config["dimension"]),
             "Use years instead of seconds": "true",
@@ -70,11 +104,7 @@ class StegmanGeometryRule(Rule):
                     "Y repetitions": str(config["y_repetitions"]),
                 },
             },
-            "Mesh refinement": {
-                "Initial global refinement": str(config["global_refinement"]),
-                "Initial adaptive refinement": str(config["adaptive_refinement"]),
-                "Time steps between mesh refinement": "0",
-            },
+            "Mesh refinement": mesh_refinement,
             "Boundary velocity model": {
                 "Tangential velocity boundary indicators": "left, right, bottom, top",
             },
