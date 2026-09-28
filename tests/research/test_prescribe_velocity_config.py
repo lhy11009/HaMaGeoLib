@@ -109,6 +109,41 @@ def test_long_slab_validates_extension(config):
         make_stegman_case(config)
 
 
+def test_prescribed_slab_velocity():
+    """Configure World Builder and ASPECT to prescribe slab velocity."""
+    expected_prm, expected_wb = load_fixture("prescribed_velocity")
+    prm_dict, wb_dict, context = make_stegman_case({
+        "prescribe_slab_velocity": True,
+    })
+
+    assert prm_dict == expected_prm
+    assert wb_dict == expected_wb
+    assert context["prescribed_slab_velocity"] is True
+
+
+def test_prescribed_slab_velocity_options_are_configurable():
+    """Propagate velocity magnitude and plate thickness to World Builder."""
+    _, wb_dict, _ = make_stegman_case({
+        "prescribe_slab_velocity": True,
+        "slab_velocity_magnitude": 0.08,
+        "plate_thickness": 80e3,
+    })
+
+    slab = wb_dict["features"][1]
+    assert slab["velocity models"][0]["velocity magnitude"] == 0.08
+    assert slab["indicator models"][0]["max distance slab top"] == 80e3
+
+
+@pytest.mark.parametrize("velocity_magnitude", [0, -0.01])
+def test_prescribed_slab_velocity_requires_positive_magnitude(velocity_magnitude):
+    """Reject a nonpositive prescribed speed when the option is enabled."""
+    with pytest.raises(ValueError, match="slab_velocity_magnitude must be positive"):
+        make_stegman_case({
+            "prescribe_slab_velocity": True,
+            "slab_velocity_magnitude": velocity_magnitude,
+        })
+
+
 def test_custom_plate_isosurface_refinement():
     """Allow custom plate thresholds and refinement-level selectors."""
     prm_dict, _, _ = make_stegman_case({

@@ -231,6 +231,61 @@ class StegmanSlabRule(Rule):
         context["trench_position"] = trench
 
 
+class StegmanPrescribedVelocityRule(Rule):
+    """Prescribe World Builder along-surface velocity within the slab."""
+
+    requires = [
+        "prescribe_slab_velocity",
+        "slab_velocity_magnitude",
+        "plate_thickness",
+    ]
+    defaults = {
+        "prescribe_slab_velocity": False,
+        "slab_velocity_magnitude": 0.05,
+        "plate_thickness": 100e3,
+    }
+    provides = ["prescribed_slab_velocity"]
+
+    def apply(self, config, prm_dict, wb_dict, context):
+        context["prescribed_slab_velocity"] = config["prescribe_slab_velocity"]
+        if not config["prescribe_slab_velocity"]:
+            return
+
+        velocity_magnitude = config["slab_velocity_magnitude"]
+        if velocity_magnitude <= 0:
+            raise ValueError("slab_velocity_magnitude must be positive.")
+
+        slab_features = [
+            feature for feature in wb_dict.get("features", [])
+            if feature.get("model") == "subducting plate"
+        ]
+        if len(slab_features) != 1:
+            raise ValueError(
+                "Prescribing slab velocity requires exactly one subducting plate feature."
+            )
+
+        wb_dict["indicator properties"] = [
+            {"index": 0, "name": "temperature"},
+            {"index": 1, "name": "velocity"},
+            {"index": 2, "name": "composition"},
+        ]
+        slab = slab_features[0]
+        slab["velocity models"] = [{
+            "model": "along surface",
+            "velocity magnitude": velocity_magnitude,
+        }]
+        slab["indicator models"] = [{
+            "model": "uniform",
+            "min distance slab top": 0,
+            "max distance slab top": config["plate_thickness"],
+            "indicators": ["velocity"],
+        }]
+
+        prm_dict["Prescribed solution"] = {
+            "List of model names": "world builder",
+        }
+
+
 class StegmanMaterialRule(Rule):
     """Configure Model 16 densities, viscosities, and plastic yielding."""
 
@@ -393,6 +448,7 @@ class StegmanPostprocessRule(Rule):
 stegman_rules = [
     StegmanGeometryRule(),
     StegmanSlabRule(),
+    StegmanPrescribedVelocityRule(),
     StegmanMaterialRule(),
     StegmanSolverRule(),
     StegmanPostprocessRule(),

@@ -1,0 +1,133 @@
+{
+  "version": "1.2",
+  "coordinate system": {
+    "model": "cartesian"
+  },
+  "cross section": [
+    [
+      0,
+      0
+    ],
+    [
+      4000000.0,
+      0
+    ]
+  ],
+  "features": [
+    {
+      "model": "oceanic plate",
+      "name": "horizontal plate",
+      "min depth": 0,
+      "max depth": 100000.0,
+      "coordinates": [
+        [
+          600000.0,
+          -1000.0
+        ],
+        [
+          2800000.0,
+          -1000.0
+        ],
+        [
+          2800000.0,
+          1000.0
+        ],
+        [
+          600000.0,
+          1000.0
+        ]
+      ],
+      "composition models": [
+        {
+          "model": "uniform",
+          "compositions": [
+            0
+          ],
+          "min depth": 0,
+          "max depth": 100000.0
+        }
+      ]
+    },
+    {
+      "model": "subducting plate",
+      "name": "initial slab perturbation",
+      "coordinates": [
+        [
+          2800000.0,
+          -1000.0
+        ],
+        [
+          2800000.0,
+          1000.0
+        ]
+      ],
+      "dip point": [
+        4000000.0,
+        0.0
+      ],
+      "max depth": 300000.0,
+      "segments": [
+        {
+          "length": 100000.0,
+          "thickness": [
+            100000.0
+          ],
+          "angle": [
+            0.0,
+            45.0
+          ]
+        },
+        {
+          "length": 150000.0,
+          "thickness": [
+            100000.0
+          ],
+          "angle": [
+            45.0,
+            90.0
+          ]
+        }
+      ],
+      "composition models": [
+        {
+          "model": "uniform",
+          "compositions": [
+            0
+          ],
+          "min distance slab top": 0,
+          "max distance slab top": 100000.0
+        }
+      ],
+      "velocity models": [
+        {
+          "model": "along surface",
+          "velocity magnitude": 0.05
+        }
+      ],
+      "indicator models": [
+        {
+          "model": "uniform",
+          "min distance slab top": 0,
+          "max distance slab top": 100000.0,
+          "indicators": [
+            "velocity"
+          ]
+        }
+      ]
+    }
+  ],
+  "indicator properties": [
+    {
+      "index": 0,
+      "name": "temperature"
+    },
+    {
+      "index": 1,
+      "name": "velocity"
+    },
+    {
+      "index": 2,
+      "name": "composition"
+    }
+  ]
+}
