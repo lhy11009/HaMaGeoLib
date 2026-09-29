@@ -4,6 +4,9 @@ setup(
     name='my_package',
     version='0.1.0',
     packages=find_packages(),
+    package_data={
+        'hamageolib.research.haoyuan_collision0': ['files/*.json'],
+    },
     install_requires=[
         # List your dependencies here, e.g., 'numpy', 'pandas'
     ],
