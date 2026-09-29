@@ -14,8 +14,9 @@ set Max nonlinear iterations = 50
 set Max nonlinear iterations in pre-refinement = 0
 set Maximum first time step = 1e3
 set Maximum time step = 1e5
-set Maximum relative increase in time step = 25
+set Maximum relative increase in time step = 1e4
 set CFL number = 0.5
+set Linear solver failure strategy = continue with nonlinear solver
 subsection Geometry model
   set Model name = box
   subsection Box
@@ -88,7 +89,12 @@ subsection Material model
 end
 subsection Solver parameters
   subsection Stokes solver parameters
+    set Stokes solver type = block GMG
+    set GMRES solver restart length = 100
+    set Number of cheap Stokes solver steps = 60
+    set Use full A block as preconditioner = true
     set Linear solver tolerance = 1e-7
+    set Maximum number of expensive Stokes solver steps = 0
   end
 end
 subsection Postprocess

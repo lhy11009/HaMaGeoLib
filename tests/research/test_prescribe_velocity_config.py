@@ -144,6 +144,51 @@ def test_prescribed_slab_velocity_requires_positive_magnitude(velocity_magnitude
         })
 
 
+def test_gmg_solver_defaults():
+    """Use the robust block-GMG Stokes solver configuration by default."""
+    prm_dict, _, _ = make_stegman_case()
+
+    assert prm_dict["Maximum relative increase in time step"] == "1e4"
+    assert prm_dict["Linear solver failure strategy"] == (
+        "continue with nonlinear solver"
+    )
+    stokes = prm_dict["Solver parameters"]["Stokes solver parameters"]
+    assert stokes == {
+        "Stokes solver type": "block GMG",
+        "GMRES solver restart length": "100",
+        "Number of cheap Stokes solver steps": "60",
+        "Use full A block as preconditioner": "true",
+        "Linear solver tolerance": "1e-7",
+        "Maximum number of expensive Stokes solver steps": "0",
+    }
+
+
+def test_gmg_solver_options_are_configurable():
+    """Propagate custom time-step and Stokes solver controls."""
+    prm_dict, _, _ = make_stegman_case({
+        "maximum_relative_increase_in_time_step": 500,
+        "linear_solver_failure_strategy": "abort",
+        "stokes_solver_type": "block AMG",
+        "gmres_solver_restart_length": 80,
+        "number_of_cheap_stokes_solver_steps": 40,
+        "use_full_a_block_as_preconditioner": False,
+        "linear_solver_tolerance": 1e-6,
+        "maximum_expensive_stokes_solver_steps": 10,
+    })
+
+    assert prm_dict["Maximum relative increase in time step"] == "500"
+    assert prm_dict["Linear solver failure strategy"] == "abort"
+    stokes = prm_dict["Solver parameters"]["Stokes solver parameters"]
+    assert stokes == {
+        "Stokes solver type": "block AMG",
+        "GMRES solver restart length": "80",
+        "Number of cheap Stokes solver steps": "40",
+        "Use full A block as preconditioner": "false",
+        "Linear solver tolerance": "1e-06",
+        "Maximum number of expensive Stokes solver steps": "10",
+    }
+
+
 def test_custom_plate_isosurface_refinement():
     """Allow custom plate thresholds and refinement-level selectors."""
     prm_dict, _, _ = make_stegman_case({

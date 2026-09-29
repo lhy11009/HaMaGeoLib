@@ -384,15 +384,26 @@ class StegmanSolverRule(Rule):
 
     requires = [
         "nonlinear_tolerance", "max_nonlinear_iterations", "first_time_step",
-        "maximum_time_step", "cfl_number", "linear_solver_tolerance",
+        "maximum_time_step", "maximum_relative_increase_in_time_step",
+        "cfl_number", "linear_solver_failure_strategy", "stokes_solver_type",
+        "gmres_solver_restart_length", "number_of_cheap_stokes_solver_steps",
+        "use_full_a_block_as_preconditioner", "linear_solver_tolerance",
+        "maximum_expensive_stokes_solver_steps",
     ]
     defaults = {
         "nonlinear_tolerance": 1e-3,
         "max_nonlinear_iterations": 50,
         "first_time_step": 1e3,
         "maximum_time_step": 1e5,
+        "maximum_relative_increase_in_time_step": 1e4,
         "cfl_number": 0.5,
+        "linear_solver_failure_strategy": "continue with nonlinear solver",
+        "stokes_solver_type": "block GMG",
+        "gmres_solver_restart_length": 100,
+        "number_of_cheap_stokes_solver_steps": 60,
+        "use_full_a_block_as_preconditioner": True,
         "linear_solver_tolerance": 1e-7,
+        "maximum_expensive_stokes_solver_steps": 0,
     }
 
     def apply(self, config, prm_dict, wb_dict, context):
@@ -409,12 +420,29 @@ class StegmanSolverRule(Rule):
             "Maximum time step": _reference_number(
                 config["maximum_time_step"], 1e5, "1e5"
             ),
-            "Maximum relative increase in time step": "25",
+            "Maximum relative increase in time step": _reference_number(
+                config["maximum_relative_increase_in_time_step"], 1e4, "1e4"
+            ),
             "CFL number": _number(config["cfl_number"]),
+            "Linear solver failure strategy": config["linear_solver_failure_strategy"],
             "Solver parameters": {
                 "Stokes solver parameters": {
+                    "Stokes solver type": config["stokes_solver_type"],
+                    "GMRES solver restart length": str(
+                        config["gmres_solver_restart_length"]
+                    ),
+                    "Number of cheap Stokes solver steps": str(
+                        config["number_of_cheap_stokes_solver_steps"]
+                    ),
+                    "Use full A block as preconditioner": (
+                        "true" if config["use_full_a_block_as_preconditioner"]
+                        else "false"
+                    ),
                     "Linear solver tolerance": _reference_number(
                         config["linear_solver_tolerance"], 1e-7, "1e-7"
+                    ),
+                    "Maximum number of expensive Stokes solver steps": str(
+                        config["maximum_expensive_stokes_solver_steps"]
                     ),
                 },
             },
