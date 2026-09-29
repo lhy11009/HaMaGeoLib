@@ -161,6 +161,13 @@ def test_gmg_solver_defaults():
         "Linear solver tolerance": "1e-7",
         "Maximum number of expensive Stokes solver steps": "0",
     }
+    keys = list(prm_dict)
+    assert keys.index("Surface pressure") + 1 == keys.index(
+        "Nonlinear solver scheme"
+    )
+    assert keys.index("Linear solver failure strategy") + 1 == keys.index(
+        "Geometry model"
+    )
 
 
 def test_gmg_solver_options_are_configurable():

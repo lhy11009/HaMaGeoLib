@@ -30,6 +30,9 @@ class StegmanGeometryRule(Rule):
         "reference_temperature", "refine_plate_with_isosurfaces",
         "plate_isosurface_min_value", "plate_isosurface_max_value",
         "plate_isosurface_min_level", "plate_isosurface_max_level",
+        "nonlinear_tolerance", "max_nonlinear_iterations", "first_time_step",
+        "maximum_time_step", "maximum_relative_increase_in_time_step",
+        "cfl_number", "linear_solver_failure_strategy",
     ]
     defaults = {
         "dimension": 2,
@@ -49,6 +52,13 @@ class StegmanGeometryRule(Rule):
         "plate_isosurface_max_value": 1.0,
         "plate_isosurface_min_level": "max",
         "plate_isosurface_max_level": "max",
+        "nonlinear_tolerance": 1e-3,
+        "max_nonlinear_iterations": 50,
+        "first_time_step": 1e3,
+        "maximum_time_step": 1e5,
+        "maximum_relative_increase_in_time_step": 1e4,
+        "cfl_number": 0.5,
+        "linear_solver_failure_strategy": "continue with nonlinear solver",
     }
     provides = ["domain_length", "domain_depth"]
 
@@ -91,6 +101,23 @@ class StegmanGeometryRule(Rule):
             "Adiabatic surface temperature": temperature,
             "Pressure normalization": "surface",
             "Surface pressure": "0",
+            "Nonlinear solver scheme": "single Advection, iterated Stokes",
+            "Nonlinear solver tolerance": _reference_number(
+                config["nonlinear_tolerance"], 1e-3, "1e-3"
+            ),
+            "Max nonlinear iterations": str(config["max_nonlinear_iterations"]),
+            "Max nonlinear iterations in pre-refinement": "0",
+            "Maximum first time step": _reference_number(
+                config["first_time_step"], 1e3, "1e3"
+            ),
+            "Maximum time step": _reference_number(
+                config["maximum_time_step"], 1e5, "1e5"
+            ),
+            "Maximum relative increase in time step": _reference_number(
+                config["maximum_relative_increase_in_time_step"], 1e4, "1e4"
+            ),
+            "CFL number": _number(config["cfl_number"]),
+            "Linear solver failure strategy": config["linear_solver_failure_strategy"],
             "Geometry model": {
                 "Model name": "box",
                 "Box": {
@@ -383,21 +410,12 @@ class StegmanSolverRule(Rule):
     """Configure nonlinear and Stokes solver controls."""
 
     requires = [
-        "nonlinear_tolerance", "max_nonlinear_iterations", "first_time_step",
-        "maximum_time_step", "maximum_relative_increase_in_time_step",
-        "cfl_number", "linear_solver_failure_strategy", "stokes_solver_type",
+        "stokes_solver_type",
         "gmres_solver_restart_length", "number_of_cheap_stokes_solver_steps",
         "use_full_a_block_as_preconditioner", "linear_solver_tolerance",
         "maximum_expensive_stokes_solver_steps",
     ]
     defaults = {
-        "nonlinear_tolerance": 1e-3,
-        "max_nonlinear_iterations": 50,
-        "first_time_step": 1e3,
-        "maximum_time_step": 1e5,
-        "maximum_relative_increase_in_time_step": 1e4,
-        "cfl_number": 0.5,
-        "linear_solver_failure_strategy": "continue with nonlinear solver",
         "stokes_solver_type": "block GMG",
         "gmres_solver_restart_length": 100,
         "number_of_cheap_stokes_solver_steps": 60,
@@ -407,46 +425,27 @@ class StegmanSolverRule(Rule):
     }
 
     def apply(self, config, prm_dict, wb_dict, context):
-        prm_dict.update({
-            "Nonlinear solver scheme": "single Advection, iterated Stokes",
-            "Nonlinear solver tolerance": _reference_number(
-                config["nonlinear_tolerance"], 1e-3, "1e-3"
-            ),
-            "Max nonlinear iterations": str(config["max_nonlinear_iterations"]),
-            "Max nonlinear iterations in pre-refinement": "0",
-            "Maximum first time step": _reference_number(
-                config["first_time_step"], 1e3, "1e3"
-            ),
-            "Maximum time step": _reference_number(
-                config["maximum_time_step"], 1e5, "1e5"
-            ),
-            "Maximum relative increase in time step": _reference_number(
-                config["maximum_relative_increase_in_time_step"], 1e4, "1e4"
-            ),
-            "CFL number": _number(config["cfl_number"]),
-            "Linear solver failure strategy": config["linear_solver_failure_strategy"],
-            "Solver parameters": {
-                "Stokes solver parameters": {
-                    "Stokes solver type": config["stokes_solver_type"],
-                    "GMRES solver restart length": str(
-                        config["gmres_solver_restart_length"]
-                    ),
-                    "Number of cheap Stokes solver steps": str(
-                        config["number_of_cheap_stokes_solver_steps"]
-                    ),
-                    "Use full A block as preconditioner": (
-                        "true" if config["use_full_a_block_as_preconditioner"]
-                        else "false"
-                    ),
-                    "Linear solver tolerance": _reference_number(
-                        config["linear_solver_tolerance"], 1e-7, "1e-7"
-                    ),
-                    "Maximum number of expensive Stokes solver steps": str(
-                        config["maximum_expensive_stokes_solver_steps"]
-                    ),
-                },
+        prm_dict["Solver parameters"] = {
+            "Stokes solver parameters": {
+                "Stokes solver type": config["stokes_solver_type"],
+                "GMRES solver restart length": str(
+                    config["gmres_solver_restart_length"]
+                ),
+                "Number of cheap Stokes solver steps": str(
+                    config["number_of_cheap_stokes_solver_steps"]
+                ),
+                "Use full A block as preconditioner": (
+                    "true" if config["use_full_a_block_as_preconditioner"]
+                    else "false"
+                ),
+                "Linear solver tolerance": _reference_number(
+                    config["linear_solver_tolerance"], 1e-7, "1e-7"
+                ),
+                "Maximum number of expensive Stokes solver steps": str(
+                    config["maximum_expensive_stokes_solver_steps"]
+                ),
             },
-        })
+        }
 
 
 class StegmanPostprocessRule(Rule):

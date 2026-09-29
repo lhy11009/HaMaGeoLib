@@ -7,6 +7,15 @@ set World builder file = case.wb
 set Adiabatic surface temperature = 1573
 set Pressure normalization = surface
 set Surface pressure = 0
+set Nonlinear solver scheme = single Advection, iterated Stokes
+set Nonlinear solver tolerance = 1e-3
+set Max nonlinear iterations = 50
+set Max nonlinear iterations in pre-refinement = 0
+set Maximum first time step = 1e3
+set Maximum time step = 1e5
+set Maximum relative increase in time step = 1e4
+set CFL number = 0.5
+set Linear solver failure strategy = continue with nonlinear solver
 
 subsection Geometry model
     set Model name = box
@@ -100,15 +109,6 @@ subsection Material model
     end
 end
 
-set Nonlinear solver scheme = single Advection, iterated Stokes
-set Nonlinear solver tolerance = 1e-3
-set Max nonlinear iterations = 50
-set Max nonlinear iterations in pre-refinement = 0
-set Maximum first time step = 1e3
-set Maximum time step = 1e5
-set Maximum relative increase in time step = 1e4
-set CFL number = 0.5
-set Linear solver failure strategy = continue with nonlinear solver
 
 subsection Solver parameters
     subsection Stokes solver parameters
