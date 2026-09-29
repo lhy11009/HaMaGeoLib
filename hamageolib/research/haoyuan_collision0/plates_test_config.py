@@ -21,6 +21,7 @@ def _load_json(filename):
 
 
 _PLATES_TEST_PRM_SECTIONS = _load_json("plates_test_prm_sections.json")
+_PLATES_TEST_FASTSCAPE = _load_json("plates_test_fastscape.json")
 _PLATES_TEST_WB_SETTINGS = _load_json("plates_test_world_builder.json")
 
 
@@ -138,6 +139,33 @@ class PlatesTestPostprocessRule(Rule):
         prm_dict.update(deepcopy(config["plates_test_postprocess"]))
 
 
+class PlatesTestFastscapeRule(Rule):
+    """Optionally replace free-surface diffusion with FastScape."""
+
+    requires = ["plates_test_fastscape"]
+    defaults = {"plates_test_fastscape": False}
+
+    def apply(self, config, prm_dict, wb_dict, context):
+        if not config["plates_test_fastscape"]:
+            return
+
+        mesh_deformation = prm_dict["Mesh deformation"]
+        mesh_deformation[
+            "Mesh deformation boundary indicators"
+        ] = "top: fastscape"
+        mesh_deformation.pop("Free surface", None)
+        mesh_deformation.pop("Diffusion", None)
+        mesh_deformation["Fastscape"] = deepcopy(_PLATES_TEST_FASTSCAPE)
+        mesh_refinement = prm_dict["Mesh refinement"]
+        global_refinement = int(mesh_refinement["Initial global refinement"])
+        adaptive_refinement = int(
+            mesh_refinement.get("Initial adaptive refinement", 0)
+        )
+        mesh_deformation["Fastscape"][
+            "Maximum surface refinement level"
+        ] = str(global_refinement + adaptive_refinement)
+
+
 class PlatesTestAsciiTopographyRule(Rule):
     """Optionally replace analytic geometry with equivalent ASCII topography."""
 
@@ -154,9 +182,14 @@ class PlatesTestAsciiTopographyRule(Rule):
         if not config["plates_test_ascii_topography"]:
             return
 
+        boundary_models = (
+            "ascii data & fastscape"
+            if config.get("plates_test_fastscape", False)
+            else "ascii data & free surface & diffusion"
+        )
         prm_dict["Mesh deformation"][
             "Mesh deformation boundary indicators"
-        ] = "top: ascii data & free surface & diffusion"
+        ] = f"top: {boundary_models}"
         prm_dict["Mesh deformation"]["Ascii data model"] = {
             "Data directory": "./",
             "Data file name": "initial_topography.txt",
@@ -227,6 +260,7 @@ PLATES_TEST_RULES = [
     PlatesTestMaterialRule(),
     PlatesTestNumericsRule(),
     PlatesTestPostprocessRule(),
+    PlatesTestFastscapeRule(),
     PlatesTestAsciiTopographyRule(),
     PlatesTestWorldBuilderGlobalRule(),
     PlatesTestOverridingPlateRule(),

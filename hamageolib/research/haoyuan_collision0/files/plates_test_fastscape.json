@@ -1,0 +1,34 @@
+{
+  "Surface refinement difference": "0",
+  "Additional fastscape refinement": "0",
+  "Number of fastscape timesteps per aspect timestep": "5",
+  "Maximum timestep length": "100000",
+  "Fastscape seed": "1000",
+  "Use ghost nodes": "false",
+  "Vertical exaggeration": "1",
+  "Boundary conditions": {
+    "Front": "0",
+    "Back": "0",
+    "Left": "1",
+    "Right": "1"
+  },
+  "Erosional parameters": {
+    "Drainage area exponent": "0.5",
+    "Bedrock diffusivity": "0.01",
+    "Slope exponent": "1.0",
+    "Bedrock deposition coefficient": "1.0",
+    "Multi-direction slope exponent": "-1.0",
+    "Use kf distribution function": "true",
+    "kf distribution function": {
+      "Variable names": "x, y, t",
+      "Function constants": "t0=1.00e+06, IR0=3.00e-06",
+      "Function expression": "(t>t0)? IR0: 0.0"
+    }
+  },
+  "Y extent in 2d": "1000e3",
+  "Use marine component": "true",
+  "Marine parameters": {
+    "Sand transport coefficient": "300.0",
+    "Silt transport coefficient": "300.0"
+  }
+}
