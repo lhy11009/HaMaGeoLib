@@ -13,6 +13,13 @@ from hamageolib.research.prescribe_vecloity.config import make_stegman_case
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_ROOT = PACKAGE_ROOT / "tests/fixtures/research/prescribe_velocity"
+MODEL_16_3D_CONFIG = {
+    "dimension": 3,
+    "x_repetitions": 6,
+    "y_repetitions": 3,
+    "z_repetitions": 3,
+    "global_refinement": 3,
+}
 
 
 def load_fixture(case_name):
@@ -41,7 +48,7 @@ def test_model_16_3d():
     """Reproduce the symmetry-reduced three-dimensional Model 16 setup."""
     expected_prm, expected_wb = load_fixture("model_16_3d")
 
-    prm_dict, wb_dict, context = make_stegman_case({"dimension": 3})
+    prm_dict, wb_dict, context = make_stegman_case(MODEL_16_3D_CONFIG)
 
     assert prm_dict == expected_prm
     assert wb_dict == expected_wb
@@ -68,7 +75,7 @@ def test_model_16_3d():
 
 def test_model_16_3d_yield_parameters_preserve_physical_yield_line():
     """Convert the paper's yield line to ASPECT's 3-D Drucker-Prager form."""
-    prm_dict, _, _ = make_stegman_case({"dimension": 3})
+    prm_dict, _, _ = make_stegman_case(MODEL_16_3D_CONFIG)
     material = prm_dict["Material model"]["Visco Plastic"]
     angle = float(
         material["Angles of internal friction"].split("plate:")[1].split("|")[0]

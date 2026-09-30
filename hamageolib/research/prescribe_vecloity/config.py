@@ -52,9 +52,7 @@ class StegmanGeometryRule(Rule):
     requires = [
         "dimension", "end_time", "output_directory", "world_builder_file",
         "domain_length", "domain_width", "domain_depth",
-        "x_repetitions", "y_repetitions",
-        "model_16_3d_x_repetitions", "model_16_3d_y_repetitions",
-        "model_16_3d_z_repetitions", "model_16_3d_global_refinement",
+        "x_repetitions", "y_repetitions", "z_repetitions",
         "global_refinement", "adaptive_refinement", "gravity",
         "reference_temperature", "refine_plate_with_isosurfaces",
         "plate_isosurface_min_value", "plate_isosurface_max_value",
@@ -70,10 +68,7 @@ class StegmanGeometryRule(Rule):
         "domain_depth": 1000e3,
         "x_repetitions": 4,
         "y_repetitions": 1,
-        "model_16_3d_x_repetitions": 6,
-        "model_16_3d_y_repetitions": 3,
-        "model_16_3d_z_repetitions": 3,
-        "model_16_3d_global_refinement": 3,
+        "z_repetitions": 1,
         "global_refinement": 4,
         "adaptive_refinement": 0,
         "gravity": 10.0,
@@ -92,13 +87,8 @@ class StegmanGeometryRule(Rule):
             raise ValueError("dimension must be either 2 or 3.")
 
         temperature = _number(config["reference_temperature"])
-        global_refinement = (
-            config["global_refinement"]
-            if dimension == 2
-            else config["model_16_3d_global_refinement"]
-        )
         mesh_refinement = {
-            "Initial global refinement": str(global_refinement),
+            "Initial global refinement": str(config["global_refinement"]),
             "Initial adaptive refinement": str(config["adaptive_refinement"]),
             "Time steps between mesh refinement": "1",
         }
@@ -147,9 +137,9 @@ class StegmanGeometryRule(Rule):
                 "Z extent": _reference_number(
                     config["domain_depth"], 1000e3, "1000e3"
                 ),
-                "X repetitions": str(config["model_16_3d_x_repetitions"]),
-                "Y repetitions": str(config["model_16_3d_y_repetitions"]),
-                "Z repetitions": str(config["model_16_3d_z_repetitions"]),
+                "X repetitions": str(config["x_repetitions"]),
+                "Y repetitions": str(config["y_repetitions"]),
+                "Z repetitions": str(config["z_repetitions"]),
             }
             boundary_indicators = "left, right, front, back, bottom, top"
 
