@@ -266,12 +266,12 @@ class StegmanSlabRule(Rule):
                     "Half the trench_width must fit inside the 3-D half-domain."
                 )
             plate_coordinates = [
-                [config["plate_start"], 0], [trench, 0],
+                [config["plate_start"], -1], [trench, -1],
                 [trench, half_trench_width],
                 [config["plate_start"], half_trench_width],
             ]
             trench_coordinates = [
-                [trench, 0], [trench, half_trench_width],
+                [trench, -1], [trench, half_trench_width],
             ]
 
         wb_dict.clear()

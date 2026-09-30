@@ -68,9 +68,9 @@ def test_model_16_3d():
 
     plate, slab = wb_dict["features"]
     assert plate["coordinates"] == [
-        [600e3, 0], [2800e3, 0], [2800e3, 600e3], [600e3, 600e3],
+        [600e3, -1], [2800e3, -1], [2800e3, 600e3], [600e3, 600e3],
     ]
-    assert slab["coordinates"] == [[2800e3, 0], [2800e3, 600e3]]
+    assert slab["coordinates"] == [[2800e3, -1], [2800e3, 600e3]]
 
 
 def test_model_16_3d_yield_parameters_preserve_physical_yield_line():

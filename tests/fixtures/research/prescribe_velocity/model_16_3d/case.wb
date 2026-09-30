@@ -8,7 +8,7 @@
       "name": "horizontal plate",
       "min depth": 0,
       "max depth": 100000.0,
-      "coordinates": [[600000.0, 0], [2800000.0, 0], [2800000.0, 600000.0], [600000.0, 600000.0]],
+      "coordinates": [[600000.0, -1], [2800000.0, -1], [2800000.0, 600000.0], [600000.0, 600000.0]],
       "composition models": [
         {"model": "uniform", "compositions": [0], "min depth": 0, "max depth": 100000.0}
       ]
@@ -16,7 +16,7 @@
     {
       "model": "subducting plate",
       "name": "initial slab perturbation",
-      "coordinates": [[2800000.0, 0], [2800000.0, 600000.0]],
+      "coordinates": [[2800000.0, -1], [2800000.0, 600000.0]],
       "dip point": [4000000.0, 0.0],
       "max depth": 300000.0,
       "segments": [
