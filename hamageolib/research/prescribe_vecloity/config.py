@@ -1,11 +1,12 @@
-"""Rule-based configuration for the 2-D Stegman et al. (2006) model.
+"""Rule-based configuration for the Stegman et al. (2006) model.
 
 The defaults reproduce Model 16 as represented by the ``stegman_2d`` MOW
-case. The finite slab width is intentionally omitted in this 2-D reduction.
+case. Setting ``dimension`` to 3 restores the finite slab width and the
+symmetry-reduced three-dimensional domain used for Model 16 in the paper.
 """
 
 from copy import deepcopy
-from math import asin, cos, degrees
+from math import asin, cos, degrees, sqrt
 
 from gdmate.aspect.config_engine import Rule, RuleEngine
 
@@ -22,12 +23,38 @@ def _reference_number(value, default, reference_text):
     return reference_text if value == default else _number(value)
 
 
+def _drucker_prager_parameters(dimension, cohesion, friction_coefficient):
+    """Convert ``cohesion + friction_coefficient * pressure`` for ASPECT."""
+    if dimension == 2:
+        sin_phi = friction_coefficient
+        phi = asin(sin_phi)
+        return phi, cohesion / cos(phi)
+
+    if dimension == 3:
+        # ASPECT's middle-circumscribing 3-D Drucker-Prager criterion is
+        # 6 (C cos(phi) + P sin(phi)) / (sqrt(3) (3 + sin(phi))).
+        sin_phi = (
+            3.0 * sqrt(3.0) * friction_coefficient
+            / (6.0 - sqrt(3.0) * friction_coefficient)
+        )
+        phi = asin(sin_phi)
+        aspect_cohesion = (
+            cohesion * sqrt(3.0) * (3.0 + sin_phi) / (6.0 * cos(phi))
+        )
+        return phi, aspect_cohesion
+
+    raise ValueError("dimension must be either 2 or 3.")
+
+
 class StegmanGeometryRule(Rule):
     """Configure the Cartesian domain, runtime, boundaries, and temperature."""
 
     requires = [
         "dimension", "end_time", "output_directory", "world_builder_file",
-        "domain_length", "domain_depth", "x_repetitions", "y_repetitions",
+        "domain_length", "domain_width", "domain_depth",
+        "x_repetitions", "y_repetitions",
+        "model_16_3d_x_repetitions", "model_16_3d_y_repetitions",
+        "model_16_3d_z_repetitions", "model_16_3d_global_refinement",
         "global_refinement", "adaptive_refinement", "gravity",
         "reference_temperature", "refine_plate_with_isosurfaces",
         "plate_isosurface_min_value", "plate_isosurface_max_value",
@@ -39,9 +66,14 @@ class StegmanGeometryRule(Rule):
         "output_directory": "output",
         "world_builder_file": "case.wb",
         "domain_length": 4000e3,
+        "domain_width": 2000e3,
         "domain_depth": 1000e3,
         "x_repetitions": 4,
         "y_repetitions": 1,
+        "model_16_3d_x_repetitions": 6,
+        "model_16_3d_y_repetitions": 3,
+        "model_16_3d_z_repetitions": 3,
+        "model_16_3d_global_refinement": 3,
         "global_refinement": 4,
         "adaptive_refinement": 0,
         "gravity": 10.0,
@@ -52,12 +84,21 @@ class StegmanGeometryRule(Rule):
         "plate_isosurface_min_level": "max",
         "plate_isosurface_max_level": "max",
     }
-    provides = ["domain_length", "domain_depth"]
+    provides = ["dimension", "domain_length", "domain_width", "domain_depth"]
 
     def apply(self, config, prm_dict, wb_dict, context):
+        dimension = config["dimension"]
+        if dimension not in (2, 3):
+            raise ValueError("dimension must be either 2 or 3.")
+
         temperature = _number(config["reference_temperature"])
+        global_refinement = (
+            config["global_refinement"]
+            if dimension == 2
+            else config["model_16_3d_global_refinement"]
+        )
         mesh_refinement = {
-            "Initial global refinement": str(config["global_refinement"]),
+            "Initial global refinement": str(global_refinement),
             "Initial adaptive refinement": str(config["adaptive_refinement"]),
             "Time steps between mesh refinement": "1",
         }
@@ -83,8 +124,37 @@ class StegmanGeometryRule(Rule):
                     ),
                 },
             })
+        if dimension == 2:
+            box_geometry = {
+                "X extent": _reference_number(
+                    config["domain_length"], 4000e3, "4000e3"
+                ),
+                "Y extent": _reference_number(
+                    config["domain_depth"], 1000e3, "1000e3"
+                ),
+                "X repetitions": str(config["x_repetitions"]),
+                "Y repetitions": str(config["y_repetitions"]),
+            }
+            boundary_indicators = "left, right, bottom, top"
+        else:
+            box_geometry = {
+                "X extent": _reference_number(
+                    config["domain_length"], 4000e3, "4000e3"
+                ),
+                "Y extent": _reference_number(
+                    config["domain_width"], 2000e3, "2000e3"
+                ),
+                "Z extent": _reference_number(
+                    config["domain_depth"], 1000e3, "1000e3"
+                ),
+                "X repetitions": str(config["model_16_3d_x_repetitions"]),
+                "Y repetitions": str(config["model_16_3d_y_repetitions"]),
+                "Z repetitions": str(config["model_16_3d_z_repetitions"]),
+            }
+            boundary_indicators = "left, right, front, back, bottom, top"
+
         prm_dict.update({
-            "Dimension": str(config["dimension"]),
+            "Dimension": str(dimension),
             "Use years instead of seconds": "true",
             "Start time": "0",
             "End time": _reference_number(config["end_time"], 30e6, "30e6"),
@@ -95,20 +165,11 @@ class StegmanGeometryRule(Rule):
             "Surface pressure": "0",
             "Geometry model": {
                 "Model name": "box",
-                "Box": {
-                    "X extent": _reference_number(
-                        config["domain_length"], 4000e3, "4000e3"
-                    ),
-                    "Y extent": _reference_number(
-                        config["domain_depth"], 1000e3, "1000e3"
-                    ),
-                    "X repetitions": str(config["x_repetitions"]),
-                    "Y repetitions": str(config["y_repetitions"]),
-                },
+                "Box": box_geometry,
             },
             "Mesh refinement": mesh_refinement,
             "Boundary velocity model": {
-                "Tangential velocity boundary indicators": "left, right, bottom, top",
+                "Tangential velocity boundary indicators": boundary_indicators,
             },
             "Gravity model": {
                 "Model name": "vertical",
@@ -119,17 +180,21 @@ class StegmanGeometryRule(Rule):
                 "Function": {"Function expression": temperature},
             },
             "Boundary temperature model": {
-                "Fixed temperature boundary indicators": "left, right, bottom, top",
+                "Fixed temperature boundary indicators": boundary_indicators,
                 "List of model names": "constant",
                 "Constant": {
                     "Boundary indicator to temperature mappings":
-                        f"left:{temperature}, right:{temperature}, "
-                        f"bottom:{temperature}, top:{temperature}",
+                        ", ".join(
+                            f"{boundary}:{temperature}"
+                            for boundary in boundary_indicators.split(", ")
+                        ),
                 },
             },
         })
         context["domain_length"] = config["domain_length"]
+        context["domain_width"] = config["domain_width"]
         context["domain_depth"] = config["domain_depth"]
+        context["dimension"] = dimension
 
 
 class StegmanSlabRule(Rule):
@@ -138,7 +203,8 @@ class StegmanSlabRule(Rule):
     requires = [
         "plate_name", "plate_start", "trench_position", "plate_thickness",
         "slab_segment_lengths", "slab_segment_angles", "slab_max_depth",
-        "dip_point", "long_slab", "long_slab_length", "long_slab_end_angle",
+        "dip_point", "trench_width", "long_slab", "long_slab_length",
+        "long_slab_end_angle",
     ]
     defaults = {
         "plate_name": "plate",
@@ -149,6 +215,7 @@ class StegmanSlabRule(Rule):
         "slab_segment_angles": [[0.0, 45.0], [45.0, 90.0]],
         "slab_max_depth": 300e3,
         "dip_point": [4000e3, 0.0],
+        "trench_width": 1200e3,
         "long_slab": False,
         "long_slab_length": 300e3,
         "long_slab_end_angle": 60.0,
@@ -196,6 +263,27 @@ class StegmanSlabRule(Rule):
                     config["long_slab_end_angle"],
                 ],
             })
+        if context["dimension"] == 2:
+            plate_coordinates = [
+                [config["plate_start"], -1e3], [trench, -1e3],
+                [trench, 1e3], [config["plate_start"], 1e3],
+            ]
+            trench_coordinates = [[trench, -1e3], [trench, 1e3]]
+        else:
+            half_trench_width = 0.5 * config["trench_width"]
+            if half_trench_width > context["domain_width"]:
+                raise ValueError(
+                    "Half the trench_width must fit inside the 3-D half-domain."
+                )
+            plate_coordinates = [
+                [config["plate_start"], 0], [trench, 0],
+                [trench, half_trench_width],
+                [config["plate_start"], half_trench_width],
+            ]
+            trench_coordinates = [
+                [trench, 0], [trench, half_trench_width],
+            ]
+
         wb_dict.clear()
         wb_dict.update({
             "version": "1.2",
@@ -207,16 +295,13 @@ class StegmanSlabRule(Rule):
                     "name": "horizontal plate",
                     "min depth": 0,
                     "max depth": thickness,
-                    "coordinates": [
-                        [config["plate_start"], -1e3], [trench, -1e3],
-                        [trench, 1e3], [config["plate_start"], 1e3],
-                    ],
+                    "coordinates": plate_coordinates,
                     "composition models": [composition_model],
                 },
                 {
                     "model": "subducting plate",
                     "name": "initial slab perturbation",
-                    "coordinates": [[trench, -1e3], [trench, 1e3]],
+                    "coordinates": trench_coordinates,
                     "dip point": list(config["dip_point"]),
                     "max depth": config["slab_max_depth"],
                     "segments": segments,
@@ -297,6 +382,7 @@ class StegmanMaterialRule(Rule):
         "upper_mantle_viscosity", "lower_mantle_viscosity",
         "plate_viscosity", "minimum_viscosity", "maximum_viscosity",
         "reference_strain_rate", "yield_cohesion", "friction_coefficient",
+        "dimension",
     ]
     defaults = {
         "mantle_density": 3300.0,
@@ -315,8 +401,11 @@ class StegmanMaterialRule(Rule):
     }
 
     def apply(self, config, prm_dict, wb_dict, context):
-        phi = asin(config["friction_coefficient"])
-        aspect_cohesion = config["yield_cohesion"] / cos(phi)
+        phi, aspect_cohesion = _drucker_prager_parameters(
+            config["dimension"],
+            config["yield_cohesion"],
+            config["friction_coefficient"],
+        )
         diffusion_prefactors = (
             f"background:{_number(0.5 / config['upper_mantle_viscosity'])}|"
             f"{_number(0.5 / config['lower_mantle_viscosity'])}, "
@@ -371,7 +460,8 @@ class StegmanMaterialRule(Rule):
                     "background:1e30|1e30, plate:"
                     + (
                         "4.0824829046e7|4.0824829046e7"
-                        if config["yield_cohesion"] == 40e6
+                        if config["dimension"] == 2
+                        and config["yield_cohesion"] == 40e6
                         and config["friction_coefficient"] == 0.2
                         else f"{aspect_cohesion:.10e}|{aspect_cohesion:.10e}"
                     )

@@ -1,6 +1,7 @@
 """Tests for the rule-based Stegman prescribed-velocity setup."""
 
 import json
+from math import cos, radians, sin, sqrt
 from pathlib import Path
 
 import pytest
@@ -34,6 +35,70 @@ def test_defaults_reproduce_stegman_2d_case():
     assert wb_dict == expected_wb
     assert context["plate_length"] == 2200e3
     assert context["trench_position"] == 2800e3
+
+
+def test_model_16_3d():
+    """Reproduce the symmetry-reduced three-dimensional Model 16 setup."""
+    expected_prm, expected_wb = load_fixture("model_16_3d")
+
+    prm_dict, wb_dict, context = make_stegman_case({"dimension": 3})
+
+    assert prm_dict == expected_prm
+    assert wb_dict == expected_wb
+    assert context["dimension"] == 3
+    assert context["domain_width"] == 2000e3
+
+    box = prm_dict["Geometry model"]["Box"]
+    assert box == {
+        "X extent": "4000e3",
+        "Y extent": "2000e3",
+        "Z extent": "1000e3",
+        "X repetitions": "6",
+        "Y repetitions": "3",
+        "Z repetitions": "3",
+    }
+    assert prm_dict["Mesh refinement"]["Initial global refinement"] == "3"
+
+    plate, slab = wb_dict["features"]
+    assert plate["coordinates"] == [
+        [600e3, 0], [2800e3, 0], [2800e3, 600e3], [600e3, 600e3],
+    ]
+    assert slab["coordinates"] == [[2800e3, 0], [2800e3, 600e3]]
+
+
+def test_model_16_3d_yield_parameters_preserve_physical_yield_line():
+    """Convert the paper's yield line to ASPECT's 3-D Drucker-Prager form."""
+    prm_dict, _, _ = make_stegman_case({"dimension": 3})
+    material = prm_dict["Material model"]["Visco Plastic"]
+    angle = float(
+        material["Angles of internal friction"].split("plate:")[1].split("|")[0]
+    )
+    cohesion = float(material["Cohesions"].split("plate:")[1].split("|")[0])
+
+    for pressure in (0.0, 1e9, 5e9):
+        phi = radians(angle)
+        aspect_yield_stress = (
+            6.0 * (cohesion * cos(phi) + pressure * sin(phi))
+            / (sqrt(3.0) * (3.0 + sin(phi)))
+        )
+        assert aspect_yield_stress == pytest.approx(40e6 + 0.2 * pressure)
+
+
+@pytest.mark.parametrize("dimension", [1, 4])
+def test_stegman_geometry_rejects_unsupported_dimension(dimension):
+    """Only the implemented two- and three-dimensional setups are accepted."""
+    with pytest.raises(ValueError, match="dimension must be either 2 or 3"):
+        make_stegman_case({"dimension": dimension})
+
+
+def test_model_16_3d_trench_must_fit_half_domain():
+    """Reject a physical trench whose modeled half exceeds the half-domain."""
+    with pytest.raises(ValueError, match="Half the trench_width"):
+        make_stegman_case({
+            "dimension": 3,
+            "domain_width": 500e3,
+            "trench_width": 1200e3,
+        })
 
 
 def test_geometry_and_slab_values_are_configurable():
