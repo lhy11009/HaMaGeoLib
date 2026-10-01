@@ -106,12 +106,6 @@ def test_plates_test_fastscape_with_analytic_topography():
         "Slope exponent": "1.0",
         "Bedrock deposition coefficient": "1.0",
         "Multi-direction slope exponent": "-1.0",
-        "Use kf distribution function": "true",
-        "kf distribution function": {
-            "Variable names": "x, y, t",
-            "Function constants": "t0=1.00e+06, IR0=3.00e-06",
-            "Function expression": "(t>t0)? IR0: 0.0",
-        },
     }
     assert "Initial topography model" in prm_dict["Geometry model"]
     assert prm_dict["Output directory"] == "output"
