@@ -186,6 +186,44 @@ class PlatesTestNumericsRule(Rule):
         prm_dict.update(deepcopy(config["plates_test_numerics"]))
 
 
+class PlatesTestTopRefinementRule(Rule):
+    """Keep the uppermost 100 km at the model's maximum refinement."""
+
+    requires = ["plates_test_refine_top_100_km"]
+    defaults = {"plates_test_refine_top_100_km": True}
+
+    def apply(self, config, prm_dict, wb_dict, context):
+        if not config["plates_test_refine_top_100_km"]:
+            return
+
+        mesh_refinement = prm_dict["Mesh refinement"]
+        global_refinement = int(mesh_refinement["Initial global refinement"])
+        adaptive_refinement = int(
+            mesh_refinement.get("Initial adaptive refinement", 0)
+        )
+        maximum_refinement = global_refinement + adaptive_refinement
+
+        strategies = [
+            strategy.strip()
+            for strategy in mesh_refinement.get("Strategy", "").split(",")
+            if strategy.strip()
+        ]
+        if "minimum refinement function" not in strategies:
+            strategies.append("minimum refinement function")
+        mesh_refinement["Strategy"] = ", ".join(strategies)
+
+        domain_height = prm_dict["Geometry model"]["Box"]["Y extent"]
+        mesh_refinement["Minimum refinement function"] = {
+            "Coordinate system": "cartesian",
+            "Variable names": "x, y",
+            "Function constants": (
+                f"Ymax = {domain_height}, Dp = 100e3, "
+                f"R = {maximum_refinement}"
+            ),
+            "Function expression": "if(y > Ymax - Dp, R, 0)",
+        }
+
+
 class PlatesTestPostprocessRule(Rule):
     """Build the postprocess portion of the plates test PRM dictionary."""
 
@@ -317,6 +355,7 @@ PLATES_TEST_RULES = [
     PlatesTestGeometryRule(),
     PlatesTestMaterialRule(),
     PlatesTestNumericsRule(),
+    PlatesTestTopRefinementRule(),
     PlatesTestPostprocessRule(),
     PlatesTestFastscapeRule(),
     PlatesTestAsciiTopographyRule(),

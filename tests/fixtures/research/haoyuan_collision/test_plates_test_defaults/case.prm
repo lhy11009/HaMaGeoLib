@@ -235,6 +235,13 @@ subsection Mesh refinement
     set Initial global refinement = 3
     set Coarsening fraction = 0.3
     set Time steps between mesh refinement = 2
+    set Strategy = minimum refinement function
+    subsection Minimum refinement function
+        set Coordinate system = cartesian
+        set Variable names = x, y
+        set Function constants = Ymax = 2000e3, Dp = 100e3, R = 3
+        set Function expression = if(y > Ymax - Dp, R, 0)
+    end
 end
 
 

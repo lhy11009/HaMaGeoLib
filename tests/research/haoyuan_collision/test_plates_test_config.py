@@ -203,3 +203,47 @@ def test_plates_test_rejects_unknown_timestepping_scheme():
         RuleEngine(PLATES_TEST_RULES).apply_all(
             {"plates_test_timestepping": "medium"}, {}, {}
         )
+
+
+def test_plates_test_refines_top_100_km_to_maximum_level_by_default():
+    prm_dict = {}
+
+    RuleEngine(PLATES_TEST_RULES).apply_all({}, prm_dict, {})
+
+    mesh_refinement = prm_dict["Mesh refinement"]
+    assert mesh_refinement["Strategy"] == "minimum refinement function"
+    assert mesh_refinement["Minimum refinement function"] == {
+        "Coordinate system": "cartesian",
+        "Variable names": "x, y",
+        "Function constants": "Ymax = 2000e3, Dp = 100e3, R = 3",
+        "Function expression": "if(y > Ymax - Dp, R, 0)",
+    }
+
+
+def test_plates_test_top_refinement_uses_global_plus_adaptive_levels():
+    config = {
+        "plates_test_numerics": {
+            "Mesh refinement": {
+                "Initial global refinement": "4",
+                "Initial adaptive refinement": "4",
+            }
+        },
+    }
+    prm_dict = {}
+
+    RuleEngine(PLATES_TEST_RULES).apply_all(config, prm_dict, {})
+
+    assert prm_dict["Mesh refinement"]["Minimum refinement function"][
+        "Function constants"
+    ] == "Ymax = 2000e3, Dp = 100e3, R = 8"
+
+
+def test_plates_test_top_refinement_can_be_disabled():
+    prm_dict = {}
+
+    RuleEngine(PLATES_TEST_RULES).apply_all(
+        {"plates_test_refine_top_100_km": False}, prm_dict, {}
+    )
+
+    assert "Strategy" not in prm_dict["Mesh refinement"]
+    assert "Minimum refinement function" not in prm_dict["Mesh refinement"]
