@@ -25,6 +25,44 @@ _PLATES_TEST_FASTSCAPE = _load_json("plates_test_fastscape.json")
 _PLATES_TEST_WB_SETTINGS = _load_json("plates_test_world_builder.json")
 
 
+def PlatesTestCaseNameFromVariables(
+    variables, *, prefix="", use_all=True, use_keys=None
+):
+    """Build a PlateTest case name from its scientific configuration."""
+    if use_keys is None:
+        use_keys = []
+
+    mesh_refinement = variables["plates_test_numerics"]["Mesh refinement"]
+    global_refinement = int(mesh_refinement["Initial global refinement"])
+    adaptive_refinement = int(
+        mesh_refinement.get("Initial adaptive refinement", 0)
+    )
+
+    name_parts = [prefix] if prefix else []
+    if use_all or "global_refinement" in use_keys:
+        name_parts.append(f"gr{global_refinement}")
+    if use_all or "adaptive_refinement" in use_keys:
+        name_parts.append(f"ar{adaptive_refinement}")
+    if use_all or "plates_test_timestepping" in use_keys:
+        timestepping_tags = {"short": "S", "long": "L"}
+        timestepping = variables["plates_test_timestepping"]
+        if timestepping not in timestepping_tags:
+            raise ValueError(
+                "plates_test_timestepping must be either 'short' or 'long'"
+            )
+        name_parts.append(timestepping_tags[timestepping])
+    if variables["plates_test_fastscape"] and (
+        use_all or "plates_test_fastscape" in use_keys
+    ):
+        name_parts.append("FS")
+    if variables["plates_test_ascii_topography"] and (
+        use_all or "plates_test_ascii_topography" in use_keys
+    ):
+        name_parts.append("ascii")
+
+    return "_".join(name_parts)
+
+
 def _analytic_topography_points():
     """Return the corners of the default piecewise-linear topography."""
     geometry = _PLATES_TEST_PRM_SECTIONS["geometry"]["Geometry model"]
@@ -87,6 +125,25 @@ class PlatesTestRuntimeRule(Rule):
 
     def apply(self, config, prm_dict, wb_dict, context):
         prm_dict.update(deepcopy(config["plates_test_runtime"]))
+
+
+class PlatesTestTimesteppingRule(Rule):
+    """Select the short test run or a million-year production run."""
+
+    requires = ["plates_test_timestepping"]
+    defaults = {"plates_test_timestepping": "short"}
+
+    def apply(self, config, prm_dict, wb_dict, context):
+        timestepping = config["plates_test_timestepping"]
+        if timestepping == "short":
+            return
+        if timestepping == "long":
+            prm_dict["End time"] = "1e6"
+            prm_dict.pop("Termination criteria", None)
+            return
+        raise ValueError(
+            "plates_test_timestepping must be either 'short' or 'long'"
+        )
 
 
 class PlatesTestCompositionRule(Rule):
@@ -255,6 +312,7 @@ class PlatesTestSlabRule(Rule):
 
 PLATES_TEST_RULES = [
     PlatesTestRuntimeRule(),
+    PlatesTestTimesteppingRule(),
     PlatesTestCompositionRule(),
     PlatesTestGeometryRule(),
     PlatesTestMaterialRule(),

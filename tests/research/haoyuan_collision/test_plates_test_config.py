@@ -1,11 +1,14 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from gdmate.aspect.config_engine import RuleEngine
 from gdmate.aspect.io import parse_parameters_to_dict
 
 from hamageolib.research.haoyuan_collision0.plates_test_config import (
     PLATES_TEST_RULES,
+    PlatesTestCaseNameFromVariables,
 )
 
 
@@ -155,3 +158,48 @@ def test_plates_test_fastscape_with_ascii_topography(tmp_path):
     assert "Initial topography model" not in prm_dict["Geometry model"]
     assert (tmp_path / "initial_topography.txt").is_file()
     assert prm_dict["Output directory"] == "output"
+
+
+def test_plates_test_case_name_uses_all_default_options():
+    config = {}
+    RuleEngine(PLATES_TEST_RULES).add_default(config)
+
+    assert PlatesTestCaseNameFromVariables(config, prefix="C") == "C_gr3_ar0_S"
+
+
+def test_plates_test_case_name_uses_refinement_and_active_options():
+    config = {
+        "plates_test_ascii_topography": True,
+        "plates_test_fastscape": True,
+        "plates_test_timestepping": "long",
+        "plates_test_numerics": {
+            "Mesh refinement": {
+                "Initial global refinement": "4",
+                "Initial adaptive refinement": "4",
+            }
+        },
+    }
+    RuleEngine(PLATES_TEST_RULES).add_default(config)
+
+    assert (
+        PlatesTestCaseNameFromVariables(config, prefix="C")
+        == "C_gr4_ar4_L_FS_ascii"
+    )
+
+
+def test_plates_test_long_timestepping_scheme():
+    prm_dict = {}
+
+    RuleEngine(PLATES_TEST_RULES).apply_all(
+        {"plates_test_timestepping": "long"}, prm_dict, {}
+    )
+
+    assert prm_dict["End time"] == "1e6"
+    assert "Termination criteria" not in prm_dict
+
+
+def test_plates_test_rejects_unknown_timestepping_scheme():
+    with pytest.raises(ValueError, match="plates_test_timestepping"):
+        RuleEngine(PLATES_TEST_RULES).apply_all(
+            {"plates_test_timestepping": "medium"}, {}, {}
+        )
