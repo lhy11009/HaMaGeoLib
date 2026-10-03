@@ -11,7 +11,7 @@ from gdmate.aspect.io import parse_parameters_to_dict
 from hamageolib.research.prescribe_vecloity.config import make_stegman_case
 
 
-PACKAGE_ROOT = Path(__file__).resolve().parents[2]
+PACKAGE_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE_ROOT = PACKAGE_ROOT / "tests/fixtures/research/prescribe_velocity"
 MODEL_16_3D_CONFIG = {
     "dimension": 3,
