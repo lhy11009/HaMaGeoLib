@@ -42,6 +42,26 @@ def test_defaults_reproduce_stegman_2d_case():
     assert wb_dict == expected_wb
     assert context["plate_length"] == 2200e3
     assert context["trench_position"] == 2800e3
+    checkpoint_times = prm_dict["Checkpointing"]["Additional checkpoint times"]
+    assert checkpoint_times.split(", ")[0] == "500000"
+    assert checkpoint_times.split(", ")[-1] == "3e+07"
+    assert len(checkpoint_times.split(", ")) == 60
+
+
+def test_checkpoint_interval_is_configurable():
+    """Allow cases to override the default half-million-year interval."""
+    prm_dict, _, _ = make_stegman_case({"checkpoint_interval": 1e6})
+
+    checkpoint_times = prm_dict["Checkpointing"]["Additional checkpoint times"]
+    assert checkpoint_times.split(", ")[0] == "1e+06"
+    assert checkpoint_times.split(", ")[-1] == "3e+07"
+    assert len(checkpoint_times.split(", ")) == 30
+
+
+def test_checkpoint_interval_must_be_positive():
+    """Reject checkpoint intervals that cannot generate model times."""
+    with pytest.raises(ValueError, match="checkpoint_interval must be positive"):
+        make_stegman_case({"checkpoint_interval": 0})
 
 
 def test_model_16_3d():

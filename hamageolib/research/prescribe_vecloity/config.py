@@ -548,10 +548,23 @@ class StegmanSolverRule(Rule):
 class StegmanPostprocessRule(Rule):
     """Configure diagnostics and visualization output."""
 
-    requires = ["graphical_output_interval"]
-    defaults = {"graphical_output_interval": 5e5}
+    requires = ["checkpoint_interval", "graphical_output_interval"]
+    defaults = {
+        "checkpoint_interval": 5e5,
+        "graphical_output_interval": 5e5,
+    }
 
     def apply(self, config, prm_dict, wb_dict, context):
+        checkpoint_interval = config["checkpoint_interval"]
+        if checkpoint_interval <= 0:
+            raise ValueError("checkpoint_interval must be positive.")
+        checkpoint_count = int(config["end_time"] // checkpoint_interval)
+        prm_dict["Checkpointing"] = {
+            "Additional checkpoint times": ", ".join(
+                _number(index * checkpoint_interval)
+                for index in range(1, checkpoint_count + 1)
+            ),
+        }
         prm_dict["Postprocess"] = {
             "List of postprocessors": (
                 "velocity statistics, composition statistics, material statistics, "
