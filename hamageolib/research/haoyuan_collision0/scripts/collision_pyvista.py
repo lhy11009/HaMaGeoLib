@@ -16,13 +16,13 @@ assert(os.path.isdir(local_Collision_dir))
 # Options
 # one_vtu_step - if this option is not None, only execute one step
 local_dir_2d = os.path.join(local_Collision_dir,
-                            "collision_setup36/C_WLF2.0e-02_SA100.0_marine_GN_TC1.00e+03"
+                            "collision_setup36/C_WLF2.0e-02_SA100.0_marine_GN_TC1.00e+03_cv1e21"
                             )
 prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"; output_directory="output" # normal
 
 # if min and max steps are given, then only perform analysis for steps in between,
 # otherwise, loop for all the visualization steps
-graphical_step_min = None
+graphical_step_min = 58
 graphical_step_max = None
 
 # if this is set to None, then loop all steps
