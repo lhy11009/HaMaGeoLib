@@ -17,4 +17,4 @@
 echo "Loading required modules and variables..."
 
 # run in debug and release
-srun ${ASPECT_SOURCE_DIR}/build_mater_TwoD_rebase/aspect-release ./case.prm
+srun ${ASPECT_SOURCE_DIR}/build_master_TwoD_rebase/aspect-release ./case.prm
