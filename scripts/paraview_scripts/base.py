@@ -884,3 +884,105 @@ def set_field_colorbar_in_render_view(renderView, fieldLUT, *,
         scalarBar.Position = position   # (x, y) in normalized viewport coordinates
 
     return scalarBar
+
+
+def add_dashed_contour(source, field, value, render_view, *,
+                       registration_name="dashed_contour",
+                       color=(0.35, 0.35, 0.35), line_width=2.0,
+                       dash_length=25e3, gap_length=25e3):
+    """Add a dashed isocontour and return its two pipeline filters."""
+    contour = Contour(
+        registrationName=registration_name + "_contour",
+        Input=source,
+    )
+    contour.ContourBy = ["POINTS", field]
+    contour.Isosurfaces = [value]
+
+    dashed = ProgrammableFilter(
+        registrationName=registration_name,
+        Input=contour,
+    )
+    dashed.Script = f"""
+import math
+import vtk
+
+input_data = self.GetInputDataObject(0, 0)
+output_data = self.GetOutputDataObject(0)
+dash_length = {float(dash_length)!r}
+gap_length = {float(gap_length)!r}
+pattern_length = dash_length + gap_length
+
+points = vtk.vtkPoints()
+lines = vtk.vtkCellArray()
+
+stripper = vtk.vtkStripper()
+stripper.SetInputData(input_data)
+stripper.Update()
+contour_lines = stripper.GetOutput()
+
+for cell_index in range(contour_lines.GetNumberOfCells()):
+    cell = contour_lines.GetCell(cell_index)
+    point_ids = cell.GetPointIds()
+    distance_along_line = 0.0
+
+    for point_index in range(point_ids.GetNumberOfIds() - 1):
+        point_0 = contour_lines.GetPoint(point_ids.GetId(point_index))
+        point_1 = contour_lines.GetPoint(point_ids.GetId(point_index + 1))
+        delta = [point_1[i] - point_0[i] for i in range(3)]
+        segment_length = math.sqrt(
+            delta[0]**2 + delta[1]**2 + delta[2]**2
+        )
+        if segment_length == 0.0:
+            continue
+
+        offset = 0.0
+        while offset < segment_length:
+            pattern_offset = distance_along_line % pattern_length
+            tolerance = 1e-12 * pattern_length
+            if (pattern_offset < tolerance or
+                    pattern_length - pattern_offset < tolerance):
+                pattern_offset = 0.0
+            elif abs(pattern_offset - dash_length) < tolerance:
+                pattern_offset = dash_length
+            draw_dash = pattern_offset < dash_length
+            boundary = dash_length if draw_dash else pattern_length
+            segment_remaining = segment_length - offset
+            pattern_remaining = boundary - pattern_offset
+            step = (segment_remaining if segment_remaining < pattern_remaining
+                    else pattern_remaining)
+
+            if draw_dash and step > 0.0:
+                fractions = (offset / segment_length,
+                             (offset + step) / segment_length)
+                dash_points = []
+                for fraction in fractions:
+                    dash_points.append(tuple(
+                        point_0[i] + fraction * delta[i] for i in range(3)
+                    ))
+                line = vtk.vtkLine()
+                line.GetPointIds().SetId(0, points.InsertNextPoint(dash_points[0]))
+                line.GetPointIds().SetId(1, points.InsertNextPoint(dash_points[1]))
+                lines.InsertNextCell(line)
+
+            offset += step
+            distance_along_line += step
+
+output_data.Initialize()
+output_data.SetPoints(points)
+output_data.SetLines(lines)
+"""
+
+    Hide(contour, render_view)
+    display = Show(dashed, render_view, "GeometryRepresentation")
+    display.ColorArrayName = [None, ""]
+    display.AmbientColor = list(color)
+    display.DiffuseColor = list(color)
+    display.LineWidth = line_width
+    return contour, dashed
+
+
+def remove_dashed_contour(contour, dashed, render_view):
+    """Remove the filters created by :func:`add_dashed_contour`."""
+    Hide(dashed, render_view)
+    Delete(dashed)
+    Delete(contour)

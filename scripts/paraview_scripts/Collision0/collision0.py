@@ -148,6 +148,19 @@ EROSION_DEPOSITION_COLOR_POINTS = [
 ]
 
 
+def add_optional_fastscape_contour(source, field, value, render_view, **kwargs):
+    """Add a FastScape contour when contour plotting is enabled."""
+    if not PLOT_FASTSCAPE_CONTOURS:
+        return None
+    return add_dashed_contour(source, field, value, render_view, **kwargs)
+
+
+def remove_optional_fastscape_contour(contour_filters, render_view):
+    """Remove optional FastScape contour filters when they were created."""
+    if contour_filters is not None:
+        remove_dashed_contour(*contour_filters, render_view)
+
+
 def apply_custom_color_points(fieldLUT, minimum, maximum, color_points):
     """Apply normalized RGB control points over a field's numeric range."""
     fieldLUT.UseLogScale = 0
@@ -661,10 +674,15 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
             field, fieldLUT = set_fastscape_erosion_rate_plot(sourceDisplayF)
             scalarBar = set_fastscape_erosion_rate_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
             HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+            erosion_rate_contour = add_optional_fastscape_contour(
+                _sourceF, "erosion_rate", 1e-3, renderView1,
+                registration_name="erosion_rate_1e-3"
+            )
             fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_erosion_rate_t%.4e.pdf" % (_time))
             fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_erosion_rate_t%.4e.png" % (_time))
             SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
             ExportView(fig_path, view=renderView1)
+            remove_optional_fastscape_contour(erosion_rate_contour, renderView1)
             print("Figure saved: %s" % fig_png_path)
             print("Figure saved: %s" % fig_path)
         
@@ -673,10 +691,15 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
             field, fieldLUT = set_fastscape_total_erosion_plot(sourceDisplayF)
             scalarBar = set_fastscape_total_erosion_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
             HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
+            total_erosion_contour = add_optional_fastscape_contour(
+                _sourceF, "total_erosion", 1e3, renderView1,
+                registration_name="total_erosion_1e3"
+            )
             fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.pdf" % (_time))
             fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.png" % (_time))
             SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
             ExportView(fig_path, view=renderView1)
+            remove_optional_fastscape_contour(total_erosion_contour, renderView1)
             print("Figure saved: %s" % fig_png_path)
             print("Figure saved: %s" % fig_path)
 
@@ -693,6 +716,10 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
             scalarBar = set_fastscape_total_sedimentation_colorbar(
                 renderView1, fieldLUT, position=[0.6, 0.05]
             )
+            sedimentation_contour = add_optional_fastscape_contour(
+                _sourceFPG, "sedimentation", -1e3, renderView1,
+                registration_name="sedimentation_minus_1e3"
+            )
             fig_path = os.path.join(
                 pv_output_dir,
                 "PLOT_TYPE_total_sedimentation_t%.4e.pdf" % _time,
@@ -705,6 +732,7 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
                 fig_png_path, renderView1, ImageResolution=layout_resolution
             )
             ExportView(fig_path, view=renderView1)
+            remove_optional_fastscape_contour(sedimentation_contour, renderView1)
             print("Figure saved: %s" % fig_png_path)
             print("Figure saved: %s" % fig_path)
 

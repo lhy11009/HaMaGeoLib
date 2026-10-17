@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 
@@ -7,6 +8,10 @@ SCRIPT_PATH = (
     / "paraview_scripts"
     / "Collision0"
     / "collision0.py"
+)
+BASE_PATH = SCRIPT_PATH.parents[1] / "base.py"
+CASE_OPTIONS_PATH = (
+    SCRIPT_PATH.parents[3] / "hamageolib" / "utils" / "case_options.py"
 )
 
 
@@ -45,3 +50,37 @@ def test_fastscape_creates_only_cumulative_signed_sedimentation():
     assert "PLOT_TYPE_sedimentation_rate" not in source
     assert "PLOT_TYPE_total_sedimentation" in source
     assert "set_fastscape_total_sedimentation_plot" in source
+
+
+def test_fastscape_adds_requested_dashed_contours():
+    base_source = BASE_PATH.read_text()
+    case_source = SCRIPT_PATH.read_text()
+
+    assert "def add_dashed_contour" in base_source
+    assert "Contour(" in base_source
+    assert "ProgrammableFilter(" in base_source
+    assert "dash_length" in base_source
+    assert "gap_length" in base_source
+
+    expected_contours = (
+        ('_sourceF', 'erosion_rate', '1e-3'),
+        ('_sourceF', 'total_erosion', '1e3'),
+        ('_sourceFPG', 'sedimentation', '-1e3'),
+    )
+    for source, field, value in expected_contours:
+        assert re.search(
+            rf'add_optional_fastscape_contour\(\s*{source}, "{field}", {value}',
+            case_source,
+        )
+
+
+def test_fastscape_contours_are_optional_and_off_by_default():
+    case_source = SCRIPT_PATH.read_text()
+    options_source = CASE_OPTIONS_PATH.read_text()
+
+    assert 'self.options["PLOT_FASTSCAPE_CONTOURS"] = "False"' in options_source
+    assert "def add_optional_fastscape_contour" in case_source
+    optional_helper = case_source.split(
+        "def add_optional_fastscape_contour", 1
+    )[1].split("def remove_optional_fastscape_contour", 1)[0]
+    assert "if not PLOT_FASTSCAPE_CONTOURS:" in optional_helper

@@ -327,6 +327,7 @@ class CASE_OPTIONS(CODESUB):
         self.options["INCLUDE_FASTSCAPE"] = "False"
         if os.path.isdir(os.path.join(self.output_dir, "fastscape")):
             self.options["INCLUDE_FASTSCAPE"] = "True"
+        self.options["PLOT_FASTSCAPE_CONTOURS"] = "False"
 
         # default operations
         self.options["ANIMATION"] = "False"
