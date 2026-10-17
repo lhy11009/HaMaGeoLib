@@ -79,6 +79,8 @@
   "customize_corner_depth": 200000.0,
   "customize_corner": true,
   "customize_corner_temperature": true,
+  "customize_corner_temperature_width": 500000.0,
+  "customize_corner_temperature_depth": 200000.0,
   "customize_corner_viscosity": 1e+20,
   "customize_corner_width": 500000.0,
   "nonlinear_solver_tolerance": 0.0005,

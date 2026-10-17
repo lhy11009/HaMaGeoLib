@@ -2698,7 +2698,8 @@ class CornerRule(Rule):
 
     """
     requires = ["customize_corner", "customize_corner_width", "customize_corner_depth", "customize_corner_viscosity",
-                "customize_corner_temperature", "customize_ridge", "chapman_model_surface_heatflux",
+                "customize_corner_temperature", "customize_corner_temperature_width", "customize_corner_temperature_depth",
+                "customize_ridge", "chapman_model_surface_heatflux",
                 "customize_corner_temperature_fix", "customize_corner_temperature_fix_width", "customize_corner_temperature_fix_depth",
                 "customize_corner_composition", "customize_ridge_composition_remapping", "customize_ridge_taper_length",
                 "continent_taper_sediment_thickness", "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness",
@@ -2709,6 +2710,8 @@ class CornerRule(Rule):
                 "customize_corner_depth": 100e3,
                 "customize_corner_viscosity": -1.0,
                 "customize_corner_temperature": False,
+                "customize_corner_temperature_width": 600e3,
+                "customize_corner_temperature_depth": 100e3,
                 "use_rebased_branch": False,
                 "customize_ridge": False,
                 "chapman_model_surface_heatflux": 0.055,
@@ -2731,6 +2734,8 @@ class CornerRule(Rule):
                          "customize_corner_viscosity": "Viscosity of the corner region. If a positive value is given, \
 viscosity is being prescribed in the region",
                          "customize_corner_temperature": "Whether to customize the corner temperature",
+                         "customize_corner_temperature_width": "Width of the prescribed corner temperature region",
+                         "customize_corner_temperature_depth": "Depth of the prescribed corner temperature region",
                          "customize_corner_composition": "Whether to customize the corner composition to the initial composition",
                          "customize_ridge_composition_remapping": "Whether to remap composition from background to oceanic compositions",
                          "customize_ridge_taper_length": "Create tapering near the ridge region from the subduction continents.",
@@ -2752,6 +2757,8 @@ viscosity is being prescribed in the region",
         customize_corner_depth = config["customize_corner_depth"]
         customize_corner_viscosity = config["customize_corner_viscosity"]
         customize_corner_temperature = config["customize_corner_temperature"]
+        customize_corner_temperature_width = config["customize_corner_temperature_width"]
+        customize_corner_temperature_depth = config["customize_corner_temperature_depth"]
         customize_ridge = config["customize_ridge"]
         use_rebased_branch = config["use_rebased_branch"]
         chapman_model_surface_heatflux = config["chapman_model_surface_heatflux"]
@@ -2800,7 +2807,8 @@ viscosity is being prescribed in the region",
                 indicator_function = {
                     "Variable names": "x, y",
                     "Function constants": "cwidth = %de3, cdepth = %de3, ymax = %de3, xmax = %de3" % \
-                        (customize_corner_width/1e3, customize_corner_depth/1e3, domain_depth/1e3, domain_length/1e3),
+                        (customize_corner_temperature_width/1e3, customize_corner_temperature_depth/1e3,
+                         domain_depth/1e3, domain_length/1e3),
                     "Function expression": "(((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? 1.0: 0.0)"
                 }
 
@@ -2878,7 +2886,9 @@ viscosity is being prescribed in the region",
                 indicator_function = {
                     "Variable names": "x, y",
                     "Function constants": "cwidth = %de3, cdepth = %de3, ymax = %de3, xmax = %de3" % \
-                        ((customize_corner_width+customize_corner_temperature_fix_width)/1e3, (customize_corner_depth+customize_corner_temperature_fix_depth)/1e3, domain_depth/1e3, domain_length/1e3),
+                        ((customize_corner_temperature_width+customize_corner_temperature_fix_width)/1e3,
+                         (customize_corner_temperature_depth+customize_corner_temperature_fix_depth)/1e3,
+                         domain_depth/1e3, domain_length/1e3),
                     "Function expression": "(((y > ymax - cdepth) && ((x < cwidth)||(x > xmax - cwidth)))? 1.0: 0.0)"
                 }
                 

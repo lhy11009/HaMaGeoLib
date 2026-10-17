@@ -32,6 +32,76 @@ rules = [PostProcessorRule(), CasePathRule(), RemoveFluidRule(), CompositionRule
          FastScapeRule()]
 
 
+def test_corner_temperature_dimension_defaults():
+    """Retain the former corner dimension defaults for temperature."""
+    config = {
+        "customize_corner": True,
+        "customize_corner_temperature": True,
+        "use_rebased_branch": True,
+    }
+    rule = CornerRule()
+    rule.add_default(config)
+
+    prm_dict = {}
+    rule.apply(config, prm_dict, {}, {"domain_length": 5500e3, "domain_depth": 1000e3})
+
+    indicator = prm_dict["Prescribed solution"]["Initial temperature"]["Indicator function"]
+    assert indicator["Function constants"] == (
+        "cwidth = 600e3, cdepth = 100e3, ymax = 1000e3, xmax = 5500e3"
+    )
+
+
+def test_corner_temperature_dimensions_are_independent():
+    """Use temperature-specific dimensions for the prescribed corner region."""
+    config = {
+        "customize_corner": True,
+        "customize_corner_width": 700e3,
+        "customize_corner_depth": 200e3,
+        "customize_corner_temperature": True,
+        "customize_corner_temperature_width": 450e3,
+        "customize_corner_temperature_depth": 150e3,
+        "use_rebased_branch": True,
+    }
+    rule = CornerRule()
+    rule.add_default(config)
+
+    prm_dict = {}
+    rule.apply(config, prm_dict, {}, {"domain_length": 5500e3, "domain_depth": 1000e3})
+
+    indicator = prm_dict["Prescribed solution"]["Initial temperature"]["Indicator function"]
+    assert indicator["Function constants"] == (
+        "cwidth = 450e3, cdepth = 150e3, ymax = 1000e3, xmax = 5500e3"
+    )
+
+
+def test_corner_temperature_fix_extends_temperature_dimensions():
+    """Extend the temperature region rather than the general corner region."""
+    config = {
+        "customize_corner": True,
+        "customize_corner_width": 700e3,
+        "customize_corner_depth": 200e3,
+        "customize_corner_temperature_width": 450e3,
+        "customize_corner_temperature_depth": 150e3,
+        "customize_corner_temperature_fix": True,
+        "customize_corner_temperature_fix_width": 100e3,
+        "customize_corner_temperature_fix_depth": 50e3,
+        "use_rebased_branch": False,
+    }
+    rule = CornerRule()
+    rule.add_default(config)
+
+    prm_dict = {
+        "Temperature field": {},
+        "Material model": {"Visco Plastic": {}},
+    }
+    rule.apply(config, prm_dict, {}, {"domain_length": 5500e3, "domain_depth": 1000e3})
+
+    indicator = prm_dict["Material model"]["Visco Plastic"]["Prescribe temperature value function"]
+    assert indicator["Function constants"] == (
+        "cwidth = 550e3, cdepth = 200e3, ymax = 1000e3, xmax = 5500e3"
+    )
+
+
 def test_checkpoint_options():
     """Configure checkpoint frequency and retain all expected checkpoints."""
     prm_dict = {
