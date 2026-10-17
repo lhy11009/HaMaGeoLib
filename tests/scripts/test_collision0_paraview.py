@@ -13,7 +13,7 @@ SCRIPT_PATH = (
 def test_fastscape_uses_custom_signed_color_scales():
     source = SCRIPT_PATH.read_text()
 
-    assert "TOPOGRAPHY_COLOR_POINTS" in source
+    assert "TPOGRAPHY_COLOR_POINTS" in source
     assert "EROSION_DEPOSITION_COLOR_POINTS" in source
     assert "rescale_transfer_function_combined(field, -11000.0, 4000.0)" in source
     assert "rescale_transfer_function_combined(field, -1e-2, 1e-2)" in source
@@ -35,11 +35,13 @@ def test_fastscape_uses_custom_signed_color_scales():
     assert "SCM_batlow" not in total_erosion_function
 
 
-def test_fastscape_does_not_create_separate_sedimentation_plots():
+def test_fastscape_creates_only_cumulative_signed_sedimentation():
     source = SCRIPT_PATH.read_text()
 
-    assert "fastscape_programmable1" not in source
+    assert "fastscape_programmable1" in source
+    assert "Sedimentation = Basement - Topography" in source
     assert '"sedimentation_rate"' not in source
-    assert '"sedimentation"' not in source
+    assert '"sedimentation"' in source
     assert "PLOT_TYPE_sedimentation_rate" not in source
-    assert "PLOT_TYPE_total_sedimentation" not in source
+    assert "PLOT_TYPE_total_sedimentation" in source
+    assert "set_fastscape_total_sedimentation_plot" in source

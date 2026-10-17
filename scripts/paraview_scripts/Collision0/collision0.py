@@ -273,6 +273,33 @@ def set_fastscape_total_erosion_colorbar(renderView, fieldLUT, *,
     return scalarBar
 
 
+def set_fastscape_total_sedimentation_plot(sourceDisplay):
+    '''Set the cumulative marine sedimentation plot for FastScape outputs.'''
+    field = "sedimentation"
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, -1e4, 1e4)
+    fieldLUT = GetColorTransferFunction(field)
+    apply_custom_color_points(
+        fieldLUT, -1e4, 1e4, EROSION_DEPOSITION_COLOR_POINTS
+    )
+    return field, fieldLUT
+
+
+def set_fastscape_total_sedimentation_colorbar(renderView, fieldLUT, *,
+                                                position=None):
+    '''Set the cumulative marine sedimentation colorbar.'''
+    scalarBar = GetScalarBar(fieldLUT, renderView)
+    scalarBar.Visibility = 1
+    scalarBar.Title = 'Cumulative sedimentation (-)'
+    scalarBar.ComponentTitle = '[m]'
+    scalarBar.Orientation = 'Horizontal'
+
+    if position is not None:
+        scalarBar.WindowLocation = 'Any Location'
+        scalarBar.Position = position
+    return scalarBar
+
+
 
 def set_data_axes_grid(renderView1):
     '''
@@ -579,9 +606,12 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
 
     # plot fastscape outputs
     _sourceF = None
+    _sourceFPG = None
     if INCLUDE_FASTSCAPE:
         source_name = "fastscape_transform1" 
         _sourceF = possible_lookup_source(source_name)
+        source_name_pg = "fastscape_programmable1"
+        _sourceFPG = possible_lookup_source(source_name_pg)
 
     if "PLOT_TYPE" == "full_domain":
 
@@ -646,6 +676,34 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
             fig_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.pdf" % (_time))
             fig_png_path = os.path.join(pv_output_dir, "PLOT_TYPE_total_erosion_t%.4e.png" % (_time))
             SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+            ExportView(fig_path, view=renderView1)
+            print("Figure saved: %s" % fig_png_path)
+            print("Figure saved: %s" % fig_path)
+
+            # Plot marine sediment thickness as negative signed deposition.
+            Hide(_sourceF, renderView1)
+            fieldLUT0 = fieldLUT
+            HideScalarBarIfNotNeeded(fieldLUT0, renderView1)
+            sourceDisplayFPG = Show(
+                _sourceFPG, renderView1, 'GeometryRepresentation'
+            )
+            field, fieldLUT = set_fastscape_total_sedimentation_plot(
+                sourceDisplayFPG
+            )
+            scalarBar = set_fastscape_total_sedimentation_colorbar(
+                renderView1, fieldLUT, position=[0.6, 0.05]
+            )
+            fig_path = os.path.join(
+                pv_output_dir,
+                "PLOT_TYPE_total_sedimentation_t%.4e.pdf" % _time,
+            )
+            fig_png_path = os.path.join(
+                pv_output_dir,
+                "PLOT_TYPE_total_sedimentation_t%.4e.png" % _time,
+            )
+            SaveScreenshot(
+                fig_png_path, renderView1, ImageResolution=layout_resolution
+            )
             ExportView(fig_path, view=renderView1)
             print("Figure saved: %s" % fig_png_path)
             print("Figure saved: %s" % fig_path)
@@ -742,6 +800,22 @@ def setup_fastscape(source_i):
     transform = Transform(registrationName="fastscape_transform1", Input=input_source)
     transform.Transform.Rotate = [-90.0, 0.0, 0.0]
     transform.Transform.Translate = [0.0, TOP, 0.0]
+
+    transform_source = FindSource("fastscape_transform1")
+    sedimentation = ProgrammableFilter(
+        registrationName="fastscape_programmable1",
+        Input=transform_source,
+    )
+    sedimentation.Script = """
+Topography = inputs[0].PointData["topography"]
+Basement = inputs[0].PointData["basement"]
+Sedimentation = Basement - Topography
+
+output.PointData.append(
+    Sedimentation,
+    "sedimentation"
+)
+"""
 
 # For some reason, the SCM is not automatically loaded anymore
 # and needs to be loaded manually.
