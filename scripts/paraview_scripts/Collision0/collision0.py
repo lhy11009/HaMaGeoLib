@@ -120,7 +120,7 @@ def set_active_deforming_plot(sourceDisplay):
     sourceDisplay.DiffuseColor = [36/255.0, 0/255.0, 107/255.0] # 24006b
     sourceDisplay.Opacity = 0.5
 
-TOPOGRAPHY_COLOR_POINTS = [
+TPOGRAPHY_COLOR_POINTS = [
     (0.0, 35 / 255.0, 27 / 255.0, 73 / 255.0),
     ((27 - 9) / (197 - 9), 45 / 255.0, 51 / 255.0, 125 / 255.0),
     ((46 - 9) / (197 - 9), 30 / 255.0, 77 / 255.0, 158 / 255.0),
@@ -176,7 +176,7 @@ def set_fastscape_topography_plot(sourceDisplay):
     rescale_transfer_function_combined(field, -11000.0, 4000.0)
     fieldLUT = GetColorTransferFunction(field)
     apply_custom_color_points(
-        fieldLUT, -11000.0, 4000.0, TOPOGRAPHY_COLOR_POINTS
+        fieldLUT, -11000.0, 4000.0, TPOGRAPHY_COLOR_POINTS
     )
     return field, fieldLUT
 
