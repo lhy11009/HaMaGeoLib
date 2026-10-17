@@ -138,13 +138,13 @@ TOPOGRAPHY_COLOR_POINTS = [
 ]
 
 EROSION_DEPOSITION_COLOR_POINTS = [
-    (0.00, 37 / 255.0, 52 / 255.0, 148 / 255.0),
-    (0.25, 44 / 255.0, 127 / 255.0, 184 / 255.0),
-    (0.40, 127 / 255.0, 205 / 255.0, 187 / 255.0),
+    (0.00, 127 / 255.0, 0 / 255.0, 0 / 255.0),
+    (0.25, 215 / 255.0, 48 / 255.0, 39 / 255.0),
+    (0.40, 253 / 255.0, 174 / 255.0, 97 / 255.0),
     (0.50, 247 / 255.0, 247 / 255.0, 247 / 255.0),
-    (0.60, 253 / 255.0, 174 / 255.0, 97 / 255.0),
-    (0.75, 215 / 255.0, 48 / 255.0, 39 / 255.0),
-    (1.00, 127 / 255.0, 0 / 255.0, 0 / 255.0),
+    (0.60, 127 / 255.0, 205 / 255.0, 187 / 255.0),
+    (0.75, 44 / 255.0, 127 / 255.0, 184 / 255.0),
+    (1.00, 37 / 255.0, 52 / 255.0, 148 / 255.0),
 ]
 
 
@@ -227,7 +227,7 @@ set the fastscape erosion rate colorbar
     ''' 
     scalarBar = GetScalarBar(fieldLUT, renderView)
     scalarBar.Visibility = 1
-    scalarBar.Title = 'Erosion (+) / deposition (-) rate'
+    scalarBar.Title = 'Deposition (-) / erosion (+) rate'
     scalarBar.ComponentTitle = '[m/yr]'
     scalarBar.Orientation = 'Horizontal'
 
@@ -263,7 +263,7 @@ def set_fastscape_total_erosion_colorbar(renderView, fieldLUT, *,
     ''' 
     scalarBar = GetScalarBar(fieldLUT, renderView)
     scalarBar.Visibility = 1
-    scalarBar.Title = 'Cumulative erosion (+) / deposition (-)'
+    scalarBar.Title = 'Cumulative deposition (-) / erosion (+)'
     scalarBar.ComponentTitle = '[m]'
     scalarBar.Orientation = 'Horizontal'
 
