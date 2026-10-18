@@ -1682,6 +1682,9 @@ pv_output_dir = os.path.abspath(os.path.join("DATA_OUTPUT_DIR", "..", "img", "pv
 
 # get active view
 renderView1 = GetActiveViewOrCreate('RenderView')
+renderView1.UseColorPaletteForBackground = 0
+renderView1.BackgroundColorMode = 'Single Color'
+renderView1.Background = [1.0, 1.0, 1.0]
     
 
 if int("DIMENSION") == 3:
