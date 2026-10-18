@@ -11,6 +11,18 @@ from hamageolib.utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
 
+def _get_visco_plastic_parameters(material_model):
+    """Return the active visco-plastic material-model subsection."""
+    if 'Visco Plastic TwoD' in material_model:
+        return material_model['Visco Plastic TwoD']
+    if 'Visco Plastic' in material_model:
+        return material_model['Visco Plastic']
+    raise KeyError(
+        'Material model must contain either a "Visco Plastic TwoD" '
+        'or "Visco Plastic" subsection.'
+    )
+
+
 class CASE_OPTIONS(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
     """
     parse .prm file to a option file that bash can easily read
@@ -283,6 +295,8 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         CASE_OPTIONS_BASE.Interpret(self, **kwargs)
         VISIT_OPTIONS_BASE.Interpret(self, **kwargs)
 
+        visco_plastic = _get_visco_plastic_parameters(self.idict['Material model'])
+
         # Rotation angles 
         self.options['ROTATION_ANGLE'] = 0.0
         rotation_plus = kwargs.get("rotation_plus", 0.0) # additional rotation
@@ -290,17 +304,17 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         # Maximum and minimum viscosity
         try:
             self.options['ETA_MIN'] =\
-                string2list(self.idict['Material model']['Visco Plastic TwoD']['Minimum viscosity'], float)[0]
+                string2list(visco_plastic['Minimum viscosity'], float)[0]
         except ValueError:
             eta_min_inputs =\
-                COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Minimum viscosity']) 
+                COMPOSITION(visco_plastic['Minimum viscosity'])
             self.options['ETA_MIN'] = eta_min_inputs.data['background'][0] # use phases
         try:
             self.options['ETA_MAX'] =\
-                string2list(self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity'], float)[0]
+                string2list(visco_plastic['Maximum viscosity'], float)[0]
         except ValueError:
             eta_max_inputs =\
-                COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Maximum viscosity']) 
+                COMPOSITION(visco_plastic['Maximum viscosity'])
             self.options['ETA_MAX'] = eta_max_inputs.data['background'][0] # use phases
 
         # Domain and rotation
@@ -382,24 +396,24 @@ class CASE_OPTIONS_TWOD1(VISIT_OPTIONS_BASE, CASE_OPTIONS_BASE):
         index = FindWBFeatures(self.wb_dict, 'Subducting plate')
         feature_sp = self.wb_dict['features'][index]
         self.options["INITIAL_SHEAR_ZONE_THICKNESS"] = feature_sp["composition models"][0]["max depth"]
-        decoupling_eclogite_viscosity = self.idict['Material model']['Visco Plastic TwoD'].get('Decoupling eclogite viscosity', 'false')
+        decoupling_eclogite_viscosity = visco_plastic.get('Decoupling eclogite viscosity', 'false')
         if decoupling_eclogite_viscosity == 'true':
-            self.options["SHEAR_ZONE_CUTOFF_DEPTH"] = float(self.idict['Material model']['Visco Plastic TwoD']["Eclogite decoupled viscosity"]["Decoupled depth"])
+            self.options["SHEAR_ZONE_CUTOFF_DEPTH"] = float(visco_plastic["Eclogite decoupled viscosity"]["Decoupled depth"])
         else:
             self.options["SHEAR_ZONE_CUTOFF_DEPTH"] = -1.0
 
-        A_diff_inputs = COMPOSITION(self.idict['Material model']['Visco Plastic TwoD']['Prefactors for diffusion creep'])
+        A_diff_inputs = COMPOSITION(visco_plastic['Prefactors for diffusion creep'])
         self.options["SHEAR_ZONE_CONSTANT_VISCOSITY"] = 1.0 / 2.0 / A_diff_inputs.data['spcrust'][0] # use phases
     
         # yield stress
         try:
-            self.options["MAXIMUM_YIELD_STRESS"] = float(self.idict['Material model']['Visco Plastic TwoD']["Maximum yield stress"])
+            self.options["MAXIMUM_YIELD_STRESS"] = float(visco_plastic["Maximum yield stress"])
         except KeyError:
             self.options["MAXIMUM_YIELD_STRESS"] = 1e8
 
         # peierls rheology
         try:
-            include_peierls_rheology = self.idict['Material model']['Visco Plastic TwoD']['Include Peierls creep']
+            include_peierls_rheology = visco_plastic['Include Peierls creep']
             if include_peierls_rheology == 'true':
                 self.options['INCLUDE_PEIERLS_RHEOLOGY'] = True
             else:
@@ -581,7 +595,7 @@ def parse_phase_transition_options(prm_dict, options, da_P_func):
     store the derived values in the options dictionary.
     Parameters:
         prm_dict (dict): Parsed ASPECT parameter dictionary containing the Visco Plastic TwoD
-            material model configuration.
+            or Visco Plastic material model configuration.
         options (dict): Dictionary to populate with parsed phase transition parameters.
         da_P_func (func): Adiabatic pressure profile from depth average file
     Returns:
@@ -590,19 +604,20 @@ def parse_phase_transition_options(prm_dict, options, da_P_func):
     # phase transition parameters
     # note the values of density has (number of transition + 1) entries,
     # and density jump of a phase transition is computed from subtracting adjacent entries
-    pt_depths_entry = prm_dict['Material model']['Visco Plastic TwoD']["Phase transition depths"]
+    visco_plastic = _get_visco_plastic_parameters(prm_dict['Material model'])
+    pt_depths_entry = visco_plastic["Phase transition depths"]
     pt_depths_dict = parse_composition_entry(pt_depths_entry)
     pt_depths_background_list = pt_depths_dict["background"]
 
-    pt_temperatures_entry = prm_dict['Material model']['Visco Plastic TwoD']["Phase transition temperatures"]
+    pt_temperatures_entry = visco_plastic["Phase transition temperatures"]
     pt_temperatures_dict = parse_composition_entry(pt_temperatures_entry)
     pt_temperature_background_list = pt_temperatures_dict["background"]
 
-    pt_CL_slopes_entry = prm_dict['Material model']['Visco Plastic TwoD']["Phase transition Clapeyron slopes"]
+    pt_CL_slopes_entry = visco_plastic["Phase transition Clapeyron slopes"]
     pt_CL_slopes_dict = parse_composition_entry(pt_CL_slopes_entry)
     pt_CL_slopes_list = pt_CL_slopes_dict["background"]
 
-    phase_densities_entry = prm_dict['Material model']['Visco Plastic TwoD']["Densities"]
+    phase_densities_entry = visco_plastic["Densities"]
     phase_densities_dict = parse_composition_entry(phase_densities_entry)
     phase_densities_list = phase_densities_dict["background"]
 
