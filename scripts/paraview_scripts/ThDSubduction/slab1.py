@@ -575,7 +575,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
     if "MODEL_TYPE" == "mow":
         contourEq = FindSource("contour_eq_trans")
         contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
-        ColorBy(contourEqDisplay, None)
+        contourEqDisplay.SetScalarColoring(None, 0)
         contourEqDisplay.LineWidth = 2.0
         contourEqDisplay.Ambient = 1.0
         
@@ -608,7 +608,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
         sourceVRE.GlyphTransform.Rotate = [90.0, 0.0, 0.0]
     sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
     if int("DIMENSION") == 3:
-        ColorBy(sourceVDisplay, None)
+        sourceVDisplay.SetScalarColoring(None, 0)
     # sourceVDisplay.SetScalarBarVisibility(renderView1, True)
     pointSource1 = FindSource("PointSource_%s_glyph_%05d" % (source_name, snapshot))
 
@@ -661,7 +661,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
         else:
             metaRegion = FindSource("metastable_region_%05d" % (snapshot))
         metaRegionDisplay = Show(metaRegion, renderView1, 'GeometryRepresentation')
-        ColorBy(metaRegionDisplay, None)
+        metaRegionDisplay.SetScalarColoring(None, 0)
         metaRegionDisplay.AmbientColor = [0.5, 0.5, 0.5] # gray
         metaRegionDisplay.DiffuseColor = [0.5, 0.5, 0.5] # gray
     
@@ -673,7 +673,7 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
         else:
             metaRegion1 = FindSource("metastable_region_slab_%05d" % (snapshot))
         metaRegion1Display = Show(metaRegion1, renderView1, 'GeometryRepresentation')
-        ColorBy(metaRegion1Display, None)
+        metaRegion1Display.SetScalarColoring(None, 0)
         metaRegion1Display.AmbientColor = [1.0, 0.0, 1.0] # magenta
         metaRegion1Display.DiffuseColor = [1.0, 0.0, 1.0]
 
@@ -862,7 +862,7 @@ def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwarg
     if "MODEL_TYPE" == "mow":
         contourEq = FindSource("contour_eq_trans")
         contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
-        ColorBy(contourEqDisplay, None)
+        contourEqDisplay.SetScalarColoring(None, 0)
         contourEqDisplay.LineWidth = 2.0
         contourEqDisplay.Ambient = 1.0
         
@@ -931,7 +931,7 @@ def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwarg
         sourceVRE.GlyphTransform.Rotate = [90.0, 0.0, 0.0]
     sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
     if int("DIMENSION") == 3:
-        ColorBy(sourceVDisplay, None)
+        sourceVDisplay.SetScalarColoring(None, 0)
     # show glyph representative
     if FOO05 == 1:
         # show the representative vector
@@ -1005,7 +1005,7 @@ def plot_slice_center_wedge(source_name, snapshot, pv_output_dir, _time, **kwarg
         sourceVRE.GlyphTransform.Rotate = [90.0, 0.0, 0.0]
     sourceVDisplay = Show(sourceV, renderView1, 'GeometryRepresentation')
     if int("DIMENSION") == 3:
-        ColorBy(sourceVDisplay, None)
+        sourceVDisplay.SetScalarColoring(None, 0)
     # show glyph representative
     if FOO05 == 1:
         # show the representative vector
@@ -1066,19 +1066,19 @@ def plot_slice_center_mtz(source_name, snapshot, pv_output_dir, _time, *,
     # Show the contours of equilibrium transitions
     contourEq = FindSource('contour_eq_trans')
     contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
-    ColorBy(contourEqDisplay, None)
+    contourEqDisplay.SetScalarColoring(None, 0)
     contourEqDisplay.LineWidth = 2.0
     contourEqDisplay.Ambient = 1.0
 
     contourEqBeta = FindSource('contour_eq_beta_trans')
     contourEqBetaDisplay = Show(contourEqBeta, renderView1, 'GeometryRepresentation')
-    ColorBy(contourEqBetaDisplay, None)
+    contourEqBetaDisplay.SetScalarColoring(None, 0)
     contourEqBetaDisplay.LineWidth = 2.0
     contourEqBetaDisplay.Ambient = 1.0
 
     contourEqPV = FindSource('contour_eq_pv_trans')
     contourEqPVDisplay = Show(contourEqPV, renderView1, 'GeometryRepresentation')
-    ColorBy(contourEqPVDisplay, None)
+    contourEqPVDisplay.SetScalarColoring(None, 0)
     contourEqPVDisplay.LineWidth = 2.0
     contourEqPVDisplay.Ambient = 1.0
     
@@ -1132,7 +1132,7 @@ def plot_slice_center_mtz(source_name, snapshot, pv_output_dir, _time, *,
     else:
         metaRegion1 = FindSource("metastable_region_slab_%05d" % (snapshot))
     metaRegion1Display = Show(metaRegion1, renderView1, 'GeometryRepresentation')
-    ColorBy(metaRegion1Display, None)
+    metaRegion1Display.SetScalarColoring(None, 0)
     metaRegion1Display.AmbientColor = [1.0, 0.0, 1.0] # magenta
     metaRegion1Display.DiffuseColor = [1.0, 0.0, 1.0]
 
@@ -1238,7 +1238,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     # Show the slice center surface
     source_center = FindSource("slice_center%s_%05d" % (trailer, snapshot))
     source_centerDisplay = Show(source_center, renderView1, 'GeometryRepresentation')
-    ColorBy(source_centerDisplay, None)
+    source_centerDisplay.SetScalarColoring(None, 0)
     source_centerDisplay.Opacity = 0.3
 
     # Show the slice center glyph
@@ -1246,7 +1246,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     sourceV1 = FindSource("slice_center_glyph_%05d" % snapshot)
     sourceV1.GlyphMode = 'Uniform Spatial Distribution (Surface Sampling)'
     sourceV1Display = Show(sourceV1, renderView1, 'GeometryRepresentation')
-    ColorBy(sourceV1Display, None)
+    sourceV1Display.SetScalarColoring(None, 0)
     sourceV1Display.AmbientColor = [0.6666666666666666, 0.0, 1.0]
     sourceV1Display.DiffuseColor = [0.6666666666666666, 0.0, 1.0]
 
@@ -1265,7 +1265,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     source_slice_200km = FindSource("slice_depth_200.0km%s_%05d" % (trailer, snapshot))
     source_slice_200kmDisplay = Show(source_slice_200km, renderView1, 'GeometryRepresentation')
     if "GEOMETRY" == "box":
-        ColorBy(source_slice_200kmDisplay, None)
+        source_slice_200kmDisplay.SetScalarColoring(None, 0)
     source_slice_200kmDisplay.Opacity = 0.2
 
     # Show the slice at 200 km depth glyph
@@ -1274,7 +1274,7 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
     sourceV2.GlyphMode = 'Uniform Spatial Distribution (Surface Sampling)'
     sourceV2Display = Show(sourceV2, renderView1, 'GeometryRepresentation')
     if "GEOMETRY" == "box":
-        ColorBy(sourceV2Display, None)
+        sourceV2Display.SetScalarColoring(None, 0)
     sourceV2Display.AmbientColor = [0.0, 0.3333333333333333, 1.0]
     sourceV2Display.DiffuseColor = [0.0, 0.3333333333333333, 1.0]
 
@@ -1353,12 +1353,12 @@ def plot_slab_velocity_field(snapshot, _time, pv_output_dir):
         # Setup metastable plots
         source_isoVolume_metastable = FindSource("isoVolume_metastable")
         source_isoVolume_metastableDisplay = Show(source_isoVolume_metastable, renderView1, 'GeometryRepresentation')
-        ColorBy(source_isoVolume_metastableDisplay, None)
+        source_isoVolume_metastableDisplay.SetScalarColoring(None, 0)
         source_isoVolume_metastableDisplay.Set(AmbientColor=[0.0, 0.0, 0.4980], DiffuseColor=[0.0, 0.0, 0.4980])
 
         contourEq = FindSource("contour_eq_trans")
         contourEqDisplay = Show(contourEq, renderView1, 'GeometryRepresentation')
-        ColorBy(contourEqDisplay, None)
+        contourEqDisplay.SetScalarColoring(None, 0)
         contourEqDisplay.Set(AmbientColor=[0.3333333432674408, 0.0, 0.49803921580314636], DiffuseColor=[0.3333333432674408, 0.0, 0.49803921580314636])
         contourEqDisplay.LineWidth = 2.0
         contourEqDisplay.Ambient = 1.0
