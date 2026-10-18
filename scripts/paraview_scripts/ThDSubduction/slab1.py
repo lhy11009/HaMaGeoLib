@@ -117,6 +117,15 @@ def set_density_plot(sourceDisplay):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("SCM_batlow", True)
 
+
+def set_viscoelastic_stress_plot(sourceDisplay, field):
+    '''Set a visco-elastic stress component plot with a shared symmetric range.'''
+    ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
+    rescale_transfer_function_combined(field, -500e6, 500e6)
+    fieldLUT = GetColorTransferFunction(field)
+    fieldLUT.ApplyPreset("SCM_vik", True)
+
+
 def set_temperature_plot(sourceDisplay):
     '''
     set the temperature plot
@@ -731,6 +740,23 @@ def plot_slice_center_viscosity(source_name, snapshot, pv_output_dir, _time, *,
     ExportView(fig_path, view=renderView1)
     print("Figure saved: %s" % fig_png_path)
     print("Figure saved: %s" % fig_path)
+
+    # Plot visco-elastic stress components using the same view and camera as density.
+    if "VISCO_ELASTIC" == "true":
+        for stress_field in ("ve_stress_xx", "ve_stress_yy", "ve_stress_xy"):
+            previous_field = transform1Display.ColorArrayName[1]
+            set_viscoelastic_stress_plot(transform1Display, stress_field)
+            if previous_field:
+                previousLUT = GetColorTransferFunction(previous_field)
+                previousPWF = GetOpacityTransferFunction(previous_field)
+                HideScalarBarIfNotNeeded(previousLUT, renderView1)
+                HideScalarBarIfNotNeeded(previousPWF, renderView1)
+            fig_path = os.path.join(pv_output_dir, "slice_center_%s_t%.4e.pdf" % (stress_field, _time))
+            fig_png_path = os.path.join(pv_output_dir, "slice_center_%s_t%.4e.png" % (stress_field, _time))
+            SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
+            ExportView(fig_path, view=renderView1)
+            print("Figure saved: %s" % fig_png_path)
+            print("Figure saved: %s" % fig_path)
 
     # Plot the temperature
     # get opacity transfer function/opacity map for 'field'
