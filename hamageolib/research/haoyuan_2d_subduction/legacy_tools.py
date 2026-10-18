@@ -331,6 +331,8 @@ class CASE_OPTIONS(CODESUB):
         self.options['DIMENSION'] = int(self.idict['Dimension'])
         # initial adaptive refinement
         self.options['INITIAL_ADAPTIVE_REFINEMENT'] = self.idict['Mesh refinement'].get('Initial adaptive refinement', '0')
+        # Whether the model includes the elastic terms of a visco-elastic formulation.
+        self.options['VISCO_ELASTIC'] = self.idict.get('Formulation', {}).get('Enable elasticity', 'false')
         # geometry
         # some notes on the "OUTER_RADIUS", in the case of box geometry
         # I want this value to record "Y" or "Z" in order to write consistent

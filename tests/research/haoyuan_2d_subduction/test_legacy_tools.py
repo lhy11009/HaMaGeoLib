@@ -33,6 +33,34 @@ os.mkdir(test_dir)
 def test_preliminary():
     assert(os.path.isdir(fixture_root))
 
+
+@pytest.mark.parametrize(
+    ("formulation", "expected"),
+    [
+        ({"Enable elasticity": "true"}, "true"),
+        ({}, "false"),
+    ],
+)
+def test_case_options_visco_elastic(tmp_path, formulation, expected):
+    case_options = CASE_OPTIONS.__new__(CASE_OPTIONS)
+    case_options.options = {}
+    case_options._output_dir = str(tmp_path)
+    case_options._img_dir = str(tmp_path)
+    case_options.idict = {
+        "Dimension": "2",
+        "Mesh refinement": {},
+        "Formulation": formulation,
+        "Geometry model": {
+            "Model name": "box",
+            "Box": {"X extent": "2", "Y extent": "1"},
+        },
+    }
+
+    case_options.Interpret()
+
+    assert case_options.options["VISCO_ELASTIC"] == expected
+
+
 # ---------------------------------------------------------------------
 # Tests for rheology
 # ---------------------------------------------------------------------
