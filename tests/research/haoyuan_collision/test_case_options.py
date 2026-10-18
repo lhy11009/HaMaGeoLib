@@ -102,6 +102,48 @@ def test_corner_temperature_fix_extends_temperature_dimensions():
     )
 
 
+def test_corner_composition_dimension_defaults():
+    """Retain the former corner dimension defaults for composition."""
+    config = {
+        "customize_corner": True,
+        "customize_corner_composition": True,
+        "use_rebased_branch": True,
+    }
+    rule = CornerRule()
+    rule.add_default(config)
+
+    prm_dict = {}
+    rule.apply(config, prm_dict, {}, {"domain_length": 5500e3, "domain_depth": 1000e3})
+
+    indicator = prm_dict["Prescribed solution"]["Initial composition"]["Indicator function"]
+    assert indicator["Function constants"] == (
+        "cwidth = 600e3, cdepth = 100e3, ymax = 1000e3, xmax = 5500e3"
+    )
+
+
+def test_corner_composition_dimensions_are_independent():
+    """Use composition-specific dimensions for the prescribed corner region."""
+    config = {
+        "customize_corner": True,
+        "customize_corner_width": 700e3,
+        "customize_corner_depth": 200e3,
+        "customize_corner_composition": True,
+        "customize_corner_composition_width": 450e3,
+        "customize_corner_composition_depth": 150e3,
+        "use_rebased_branch": True,
+    }
+    rule = CornerRule()
+    rule.add_default(config)
+
+    prm_dict = {}
+    rule.apply(config, prm_dict, {}, {"domain_length": 5500e3, "domain_depth": 1000e3})
+
+    indicator = prm_dict["Prescribed solution"]["Initial composition"]["Indicator function"]
+    assert indicator["Function constants"] == (
+        "cwidth = 450e3, cdepth = 150e3, ymax = 1000e3, xmax = 5500e3"
+    )
+
+
 def test_checkpoint_options():
     """Configure checkpoint frequency and retain all expected checkpoints."""
     prm_dict = {
