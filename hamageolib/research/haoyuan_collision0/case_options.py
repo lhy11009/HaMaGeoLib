@@ -43,6 +43,10 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
         # call functions from parent classes to process options
         CASE_OPTIONS_BASE.Interpret(self, **kwargs)
 
+        # Keep sedimentation positive/red; select only the erosion-rate range.
+        # False: +/-3e-4 m/yr; True: legacy +/-1e-2 m/yr.
+        self.options["USE_LEGACY_EROSION_RATE_RANGE"] = "False"
+
         # add additional options below
 
         # plate_setup

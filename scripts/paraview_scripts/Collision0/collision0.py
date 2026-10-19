@@ -137,7 +137,19 @@ TPOGRAPHY_COLOR_POINTS = [
     (1.0, 251 / 255.0, 251 / 255.0, 251 / 255.0),
 ]
 
+# Sedimentation-positive rate: erosion is blue, sedimentation is red.
 EROSION_DEPOSITION_COLOR_POINTS = [
+    (0.00, 37 / 255.0, 52 / 255.0, 148 / 255.0),
+    (0.25, 44 / 255.0, 127 / 255.0, 184 / 255.0),
+    (0.40, 127 / 255.0, 205 / 255.0, 187 / 255.0),
+    (0.50, 247 / 255.0, 247 / 255.0, 247 / 255.0),
+    (0.60, 253 / 255.0, 174 / 255.0, 97 / 255.0),
+    (0.75, 215 / 255.0, 48 / 255.0, 39 / 255.0),
+    (1.00, 127 / 255.0, 0 / 255.0, 0 / 255.0),
+]
+
+# Cumulative fields retain their deposition-negative sign convention.
+CUMULATIVE_EROSION_DEPOSITION_COLOR_POINTS = [
     (0.00, 127 / 255.0, 0 / 255.0, 0 / 255.0),
     (0.25, 215 / 255.0, 48 / 255.0, 39 / 255.0),
     (0.40, 253 / 255.0, 174 / 255.0, 97 / 255.0),
@@ -220,12 +232,16 @@ def set_fastscape_erosion_rate_plot(sourceDisplay):
         renderView - paraview object connect to visualization
         fieldLUT - color transfer function for viscosity
     ''' 
-    field = "erosion_rate"
+    field = "signed_sedimentation_rate"
+    if USE_LEGACY_EROSION_RATE_RANGE:
+        minimum, maximum = -1e-2, 1e-2
+    else:
+        minimum, maximum = -3e-4, 3e-4
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
-    rescale_transfer_function_combined(field, -1e-2, 1e-2)
+    rescale_transfer_function_combined(field, minimum, maximum)
     fieldLUT = GetColorTransferFunction(field)
     apply_custom_color_points(
-        fieldLUT, -1e-2, 1e-2, EROSION_DEPOSITION_COLOR_POINTS
+        fieldLUT, minimum, maximum, EROSION_DEPOSITION_COLOR_POINTS
     )
     return field, fieldLUT
 
@@ -240,7 +256,7 @@ set the fastscape erosion rate colorbar
     ''' 
     scalarBar = GetScalarBar(fieldLUT, renderView)
     scalarBar.Visibility = 1
-    scalarBar.Title = 'Deposition (-) / erosion (+) rate'
+    scalarBar.Title = 'Erosion (-) / sedimentation (+) rate'
     scalarBar.ComponentTitle = '[m/yr]'
     scalarBar.Orientation = 'Horizontal'
 
@@ -258,10 +274,10 @@ def set_fastscape_total_erosion_plot(sourceDisplay):
     ''' 
     field = "total_erosion"
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
-    rescale_transfer_function_combined(field, -1e4, 1e4)
+    rescale_transfer_function_combined(field, -5e3, 5e3)
     fieldLUT = GetColorTransferFunction(field)
     apply_custom_color_points(
-        fieldLUT, -1e4, 1e4, EROSION_DEPOSITION_COLOR_POINTS
+        fieldLUT, -5e3, 5e3, CUMULATIVE_EROSION_DEPOSITION_COLOR_POINTS
     )
     return field, fieldLUT
 
@@ -290,10 +306,10 @@ def set_fastscape_total_sedimentation_plot(sourceDisplay):
     '''Set the cumulative marine sedimentation plot for FastScape outputs.'''
     field = "sedimentation"
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
-    rescale_transfer_function_combined(field, -1e4, 1e4)
+    rescale_transfer_function_combined(field, -5e3, 5e3)
     fieldLUT = GetColorTransferFunction(field)
     apply_custom_color_points(
-        fieldLUT, -1e4, 1e4, EROSION_DEPOSITION_COLOR_POINTS
+        fieldLUT, -5e3, 5e3, CUMULATIVE_EROSION_DEPOSITION_COLOR_POINTS
     )
     return field, fieldLUT
 
@@ -671,7 +687,12 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
 
             # set erosion plot
             fieldLUT0 = fieldLUT
-            field, fieldLUT = set_fastscape_erosion_rate_plot(sourceDisplayF)
+            rate_source = Calculator(Input=_sourceF)
+            rate_source.ResultArrayName = "signed_sedimentation_rate"
+            rate_source.Function = "-erosion_rate"
+            Hide(_sourceF, renderView1)
+            rate_display = Show(rate_source, renderView1, 'GeometryRepresentation')
+            field, fieldLUT = set_fastscape_erosion_rate_plot(rate_display)
             scalarBar = set_fastscape_erosion_rate_colorbar(renderView1, fieldLUT, position=[0.6, 0.05])
             HideScalarBarIfNotNeeded(fieldLUT0, renderView1) # hide previous colorbar
             erosion_rate_contour = add_optional_fastscape_contour(
@@ -683,6 +704,9 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
             SaveScreenshot(fig_png_path, renderView1, ImageResolution=layout_resolution)
             ExportView(fig_path, view=renderView1)
             remove_optional_fastscape_contour(erosion_rate_contour, renderView1)
+            Hide(rate_source, renderView1)
+            Delete(rate_source)
+            Show(_sourceF, renderView1, 'GeometryRepresentation')
             print("Figure saved: %s" % fig_png_path)
             print("Figure saved: %s" % fig_path)
         
