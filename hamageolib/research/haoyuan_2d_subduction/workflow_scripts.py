@@ -542,6 +542,45 @@ def create_avi_from_images(file_paths, output_file, frame_rate=30):
     print(f"AVI animation created: {output_file}")
 
 
+def create_mp4_from_images(file_paths, output_file, frame_rate=30):
+    """Convert a sequence of PNG images into an MP4 animation."""
+    import cv2
+
+    if not file_paths:
+        raise ValueError("The file_paths list is empty.")
+    if not output_file.lower().endswith(".mp4"):
+        raise ValueError(f"The MP4 output file must end with '.mp4': {output_file}")
+
+    first_image = cv2.imread(file_paths[0])
+    if first_image is None:
+        raise ValueError(f"Cannot read the first image: {file_paths[0]}")
+
+    height, width = first_image.shape[:2]
+    frame_size = (width, height)
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    out = cv2.VideoWriter(output_file, fourcc, frame_rate, frame_size)
+    if not out.isOpened():
+        raise RuntimeError(f"Cannot open MP4 video writer for: {output_file}")
+
+    frames_written = 0
+    try:
+        for file_path in file_paths:
+            image = cv2.imread(file_path)
+            if image is None:
+                print(f"Warning: Skipping {file_path} (cannot read file).")
+                continue
+            if (image.shape[1], image.shape[0]) != frame_size:
+                image = cv2.resize(image, frame_size)
+            out.write(image)
+            frames_written += 1
+    finally:
+        out.release()
+
+    if frames_written == 0:
+        raise RuntimeError(f"No frames were written to: {output_file}")
+    print(f"MP4 animation created with {frames_written} frames: {output_file}")
+
+
 class SlabAnalysisPlotter:
     """
     A class for plotting slab analysis results with default plotting options.
