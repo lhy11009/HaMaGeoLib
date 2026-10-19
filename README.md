@@ -81,6 +81,24 @@ These typically include files that are case outputs.
 Note for myself: use the lihaoyuan81@gmail.com space for this purpose.
 
 
+## Case registry
+
+`CaseManager`, migrated from `gdmate.aspect.case_manager`, manages a CSV table
+with unique `case_id` values, absolute `case_path` values, and optional metadata
+columns. It requires pandas, included in `environment.yml`.
+
+```python
+from hamageolib.utils.case_manager import CaseManager
+
+cases = CaseManager("cases.csv")  # Load an existing table or start an empty one.
+index, row = cases.add_case("runs/case_a")
+cases.save()
+```
+
+Existing gdmate CSV tables can be loaded directly. Relative case paths resolve
+against the current working directory. Changes remain in memory until `save()`.
+The original API is preserved, including `CaseManager.TabelRowError`.
+
 ## Contributing
 
 We welcome contributions to **hamageolib**! If you’re interested in adding new features or improving existing functionality, please follow the workflow below:
