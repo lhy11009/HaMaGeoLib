@@ -187,6 +187,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if use_all or "silt_fraction" in use_keys:
             if variables["include_marine_component"]:
                 case_name += "_SF%.2e" % variables["silt_fraction"]
+        if use_all or "erosion_sediment_reference_density" in use_keys:
+            if variables["erosion_sediment_reference_density"] > 0.0:
+                case_name += "_ESD%.2e" % variables["erosion_sediment_reference_density"]
         if use_all or "use_reflective_left_right" in use_keys:
             if variables["use_reflective_left_right"]:
                 case_name += "_RLR"
@@ -3499,7 +3502,8 @@ class FastScapeRule(Rule):
                 "kf_start_time", "include_initial_isostacy", "include_initial_topograph_filepath", "initial_topograph_fileout_x_interval",
                 "initial_topograph_fileout_migration", "include_initial_topography_mesh_deformation",
                 "include_marine_component", "sand_transport_coefficient", "silt_transport_coefficient",
-                "silt_fraction", "use_reflective_left_right", "use_ghost_nodes"]
+                "silt_fraction", "erosion_sediment_reference_density",
+                "use_reflective_left_right", "use_ghost_nodes"]
 
     defaults = {
         "include_fastscape": False, 
@@ -3530,6 +3534,7 @@ class FastScapeRule(Rule):
         "sand_transport_coefficient": 100.0,
         "silt_transport_coefficient": 500.0,
         "silt_fraction": 0.5,
+        "erosion_sediment_reference_density": -1.0,
         "use_reflective_left_right": False,
         "use_ghost_nodes": False
     }
@@ -3552,6 +3557,7 @@ class FastScapeRule(Rule):
                          "sand_transport_coefficient": "FastScape marine transport coefficient for sand in m^2/yr.",
                          "silt_transport_coefficient": "FastScape marine transport coefficient for silt in m^2/yr.",
                          "silt_fraction": "Fraction of sediment leaving the continent that is silt.",
+                         "erosion_sediment_reference_density": "Reference density of the first phase of erosion sediment. A negative value retains the sediment density.",
                          "use_reflective_left_right": "Use reflective rather than fixed FastScape left and right boundaries.",
                          "use_ghost_nodes": "Use ghost nodes at the FastScape boundaries."
                          }
@@ -3589,6 +3595,7 @@ class FastScapeRule(Rule):
         sand_transport_coefficient = config["sand_transport_coefficient"]
         silt_transport_coefficient = config["silt_transport_coefficient"]
         silt_fraction = config["silt_fraction"]
+        erosion_sediment_reference_density = config["erosion_sediment_reference_density"]
         use_reflective_left_right = config["use_reflective_left_right"]
         use_ghost_nodes = config["use_ghost_nodes"]
 
@@ -3601,6 +3608,11 @@ class FastScapeRule(Rule):
             0.0 <= silt_fraction <= 1.0,
             ValueError,
             "Silt fraction must be between 0 and 1",
+        )
+        my_assert(
+            erosion_sediment_reference_density <= 0.0 or (include_fastscape and add_erosion_sediment),
+            ValueError,
+            "Erosion sediment reference density requires erosion sediment",
         )
 
         # First check only one of these options are selected.
@@ -3681,6 +3693,12 @@ class FastScapeRule(Rule):
             # To add a sediment composition from erosion, copy the setup of the sediment composition otherwise.
             if add_erosion_sediment:
                 duplicate_composition_from_prm(prm_dict, "sediment", "sediment1")
+
+                if erosion_sediment_reference_density > 0.0:
+                    material_dict = prm_dict["Material model"]["Multicomponent compressible"]
+                    density_dict = parse_composition_entry(material_dict["Reference densities"])
+                    density_dict["sediment1"][0] = erosion_sediment_reference_density
+                    material_dict["Reference densities"] = format_composition_entry(density_dict)
                 
             # todo_erosion
             if include_boundary_flow:

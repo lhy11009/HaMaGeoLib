@@ -238,6 +238,27 @@ def test_fastscape_silt_fraction_bounds(silt_fraction):
         )
 
 
+def test_erosion_sediment_reference_density_requires_erosion_sediment():
+    """Reject an erosion-sediment density when its composition is disabled."""
+    config = {
+        "include_fastscape": False,
+        "erosion_sediment_reference_density": 2650.0,
+    }
+    rule = FastScapeRule()
+    rule.add_default(config)
+
+    with pytest.raises(
+        ValueError,
+        match="Erosion sediment reference density requires erosion sediment",
+    ):
+        rule.apply(
+            config,
+            {"Mesh deformation": {"Diffusion": {}}},
+            {},
+            {"total_refinement": 8},
+        )
+
+
 def test_fastscape_reflective_left_right_boundaries():
     """Make both lateral FastScape boundaries reflective when requested."""
     prm_dict = {
@@ -371,6 +392,29 @@ def test_fastscape_silt_fraction_case_name():
     )
 
     assert case_name == "C_SF2.00e-01"
+
+
+def test_erosion_sediment_reference_density_case_name():
+    """Append the erosion-sediment reference density to the case name."""
+    variables = {
+        "weak_layer_rheology_scheme": "low friction",
+        "customize_corner": False,
+        "customize_corner_viscosity": 0.0,
+        "include_fastscape": True,
+        "erosion_sediment_reference_density": 2650.0,
+        "include_initial_topography": False,
+        "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False,
+    }
+
+    case_name = CaseNameFromVariables(
+        variables,
+        prefix="C",
+        use_all=False,
+        use_keys=["erosion_sediment_reference_density"],
+    )
+
+    assert case_name == "C_ESD2.65e+03"
 
 
 @pytest.mark.parametrize(

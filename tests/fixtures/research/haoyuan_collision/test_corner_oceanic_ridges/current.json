@@ -142,6 +142,7 @@
   "include_fastscape": true,
   "fastscape_2d_extent": 1000000.0,
   "add_erosion_sediment": true,
+  "erosion_sediment_reference_density": 2650.0,
   "include_boundary_flow": true,
   "upper_crust_scaling_factor": 1.0,
   "customize_corner_composition": false,
