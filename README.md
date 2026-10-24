@@ -130,21 +130,23 @@ Following this workflow will help maintain the quality and usability of **hamage
 ### Parse an ASPECT case
 
 `CaseASPECT` reuses the parameter and log parsers in gdmate's `dev` branch.
-Install that version of gdmate in the same Python environment before use;
-the older `gdmate.aspect` API does not provide these parsers.
+Install that version of gdmate in the same Python environment before use.
 
 ```python
 from hamageolib.utils.case_aspect import CaseASPECT
 
-case = CaseASPECT("/path/to/case", "/path/to/parsed-results")
+case = CaseASPECT("/path/to/case")
+# For a different output subdirectory:
+case = CaseASPECT("/path/to/case", output_dir="output-custom")
 print(case.parameters)
+print(case.world_builder)
 print(case.timesteps)
 ```
 
-Construction reads `case.prm` and `output/log.txt` beneath the case folder,
-then creates the destination directory and writes `case.json` (replacing an
-existing file). The JSON contains parameters, timesteps, graphical output
-records, and wall-clock timing blocks. The same records are available as
-`parameters`, `timesteps`, `graphical_outputs`, and `timing_blocks` attributes.
-Missing inputs or malformed logs raise exceptions before exporting. ASPECT
-major version 3 is required by the underlying log parser.
+Construction reads `original.prm`, `original.wb`, and `log.txt` from the
+specified subdirectory of the case folder (default: `output`). Parameters
+are parsed with gdmate; World Builder JSON is loaded as a dictionary.
+The attributes `timesteps`, `graphical_outputs`, and `timing_blocks` contain
+gdmate log records. No files or directories are created. Missing inputs or
+malformed files raise reader exceptions. The log parser requires ASPECT
+major version 3.
