@@ -145,7 +145,8 @@ print(case.timesteps)
 
 Construction reads `original.prm`, `original.wb`, and `log.txt` from the
 specified subdirectory of the case folder (default: `output`). Parameters
-are parsed with gdmate; World Builder JSON is loaded as a dictionary.
+are parsed with gdmate; optional World Builder JSON is loaded as a dictionary.
+If `original.wb` is absent, `world_builder` is `None`.
 The attributes `timesteps`, `graphical_outputs`, and `timing_blocks` contain
 gdmate log records. No files or directories are created. Missing inputs or
 malformed files raise reader exceptions. The log parser requires ASPECT

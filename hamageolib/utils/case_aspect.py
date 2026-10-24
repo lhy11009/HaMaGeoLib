@@ -8,8 +8,9 @@ class CaseASPECT:
     """Load ASPECT inputs and log records without writing files.
 
     ``output_dir`` defaults to ``output`` beneath ``case_dir``. It contains
-    ``original.prm``, ``original.wb`` and ``log.txt``. Parameters and World
-    Builder JSON are exposed as ``parameters`` and ``world_builder`` dicts.
+    ``original.prm``, ``log.txt`` and optionally ``original.wb``. Parameters
+    and World Builder JSON are exposed as ``parameters`` and ``world_builder``
+    dicts; ``world_builder`` is None when ``original.wb`` is absent.
     Log records retain their gdmate dataclass types.
 
     Requires gdmate's ``aspect_tools`` API (currently on its dev branch).
@@ -24,8 +25,12 @@ class CaseASPECT:
         self.output_dir = self.case_dir / output_dir
         with (self.output_dir / "original.prm").open(encoding="utf-8") as stream:
             self.parameters = parse_parameters_to_dict(stream)
-        with (self.output_dir / "original.wb").open(encoding="utf-8") as stream:
-            self.world_builder = json.load(stream)
+        self.world_builder = None
+        try:
+            with (self.output_dir / "original.wb").open(encoding="utf-8") as stream:
+                self.world_builder = json.load(stream)
+        except FileNotFoundError:
+            pass
         parser = AspectLogParser(self.output_dir / "log.txt")
         self.timesteps = parser.parse()
         self.graphical_outputs = parser.parse_graphical_outputs()

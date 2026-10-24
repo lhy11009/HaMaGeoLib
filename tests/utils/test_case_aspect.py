@@ -40,7 +40,7 @@ def test_custom_output_subdirectory(case_dir):
     assert len(case.timesteps) == 1
 
 
-@pytest.mark.parametrize("missing", ["output/original.prm", "output/original.wb", "output/log.txt"])
+@pytest.mark.parametrize("missing", ["output/original.prm", "output/log.txt"])
 def test_missing_input(case_dir, tmp_path, missing):
     (case_dir / missing).unlink()
     with pytest.raises(FileNotFoundError):
@@ -75,3 +75,11 @@ def test_malformed_world_builder(case_dir):
     (case_dir / "output/original.wb").write_text("invalid json")
     with pytest.raises(json.JSONDecodeError):
         CaseASPECT(case_dir)
+
+
+def test_missing_world_builder(case_dir):
+    (case_dir / "output/original.wb").unlink()
+    case = CaseASPECT(case_dir)
+    assert case.world_builder is None
+    assert case.parameters == {"Dimension": "2"}
+    assert len(case.timesteps) == 1
