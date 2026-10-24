@@ -183,3 +183,40 @@ test, and notebook imports use these local utilities. The existing
 
 `CaseASPECT` still depends on `gdmate.aspect_tools` from gdmate's `dev`
 branch; that newer API is not part of this migration.
+
+### Plan solution-file removal at a time interval
+
+```python
+from hamageolib.utils.case_aspect import CaseASPECT
+from hamageolib.utils.aspect.solution_cleanup import write_solution_cleanup_script
+
+case = CaseASPECT("/path/to/case")
+plan = write_solution_cleanup_script(
+    case, time_interval_years=1e6, script_path="remove_solutions.sh"
+)
+print(plan["kept_snapshots"])
+print(plan["removed_snapshots"])
+print(plan["files_to_remove"])
+```
+
+The function rescans the solution directory and matches complete snapshots to
+log-recorded times. It keeps the nearest snapshot to each target `0`, `1e6`,
+`2e6`, etc., through the last available time. Ties choose the earlier time,
+then the smaller snapshot number. A snapshot can serve several targets; the
+last snapshot is not automatically kept. Log times in seconds are converted
+using 365.25 days per year. The interval must be finite and positive.
+
+Only a shell script is created. Review it, then run it yourself if desired:
+
+```sh
+sh remove_solutions.sh
+```
+
+Each command uses an absolute, shell-quoted filename and `rm --`, without
+wildcards. The script is not executed by Python and an existing script is
+not overwritten. Its parent directory must already exist. Only complete,
+log-matched snapshots with an unambiguous time are eligible for removal;
+incomplete snapshots, unrecorded files, orphan VTU files, and pieces shared
+with preserved snapshots are left alone. Only PVTU and referenced VTU files
+are listed; PVD/Visit indexes and other output files are not rewritten.
+The returned plan and script describe files at generation time.
