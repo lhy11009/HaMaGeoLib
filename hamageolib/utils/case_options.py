@@ -311,7 +311,7 @@ class CASE_OPTIONS(CODESUB):
     
     def Interpret(self, **kwargs):
         
-        from gdmate.aspect.io import parse_entry_as_list
+        from hamageolib.utils.aspect.io import parse_entry_as_list
 
         # set model_type to default
         self.options["MODEL_TYPE"] = "default"

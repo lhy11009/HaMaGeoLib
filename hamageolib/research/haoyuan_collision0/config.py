@@ -12,11 +12,11 @@ from ...research.haoyuan_2d_subduction.legacy_tools import RHEOLOGY_PRM, RHEOLOG
 from ...research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
 from ...utils.file_reader import read_one_line_header
 
-from gdmate.aspect.config_engine import Rule, RuleConflictError, RuleInternalError
-from gdmate.aspect.table import DepthAverageTable
-from gdmate.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
+from hamageolib.utils.aspect.config_engine import Rule, RuleConflictError, RuleInternalError
+from hamageolib.utils.aspect.table import DepthAverageTable
+from hamageolib.utils.aspect.io import parse_composition_entry, format_composition_entry, parse_entry_as_list, format_list_as_entry, \
     parse_isosurfaces_entry, format_isosurfaces_entry, parse_parameters_to_dict, parse_composition_entry_with_phases
-from gdmate.aspect.prm_wb_utils import delete_composition_from_prm, duplicate_composition_from_prm, remove_composition_from_prm_recursive,\
+from hamageolib.utils.aspect.prm_wb_utils import delete_composition_from_prm, duplicate_composition_from_prm, remove_composition_from_prm_recursive,\
     find_WB_feature_by_name
 
 # root of the package

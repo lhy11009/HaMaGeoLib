@@ -160,3 +160,26 @@ and incomplete or malformed PVTU files are excluded. A missing solution
 directory gives an empty list and a count of zero. This checks file presence,
 not VTU contents, when the case is constructed. `graphical_outputs` continues
 to describe outputs reported in the log, even if their files are absent.
+
+### ASPECT configuration utilities
+
+ASPECT configuration utilities previously imported from `gdmate.aspect`
+are now provided by `hamageolib.utils.aspect`:
+
+```python
+from hamageolib.utils.aspect.io import parse_parameters_to_dict
+from hamageolib.utils.aspect.config_engine import Rule, RuleEngine
+from hamageolib.utils.aspect.builtin_rules import CasePathRule, InitialStepRule
+from hamageolib.utils.aspect.prm_wb_utils import find_WB_feature_by_name
+from hamageolib.utils.aspect.table import DepthAverageTable
+```
+
+The `io`, `config_engine`, `builtin_rules`, `prm_wb_utils`, and `table`
+modules were migrated from gdmate's `haoyuan_main` branch at commit
+`a1f19954d230b0e96de7db864af5345fdbf5e753`, preserving their APIs and
+source license (included in `hamageolib/utils/aspect/LICENSE`). Package,
+test, and notebook imports use these local utilities. The existing
+`hamageolib.utils.dealii_param_parser` API is unchanged.
+
+`CaseASPECT` still depends on `gdmate.aspect_tools` from gdmate's `dev`
+branch; that newer API is not part of this migration.

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from gdmate.aspect.io import parse_parameters_to_dict
+from hamageolib.utils.aspect.io import parse_parameters_to_dict
 
 from hamageolib.research.prescribe_vecloity.config import make_stegman_case
 

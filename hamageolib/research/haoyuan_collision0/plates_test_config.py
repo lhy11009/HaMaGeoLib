@@ -8,7 +8,7 @@ from copy import deepcopy
 import json
 from pathlib import Path
 
-from gdmate.aspect.config_engine import Rule
+from hamageolib.utils.aspect.config_engine import Rule
 
 
 _FILES_DIR = Path(__file__).with_name("files")

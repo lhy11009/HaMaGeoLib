@@ -4,9 +4,9 @@ import filecmp
 import shutil
 from pathlib import Path
 import pytest
-from gdmate.aspect.config_engine import RuleEngine
-from gdmate.aspect.builtin_rules import CasePathRule
-from gdmate.aspect.io import parse_parameters_to_dict, save_parameters_from_dict
+from hamageolib.utils.aspect.config_engine import RuleEngine
+from hamageolib.utils.aspect.builtin_rules import CasePathRule
+from hamageolib.utils.aspect.io import parse_parameters_to_dict, save_parameters_from_dict
 
 # Derive the root of this package
 package_root = Path(__file__).resolve().parents[3]

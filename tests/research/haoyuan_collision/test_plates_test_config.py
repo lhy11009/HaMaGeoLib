@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from gdmate.aspect.config_engine import RuleEngine
-from gdmate.aspect.io import parse_parameters_to_dict
+from hamageolib.utils.aspect.config_engine import RuleEngine
+from hamageolib.utils.aspect.io import parse_parameters_to_dict
 
 from hamageolib.research.haoyuan_collision0.plates_test_config import (
     PLATES_TEST_RULES,

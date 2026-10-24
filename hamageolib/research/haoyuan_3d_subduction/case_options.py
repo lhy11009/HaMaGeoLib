@@ -2,7 +2,7 @@
 import os
 import numpy as np
 import pandas as pd
-from gdmate.aspect.io import parse_composition_entry
+from hamageolib.utils.aspect.io import parse_composition_entry
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import VISIT_OPTIONS_BASE, FindWBFeatures,\
     WBFeatureNotFoundError, COMPOSITION, GetSnapsSteps
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import CASE_SUMMARY as CASE_SUMMARY_BASE

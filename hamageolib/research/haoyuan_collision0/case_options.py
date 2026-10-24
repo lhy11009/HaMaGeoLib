@@ -2,7 +2,7 @@ import os
 import numpy as np
 from hamageolib.utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import COMPOSITION
-from gdmate.aspect.prm_wb_utils import find_WB_feature_by_name
+from hamageolib.utils.aspect.prm_wb_utils import find_WB_feature_by_name
 
 class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
     '''

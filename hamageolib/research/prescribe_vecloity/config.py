@@ -8,7 +8,7 @@ symmetry-reduced three-dimensional domain used for Model 16 in the paper.
 from copy import deepcopy
 from math import asin, cos, degrees, sqrt
 
-from gdmate.aspect.config_engine import Rule, RuleEngine
+from hamageolib.utils.aspect.config_engine import Rule, RuleEngine
 
 from ..haoyuan_2d_subduction.legacy_utilities import insert_dict_after
 
