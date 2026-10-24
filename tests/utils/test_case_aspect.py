@@ -83,3 +83,59 @@ def test_missing_world_builder(case_dir):
     assert case.world_builder is None
     assert case.parameters == {"Dimension": "2"}
     assert len(case.timesteps) == 1
+
+
+def write_snapshot(solution, number, pieces):
+    pvtu = solution / f"solution-{number:05d}.pvtu"
+    sources = "".join(f'<Piece Source="{piece}"/>' for piece in pieces)
+    pvtu.write_text(
+        '<VTKFile type="PUnstructuredGrid"><PUnstructuredGrid>'
+        + sources + '</PUnstructuredGrid></VTKFile>'
+    )
+
+
+def test_existing_snapshots_are_complete_and_independent_of_log(case_dir):
+    solution = case_dir / "output/solution"
+    solution.mkdir()
+    for number in (10, 2):
+        pieces = [f"solution-{number:05d}.{rank:04d}.vtu" for rank in (0, 1)]
+        write_snapshot(solution, number, pieces)
+        for piece in pieces:
+            (solution / piece).touch()
+    # Snapshot 0 is reported in the log but has a missing second piece.
+    write_snapshot(solution, 0, ["solution-00000.0000.vtu", "solution-00000.0001.vtu"])
+    (solution / "solution-00000.0000.vtu").touch()
+    # Orphan VTU files do not constitute a snapshot.
+    (solution / "solution-00003.0000.vtu").touch()
+    case = CaseASPECT(case_dir)
+    assert case.existing_snapshots == [2, 10]
+    assert case.n_existing_snapshots == 2
+    assert [record.solution_number for record in case.graphical_outputs] == [0]
+
+
+@pytest.mark.parametrize("contents", ["<broken", '<VTKFile/>',
+    '<VTKFile><PUnstructuredGrid><Piece/></PUnstructuredGrid></VTKFile>'])
+def test_incomplete_pvtu_not_counted(case_dir, contents):
+    solution = case_dir / "output/solution"
+    solution.mkdir()
+    (solution / "solution-00000.pvtu").write_text(contents)
+    case = CaseASPECT(case_dir)
+    assert case.existing_snapshots == []
+    assert case.n_existing_snapshots == 0
+
+
+def test_missing_solution_directory(case_dir):
+    case = CaseASPECT(case_dir)
+    assert case.existing_snapshots == []
+    assert case.n_existing_snapshots == 0
+
+
+def test_snapshots_use_custom_output_directory(case_dir):
+    (case_dir / "output").rename(case_dir / "custom")
+    solution = case_dir / "custom/solution"
+    solution.mkdir()
+    write_snapshot(solution, 4, ["solution-00004.0000.vtu"])
+    (solution / "solution-00004.0000.vtu").touch()
+    case = CaseASPECT(case_dir, "custom")
+    assert case.existing_snapshots == [4]
+    assert case.n_existing_snapshots == 1

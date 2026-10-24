@@ -151,3 +151,12 @@ The attributes `timesteps`, `graphical_outputs`, and `timing_blocks` contain
 gdmate log records. No files or directories are created. Missing inputs or
 malformed files raise reader exceptions. The log parser requires ASPECT
 major version 3.
+
+`existing_snapshots` contains the sorted snapshot numbers currently present in
+`output_dir/solution`; `n_existing_snapshots` gives their count. A snapshot
+requires a readable `solution-NNNNN.pvtu` declaring at least one VTU piece,
+with every referenced `.vtu` file present. Missing pieces, orphan VTU files,
+and incomplete or malformed PVTU files are excluded. A missing solution
+directory gives an empty list and a count of zero. This checks file presence,
+not VTU contents, when the case is constructed. `graphical_outputs` continues
+to describe outputs reported in the log, even if their files are absent.

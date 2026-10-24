@@ -2,6 +2,8 @@
 
 import json
 from pathlib import Path
+import re
+import xml.etree.ElementTree as ET
 
 
 class CaseASPECT:
@@ -12,6 +14,12 @@ class CaseASPECT:
     and World Builder JSON are exposed as ``parameters`` and ``world_builder``
     dicts; ``world_builder`` is None when ``original.wb`` is absent.
     Log records retain their gdmate dataclass types.
+
+    ``existing_snapshots`` lists sorted snapshot numbers found in the
+    solution directory with a readable PVTU and all its referenced VTU
+    pieces present. ``n_existing_snapshots`` counts these snapshots,
+    independently of the log's ``graphical_outputs`` records. This checks
+    file presence, not VTU contents, at construction time.
 
     Requires gdmate's ``aspect_tools`` API (currently on its dev branch).
     The log parser requires ASPECT major version 3. Missing or malformed
@@ -35,3 +43,27 @@ class CaseASPECT:
         self.timesteps = parser.parse()
         self.graphical_outputs = parser.parse_graphical_outputs()
         self.timing_blocks = parser.parse_timing_blocks()
+        self.existing_snapshots = self._find_existing_snapshots()
+        self.n_existing_snapshots = len(self.existing_snapshots)
+
+    def _find_existing_snapshots(self):
+        snapshots = set()
+        for pvtu in (self.output_dir / "solution").glob("solution-*.pvtu"):
+            match = re.fullmatch(r"solution-(\d+)\.pvtu", pvtu.name)
+            if match is None:
+                continue
+            try:
+                root = ET.parse(pvtu).getroot()
+            except (OSError, ET.ParseError):
+                # A snapshot may still be in the process of being written.
+                continue
+            if root.tag != "VTKFile" or root.get("type") != "PUnstructuredGrid":
+                continue
+            pieces = root.findall("./PUnstructuredGrid/Piece")
+            sources = [piece.get("Source", "") for piece in pieces]
+            if sources and all(
+                source.endswith(".vtu") and (pvtu.parent / source).is_file()
+                for source in sources
+            ):
+                snapshots.add(int(match.group(1)))
+        return sorted(snapshots)
