@@ -57,7 +57,8 @@ def set_viscosity_plot(sourceDisplay, eta_min, eta_max):
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.MapControlPointsToLogSpace()
     fieldLUT.UseLogScale = 1
-    fieldLUT.ApplyPreset("SCM_bilbao", True)
+    fieldLUT.ApplyPreset("Viridis", True)
+    fieldLUT.InvertTransferFunction()
 
 def set_metastable_plot(sourceDisplay):
     '''
