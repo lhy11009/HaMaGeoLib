@@ -394,6 +394,29 @@ def test_fastscape_silt_fraction_case_name():
     assert case_name == "C_SF2.00e-01"
 
 
+def test_bedrock_river_incision_rate_case_name():
+    """Append the bedrock river incision prefactor to the case name."""
+    variables = {
+        "weak_layer_rheology_scheme": "low friction",
+        "customize_corner": False,
+        "customize_corner_viscosity": 0.0,
+        "include_fastscape": True,
+        "bedrock_river_incision_rate": 3e-6,
+        "include_initial_topography": False,
+        "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False,
+    }
+
+    case_name = CaseNameFromVariables(
+        variables,
+        prefix="C",
+        use_all=False,
+        use_keys=["bedrock_river_incision_rate"],
+    )
+
+    assert case_name == "C_Kf3.00e-06"
+
+
 def test_erosion_sediment_reference_density_case_name():
     """Append the erosion-sediment reference density to the case name."""
     variables = {

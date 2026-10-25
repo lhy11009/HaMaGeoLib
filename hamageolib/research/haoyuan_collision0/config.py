@@ -175,6 +175,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if use_all or "customize_no_incision_width" in use_keys:
             if variables["customize_no_incision_width"] > 0:
                 case_name += "_Nw%.2e" % variables["customize_no_incision_width"]
+        if use_all or "bedrock_river_incision_rate" in use_keys:
+            if variables["bedrock_river_incision_rate"] > 0:
+                case_name += "_Kf%.2e" % variables["bedrock_river_incision_rate"]
         if use_all or "erosional_base_level" in use_keys:
             if variables["erosional_base_level"] > 0:
                 case_name += "_Ebl%.2e" % variables["erosional_base_level"]
