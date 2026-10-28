@@ -326,6 +326,28 @@ def add_threshold_by_field(source_in, field, threshold, *,
     return threshold_filter
 
 
+def add_solid_velocity_glyph(source, render_view, *, registration_name,
+                             scale_factor=5e6, sample_points=5000,
+                             color=(1.0, 1.0, 1.0), seed=10339):
+    """Show velocity-scaled arrows with a fixed color and reproducible sampling."""
+    source = possible_lookup_source(source)
+    glyph = Glyph(registrationName=registration_name, Input=source, GlyphType="Arrow")
+    glyph.OrientationArray = ["POINTS", "velocity"]
+    glyph.ScaleArray = ["POINTS", "velocity"]
+    glyph.VectorScaleMode = "Scale by Magnitude"
+    glyph.ScaleFactor = scale_factor
+    glyph.GlyphMode = "Uniform Spatial Distribution (Bounds Based)"
+    glyph.MaximumNumberOfSamplePoints = sample_points
+    glyph.Seed = seed
+    display = Show(glyph, render_view, "GeometryRepresentation")
+    display.ColorArrayName = ["POINTS", ""]
+    display.Representation = "Surface"
+    display.DiffuseColor = list(color)
+    display.AmbientColor = list(color)
+    display.LineWidth = 1.0
+    return glyph, display
+
+
 def add_glyph(_source, field, scalefactor, nsample, **kwargs):
     '''
     Inputs:

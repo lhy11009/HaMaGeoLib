@@ -220,3 +220,26 @@ incomplete snapshots, unrecorded files, orphan VTU files, and pieces shared
 with preserved snapshots are left alone. Only PVTU and referenced VTU files
 are listed; PVD/Visit indexes and other output files are not rewritten.
 The returned plan and script describe files at generation time.
+
+### Prescribed-velocity ParaView view
+
+The final block of `notebooks/research/prescribe_velocity/PrescribeVelocity.ipynb`
+reproduces the spherical prescribed-velocity reference view. Set
+`do_prescribed_velocity_visualization = True`, select the case directory and
+saved time, and run that block (the case-creation cell is not required).
+`PVPYTHON` may specify a ParaView Python executable; otherwise `pvpython` is
+used. The block writes a PNG and reusable PVSM under `case/img/pv_outputs`.
+
+The workflow is `scripts/paraview_scripts/PrescribedVelocity/prescribed_velocity.py`.
+It loads the solution PVD, thresholds point `plate` from 0.8 to 1.0, and shows
+a green slab at opacity 0.1, white velocity arrows for the domain, and blue
+arrows for the slab. Default sample limits are 5000 and 500; both glyph layers
+use velocity scaling of 5e6. The camera/background reproduce the reference
+`visual.pvsm` at 1024 x 782 and time zero. Spatial glyph sampling can produce
+small differences in individual arrow placement.
+
+The notebook-generated runner loads `base.py` with `runpy` and passes its
+namespace to the separate workflow. It does not concatenate either file.
+The source main block retains `VISUALIZATION_DIRECTORY`, `IMAGE_DIRECTORY`,
+and `PLOT_TIME` placeholders for existing template workflows. No reference
+state file is needed to run the new script. ParaView 6.1 was used for validation.
