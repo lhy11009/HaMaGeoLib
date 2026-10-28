@@ -1517,3 +1517,22 @@ def test_initial_topography_from_file():
     assert(filecmp.cmp(case_prm, case_prm_standard))
     assert(filecmp.cmp(case_wb, case_wb_standard))
     assert(filecmp.cmp(initial_topo, initial_topo_standard))
+
+
+@pytest.mark.parametrize("selected, expected", [(True, "C_PE5.50e+06"), (False, "C")])
+def test_plate_end_point_case_name(selected, expected):
+    """Include the plate endpoint only when selected for naming."""
+    variables = {
+        "plate_end_point_pre_modification": 5500e3,
+        "weak_layer_rheology_scheme": "low friction",
+        "customize_corner": False,
+        "customize_corner_viscosity": 0.0,
+        "include_fastscape": False,
+        "include_initial_topography": False,
+        "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False,
+    }
+    assert CaseNameFromVariables(
+        variables, prefix="C", use_all=False,
+        use_keys=["plate_end_point_pre_modification"] if selected else [],
+    ) == expected

@@ -36,6 +36,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
             case_name += "_"
         case_name += "D%d" % int(variables["domain_depth"]/1e3)
     
+    if use_all or "plate_end_point_pre_modification" in use_keys:
+        case_name += "_PE%.2e" % variables["plate_end_point_pre_modification"]
+
     if use_all or "global_refinement" in use_keys:
         case_name += "_gr%d" % int(variables["global_refinement"])
     
