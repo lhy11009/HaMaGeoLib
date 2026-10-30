@@ -5,6 +5,7 @@ setup(
     version='0.1.0',
     packages=find_packages(),
     package_data={
+        'hamageolib.research.prescribe_vecloity': ['WORLD_BUILDER_COPYING*'],
         'hamageolib.research.haoyuan_collision0': ['files/*.json'],
         'hamageolib.utils.aspect': ['LICENSE'],
     },

@@ -243,3 +243,50 @@ namespace to the separate workflow. It does not concatenate either file.
 The source main block retains `VISUALIZATION_DIRECTORY`, `IMAGE_DIRECTORY`,
 and `PLOT_TIME` placeholders for existing template workflows. No reference
 state file is needed to run the new script. ParaView 6.1 was used for validation.
+
+### Generate a spherical trench-retreat case
+
+The final block in `notebooks/research/prescribe_velocity/PrescribeVelocity.ipynb`
+exposes `trench_retreat_m` in metres (default `100e3`), the source `_2` case,
+and a new destination. Enable `do_generate_retreat_case` after choosing the
+paths. The default destination ends in `_3_generated`, protecting existing
+`_2` and `_3` cases. The block is independent of case creation and plotting.
+
+Python API:
+
+```python
+from hamageolib.research.prescribe_vecloity.trench_retreat import generate_retreat_case
+
+report = generate_retreat_case(
+    "/path/to/source_case", "/path/to/new_case", trench_retreat_m=50e3
+)
+```
+
+Command line, with HaMaGeoLib available on the Python path:
+
+```sh
+python -m hamageolib.research.prescribe_vecloity.trench_retreat     /path/to/source_case /path/to/new_case --trench-retreat-m 100000
+```
+
+The generator copies `case.prm` exactly and writes a retreated `case.wb`,
+`geometry.npz`, and `geometry_report.json`. It creates no simulation output,
+runs no solver, and refuses existing destinations. It uses NumPy/SciPy and a
+Python port of WorldBuilder's Bezier sampling, without a compiled helper.
+The sampler's source attribution and LGPL license texts are included beside
+`_trench_bezier.py`.
+
+Supported sources have one east-dipping, four-segment subducting plate with
+bend/straight/unbend/horizontal segments, equal bend lengths, constant
+thickness, no section overrides, and spherical `begin segment` coordinates.
+The final segment stays anchored; two 20 km overlap collars connect the
+retreated upper slab to the original deep geometry. The physical retreat is
+measured along spherical arcs, with end-bearing adjustments to meet the fixed
+anchor. Source material, composition and velocity models remain unchanged.
+An existing retreated two-feature case cannot be used recursively as a source.
+
+50 km and 100 km retreats were checked against direct WorldBuilder queries.
+The 100 km result reproduces `_3` within 0.1 mm in the sampled construction
+geometry. These checks do not establish validity for arbitrary distances:
+inspect the diagnostic geometry and validate WorldBuilder fields, mesh and
+ASPECT solver convergence before using another retreat in production.
+The report contains geometric fit diagnostics, not solver results.
