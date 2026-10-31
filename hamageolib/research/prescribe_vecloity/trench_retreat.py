@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 from scipy.optimize import root, brentq
 from scipy.interpolate import CubicSpline
-from hamageolib.utils.aspect.io import parse_parameters_to_dict
+from gdmate.aspect_tools import parse_parameters_to_dict, save_parameters_from_dict
 from ._trench_bezier import sample_trench
 
 
@@ -180,41 +180,160 @@ def _construct(world, radius, retreat, samples_per_segment, overlap_m):
     return (world, geometry, report)
 
 
-def generate_retreat_case(source_case_dir, destination_case_dir, trench_retreat_m=100000.0, *, samples_per_segment=20, overlap_m=20000.0):
+def _original_geometry(world, radius, samples_per_segment):
+    """Sample the original profile for diagnostics without fitting or editing it."""
+    reference = world['features'][0]
+    rows = sample_trench(reference['coordinates'], samples_per_segment)
+    lon, lat = rows[:, :2].T
+    radial = np.column_stack([np.cos(lat) * np.cos(lon), np.cos(lat) * np.sin(lon), np.sin(lat)])
+    east = np.column_stack([-np.sin(lon), np.cos(lon), np.zeros_like(lon)])
+    north = np.column_stack([-np.sin(lat) * np.cos(lon), -np.sin(lat) * np.sin(lon), np.cos(lat)])
+    direction = -rows[:, 3, None] * np.cos(lat)[:, None] * east + rows[:, 2, None] * north
+    direction *= np.where((direction * east).sum(axis=1) > 0, 1, -1)[:, None]
+    direction /= np.linalg.norm(direction, axis=1)[:, None]
+
+    def advance(p, length, a, b):
+        if abs(b - a) < 1e-10:
+            return p + length * np.array([np.cos(a), -np.sin(a)])
+        return p + length * np.array([(np.sin(b) - np.sin(a)) / (b - a),
+                                      (np.cos(b) - np.cos(a)) / (b - a)])
+
+    points, absolute_angles, profile = [np.array([0., radius])], [], []
+    for index, segment in enumerate(reference['segments']):
+        p = points[-1]
+        phi = np.arctan2(p[0], p[1])
+        angles = np.radians(segment['angle'])
+        a, b = angles[0] + phi, angles[-1] + phi
+        if index < 3:
+            profile.extend(advance(p, segment['length'] * f, a, a + (b - a) * f)
+                           for f in np.linspace(0, 1, 41))
+        points.append(advance(p, segment['length'], a, b))
+        absolute_angles.append((a, b))
+    anchor, tail_angle = points[3], absolute_angles[3][0]
+    profile = np.asarray(profile)
+    tail_samples = []
+    thickness = reference['segments'][0]['thickness'][0]
+    for i in range(5, len(rows) - 5, 5):
+        for distance in np.array([.05, .25, .5, .75, .95]) * reference['segments'][-1]['length']:
+            q = advance(anchor, distance, tail_angle, tail_angle)
+            for depth in np.array([5, 25, 50, 75, 90]) / 95 * thickness:
+                point = q + depth * np.array([-np.sin(tail_angle), -np.cos(tail_angle)])
+                tail_samples.append(point[0] * direction[i] + point[1] * radial[i])
+    geometry = dict(
+        old_trench=radius * radial, new_trench=radius * radial.copy(),
+        old_direction=direction, new_direction=direction.copy(),
+        old_profile_points=np.asarray(points),
+        anchor_global=anchor[0] * direction + anchor[1] * radial,
+        upper_profiles=(profile[None, :, :1] * direction[:, None, :]
+                        + profile[None, :, 1:] * radial[:, None, :]),
+        tail_samples=tail_samples, old_trench_lonlat=np.degrees(rows[:, :2]),
+        new_trench_lonlat=np.degrees(rows[:, :2]).copy())
+    report = dict(
+        trench_retreat_m=None, actual_retreat_m=0.0, connector_fit_performed=False,
+        number_trench_samples=len(rows),
+        old_anchor_depth_m=float(radius - np.linalg.norm(anchor)),
+        old_distal_endpoint_depth_m=float(radius - np.linalg.norm(points[-1])),
+        terminal_segment_length_m=reference['segments'][-1]['length'],
+        connector_overlap_length_m=0.0, anchored_transition_overlap_length_m=0.0)
+    return copy.deepcopy(world), geometry, report
+
+
+def _shift_longitude(world, geometry, shift):
+    """Rotate all slab features and Cartesian diagnostics about Earth's axis."""
+    for feature in world['features']:
+        feature['coordinates'] = [[lon + shift, lat] for lon, lat in feature['coordinates']]
+        feature['dip point'] = [feature['dip point'][0] + shift, feature['dip point'][1]]
+    if 'cross section' in world:
+        world['cross section'] = [[lon + shift, lat] for lon, lat in world['cross section']]
+    angle = math.radians(shift)
+    rotation = np.array([[math.cos(angle), -math.sin(angle), 0],
+                         [math.sin(angle), math.cos(angle), 0], [0, 0, 1]])
+    for key in ('old_trench', 'new_trench', 'old_direction', 'new_direction',
+                'anchor_global', 'upper_profiles', 'tail_samples'):
+        geometry[key] = np.asarray(geometry[key]) @ rotation.T
+    for key in ('old_trench_lonlat', 'new_trench_lonlat'):
+        values = np.array(geometry[key], dtype=float, copy=True)
+        values[:, 0] += shift
+        geometry[key] = values
+
+
+def _check_slab_domain(geometry, radius, lon_min, lon_max, lat_min, lat_max):
+    """Check sampled physical geometry, including the retained terminal end."""
+    tip = geometry['old_profile_points'][-1]
+    tip_points = (tip[0] * geometry['old_direction']
+                  + tip[1] * geometry['old_trench'] / radius)
+    arrays = [geometry[key] for key in
+              ('new_trench', 'anchor_global', 'upper_profiles', 'tail_samples')]
+    arrays.append(tip_points)
+    for array in arrays:
+        points = np.asarray(array).reshape(-1, 3)
+        longitude = np.degrees(np.arctan2(points[:, 1], points[:, 0]))
+        latitude = np.degrees(np.arctan2(points[:, 2], np.linalg.norm(points[:, :2], axis=1)))
+        tolerance = 1e-9
+        if (np.any(longitude < lon_min - tolerance) or np.any(longitude > lon_max + tolerance)
+                or np.any(latitude < lat_min - tolerance) or np.any(latitude > lat_max + tolerance)):
+            raise ValueError('Shifted or resized slab geometry leaves the chunk domain')
+
+
+def generate_retreat_case(source_case_dir, destination_case_dir, trench_retreat_m=100000.0, *,
+                          samples_per_segment=20, overlap_m=20000.0,
+                          chunk_min_longitude=None, chunk_max_longitude=None,
+                          longitude_shift_deg=0.0):
     """Create a new case; never overwrite a destination or run ASPECT.
 
-    ``trench_retreat_m`` is a finite positive distance in metres. The source
+    ``trench_retreat_m`` is a finite positive distance in metres, or None to
+    keep the original trench and complete slab unchanged (no fit or overlaps).
+    Longitude shifts and bounds overrides also work with None. The source
     must be an unmodified-style _2 slab, not a previously retreated two-feature
-    case. The source case.prm is copied byte-for-byte. Writes case.wb,
+    case. With default options, case.prm is copied byte-for-byte. Writes case.wb,
     geometry.npz (including sampled profiles/probes), and geometry_report.json.
-    The final horizontal segment is retained through the anchored feature;
-    both features overlap by ``overlap_m``. Arbitrary retreat distances may
+    For positive retreat the final segment is retained through an anchored
+    feature, with both features overlapping by ``overlap_m``. Arbitrary retreat distances may
     have no valid fit or leave the chunk and raise ValueError before writing.
     The returned dict contains fit diagnostics and the output directory.
+
+    ``chunk_min_longitude`` and ``chunk_max_longitude`` override the chunk's
+    longitude bounds in degrees; None inherits the source. Changed bounds are
+    saved with gdmate.save_parameters_from_dict; other parameter values are
+    retained, but comments and original formatting are not. ``longitude_shift_deg`` rotates the complete WorldBuilder slab
+    (including its anchored terminal feature, dip points and cross section)
+    and all global geometry diagnostics. It preserves depths, retreat lengths
+    and section shapes. The anchor is fixed relative to the rotated reference.
+    Longitudes are not wrapped across the dateline. Bounds/shift changes check
+    sampled physical geometry against the new domain; this is not a complete
+    volumetric containment proof. Longitude mesh repetitions are inherited.
     """
     source = Path(source_case_dir).resolve()
     destination = Path(destination_case_dir).absolute()
     if destination.exists():
         raise FileExistsError(destination)
-    retreat = float(trench_retreat_m)
+    retreat = None if trench_retreat_m is None else float(trench_retreat_m)
     overlap = float(overlap_m)
-    if not math.isfinite(retreat) or retreat <= 0:
-        raise ValueError('trench_retreat_m must be finite and positive')
+    if retreat is not None and (not math.isfinite(retreat) or retreat <= 0):
+        raise ValueError('trench_retreat_m must be None or finite and positive')
     if not math.isfinite(overlap) or overlap <= 0:
         raise ValueError('overlap_m must be finite and positive')
     if isinstance(samples_per_segment, bool) or not isinstance(samples_per_segment, int) or samples_per_segment < 4:
         raise ValueError('samples_per_segment must be an integer >= 4')
     prm_bytes = (source / 'case.prm').read_bytes()
-    parameters = parse_parameters_to_dict(StringIO(prm_bytes.decode('utf-8')))
-    world = json.loads((source / 'case.wb').read_text())
+    parameters = parse_parameters_to_dict(StringIO(prm_bytes.decode('utf-8'), newline=None))
+    wb_bytes = (source / 'case.wb').read_bytes()
+    world = json.loads(wb_bytes)
     coordinates = world.get('coordinate system', {})
     if coordinates.get('model') != 'spherical' or coordinates.get('depth method') != 'begin segment':
         raise ValueError('Only spherical coordinates with begin segment depths are supported')
     if parameters.get('Dimension') != '3' or parameters.get('Geometry model', {}).get('Model name') != 'chunk':
         raise ValueError('Source must use a 3-D chunk geometry')
     chunk = parameters['Geometry model']['Chunk']
+    inherited_min, inherited_max = (float(chunk[k]) for k in
+                                    ('Chunk minimum longitude', 'Chunk maximum longitude'))
+    lon_min = inherited_min if chunk_min_longitude is None else float(chunk_min_longitude)
+    lon_max = inherited_max if chunk_max_longitude is None else float(chunk_max_longitude)
+    shift = float(longitude_shift_deg)
+    if not all(math.isfinite(v) for v in (lon_min, lon_max, shift)) or lon_min >= lon_max:
+        raise ValueError('Longitude bounds/shift must be finite, with minimum < maximum')
     radius = float(chunk['Chunk outer radius'])
-    if not math.isfinite(radius) or radius <= 0 or retreat >= math.pi * radius / 2:
+    if not math.isfinite(radius) or radius <= 0 or (retreat is not None and retreat >= math.pi * radius / 2):
         raise ValueError('Retreat must be less than a quarter circumference of a positive-radius chunk')
     features = world.get('features', [])
     if len(features) != 1 or features[0].get('model') != 'subducting plate' or features[0].get('sections'):
@@ -241,21 +360,39 @@ def generate_retreat_case(source_case_dir, destination_case_dir, trench_retreat_
         raise ValueError('Polar and dateline-crossing trenches are not supported')
     if slab['dip point'][0] <= points[:, 0].max():
         raise ValueError('This construction supports east-dipping slabs only')
-    result, geometry, report = _construct(world, radius, retreat, samples_per_segment, overlap)
+    if retreat is None:
+        result, geometry, report = _original_geometry(world, radius, samples_per_segment)
+    else:
+        result, geometry, report = _construct(world, radius, retreat, samples_per_segment, overlap)
+    changes = {}
+    if lon_min != inherited_min:
+        changes['Chunk minimum longitude'] = lon_min
+    if lon_max != inherited_max:
+        changes['Chunk maximum longitude'] = lon_max
+    if shift:
+        _shift_longitude(result, geometry, shift)
+    if changes:
+        chunk.update({key: format(value, '.15g') for key, value in changes.items()})
+        prm_output = StringIO()
+        save_parameters_from_dict(prm_output, parameters)
+        prm_bytes = prm_output.getvalue().encode('utf-8')
     new_points = np.asarray(result['features'][0]['coordinates'])
-    lon_min, lon_max = (float(chunk[k]) for k in ('Chunk minimum longitude', 'Chunk maximum longitude'))
     lat_min, lat_max = (float(chunk[k]) for k in ('Chunk minimum latitude', 'Chunk maximum latitude'))
     if np.any(new_points[:, 0] < lon_min) or np.any(new_points[:, 0] > lon_max) or np.any(new_points[:, 1] < lat_min) or np.any(new_points[:, 1] > lat_max):
         raise ValueError('Retreated trench leaves the chunk domain')
+    if changes or shift:
+        _check_slab_domain(geometry, radius, lon_min, lon_max, lat_min, lat_max)
+        report.update(longitude_shift_deg=shift, chunk_longitude_bounds_deg=[lon_min, lon_max])
     report.update(source_case_dir=str(source), destination_case_dir=str(destination), samples_per_segment=samples_per_segment)
-    wb_text = json.dumps(result, indent=2) + '\n'
+    if retreat is not None or shift:
+        wb_bytes = (json.dumps(result, indent=2) + '\n').encode('utf-8')
     geometry_bytes = BytesIO()
     np.savez(geometry_bytes, **geometry)
     report_text = json.dumps(report, indent=2) + '\n'
     # Write only after all geometry checks and serialization have succeeded.
     destination.mkdir(parents=True, exist_ok=False)
     (destination / 'case.prm').write_bytes(prm_bytes)
-    (destination / 'case.wb').write_text(wb_text)
+    (destination / 'case.wb').write_bytes(wb_bytes)
     (destination / 'geometry.npz').write_bytes(geometry_bytes.getvalue())
     (destination / 'geometry_report.json').write_text(report_text)
     return report
@@ -267,9 +404,14 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('source_case_dir')
     parser.add_argument('destination_case_dir')
-    parser.add_argument('--trench-retreat-m', type=float, default=100000.0)
+    parser.add_argument('--trench-retreat-m',
+                        type=lambda value: None if value.lower() == 'none' else float(value),
+                        default=100000.0, help='Positive distance in metres, or none to keep the original slab')
     parser.add_argument('--samples-per-segment', type=int, default=20)
     parser.add_argument('--overlap-m', type=float, default=20000.0)
+    parser.add_argument('--chunk-min-longitude', type=float)
+    parser.add_argument('--chunk-max-longitude', type=float)
+    parser.add_argument('--longitude-shift-deg', type=float, default=0.0)
     args = parser.parse_args(argv)
     report = generate_retreat_case(**vars(args))
     print(json.dumps(report, indent=2))

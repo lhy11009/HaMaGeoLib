@@ -1,0 +1,133 @@
+{
+  "version": "1.2",
+  "coordinate system": {
+    "model": "spherical",
+    "depth method": "begin segment"
+  },
+  "cross section": [
+    [
+      0,
+      0
+    ],
+    [
+      10,
+      0
+    ]
+  ],
+  "maximum distance between coordinates": 0.01,
+  "features": [
+    {
+      "model": "subducting plate",
+      "name": "Subducting plate",
+      "coordinates": [
+        [
+          15,
+          41
+        ],
+        [
+          15,
+          25
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          5,
+          -1
+        ]
+      ],
+      "dip point": [
+        80,
+        0
+      ],
+      "segments": [
+        {
+          "length": 200000.0,
+          "thickness": [
+            95000.0
+          ],
+          "angle": [
+            0,
+            45
+          ]
+        },
+        {
+          "length": 400000.0,
+          "thickness": [
+            95000.0
+          ],
+          "angle": [
+            45
+          ]
+        },
+        {
+          "length": 200000.0,
+          "thickness": [
+            95000.0
+          ],
+          "angle": [
+            45,
+            0
+          ]
+        },
+        {
+          "length": 100000.0,
+          "thickness": [
+            95000.0
+          ],
+          "angle": [
+            0
+          ]
+        }
+      ],
+      "temperature models": [
+        {
+          "model": "plate model",
+          "density": 3300,
+          "plate velocity": 0.05
+        }
+      ],
+      "composition models": [
+        {
+          "model": "uniform",
+          "compositions": [
+            0
+          ],
+          "min distance slab top": 0,
+          "max distance slab top": 100e3
+        }
+      ],
+      "velocity models": [
+        {
+          "model": "along surface",
+          "velocity magnitude": 0.05
+        }
+      ],
+      "indicator models": [
+        {
+          "model": "uniform",
+          "min distance slab top": 0,
+          "max distance slab top": 100e3,
+          "indicators": [
+            "velocity"
+          ]
+        }
+      ]
+    }
+  ],
+  "indicator properties": [
+    {
+      "index": 0,
+      "name": "temperature"
+    },
+    {
+      "index": 1,
+      "name": "velocity"
+    },
+    {
+      "index": 2,
+      "name": "composition"
+    }
+  ]
+}

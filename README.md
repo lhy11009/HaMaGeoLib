@@ -247,10 +247,11 @@ state file is needed to run the new script. ParaView 6.1 was used for validation
 ### Generate a spherical trench-retreat case
 
 The final block in `notebooks/research/prescribe_velocity/PrescribeVelocity.ipynb`
-exposes `trench_retreat_m` in metres (default `100e3`), the source `_2` case,
-and a new destination. Enable `do_generate_retreat_case` after choosing the
-paths. The default destination ends in `_3_generated`, protecting existing
-`_2` and `_3` cases. The block is independent of case creation and plotting.
+exposes `trench_retreat_m` in metres (default `100e3`), a source case and a
+new destination. It defaults to `_5 → _6`, following the independent domain
+modification block (`_2 → _5`). Enable `do_generate_retreat_case` after choosing
+paths. Existing destinations are refused. The block is independent of case
+creation, plotting and domain modification, provided its source already exists.
 
 Python API:
 
@@ -268,7 +269,7 @@ Command line, with HaMaGeoLib available on the Python path:
 python -m hamageolib.research.prescribe_vecloity.trench_retreat     /path/to/source_case /path/to/new_case --trench-retreat-m 100000
 ```
 
-The generator copies `case.prm` exactly and writes a retreated `case.wb`,
+By default the generator copies `case.prm` exactly and writes a retreated `case.wb`,
 `geometry.npz`, and `geometry_report.json`. It creates no simulation output,
 runs no solver, and refuses existing destinations. It uses NumPy/SciPy and a
 Python port of WorldBuilder's Bezier sampling, without a compiled helper.
@@ -290,3 +291,108 @@ geometry. These checks do not establish validity for arbitrary distances:
 inspect the diagnostic geometry and validate WorldBuilder fields, mesh and
 ASPECT solver convergence before using another retreat in production.
 The report contains geometric fit diagnostics, not solver results.
+
+#### Longitude options for trench-retreat cases
+
+The notebook's "Modify case domain and position" block exposes:
+
+```python
+chunk_min_longitude = None   # Inherit source, currently 0 degrees.
+chunk_max_longitude = None   # Inherit source, currently 25 degrees.
+longitude_shift_deg = 0.0    # No rotation by default.
+```
+
+For example, set `chunk_max_longitude = 35.0` and
+`longitude_shift_deg = 5.0` to move the complete slab 5 degrees east inside
+a wider domain. The same keyword arguments are supported by
+`generate_retreat_case`; CLI equivalents are `--chunk-min-longitude`,
+`--chunk-max-longitude`, and `--longitude-shift-deg`.
+
+The generator reads parameters through gdmate's public
+`parse_parameters_to_dict` interface. Bounds overrides update the corresponding
+values under Geometry model / Chunk, then use `save_parameters_from_dict` to
+regenerate the parameter file. Other parameter values are retained; comments,
+spacing and original line endings are not preserved in regenerated files.
+With unchanged bounds, the original parameter file is still copied byte-for-byte.
+None inherits the source. Both functions come from `gdmate.aspect_tools`, which
+must be available in the Python environment. A shift rotates both WorldBuilder features, their dip points,
+the cross section, and all global Cartesian geometry diagnostics together.
+The deep anchor moves with the rotated reference, while its relative geometry,
+depth, prescribed speed, retreat distance and section shapes are preserved.
+Local 2-D profile coordinates do not rotate. Longitudes are not wrapped at
+the dateline. Source files and existing cases remain unchanged.
+
+New bounds and shifts must be finite and bounds must be ordered. With changed
+bounds or a shift, sampled physical slab geometry (including the deep tip)
+must fit the domain; enlarge the eastern boundary when shifting east. This
+is a sampled check, not a full volumetric containment proof. Latitude, radial
+extent and mesh repetitions are inherited. Increasing longitude span without
+increasing Longitude repetitions makes the base angular resolution coarser.
+
+The combined generator API remains backwards compatible and is regression-
+tested against frozen pre-change 100 km and 300 km outputs using the original
+notebook source case. The notebook now separates domain changes and retreat
+into independent steps, described below.
+
+#### Keep the original trench without retreat
+
+Set `trench_retreat_m=None` in the Python API or notebook block, or pass
+`--trench-retreat-m none` on the CLI. This retains the source's original
+single slab feature and all segment definitions. No connector fit or overlap
+features are created. Longitude shifts and chunk bounds overrides remain
+available. With no longitude shift, `case.wb` is copied byte-for-byte;
+unchanged bounds also preserve `case.prm` byte-for-byte. Changed bounds still
+use gdmate's standard writer. Numeric zero remains invalid.
+
+The geometry report records `trench_retreat_m: null`, `actual_retreat_m: 0.0`,
+and `connector_fit_performed: false`. Geometry diagnostics contain identical
+old/new trench positions (or their identical shifted positions), allowing
+existing diagnostic consumers to read the same array keys. Source geometry
+validation and refusal to overwrite existing destinations are unchanged.
+
+#### Separate domain modification from trench retreat
+
+`PrescribeVelocity.ipynb` has two independent sections:
+
+1. **Modify case domain and position:** `do_modify_case_domain`, source/destination
+   paths, longitude bounds and longitude shift. Current example: `_2 → _5`,
+   bounds −5° to 35°, zero shift. This never fits the slab or adds overlaps.
+2. **Generate a trench-retreat case:** `do_generate_retreat_case`, separate
+   source/destination paths and `trench_retreat_m`. Current example: `_5 → _6`,
+   100 km, disabled until enabled. Domain and placement are inherited exactly.
+
+Both sections may run independently. To chain them, create the domain case
+first and select it as the retreat source. Choose fresh destination paths.
+No simulation outputs are copied and ASPECT is never launched by these blocks.
+
+```python
+from hamageolib.research.prescribe_vecloity.case_domain import modify_case_domain
+from hamageolib.research.prescribe_vecloity.trench_retreat import generate_retreat_case
+
+modify_case_domain("/path/to/source", "/path/to/domain_case",
+                   chunk_max_longitude=35, longitude_shift_deg=5)
+generate_retreat_case("/path/to/domain_case", "/path/to/retreated_case",
+                      trench_retreat_m=100e3)
+```
+
+`modify_case_domain` retains all existing segment and section definitions.
+It supports original four-segment slabs and already-retreated cases with
+matching source `geometry.npz` diagnostics. Missing diagnostics for a retreated
+or sectioned source are rejected rather than refitting it. The known Cartesian
+arrays are rotated; local profile coordinates remain unchanged. Geometry
+reports retain the original retreat distance and accumulate longitude shifts.
+`domain_report.json` records the current operation and its source-relative shift.
+Its return value includes `slab_refit_performed=False`.
+
+Without a source geometry archive, original cases are sampled geometrically
+without optimization. The diagnostics must correspond to the source WorldBuilder
+file; checks use sampled physical geometry, not a full volume-containment proof.
+A retreated two-feature case may be moved with `modify_case_domain`, but positive
+`generate_retreat_case` still requires the original-style single-feature slab.
+It does not recursively retreat an already-retreated case.
+
+The domain CLI is `python -m hamageolib.research.prescribe_vecloity.case_domain`,
+with source/destination arguments and the same `--chunk-min-longitude`,
+`--chunk-max-longitude` and `--longitude-shift-deg` options. The existing combined
+`generate_retreat_case` options and `trench_retreat_m=None` remain available for
+backwards compatibility.

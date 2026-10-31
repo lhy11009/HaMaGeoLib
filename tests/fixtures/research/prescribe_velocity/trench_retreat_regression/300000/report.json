@@ -1,0 +1,29 @@
+{
+  "trench_retreat_m": 300000.0,
+  "end_bearing_adjustments_deg": [
+    10.117523700245338,
+    0.9304919875624167
+  ],
+  "number_trench_samples": 61,
+  "old_anchor_depth_m": 420067.9243877847,
+  "old_distal_endpoint_depth_m": 419227.7791778436,
+  "terminal_segment_length_m": 100000.0,
+  "connector_overlap_length_m": 20000.0,
+  "anchored_transition_overlap_length_m": 20000.0,
+  "connector_endpoint_cross_track_error_max_m": 5.6253362827797536e-05,
+  "worst_connector_index": 40,
+  "endpoint_errors_ends_m": [
+    3.2272535512524406e-05,
+    3.126759100017955e-05
+  ],
+  "connector_endpoint_cross_track_error_median_m": 3.125050324489532e-05,
+  "middle_segment_length_range_m": [
+    640082.1121379934,
+    648694.9780488466
+  ],
+  "bend_absolute_angle_range_deg": [
+    33.81240047267869,
+    34.09497279953206
+  ],
+  "samples_per_segment": 20
+}
