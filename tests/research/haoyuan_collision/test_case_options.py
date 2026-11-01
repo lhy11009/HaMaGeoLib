@@ -1536,3 +1536,43 @@ def test_plate_end_point_case_name(selected, expected):
         variables, prefix="C", use_all=False,
         use_keys=["plate_end_point_pre_modification"] if selected else [],
     ) == expected
+
+
+@pytest.mark.parametrize("sea_level", [None, 0.0, -500.0, 250.0])
+@pytest.mark.parametrize("marine", [False, True])
+def test_fastscape_sea_level(sea_level, marine):
+    prm = {"Mesh deformation": {"Free surface": {}, "Diffusion": {}}}
+    config = {"include_fastscape": True, "include_marine_component": marine}
+    if sea_level is not None:
+        config["sea_level"] = sea_level
+    rule = FastScapeRule()
+    rule.add_default(config)
+    assert config["sea_level"] == (sea_level or 0.0)
+    rule.apply(config, prm, {}, {"total_refinement": 8})
+    params = prm["Mesh deformation"]["Fastscape"].get("Marine parameters", {})
+    if sea_level:
+        assert params["Sea level"] == str(sea_level)
+    else:
+        assert "Sea level" not in params
+    if marine:
+        assert params["Silt fraction"] == "0.5"
+
+
+@pytest.mark.parametrize("sea_level, suffix", [(0.0, ""), (-500.0, "_SeaL-5.00e+02"), (250.0, "_SeaL2.50e+02")])
+@pytest.mark.parametrize("selected", [False, True])
+def test_sea_level_case_name(sea_level, suffix, selected):
+    variables = {
+        "sea_level": sea_level,
+        "weak_layer_rheology_scheme": "low friction",
+        "customize_corner": False,
+        "customize_corner_viscosity": 0.0,
+        "include_fastscape": True,
+        "include_initial_topography": False,
+        "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False,
+        "customize_corner_temperature_fix": False,
+    }
+    assert CaseNameFromVariables(
+        variables, prefix="C", use_all=False,
+        use_keys=["sea_level"] if selected else [],
+    ) == "C" + (suffix if selected else "")

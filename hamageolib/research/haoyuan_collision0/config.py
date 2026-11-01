@@ -190,6 +190,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if use_all or "include_marine_component" in use_keys:
             if variables["include_marine_component"]:
                 case_name += "_marine"
+        if use_all or "sea_level" in use_keys:
+            if variables["sea_level"] != 0.0:
+                case_name += "_SeaL%.2e" % variables["sea_level"]
         if use_all or "silt_fraction" in use_keys:
             if variables["include_marine_component"]:
                 case_name += "_SF%.2e" % variables["silt_fraction"]
@@ -3508,7 +3511,7 @@ class FastScapeRule(Rule):
                 "kf_start_time", "include_initial_isostacy", "include_initial_topograph_filepath", "initial_topograph_fileout_x_interval",
                 "initial_topograph_fileout_migration", "include_initial_topography_mesh_deformation",
                 "include_marine_component", "sand_transport_coefficient", "silt_transport_coefficient",
-                "silt_fraction", "erosion_sediment_reference_density",
+                "silt_fraction", "sea_level", "erosion_sediment_reference_density",
                 "use_reflective_left_right", "use_ghost_nodes"]
 
     defaults = {
@@ -3540,6 +3543,7 @@ class FastScapeRule(Rule):
         "sand_transport_coefficient": 100.0,
         "silt_transport_coefficient": 500.0,
         "silt_fraction": 0.5,
+        "sea_level": 0.0,
         "erosion_sediment_reference_density": -1.0,
         "use_reflective_left_right": False,
         "use_ghost_nodes": False
@@ -3563,6 +3567,7 @@ class FastScapeRule(Rule):
                          "sand_transport_coefficient": "FastScape marine transport coefficient for sand in m^2/yr.",
                          "silt_transport_coefficient": "FastScape marine transport coefficient for silt in m^2/yr.",
                          "silt_fraction": "Fraction of sediment leaving the continent that is silt.",
+                         "sea_level": "Sea level in meters relative to the undeformed ASPECT surface; zero leaves the PRM unchanged.",
                          "erosion_sediment_reference_density": "Reference density of the first phase of erosion sediment. A negative value retains the sediment density.",
                          "use_reflective_left_right": "Use reflective rather than fixed FastScape left and right boundaries.",
                          "use_ghost_nodes": "Use ghost nodes at the FastScape boundaries."
@@ -3601,6 +3606,7 @@ class FastScapeRule(Rule):
         sand_transport_coefficient = config["sand_transport_coefficient"]
         silt_transport_coefficient = config["silt_transport_coefficient"]
         silt_fraction = config["silt_fraction"]
+        sea_level = config["sea_level"]
         erosion_sediment_reference_density = config["erosion_sediment_reference_density"]
         use_reflective_left_right = config["use_reflective_left_right"]
         use_ghost_nodes = config["use_ghost_nodes"]
@@ -3664,6 +3670,9 @@ class FastScapeRule(Rule):
                     "Silt transport coefficient": str(silt_transport_coefficient),
                     "Silt fraction": str(silt_fraction)
                 }
+
+            if sea_level != 0.0:
+                fastscape_dict.setdefault("Marine parameters", {})["Sea level"] = str(sea_level)
 
             # Add fixed erosion baselevel
             if (erosional_base_level > 0):
