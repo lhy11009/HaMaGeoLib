@@ -1008,3 +1008,119 @@ def remove_dashed_contour(contour, dashed, render_view):
     Hide(dashed, render_view)
     Delete(dashed)
     Delete(contour)
+
+
+def spherical_segment_points(radius, longitude, latitude, chord_error=100.0):
+    """Sample a parallel or meridian, with chord error bounded in metres.
+
+    Longitude and latitude are endpoint pairs in degrees; exactly one may vary.
+    Longitudes are unwrapped, e.g. (350, 370) crosses zero by 20 degrees,
+    whereas (350, 10) travels backwards by 340 degrees. Endpoints are included.
+    A collapsed segment (including a parallel at a pole) returns two points.
+    """
+    lon = np.asarray(longitude, dtype=float)
+    lat = np.asarray(latitude, dtype=float)
+    if (lon.shape != (2,) or lat.shape != (2,)
+            or not np.all(np.isfinite(lon)) or not np.all(np.isfinite(lat))
+            or np.any(np.abs(lat) > 90)):
+        raise ValueError("longitude/latitude must be finite endpoint pairs; latitude in [-90, 90]")
+    if not math.isfinite(radius) or radius <= 0:
+        raise ValueError("radius must be finite and positive")
+    if not math.isfinite(chord_error) or chord_error <= 0:
+        raise ValueError("chord_error must be finite and positive")
+    if lon[0] != lon[1] and lat[0] != lat[1]:
+        raise ValueError("a spherical segment must have constant latitude or longitude")
+    parallel = lat[0] == lat[1]
+    curvature_radius = radius * abs(math.cos(math.radians(lat[0]))) if parallel else radius
+    span = math.radians(abs(lon[1] - lon[0]) if parallel else abs(lat[1] - lat[0]))
+    count = 1
+    if curvature_radius > radius * 1e-15 and span:
+        # Stable equivalent of 2*acos(1-error/rho); cap at a semicircle.
+        step = 4 * math.asin(math.sqrt(min(chord_error / (2 * curvature_radius), 0.5)))
+        count = max(1, math.ceil(span / step))
+    ll = np.radians(np.linspace(*lon, count + 1))
+    pp = np.radians(np.linspace(*lat, count + 1))
+    return radius * np.column_stack((np.cos(pp) * np.cos(ll),
+                                    np.cos(pp) * np.sin(ll), np.sin(pp)))
+
+
+def spherical_chunk_edges(radii, longitude, latitude, chord_error=100.0, *,
+                          grid_longitudes=(), grid_latitudes=()):
+    """Return 12 chunk edges, plus optional grid curves on the outer surface.
+
+    Radii are (inner, outer) in metres. Angular bounds are increasing endpoint
+    pairs in degrees; use unwrapped longitude bounds across the date line.
+    Optional grid coordinates must lie within these bounds.
+    """
+    radii = np.asarray(radii, dtype=float)
+    longitude = np.asarray(longitude, dtype=float)
+    latitude = np.asarray(latitude, dtype=float)
+    for values, name in ((radii, 'radii'), (longitude, 'longitude'), (latitude, 'latitude')):
+        if (values.shape != (2,) or not np.all(np.isfinite(values))
+                or values[1] <= values[0]):
+            raise ValueError(f"{name} must contain finite, strictly increasing bounds")
+    if radii[0] <= 0 or longitude[1] - longitude[0] > 360:
+        raise ValueError("radii must be positive and longitude span at most 360 degrees")
+    edges = []
+    for radius in radii:
+        for lat in latitude:
+            edges.append(spherical_segment_points(radius, longitude, (lat, lat), chord_error))
+        for lon in longitude:
+            edges.append(spherical_segment_points(radius, (lon, lon), latitude, chord_error))
+    for lon in longitude:
+        for lat in latitude:
+            outer = spherical_segment_points(radii[1], (lon, lon), (lat, lat), chord_error)[0]
+            edges.append(np.array([outer * radii[0] / radii[1], outer]))
+    for coordinates, bounds, parallel in ((grid_longitudes, longitude, False),
+                                           (grid_latitudes, latitude, True)):
+        for angle in coordinates:
+            if not math.isfinite(angle) or not bounds[0] <= angle <= bounds[1]:
+                raise ValueError("grid coordinates must lie within the chunk bounds")
+            edges.append(spherical_segment_points(
+                radii[1], longitude if parallel else (angle, angle),
+                (angle, angle) if parallel else latitude, chord_error))
+    return edges
+
+
+def add_spherical_chunk_frame(view, radii, longitude, latitude, *, chord_error=100.0,
+                              color=(0.0, 0.0, 0.0), line_width=2.0, visible=True,
+                              grid_longitudes=(), grid_latitudes=(),
+                              registration_name="SphericalChunkFrame"):
+    """Show an analytic chunk frame as VTK polylines; return (source, display).
+
+    Dimensions use metres and degrees. Grid curves are optional and appear on
+    the outer surface only. Visibility can also be changed on the returned display.
+    The programmable source embeds its coordinates so saved states are portable.
+    """
+    edges = spherical_chunk_edges(radii, longitude, latitude, chord_error,
+                                  grid_longitudes=grid_longitudes,
+                                  grid_latitudes=grid_latitudes)
+    if (len(color) != 3 or not all(math.isfinite(c) and 0 <= c <= 1 for c in color)
+            or not math.isfinite(line_width) or line_width <= 0):
+        raise ValueError("color must be three values in [0, 1]; line_width must be positive")
+    source = ProgrammableSource(registrationName=registration_name)
+    source.OutputDataSetType = 'vtkPolyData'
+    source.Script = '''import vtk
+edges = %r
+points = vtk.vtkPoints()
+points.SetDataTypeToDouble()
+lines = vtk.vtkCellArray()
+for edge in edges:
+    line = vtk.vtkPolyLine()
+    line.GetPointIds().SetNumberOfIds(len(edge))
+    for i, point in enumerate(edge):
+        line.GetPointIds().SetId(i, points.InsertNextPoint(*point))
+    lines.InsertNextCell(line)
+output = self.GetPolyDataOutput()
+output.SetPoints(points)
+output.SetLines(lines)
+''' % [edge.tolist() for edge in edges]
+    source.UpdatePipeline()
+    display = Show(source, view)
+    display.Representation = 'Wireframe'
+    display.ColorArrayName = ['POINTS', '']
+    display.DiffuseColor = list(color)
+    display.AmbientColor = list(color)
+    display.LineWidth = line_width
+    display.Visibility = int(visible)
+    return source, display

@@ -10,12 +10,17 @@ from pathlib import Path
 
 def plot_prescribed_velocity(solution_file, image_file, *, time=0.0,
                              glyph_scale=5e6, domain_samples=5000,
-                             slab_samples=500, state_file=None):
+                             slab_samples=500, state_file=None, frame_options=None):
     """Render a green translucent slab with white domain and blue slab arrows.
 
     Time uses the solution PVD's units (years for the reference case). Select
     an actual saved timestep. Optionally save the reconstructed ParaView state.
     Returns the reader, threshold, glyphs and render view for interactive use.
+    To add a chunk frame, supply frame_options with radii, longitude, latitude
+    and optional styling/grid arguments accepted by add_spherical_chunk_frame.
+    For example: dict(radii=(5451e3, 6371e3), longitude=(0, 25),
+                      latitude=(-10, 50), color=(1, 1, 1)).
+    The default None leaves the reference visualization unchanged.
     """
     solution_file = Path(solution_file)
     if not solution_file.is_file():
@@ -76,12 +81,14 @@ def plot_prescribed_velocity(solution_file, image_file, *, time=0.0,
     view.CameraParallelProjection = 0
     view.CameraViewAngle = 30.0
     view.CenterOfRotation = [4773276.625, 1346250.5, 1887078.25]
+    frame = (add_spherical_chunk_frame(view, **frame_options)
+             if frame_options is not None else None)
     Render(view)
     SaveScreenshot(str(image_file), view, ImageResolution=[1024, 782])
     if state_file is not None:
         SaveState(str(state_file))
     return {"reader": reader, "slab": slab, "domain_glyph": domain_glyph,
-            "slab_glyph": slab_glyph, "view": view}
+            "slab_glyph": slab_glyph, "view": view, "frame": frame}
 
 
 if __name__ == "__main__":
