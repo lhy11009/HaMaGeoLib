@@ -1,10 +1,15 @@
 name: hmgeolib
 channels:
+  - conda-forge
   - defaults
 dependencies:
   - python=3.12
+  - cartopy
+  - gmt
+  - h5netcdf
   - pytest
   - numpy
+  - pygmt
   - scipy
   - pip
   - matplotlib

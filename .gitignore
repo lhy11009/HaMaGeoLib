@@ -21,3 +21,4 @@ plate-model-repo
 *.vtp
 *.mp4
 notebooks/research/haoyuan_collision/output/
+notebooks/research/prescribe_velocity/data/
