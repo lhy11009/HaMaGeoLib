@@ -656,14 +656,11 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
 
         # adjust camera setup
         # Camera position is adjusted relative to the position of the right and top boundary
-        if np.isclose(RIGHT, 5500e3, rtol=1e-6) and np.isclose(TOP, 2000e3, rtol=1e-6):
-            renderView1.InteractionMode = '2D'
-            renderView1.CameraPosition = [9156148.523443608, 8267916.494211691, 6066660.785268369]
-            renderView1.CameraFocalPoint = [2442318.849651574, 1554086.8204196477, -647168.8885236793]
-            renderView1.CameraViewUp=[-0.4082482904638625, 0.816496580927726, -0.4082482904638639]
-            renderView1.CameraParallelScale = 1698912.7130920088  # scale to the length
-        else:
-            raise NotImplementedError()
+        renderView1.InteractionMode = '2D'
+        renderView1.CameraPosition = [9156148.523443608 - 5500e3 + RIGHT, 8267916.494211691 - 2000e3 + TOP, 6066660.785268369]
+        renderView1.CameraFocalPoint = [2442318.849651574 - 5500e3 + RIGHT, 1554086.8204196477 - 2000e3 + TOP, -647168.8885236793]
+        renderView1.CameraViewUp=[-0.4082482904638625, 0.816496580927726, -0.4082482904638639]
+        renderView1.CameraParallelScale = 1698912.7130920088  # scale to the length
 
         # turn on viscosity plot for the main source
         # and the topography fro the fastscape source
