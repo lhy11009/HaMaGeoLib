@@ -2355,6 +2355,17 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
     Case_Options_2d.SummaryCaseVtuStepExport(Case_Options_2d.summary_file)
 
 
+def _topography_plot_sea_level(case_options):
+    """Read constant sea level (m) from the case PRM, defaulting to zero.
+
+    This plotting offset leaves raw topography and shared data readers unchanged.
+    Time-dependent sea-level functions are not evaluated here.
+    """
+    marine = (case_options.idict.get("Mesh deformation", {})
+              .get("Fastscape", {}).get("Marine parameters", {}))
+    return float(marine.get("Sea level", 0.0))
+
+
 def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*,
                                     time_interval=0.5e6,
                                     prep_dir="."):
@@ -2381,6 +2392,8 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
     # read topography data
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
                         time_interval=time_interval)
+    sea_level = _topography_plot_sea_level(Case_Options_2d)
+    topography = topography - sea_level
 
     # read additional inputs from processing the fastscape outputs
     fastscape_hz_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
@@ -2403,10 +2416,10 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
         fastscape_x = data[:, column_idx]
 
         column_idx = fastscape_hz_header_dict["topography_min"]
-        fastscape_topography_min = data[:, column_idx]
+        fastscape_topography_min = data[:, column_idx] - sea_level
 
         column_idx = fastscape_hz_header_dict["topography_max"]
-        fastscape_topography_max = data[:, column_idx]
+        fastscape_topography_max = data[:, column_idx] - sea_level
     
     # Plot settings
     # Rule of thumbs:
@@ -2451,7 +2464,7 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
     ax.xaxis.set_major_locator(MultipleLocator(x_tick_interval))
     ax.xaxis.set_minor_locator(MultipleLocator(x_tick_interval/(n_minor_ticks+1)))
 
-    ax.set_ylabel("Topo (m)", color=default_colors[0])
+    ax.set_ylabel("Elevation above sea level (m)", color=default_colors[0])
     ax.set_ylim(topo_lim)
     ax.tick_params(axis="y", colors=default_colors[0])
     ax.yaxis.set_major_locator(MultipleLocator(topo_tick_interval))
@@ -2505,6 +2518,8 @@ def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
     # read topography data
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
                         time_interval=time_interval)
+    sea_level = _topography_plot_sea_level(Case_Options_2d)
+    topography = topography - sea_level
     
     #  Extract shortening data
     dimention_ratio_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
@@ -2605,7 +2620,7 @@ def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
     ax.xaxis.set_major_locator(MultipleLocator(x_tick_interval))
     ax.xaxis.set_minor_locator(MultipleLocator(x_tick_interval/(n_minor_ticks+1)))
 
-    ax.set_ylabel("Topo (m)", color=default_colors[0])
+    ax.set_ylabel("Elevation above sea level (m)", color=default_colors[0])
     ax.set_ylim(topo_lim)
     ax.tick_params(axis="y", colors=default_colors[0])
     ax.yaxis.set_major_locator(MultipleLocator(topo_tick_interval))
@@ -2666,6 +2681,8 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     # read topography data
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
                         time_interval=time_interval)
+    sea_level = _topography_plot_sea_level(Case_Options_2d)
+    topography = topography - sea_level
     
     #  Extract shortening data
     dimention_ratio_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
@@ -2715,10 +2732,10 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
         fastscape_x = data[:, column_idx]
 
         column_idx = fastscape_hz_header_dict["topography_min"]
-        fastscape_topography_min = data[:, column_idx]
+        fastscape_topography_min = data[:, column_idx] - sea_level
 
         column_idx = fastscape_hz_header_dict["topography_max"]
-        fastscape_topography_max = data[:, column_idx]
+        fastscape_topography_max = data[:, column_idx] - sea_level
     
 
     # Plot settings
@@ -2800,7 +2817,7 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     ax.xaxis.set_major_locator(MultipleLocator(x_tick_interval))
     ax.xaxis.set_minor_locator(MultipleLocator(x_tick_interval/(n_minor_ticks+1)))
 
-    ax.set_ylabel("Topo (m)", color=default_colors[0])
+    ax.set_ylabel("Elevation above sea level (m)", color=default_colors[0])
     ax.set_ylim(topo_lim)
     ax.tick_params(axis="y", colors=default_colors[0])
     ax.yaxis.set_major_locator(MultipleLocator(topo_tick_interval))
