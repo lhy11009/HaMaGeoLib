@@ -116,7 +116,8 @@ def test_given_time_notebook_shifts_topography_average_and_basement(tmp_path, mo
               my_assert=post_process.my_assert)
     try:
         exec(compile(source, str(notebook), "exec"), ns)
-        ax, _, _, ax_basement = figures[0].axes
+        assert len(figures[0].axes) == 2
+        ax, ax_basement = figures[0].axes
         for i, sea_level in enumerate([1000., -500.]):
             # Each case plots one curve and three marked points.
             np.testing.assert_allclose(ax.lines[i*4].get_ydata(), topo - sea_level)
