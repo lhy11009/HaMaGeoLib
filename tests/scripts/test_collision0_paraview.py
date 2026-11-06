@@ -133,3 +133,62 @@ def test_rate_palette_is_defined_directly_and_cumulative_palette_is_preserved():
     assert cumulative[-1] == (1.0, 37 / 255.0, 52 / 255.0, 148 / 255.0)
     assert "reversed(EROSION_DEPOSITION_COLOR_POINTS)" not in source
     assert source.count("fieldLUT, -5e3, 5e3, CUMULATIVE_EROSION_DEPOSITION_COLOR_POINTS") == 2
+
+
+def test_fastscape_topography_uses_sea_level_without_moving_geometry():
+    import ast
+    from types import SimpleNamespace
+    import numpy as np
+
+    source = SCRIPT_PATH.read_text()
+    names = {"setup_fastscape", "set_fastscape_topography_plot",
+             "set_fastscape_topography_colorbar"}
+    nodes = [node for node in ast.parse(source).body
+             if isinstance(node, ast.FunctionDef) and node.name in names]
+    for sea_level in (0.0, 1000.0, -500.0):
+        original_source = object()
+        calculators = []
+        transformed = SimpleNamespace(Transform=SimpleNamespace())
+        colored = []
+        scalar_bar = SimpleNamespace()
+
+        def calculator(**kwargs):
+            result = SimpleNamespace(**kwargs)
+            calculators.append(result)
+            return result
+
+        def transform(**kwargs):
+            transformed.Input = kwargs["Input"]
+            return transformed
+
+        ns = dict(
+            SEA_LEVEL=sea_level, TOP=2e6,
+            possible_lookup_source=lambda source: original_source,
+            Calculator=calculator, Transform=transform,
+            FindSource=lambda name: transformed,
+            ProgrammableFilter=lambda **kw: SimpleNamespace(**kw),
+            ColorBy=lambda display, field: colored.append(field),
+            rescale_transfer_function_combined=lambda *a: None,
+            GetColorTransferFunction=lambda field: object(),
+            apply_custom_color_points=lambda *a: None,
+            TPOGRAPHY_COLOR_POINTS=[],
+            GetScalarBar=lambda *a: scalar_bar,
+        )
+        exec(compile(ast.Module(body=nodes, type_ignores=[]), "plot", "exec"), ns)
+        ns["setup_fastscape"]("fastscape")
+        calc = calculators[0]
+        assert calc.Input is original_source
+        assert calc.ResultArrayName == "topography_above_sea_level"
+        raw = np.array([500.0, 1500.0])
+        np.testing.assert_allclose(
+            eval(calc.Function, {"__builtins__": {}}, {"topography": raw}),
+            raw - sea_level,
+        )
+        assert calc.CoordinateResults == 0
+        assert transformed.Input is calc
+        assert transformed.Transform.Translate == [0.0, 2e6, 0.0]
+        field, lut = ns["set_fastscape_topography_plot"](None)
+        assert field == calc.ResultArrayName
+        assert colored == [('POINTS', field, 'Magnitude')]
+        ns["set_fastscape_topography_colorbar"](None, lut)
+        assert scalar_bar.Title == "Elevation above sea level"

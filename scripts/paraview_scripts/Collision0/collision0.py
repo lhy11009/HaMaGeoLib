@@ -196,7 +196,7 @@ def set_fastscape_topography_plot(sourceDisplay):
         renderView - paraview object connect to visualization
         fieldLUT - color transfer function for viscosity
     ''' 
-    field = "topography"
+    field = "topography_above_sea_level"
     ColorBy(sourceDisplay, ('POINTS', field, 'Magnitude'))
     rescale_transfer_function_combined(field, -11000.0, 4000.0)
     fieldLUT = GetColorTransferFunction(field)
@@ -216,7 +216,7 @@ def set_fastscape_topography_colorbar(renderView, fieldLUT, *,
     ''' 
     scalarBar = GetScalarBar(fieldLUT, renderView)
     scalarBar.Visibility = 1
-    scalarBar.Title = 'Topography'
+    scalarBar.Title = 'Elevation above sea level'
     scalarBar.ComponentTitle = '[m]'
     scalarBar.Orientation = 'Horizontal'
 
@@ -846,7 +846,13 @@ def setup_fastscape(source_i):
     """
 
     input_source = possible_lookup_source(source_i) 
-    transform = Transform(registrationName="fastscape_transform1", Input=input_source)
+    # Add elevation relative to sea level as a scalar; retain original geometry
+    # and topography/basement arrays for sediment-thickness calculations.
+    elevation = Calculator(registrationName="fastscape_elevation1", Input=input_source)
+    elevation.ResultArrayName = "topography_above_sea_level"
+    elevation.CoordinateResults = 0
+    elevation.Function = f"topography - ({SEA_LEVEL})"
+    transform = Transform(registrationName="fastscape_transform1", Input=elevation)
     transform.Transform.Rotate = [-90.0, 0.0, 0.0]
     transform.Transform.Translate = [0.0, TOP, 0.0]
 
