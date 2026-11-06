@@ -2355,17 +2355,6 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
     Case_Options_2d.SummaryCaseVtuStepExport(Case_Options_2d.summary_file)
 
 
-def _topography_plot_sea_level(case_options):
-    """Read constant sea level (m) from the case PRM, defaulting to zero.
-
-    This plotting offset leaves raw topography and shared data readers unchanged.
-    Time-dependent sea-level functions are not evaluated here.
-    """
-    marine = (case_options.idict.get("Mesh deformation", {})
-              .get("Fastscape", {}).get("Marine parameters", {}))
-    return float(marine.get("Sea level", 0.0))
-
-
 def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*,
                                     time_interval=0.5e6,
                                     prep_dir="."):
@@ -2392,7 +2381,7 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
     # read topography data
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
                         time_interval=time_interval)
-    sea_level = _topography_plot_sea_level(Case_Options_2d)
+    sea_level = Case_Options_2d.options["SEA_LEVEL"]
     topography = topography - sea_level
 
     # read additional inputs from processing the fastscape outputs
@@ -2518,7 +2507,7 @@ def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
     # read topography data
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
                         time_interval=time_interval)
-    sea_level = _topography_plot_sea_level(Case_Options_2d)
+    sea_level = Case_Options_2d.options["SEA_LEVEL"]
     topography = topography - sea_level
     
     #  Extract shortening data
@@ -2681,7 +2670,7 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     # read topography data
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
                         time_interval=time_interval)
-    sea_level = _topography_plot_sea_level(Case_Options_2d)
+    sea_level = Case_Options_2d.options["SEA_LEVEL"]
     topography = topography - sea_level
     
     #  Extract shortening data

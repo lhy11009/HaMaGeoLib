@@ -24,11 +24,9 @@ def test_topography_plots_relative_to_sea_level(tmp_path, monkeypatch, plot_name
         "lower_plate_deformation": [0.0], "upper_plate_deformation": [0.0],
     })
     summary.attrs["Time between graphical output"] = 1e5
-    idict = {} if sea_level is None else {
-        "Mesh deformation": {"Fastscape": {"Marine parameters": {"Sea level": sea_level}}}
-    }
     options = SimpleNamespace(
-        idict=idict, summary_df=summary, options={"RIGHT": 2000.0},
+        summary_df=summary,
+        options={"RIGHT": 2000.0, "SEA_LEVEL": float(sea_level or 0.0)},
         resample_visualization_df=lambda interval: summary,
     )
     x = np.array([0.0, 1000.0, 2000.0])
@@ -55,3 +53,28 @@ def test_topography_plots_relative_to_sea_level(tmp_path, monkeypatch, plot_name
         assert fastscape.read_bytes() == original_file
     finally:
         plt.close("all")
+
+
+@pytest.mark.parametrize("sea_level", [None, "0.0", "1000.0", "-500.0"])
+def test_collision_interpret_exposes_sea_level(monkeypatch, sea_level):
+    from hamageolib.research.haoyuan_collision0 import case_options
+
+    # Isolate collision-specific interpretation from generic file/time setup.
+    monkeypatch.setattr(case_options.CASE_OPTIONS_BASE, "Interpret", lambda *a, **kw: None)
+    case = case_options.CASE_OPTIONS_TWOD.__new__(case_options.CASE_OPTIONS_TWOD)
+    case.options = {"COMPOSITION_FIELDS": []}
+    case.idict = {"Material model": {"Visco Plastic": {
+        "Minimum viscosity": "background: 1e19",
+        "Maximum viscosity": "background: 1e24",
+    }}}
+    if sea_level is not None:
+        case.idict["Mesh deformation"] = {
+            "Fastscape": {"Marine parameters": {"Sea level": sea_level}}
+        }
+    case.wb_dict = {"features": [{"name": "Subducting Plate", "coordinates": [[2, 0], [1, 0]]}]}
+    case.Interpret()
+    assert case.options["SEA_LEVEL"] == float(sea_level or 0.0)
+    assert isinstance(case.options["SEA_LEVEL"], float)
+    case.contents = "elevation = topography - SEA_LEVEL"
+    case.substitute()
+    assert case.contents == f"elevation = topography - {float(sea_level or 0.0)}"
