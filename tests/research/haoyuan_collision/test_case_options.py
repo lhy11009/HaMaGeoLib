@@ -1576,3 +1576,59 @@ def test_sea_level_case_name(sea_level, suffix, selected):
         variables, prefix="C", use_all=False,
         use_keys=["sea_level"] if selected else [],
     ) == "C" + (suffix if selected else "")
+
+
+@pytest.mark.parametrize("constant_age", [None, False, True])
+def test_constant_subducting_plate_age(constant_age):
+    from copy import deepcopy
+
+    plate = {"model": "plate model", "min depth": 0.0, "max depth": 300e3,
+             "bottom temperature": -1, "ridge coordinates": [], "spreading velocity": 0.04}
+    template = {"features": [
+        {"name": "Subducting Plate", "temperature models": [plate]},
+        {"name": "Slab", "temperature models": [{"model": "mass conserving"}]},
+        {"name": "Subducting Continent", "temperature models": [{"model": "linear"}]},
+    ]}
+    results = []
+    for enabled in (False, constant_age):
+        config = {"slab_age": 80e6}
+        if enabled is not None:
+            config["constant_subducting_plate_age"] = enabled
+        rule = SlabRule()
+        rule.add_default(config)
+        assert config["constant_subducting_plate_age"] == bool(enabled)
+        wb = deepcopy(template)
+        context = {"domain_length": 8700e3, "removed_peridotite_compositional_indexes": [],
+                   "add_harzburgite_index": None}
+        prm = {"Compositional fields": {"Names of fields": "sediment, MORB, gabbro"}}
+        rule.apply(config, prm, wb, context)
+        results.append(wb)
+    baseline, result = results
+    thermal = result["features"][0]["temperature models"][0]
+    if constant_age:
+        assert thermal["model"] == "plate model constant age"
+        assert thermal["plate age"] == 80e6
+        assert "ridge coordinates" not in thermal
+        assert "spreading velocity" not in thermal
+        assert thermal["max depth"] == 300e3
+        assert thermal["bottom temperature"] == -1
+    else:
+        assert result == baseline
+        assert thermal["model"] == "plate model"
+    assert result["features"][1:] == baseline["features"][1:]
+
+
+@pytest.mark.parametrize("enabled, selected, expected", [
+    (False, True, "C_SA100.0"), (True, True, "C_SA100.0_CA"),
+    (True, False, "C_SA100.0"),
+])
+def test_constant_subducting_plate_age_case_name(enabled, selected, expected):
+    variables = {
+        "slab_age": 100e6, "constant_subducting_plate_age": enabled,
+        "weak_layer_rheology_scheme": "low friction", "customize_corner": False,
+        "customize_corner_viscosity": 0.0, "include_fastscape": False,
+        "include_initial_topography": False, "include_initial_topograph_filepath": "",
+        "include_initial_isostacy": False, "customize_corner_temperature_fix": False,
+    }
+    keys = ["slab_age"] + (["constant_subducting_plate_age"] if selected else [])
+    assert CaseNameFromVariables(variables, prefix="C", use_all=False, use_keys=keys) == expected
