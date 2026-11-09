@@ -1,0 +1,12 @@
+{
+  "Indicator function": {
+    "Variable names": "x, y, t",
+    "Function constants": "x1=1.46e+06, x2=2.46e+06, x3=3.96e+06, x4=4.46e+06, y1=1.9400e+06, y2=1.9550e+06, t0=1.62e+07",
+    "Function expression": "(t>t0)&&(((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2))) ? 1: 0; (t>t0)&&(((x>x1)&&(x<x2)&&(y>y1)&&(y<y2))||((x>x3)&&(x<x4)&&(y>y1)&&(y<y2))) ? 1:0"
+  },
+  "Function": {
+    "Variable names": "x, y",
+    "Function constants": "x1=1.46e+06, x2=2.46e+06, x3=3.96e+06, x4=4.46e+06, y1=1.9400e+06, y2=1.9550e+06, vx=3.83e-02, vy=0.0, vx_ov=-2.21e-03, vy_ov=0.0",
+    "Function expression": "(x>x1)&&(x<x2)? vx: vx_ov; (x>x1)&&(x<x2)? vy:vy_ov"
+  }
+}

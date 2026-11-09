@@ -1,0 +1,5 @@
+{
+  "two_stage_base_case": "base_case",
+  "second_stage_convergence": 0.04,
+  "second_stage_earliest_time": 14000000.0
+}

@@ -3399,7 +3399,10 @@ class StrainWeakeningRule(Rule):
 
 class TwoStageRule(Rule):
     """
-    This rule customizes 2-stage setup
+    Configure second-stage velocities, output_1, and the restart target time.
+
+    Resume time uses the first matching convergence row after
+    second_stage_earliest_time, which remains the search cutoff.
 
     Required configuration parameters:
 
@@ -3507,6 +3510,8 @@ class TwoStageRule(Rule):
                 }
             }
             prm_dict["Prescribed solution"]["Velocity function"] = velocity_func_dict
+            prm_dict["Output directory"] = "output_1"
+            prm_dict.setdefault("Checkpointing", {})["Resume time"] = str(start_time)
 
 class FastScapeRule(Rule):
     """
