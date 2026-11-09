@@ -35,3 +35,10 @@ from these values and the default far-field distances. It includes the rule's
 current numeric formatting: for example, the selected time is written as
 `t0=1.62e+07` in the generated parameter file. This fixture tests configuration
 generation, not execution of a second-stage ASPECT simulation.
+
+The tests also exercise direct-time mode by setting `second_stage_start_time`
+and `second_stage_sp_velocity` and explicitly setting
+`second_stage_earliest_time=None`. In that mode, restart and velocity activation
+use the requested time; the nearest summary row supplies only the trench
+position. The overriding plate velocity is the prescribed subducting plate
+velocity minus `second_stage_convergence`, without searching measured velocities.

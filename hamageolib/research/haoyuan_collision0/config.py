@@ -172,8 +172,10 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if len(variables["two_stage_base_case"]) > 0:
             case_name += "_Two"
 
-            if use_all or "second_stage_earliest_time" in use_keys:
+            if (use_all or "second_stage_earliest_time" in use_keys) and variables["second_stage_earliest_time"] is not None:
                 case_name += "Et%.2e" % variables["second_stage_earliest_time"]
+            if (use_all or "second_stage_start_time" in use_keys) and variables.get("second_stage_start_time") is not None:
+                case_name += "St%.2e" % variables["second_stage_start_time"]
 
     # Fastscape
     if variables["include_fastscape"]:
@@ -241,6 +243,25 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         
 
     return case_name
+
+
+def TwoStageNameFromVariables(variables: dict, *, prefix="", use_all=True, use_keys=()):
+    """Name a second-stage configuration using selected, non-None inputs.
+
+    Start time is expressed in Ma with one decimal place; velocities retain
+    their m/year values in scientific notation. Tags have a fixed order.
+    """
+    patterns = (
+        ("second_stage_start_time", "St", lambda value: f"{value / 1e6:.1f}Ma"),
+        ("second_stage_convergence", "Cv", lambda value: f"{value:.2e}"),
+        ("second_stage_sp_velocity", "Sp", lambda value: f"{value:.2e}"),
+    )
+    parts = [prefix] if prefix else []
+    for key, tag, format_value in patterns:
+        value = variables.get(key)
+        if (use_all or key in use_keys) and value is not None:
+            parts.append(tag + format_value(value))
+    return "_".join(parts)
 
 
 class CompositionRule(Rule):
@@ -3401,8 +3422,8 @@ class TwoStageRule(Rule):
     """
     Configure second-stage velocities, output_1, and the restart target time.
 
-    Resume time uses the first matching convergence row after
-    second_stage_earliest_time, which remains the search cutoff.
+    Select exactly one time mode: search for convergence after an earliest
+    time, or start directly at a requested time with prescribed plate speeds.
 
     Required configuration parameters:
 
@@ -3412,11 +3433,14 @@ class TwoStageRule(Rule):
 
     requires = ["two_stage_base_case", "second_stage_convergence", "second_stage_earliest_time",
                 "second_stage_convergence_tolerance", "second_stage_far_field_range",
-                "second_stage_far_field_distance", "second_stage_prescribe_y_motion"]
+                "second_stage_far_field_distance", "second_stage_prescribe_y_motion",
+                "second_stage_start_time", "second_stage_sp_velocity"]
 
     defaults = {"two_stage_base_case": "",
                 "second_stage_convergence": 0.04, 
                 "second_stage_earliest_time": 5e6,
+                "second_stage_start_time": None,
+                "second_stage_sp_velocity": None,
                 "second_stage_convergence_tolerance": 0.001,
                 "second_stage_far_field_range": 500e3,
                 "second_stage_far_field_distance": 1000e3,
@@ -3425,21 +3449,44 @@ class TwoStageRule(Rule):
     requires_comments = {"second_stage_convergence": "This is the constrained convergence for the second stage",
                          "second_stage_convergence_tolerance": "Looking for convergence value by this tolerance",
                          "second_stage_earliest_time": "Time to start the lookup of second stage point",
+                         "second_stage_start_time": "Direct restart and activation time; earliest time must be None",
+                         "second_stage_sp_velocity": "Subducting plate velocity in direct-time mode; overriding velocity is this minus convergence",
                          "second_stage_prescribe_y_motion": "Whether to also prescribe the velocity in the y direction to 0.0."}
     
     provides = []
+
+    def add_default(self, config):
+        """Retain explicit None for the mutually exclusive time options.
+
+        The generic Rule default handler treats None as missing. Here each
+        input has a default, but nullable options retain an explicit None.
+        """
+        nullable = ("second_stage_start_time", "second_stage_earliest_time",
+                    "second_stage_sp_velocity")
+        for name in self.requires:
+            if name in nullable:
+                config.setdefault(name, self.defaults[name])
+            elif config.get(name) is None:
+                config[name] = self.defaults[name]
+        return config
 
     def apply(self, config, prm_dict, wb_dict, context):
 
         two_stage_base_case = config["two_stage_base_case"]
         second_stage_convergence = config["second_stage_convergence"]
         second_stage_earliest_time = config["second_stage_earliest_time"]
+        second_stage_start_time = config.get("second_stage_start_time")
         second_stage_convergence_tolerance = config["second_stage_convergence_tolerance"]
         second_stage_far_field_range = config["second_stage_far_field_range"]
         second_stage_far_field_distance = config["second_stage_far_field_distance"]
         second_stage_prescribe_y_motion = config["second_stage_prescribe_y_motion"]
         
         if len(two_stage_base_case) > 0:
+
+            if (second_stage_start_time is None) == (second_stage_earliest_time is None):
+                raise ValueError("Set exactly one of second_stage_start_time and second_stage_earliest_time; the other must be None")
+            if second_stage_start_time is not None and config.get("second_stage_sp_velocity") is None:
+                raise ValueError("second_stage_sp_velocity is required with second_stage_start_time")
 
             assert(os.path.isdir(two_stage_base_case))
 
@@ -3452,27 +3499,33 @@ class TwoStageRule(Rule):
             Case_Options_2d.SummaryCaseVtuStep(summary_file)
 
             times = Case_Options_2d.summary_df["Time"].to_numpy()
-            sp_velocities = Case_Options_2d.summary_df["sp_velocity"].to_numpy()
-            ov_velocities = Case_Options_2d.summary_df["ov_velocity"].to_numpy()
             trench_centers_2d = Case_Options_2d.summary_df["trench_center_50"].to_numpy()
-            conv_velocities = sp_velocities - ov_velocities
-
-            tol = 0.1        # acceptable difference
-
-            # Combined condition
-            mask = (times > second_stage_earliest_time) &\
-                (np.abs(conv_velocities - second_stage_convergence) < second_stage_convergence_tolerance)
-
-            # Get matching indices
-            indices = np.where(mask)[0]
-
-            if len(indices) == 0:
-                raise ValueError("No matching value found.")
-
-            idx = indices[0]   # first occurrence
-            start_time = times[idx]
-            sp_v = sp_velocities[idx]
-            ov_v = ov_velocities[idx]
+            if second_stage_start_time is not None:
+                if times.size == 0:
+                    raise ValueError("No summary times available for second_stage_start_time")
+                idx = np.abs(times - second_stage_start_time).argmin()
+                start_time = second_stage_start_time
+                sp_v = config["second_stage_sp_velocity"]
+                ov_v = sp_v - second_stage_convergence
+                # Preserve the requested activation time and plate velocities.
+                time_constant = str(start_time)
+                sp_constant, ov_constant = str(sp_v), str(ov_v)
+            else:
+                sp_velocities = Case_Options_2d.summary_df["sp_velocity"].to_numpy()
+                ov_velocities = Case_Options_2d.summary_df["ov_velocity"].to_numpy()
+                conv_velocities = sp_velocities - ov_velocities
+                mask = (times > second_stage_earliest_time) &\
+                    (np.abs(conv_velocities - second_stage_convergence) < second_stage_convergence_tolerance)
+                indices = np.where(mask)[0]
+                if len(indices) == 0:
+                    raise ValueError("No matching value found.")
+                idx = indices[0]
+                start_time = times[idx]
+                sp_v = sp_velocities[idx]
+                ov_v = ov_velocities[idx]
+                # Retain the existing formatting in convergence-search mode.
+                time_constant = "%.2e" % start_time
+                sp_constant, ov_constant = "%.2e" % sp_v, "%.2e" % ov_v
             trench_x = trench_centers_2d[idx]
 
             print("TwoStageRule:")
@@ -3480,7 +3533,7 @@ class TwoStageRule(Rule):
             print("\tTime:", start_time)
             print("\tSP velocity:", sp_v)
             print("\tOV velocity:", ov_v)
-            print("\tConvergence velocity:", conv_velocities[idx])
+            print("\tConvergence velocity:", sp_v - ov_v)
 
             prm_dict["Prescribed solution"]["List of model names"] += ", velocity function"
 
@@ -3492,20 +3545,20 @@ class TwoStageRule(Rule):
             velocity_func_dict = {
                 "Indicator function": {
                     "Variable names": "x, y, t",
-                    "Function constants": "x1=%.2e, x2=%.2e, x3=%.2e, x4=%.2e, y1=%.4e, y2=%.4e, t0=%.2e" %\
+                    "Function constants": "x1=%.2e, x2=%.2e, x3=%.2e, x4=%.2e, y1=%.4e, y2=%.4e, t0=%s" %\
                         (trench_x-second_stage_far_field_range-second_stage_far_field_distance, trench_x-second_stage_far_field_range,\
                         trench_x+second_stage_far_field_distance, trench_x+second_stage_far_field_distance+second_stage_far_field_range,\
                         context["domain_depth"]-60e3, context["domain_depth"]-45e3,\
-                          start_time),
+                          time_constant),
                     "Function expression": function_expr
                 },
                 "Function":{
                     "Variable names": "x, y",
-                    "Function constants": "x1=%.2e, x2=%.2e, x3=%.2e, x4=%.2e, y1=%.4e, y2=%.4e, vx=%.2e, vy=0.0, vx_ov=%.2e, vy_ov=0.0" %\
+                    "Function constants": "x1=%.2e, x2=%.2e, x3=%.2e, x4=%.2e, y1=%.4e, y2=%.4e, vx=%s, vy=0.0, vx_ov=%s, vy_ov=0.0" %\
                         (trench_x-second_stage_far_field_range-second_stage_far_field_distance, trench_x-second_stage_far_field_range,\
                         trench_x+second_stage_far_field_distance, trench_x+second_stage_far_field_distance+second_stage_far_field_range,\
                         context["domain_depth"]-60e3, context["domain_depth"]-45e3,\
-                        sp_v, ov_v),
+                        sp_constant, ov_constant),
                     "Function expression": "(x>x1)&&(x<x2)? vx: vx_ov; (x>x1)&&(x<x2)? vy:vy_ov"
                 }
             }
