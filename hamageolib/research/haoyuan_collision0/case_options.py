@@ -88,7 +88,7 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
         # todo_pin
         new_columns = ["slab_depth", "dip_100", "dip_300", "trench_center", "trench_center_50", 
                        "sp_velocity", "ov_velocity", "lower_plate_deformation", "upper_plate_deformation",
-                       "trench_initial_X", "trench_50_initial_X"]
+                       "trench_initial_X", "trench_50_initial_X", "average_topography"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:

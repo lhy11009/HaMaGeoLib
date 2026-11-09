@@ -53,6 +53,54 @@ def test_integrate_topography_rejects_invalid_inputs(x, topography, message):
         integrate_topography(x, topography)
 
 
+@pytest.mark.parametrize("include_topography", [True, False])
+def test_case_summary_average_topography(tmp_path, monkeypatch, include_topography):
+    import pandas as pd
+    from hamageolib.research.haoyuan_collision0 import post_process
+
+    # Nonuniform spacing makes a spatial average differ from a point mean.
+    topo_dir = tmp_path / "output" / "topography"
+    topo_dir.mkdir(parents=True)
+    (tmp_path / "output" / "solution").mkdir()
+    for step, heights in [(10, [400., 0., 100.]), (20, [800., 0., 200.])]:
+        np.savetxt(topo_dir / f"topography.{step:05d}",
+                   np.column_stack(([4000., 0., 1000.], [0., 0., 0.], heights)))
+
+    processor = PYVISTA_PROCESS_COLLISION.__new__(PYVISTA_PROCESS_COLLISION)
+    processor.data_dir = str(tmp_path / "output" / "solution")
+    processor.Max0 = 10000.
+    processor.grid = object()
+    for name in ("read", "extract_slab", "get_active_deforming_region_near_suture",
+                 "write_object_to_file"):
+        monkeypatch.setattr(processor, name, lambda *a, **kw: None)
+    monkeypatch.setattr(processor, "analyze_slab", lambda: {"trench_center_50": 2000.})
+    monkeypatch.setattr(processor, "analyze_velocity", lambda *a: {})
+    monkeypatch.setattr(post_process, "PYVISTA_PROCESS_COLLISION", lambda *a, **kw: processor)
+
+    options = CASE_OPTIONS_TWOD.__new__(CASE_OPTIONS_TWOD)
+    options.visualization_df = pd.DataFrame({
+        "Vtu step": [0, 1], "Vtu snapshot": [0, 1],
+        "Time": [0., 1e5], "Time step number": [10, 20], "File Exists": [True, True],
+    })
+    options.summary_file = str(tmp_path / "summary.csv")
+    options.case_dir = str(tmp_path)
+    options.pyvista_dir = str(tmp_path)
+    options.options = {"INITIAL_ADAPTIVE_REFINEMENT": 0}
+    monkeypatch.setattr(options, "get_pvtu_step", lambda step: step)
+    monkeypatch.setattr(options, "retrieve_visualization_file",
+                        lambda step: "output/solution/solution.pvtu")
+    options.SummaryCaseVtuStep()
+
+    process_all_vtu_steps(str(tmp_path), options, include_topography=include_topography)
+
+    summary = pd.read_csv(options.summary_file)
+    assert "average_topography" in summary.columns
+    if include_topography:
+        np.testing.assert_allclose(summary["average_topography"], [200., 400.])
+    else:
+        assert summary["average_topography"].isna().all()
+
+
 @pytest.mark.big_test
 def test_extract_slab_2d():
 

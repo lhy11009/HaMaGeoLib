@@ -1563,6 +1563,13 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
             pass
             ProcessCollision.extract_topography(dx=5e3, dr=0.001, interp_dx=5e3, output_surface=True)
 
+        # Integrate the full profile in physical coordinates, including when
+        # the surface was extracted as a fallback for a missing output file.
+        topography_func = ProcessCollision.topography_func
+        _, outputs["average_topography"] = integrate_topography(
+            topography_func.x * ProcessCollision.Max0, topography_func.y
+        )
+
     # extract slab
     ProcessCollision.extract_slab(output_surfuce=True)
 
@@ -2294,8 +2301,9 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
         output. Default is ``False``.
 
     include_topography : bool, optional
-        Whether to extract and analyze surface topography. Default is
-        ``False``.
+        Whether to extract and analyze surface topography and save its
+        full-domain spatial average as ``average_topography`` (meters,
+        using the stored elevation datum). Default is ``False``.
 
     analyze_shortening : bool, optional
         Whether to compute crustal shortening and related diagnostics.
