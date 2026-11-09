@@ -22,7 +22,7 @@ prm_basename_2d = "case.prm"; wb_basename_2d = "case.wb"; output_directory="outp
 
 # if min and max steps are given, then only perform analysis for steps in between,
 # otherwise, loop for all the visualization steps
-graphical_step_min = 230
+graphical_step_min = None
 graphical_step_max = None
 
 # if this is set to None, then loop all steps
