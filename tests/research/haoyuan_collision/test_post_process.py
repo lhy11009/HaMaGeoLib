@@ -177,9 +177,7 @@ def test_main_postprocess_workflow():
     os.mkdir(pp_directory)
 
     # Prepare case options
-    # The second option of the function is is_process_second_stage, this is not needed
-    # if not processing a dual-stage model 
-    Case_Options_2d = prepare_case_option_2d(source_case_path, False,
+    Case_Options_2d = prepare_case_option_2d(source_case_path,
                                             pp_directory=pp_directory)
 
     # Plot run time information
@@ -221,9 +219,7 @@ def test_main_postprocess_workflow_particles():
     os.mkdir(pp_directory)
 
     # Prepare case options
-    # The second option of the function is is_process_second_stage, this is not needed
-    # if not processing a dual-stage model 
-    Case_Options_2d = prepare_case_option_2d(source_case_path, False,
+    Case_Options_2d = prepare_case_option_2d(source_case_path,
                                             pp_directory=pp_directory)
 
     # Plot run time information
@@ -266,9 +262,7 @@ def test_main_postprocess_fastscape():
     os.mkdir(pp_directory)
 
     # Prepare case options
-    # The second option of the function is is_process_second_stage, this is not needed
-    # if not processing a dual-stage model 
-    Case_Options_2d = prepare_case_option_2d(source_case_path, False,
+    Case_Options_2d = prepare_case_option_2d(source_case_path,
                                             pp_directory=pp_directory)
 
 

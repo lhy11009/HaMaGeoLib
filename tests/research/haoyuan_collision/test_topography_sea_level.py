@@ -1,5 +1,6 @@
 """Verify animation plots use the constant sea level from the case PRM."""
 from types import SimpleNamespace
+from pathlib import Path
 
 import matplotlib
 matplotlib.use("Agg")
@@ -19,8 +20,9 @@ from hamageolib.research.haoyuan_collision0 import post_process
 ])
 @pytest.mark.parametrize("sea_level", [None, "0.0", "1000.0", "-500.0"])
 @pytest.mark.parametrize("corrected_time", [None, 0.0, 1e5])
+@pytest.mark.parametrize("second_stage_tag", [None, "St2.0Ma_Cv4.00e-02_Sp2.00e-02"])
 def test_topography_plots_relative_to_sea_level(
-    tmp_path, monkeypatch, plot_name, sea_level, corrected_time,
+    tmp_path, monkeypatch, plot_name, sea_level, corrected_time, second_stage_tag,
 ):
     summary = pd.DataFrame({
         "Time": [0.0, 1e5], "Vtu step": [0, 1], "trench_center_50": [1000.0, 1000.0],
@@ -33,13 +35,14 @@ def test_topography_plots_relative_to_sea_level(
         summary_df=summary,
         options={"RIGHT": 2000.0, "SEA_LEVEL": float(sea_level or 0.0)},
         resample_visualization_df=lambda interval: summary,
+        pyvista_dir=str(tmp_path / post_process.collision_stage_paths(second_stage_tag)["pyvista_basename"]),
     )
     x = np.array([0.0, 1000.0, 2000.0])
     topography = np.array([500.0, 1500.0, 2500.0])
     original = topography.copy()
     monkeypatch.setattr(post_process, "read_topography_data", lambda *a, **kw: (x, topography))
     step = 1 if corrected_time == 1e5 else 0
-    fastscape = tmp_path / f"pyvista_outputs/{step:05d}/fastscape_{step:05d}.txt"
+    fastscape = Path(options.pyvista_dir) / f"{step:05d}/fastscape_{step:05d}.txt"
     fastscape.parent.mkdir(parents=True)
     np.savetxt(fastscape, np.column_stack((x, original - 100, original + 100)),
                header="x topography_min topography_max")
@@ -89,7 +92,8 @@ def test_collision_interpret_exposes_sea_level(monkeypatch, sea_level):
     assert case.contents == f"elevation = topography - {float(sea_level or 0.0)}"
 
 
-def test_given_time_notebook_shifts_topography_average_and_basement(tmp_path, monkeypatch):
+@pytest.mark.parametrize("second_stage_tag", [None, "St2.0Ma_Cv4.00e-02_Sp2.00e-02"])
+def test_given_time_notebook_shifts_topography_average_and_basement(tmp_path, monkeypatch, second_stage_tag):
     import json
     import os
     import re
@@ -109,17 +113,21 @@ def test_given_time_notebook_shifts_topography_average_and_basement(tmp_path, mo
     x = np.array([1500e3, 2500e3, 4000e3])
     topo = np.array([500., 1500., 2500.])
     basement = topo - 200.
+    paths = post_process.collision_stage_paths(second_stage_tag)
     for i, sea_level in enumerate([1000., -500.]):
         case = tmp_path / f"case{i}"
-        (case / "output/topography").mkdir(parents=True)
-        fsdir = case / "pyvista_outputs/00000"
+        (case / paths["output_directory"] / "topography").mkdir(parents=True)
+        fsdir = case / paths["pyvista_basename"] / "00000"
         fsdir.mkdir(parents=True)
-        np.savetxt(case / "output/topography/topography.00000", np.column_stack((x, x*0, topo)))
+        np.savetxt(case / paths["output_directory"] / "topography/topography.00000", np.column_stack((x, x*0, topo)))
         np.savetxt(fsdir / "fastscape_00000.txt", np.column_stack((x, topo, basement, x*0, x, x*0)))
         summary = pd.DataFrame({"Time": [0.], "Time step number": [0], "Vtu step": [0],
                                 "lower_plate_deformation": [0.], "upper_plate_deformation": [0.]})
         dirs.append(str(case))
         options.append(SimpleNamespace(options={"SEA_LEVEL": sea_level}, summary_df=summary,
+                                       output_dir=str(case / paths["output_directory"]),
+                                       pyvista_dir=str(case / paths["pyvista_basename"]),
+                                       img_dir=str(case / paths["image_directory"]),
                                        resample_visualization_df=lambda interval, df=summary: df))
     figures = []
     monkeypatch.setattr(Figure, "savefig", lambda fig, *a, **kw: figures.append(fig))

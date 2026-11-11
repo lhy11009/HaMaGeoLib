@@ -22,7 +22,8 @@ from hamageolib.research.haoyuan_collision0 import case_options, post_process
     (250000, 250000, [], None),
     (300000, 100000, [], None),
 ])
-def test_basic_animation_window(tmp_path, monkeypatch, start, end, expected_times, tag):
+@pytest.mark.parametrize("second_stage_tag", [None, "St2.0Ma_Cv4.00e-02_Sp2.00e-02"])
+def test_basic_animation_window(tmp_path, monkeypatch, start, end, expected_times, tag, second_stage_tag):
     path = Path(__file__).parents[3] / "notebooks/research/haoyuan_collision/Collision.ipynb"
     cells = json.loads(path.read_text())["cells"]
     sources = ["".join(cell.get("source", [])) for cell in cells]
@@ -37,14 +38,22 @@ def test_basic_animation_window(tmp_path, monkeypatch, start, end, expected_time
     })
     summary.attrs["Time between graphical output"] = 100000
     plotted_times, scripted_steps = [], []
+    stage_paths = post_process.collision_stage_paths(second_stage_tag)
     case = SimpleNamespace(
         Interpret=lambda **kw: None, SummaryCaseVtuStep=lambda path: None,
         summary_df=summary, retrieve_visualization_file=scripted_steps.append,
         read_contents=lambda *a: None, substitute=lambda: None, save=lambda path: None,
         resample_visualization_df=lambda interval: summary,
         options={"INCLUDE_FASTSCAPE": "False"},
+        img_dir=str(tmp_path / stage_paths["image_directory"]),
+        paraview_dir=str(tmp_path / stage_paths["paraview_directory"]),
     )
     monkeypatch.setattr(case_options, "CASE_OPTIONS_TWOD", lambda *a, **kw: case)
+    prepared = []
+    def prepare(*args, **kwargs):
+        prepared.append(kwargs)
+        return case
+    monkeypatch.setattr(post_process, "prepare_case_option_2d", prepare)
     monkeypatch.setattr(
         post_process, "plot_topography_full_domain_fastscape",
         lambda directory, options, time, **kw: plotted_times.append(time),
@@ -52,7 +61,8 @@ def test_basic_animation_window(tmp_path, monkeypatch, start, end, expected_time
     avi_calls, overlays = [], []
     monkeypatch.setattr(workflow_scripts, "create_avi_from_images", lambda *a: avi_calls.append(a))
     namespace = dict(
-        do_post_process=True, is_process_second_stage=False, local_dir_2d=str(tmp_path),
+        do_post_process=True, second_stage_tag=second_stage_tag, stage_paths=stage_paths,
+        local_dir_2d=str(tmp_path), output_directory="output", Path=Path,
         prm_basename_2d="case.prm", wb_basename_2d="case.wb", os=os, shutil=shutil,
         SCRIPT_DIR=str(tmp_path), py_temp_file=str(tmp_path / "animate.sh"),
         subprocess=SimpleNamespace(run=lambda *a: None), plt=SimpleNamespace(close=lambda *a: None),
@@ -62,22 +72,24 @@ def test_basic_animation_window(tmp_path, monkeypatch, start, end, expected_time
             add_text_to_image=lambda *a: None,
         ),
     )
-    (tmp_path / "img").mkdir()
+    Path(case.img_dir).mkdir()
+    Path(case.paraview_dir).mkdir()
     for name, bound in [("animation_start_time", start), ("animation_end_time", end)]:
-        setup = re.sub(rf"(?m)^{name} = None\b", f"{name} = {bound!r}", setup)
+        setup = re.sub(rf"(?m)^{name} = [^\n]*", f"{name} = {bound!r}", setup)
     if tag is None:
         with pytest.raises(ValueError, match="start time must be at or before|No snapshots"):
             exec(compile(setup, str(path), "exec"), namespace)
         return
 
     exec(compile(setup, str(path), "exec"), namespace)
+    assert prepared[0]["second_stage_tag"] == second_stage_tag
     expected_steps = [summary.loc[times.index(t), "Vtu step"] for t in expected_times]
     run_cell("Start generating topography plot", namespace)
     assert plotted_times == expected_times
     run_cell("Start generating paraview scripts", namespace)
     assert scripted_steps == expected_steps
     prep = Path(namespace["prep_dir"])
-    pv_outputs = tmp_path / "img/pv_outputs"
+    pv_outputs = Path(case.img_dir) / "pv_outputs"
     pv_outputs.mkdir()
     for time in expected_times:
         (pv_outputs / f"full_domain_viscosity_t{time:.4e}.png").touch()
@@ -94,4 +106,9 @@ def test_basic_animation_window(tmp_path, monkeypatch, start, end, expected_time
         f"full_domain_fastscape_t{time:.4e}.png" for time in expected_times
     ]
     assert Path(output).name == f"full_domain_fastscape{tag}.avi"
+    assert Path(output).parent == Path(case.img_dir) / "animation"
+    assert prep.parent == Path(case.img_dir)
+    script = Path(namespace["animation_script_file"])
+    assert second_stage_tag is None or second_stage_tag in script.name
+    assert all(str(Path(case.paraview_dir)) in line for line in script.read_text().splitlines() if line.startswith("pvpython"))
     assert all(len(overlay["image_files"]) == 2 for overlay in overlays)

@@ -394,7 +394,7 @@ class CASE_OPTIONS(CODESUB):
         
         if self.summary_df is None and (self.visualization_df is not None):
             # Summary based on the visualization steps
-            self.SummaryCaseVtuStep(ifile=os.path.join(self.case_dir, "summary.csv"))
+            self.SummaryCaseVtuStep(ifile=self.summary_file)
         
         if vtu_step is None:
             if self.visualization_df is not None:

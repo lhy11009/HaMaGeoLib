@@ -1643,16 +1643,18 @@ def GenerateParaviewScript(case_path, Case_Options, ofile_list, additional_optio
     '''
     animation = kwargs.get("animation", False)
     require_base = kwargs.get('require_base', True)
+    paraview_dir = getattr(Case_Options, "paraview_dir", os.path.join(case_path, "paraview_scripts"))
+    os.makedirs(paraview_dir, exist_ok=True)
     for ofile_base in ofile_list:
         # Different file name if make animation
         if animation:
             snapshot = Case_Options.get_pvtu_step(kwargs["steps"][0])
-            odir = os.path.join(case_path, 'paraview_scripts', "%05d" % snapshot)
+            odir = os.path.join(paraview_dir, "%05d" % snapshot)
             if not os.path.isdir(odir):
                 os.mkdir(odir)
-            ofile = os.path.join(case_path, 'paraview_scripts', "%05d" % snapshot, ofile_base)
+            ofile = os.path.join(paraview_dir, "%05d" % snapshot, ofile_base)
         else:
-            ofile = os.path.join(case_path, 'paraview_scripts', ofile_base)
+            ofile = os.path.join(paraview_dir, ofile_base)
         # Read base file
         paraview_script = os.path.join(SCRIPT_DIR, 'paraview_scripts',"Collision0", ofile_base)
         if require_base:
@@ -1942,8 +1944,8 @@ def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
     Parameters
     ----------
     local_dir_2d : str
-        Path to the local ASPECT case directory containing the
-        ``output/topography`` folder.
+        Path to the local ASPECT case directory. Topography is read from
+        the output directory selected by ``Case_Options_2d``.
 
     Case_Options_2d : CASE_OPTIONS
         Case options object that contains the simulation summary data and
@@ -1997,7 +1999,8 @@ def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
 
     time_step = Case_Options_2d.summary_df.loc[idx, "Time step number"]
     
-    topography_file = os.path.join(local_dir_2d, "output/topography", "topography.%05d" % time_step)
+    topography_file = os.path.join(
+        getattr(Case_Options_2d, "output_dir", os.path.join(local_dir_2d, "output")), "topography", "topography.%05d" % time_step)
 
     assert(os.path.isfile(topography_file))
 
@@ -2010,85 +2013,62 @@ def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
     return x, topography
 
 
-def prepare_case_option_2d(_dir_2d, is_process_second_stage, *, 
-                           prm_basename_2d="case.prm", 
-                           wb_basename_2d = "case.wb", 
-                           output_directory="output", 
-                           second_stage_outputs="output_re", 
-                           pp_directory=None):
+def collision_stage_paths(second_stage_tag=None):
+    """Return case-relative names for one collision simulation stage.
+
+    None selects the original stage. A tag selects output_{tag}, img_{tag},
+    pyvista_outputs_{tag}, summary_{tag}.csv and paraview_scripts_{tag},
+    with case_two_stage_{tag}.prm as input. Files within tagged directories
+    retain their normal names.
     """
-    Initialize and prepare a 2-D case for post-processing.
+    if second_stage_tag is not None and (
+        not isinstance(second_stage_tag, str) or not second_stage_tag
+        or "/" in second_stage_tag or "\\" in second_stage_tag
+    ):
+        raise ValueError("second_stage_tag must be None or a nonempty filename tag")
+    suffix = "" if second_stage_tag is None else f"_{second_stage_tag}"
+    return {
+        "case_file": "case.prm" if second_stage_tag is None else f"case_two_stage{suffix}.prm",
+        "output_directory": f"output{suffix}",
+        "image_directory": f"img{suffix}",
+        "pyvista_basename": f"pyvista_outputs{suffix}",
+        "summary_filename": f"summary{suffix}.csv",
+        "paraview_directory": f"paraview_scripts{suffix}",
+        "case_summary_filename": f"case_summary_2d{suffix}.csv",
+        "shared_readme_filename": f"readme{suffix}.md",
+    }
 
-    This helper function constructs a ``CASE_OPTIONS_TWOD`` object using the
-    appropriate directories and filenames for either the first-stage or
-    second-stage simulation outputs. It then interprets the case configuration
-    and generates a summary of available VTU output steps.
 
-    Parameters
-    ----------
-    _dir_2d : str
-        Path to the case directory.
+def prepare_case_option_2d(_dir_2d, *, second_stage_tag=None,
+                           prm_basename_2d="case.prm", wb_basename_2d="case.wb",
+                           output_directory="output", pp_directory=None):
+    """Prepare original-stage or tagged second-stage collision outputs.
 
-    is_process_second_stage : bool
-        Whether to process the second-stage simulation outputs. If ``True``,
-        the function uses the second-stage output, image, and PyVista
-        directories (e.g., ``output_re``, ``img_1``,
-        ``pyvista_outputs_1``). Otherwise, the default first-stage
-        directories are used.
+    ``second_stage_tag=None`` uses the supplied primary parameter filename
+    and output directory (default case.prm and output). Otherwise all stage
+    names come from :func:`collision_stage_paths`, including the input
+    parameter filename. The shared case.wb is used in both modes.
 
-    prm_basename_2d : str, optional
-        Name of the parameter file. Default is ``"case.prm"``.
-
-    wb_basename_2d : str, optional
-        Name of the World Builder input file. Default is ``"case.wb"``.
-
-    output_directory : str, optional
-        Name of the primary simulation output directory. Default is
-        ``"output"``.
-
-    second_stage_outputs : str, optional
-        Name of the second-stage output directory. Used only when
-        ``is_process_second_stage`` is ``True``. Default is ``"output_re"``.
-
-    pp_directory : str, optional
-        Directory containing post-processing results. If ``None``, the
-        default location defined by ``CASE_OPTIONS_TWOD`` is used.
-
-    Returns
-    -------
-    Case_Options_2d : CASE_OPTIONS_TWOD
-        Initialized and interpreted case object.
-
-    Notes
-    -----
-    This function calls
-
-    - ``Interpret()`` to read and process the case configuration.
-    - ``SummaryCaseVtuStep()`` to generate a summary of available VTU output
-      files for subsequent post-processing.
+    Generated images, PyVista data, summaries, and ParaView scripts are
+    rooted at pp_directory when supplied, otherwise at the case directory.
     """
-    Case_Options_2d = None
-    if is_process_second_stage:
-        Case_Options_2d = CASE_OPTIONS_TWOD(_dir_2d, 
-                                          case_file=prm_basename_2d, 
-                                          wb_basename=wb_basename_2d, 
-                                          output_directory=second_stage_outputs,
-                                          pyvista_basename="pyvista_outputs_1",
-                                          image_directory="img_1",
-                                          summary_filename="summary_1.csv",
-                                          pp_directory=pp_directory)
-    else:
-        Case_Options_2d = CASE_OPTIONS_TWOD(_dir_2d,
-                                          case_file=prm_basename_2d, 
-                                          wb_basename=wb_basename_2d, 
-                                          output_directory=output_directory,
-                                          pp_directory=pp_directory)
-
+    paths = collision_stage_paths(second_stage_tag)
+    if second_stage_tag is None:
+        paths["case_file"] = prm_basename_2d
+        paths["output_directory"] = output_directory
+    Case_Options_2d = CASE_OPTIONS_TWOD(
+        _dir_2d, case_file=paths["case_file"], wb_basename=wb_basename_2d,
+        output_directory=paths["output_directory"],
+        pyvista_basename=paths["pyvista_basename"],
+        image_directory=paths["image_directory"],
+        summary_filename=paths["summary_filename"], pp_directory=pp_directory,
+    )
+    Case_Options_2d.second_stage_tag = second_stage_tag
+    Case_Options_2d.paraview_dir = os.path.join(Case_Options_2d.pp_dir, paths["paraview_directory"])
+    os.makedirs(Case_Options_2d.paraview_dir, exist_ok=True)
     Case_Options_2d.Interpret()
     Case_Options_2d.SummaryCaseVtuStep(Case_Options_2d.summary_file)
-
     return Case_Options_2d
-
 
 
 
@@ -2138,9 +2118,8 @@ def plot_run_time_combined(dirs_2d, Case_Options_2d_array, *,
         End of the plotted time interval (model time, in years).
         If ``None``, plotting continues until the end of the simulation.
 
-    is_process_second_stage : bool, optional
-        If ``True``, save figures to the ``img_1/runtime_plots`` directory.
-        Otherwise, save them to ``img/runtime_plots``. Default is ``False``.
+    Output locations follow each case object's selected image directory,
+    including its second-stage tag when present.
 
     Notes
     -----
@@ -2422,7 +2401,7 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
     topography = topography + elevation_offset
 
     # read additional inputs from processing the fastscape outputs
-    fastscape_hz_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
+    fastscape_hz_file = os.path.join(getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")), "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
     fastscape_hz_header_dict = None
     fastscape_x = None
     fastscape_topography_min = None
@@ -2554,7 +2533,7 @@ def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
     topography = topography + elevation_offset
     
     #  Extract shortening data
-    dimention_ratio_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
+    dimention_ratio_file = os.path.join(getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")), "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
 
     data_dr = None
     x_dr = None
@@ -2571,7 +2550,7 @@ def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
         deformation_ratio = dimention_ratio - 1.0
 
     # Extract suture data
-    suture_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "suture_%05d.vtp" % vtu_step)
+    suture_file = os.path.join(getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")), "%05d" % vtu_step, "suture_%05d.vtp" % vtu_step)
 
     grid_su = None
     suture_shallow_point = None
@@ -2723,7 +2702,7 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     topography = topography + elevation_offset
     
     #  Extract shortening data
-    dimention_ratio_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
+    dimention_ratio_file = os.path.join(getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")), "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
 
     data_dr = None
     x_dr = None
@@ -2740,7 +2719,7 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
         deformation_ratio = dimention_ratio - 1.0
 
     # Extract suture data
-    suture_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "suture_%05d.vtp" % vtu_step)
+    suture_file = os.path.join(getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")), "%05d" % vtu_step, "suture_%05d.vtp" % vtu_step)
 
     grid_su = None
     suture_shallow_point = None
@@ -2750,7 +2729,7 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
         suture_shallow_point = grid_su.points[0]
 
     # read additional inputs from processing the fastscape outputs
-    fastscape_hz_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
+    fastscape_hz_file = os.path.join(getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")), "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
     fastscape_hz_header_dict = None
     fastscape_x = None
     fastscape_topography_min = None
