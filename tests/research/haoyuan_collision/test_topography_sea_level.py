@@ -18,11 +18,16 @@ from hamageolib.research.haoyuan_collision0 import post_process
     "plot_topography_full_domain_fastscape",
 ])
 @pytest.mark.parametrize("sea_level", [None, "0.0", "1000.0", "-500.0"])
-def test_topography_plots_relative_to_sea_level(tmp_path, monkeypatch, plot_name, sea_level):
+@pytest.mark.parametrize("corrected_time", [None, 0.0, 1e5])
+def test_topography_plots_relative_to_sea_level(
+    tmp_path, monkeypatch, plot_name, sea_level, corrected_time,
+):
     summary = pd.DataFrame({
-        "Time": [0.0], "Vtu step": [0], "trench_center_50": [1000.0],
-        "lower_plate_deformation": [0.0], "upper_plate_deformation": [0.0],
+        "Time": [0.0, 1e5], "Vtu step": [0, 1], "trench_center_50": [1000.0, 1000.0],
+        "lower_plate_deformation": [0.0, 0.0], "upper_plate_deformation": [0.0, 0.0],
     })
+    if corrected_time is not None:
+        summary["average_topography"] = [1500.0, 1750.0]
     summary.attrs["Time between graphical output"] = 1e5
     options = SimpleNamespace(
         summary_df=summary,
@@ -33,7 +38,8 @@ def test_topography_plots_relative_to_sea_level(tmp_path, monkeypatch, plot_name
     topography = np.array([500.0, 1500.0, 2500.0])
     original = topography.copy()
     monkeypatch.setattr(post_process, "read_topography_data", lambda *a, **kw: (x, topography))
-    fastscape = tmp_path / "pyvista_outputs/00000/fastscape_00000.txt"
+    step = 1 if corrected_time == 1e5 else 0
+    fastscape = tmp_path / f"pyvista_outputs/{step:05d}/fastscape_{step:05d}.txt"
     fastscape.parent.mkdir(parents=True)
     np.savetxt(fastscape, np.column_stack((x, original - 100, original + 100)),
                header="x topography_min topography_max")
@@ -41,9 +47,12 @@ def test_topography_plots_relative_to_sea_level(tmp_path, monkeypatch, plot_name
     figures = []
     monkeypatch.setattr(Figure, "savefig", lambda fig, *a, **kw: figures.append(fig))
     try:
-        getattr(post_process, plot_name)(str(tmp_path), options, 0.0, prep_dir=str(tmp_path))
+        kwargs = {"correct_average_topography": True} if corrected_time is not None else {}
+        getattr(post_process, plot_name)(
+            str(tmp_path), options, corrected_time or 0.0, prep_dir=str(tmp_path), **kwargs,
+        )
         ax = figures[0].axes[0]
-        offset = float(sea_level or 0.0)
+        offset = float(sea_level or 0.0) + (250.0 if corrected_time == 1e5 else 0.0)
         np.testing.assert_allclose(ax.lines[0].get_ydata(), original - offset)
         if plot_name != "plot_topography_trench_centered":
             np.testing.assert_allclose(ax.lines[1].get_ydata(), original - 100 - offset)
@@ -83,6 +92,7 @@ def test_collision_interpret_exposes_sea_level(monkeypatch, sea_level):
 def test_given_time_notebook_shifts_topography_average_and_basement(tmp_path, monkeypatch):
     import json
     import os
+    import re
     from pathlib import Path
     from matplotlib import gridspec
     from hamageolib.utils import plot_helper
@@ -92,6 +102,9 @@ def test_given_time_notebook_shifts_topography_average_and_basement(tmp_path, mo
     source = next("".join(c["source"]) for c in cells
                   if c["cell_type"] == "code" and
                   "plot_topography_at_time = True" in "".join(c.get("source", [])))
+    # The synthetic cases contain only t=0, independent of the notebook's chosen time.
+    source, count = re.subn(r"(?m)^    plot_time = .*", "    plot_time = 0.0", source)
+    assert count == 1
     dirs, options = [], []
     x = np.array([1500e3, 2500e3, 4000e3])
     topo = np.array([500., 1500., 2500.])
@@ -128,3 +141,14 @@ def test_given_time_notebook_shifts_topography_average_and_basement(tmp_path, mo
         assert ax_basement.get_ylabel() == "Averaged basement above sea level (m)"
     finally:
         plt.close("all")
+
+
+@pytest.mark.parametrize("rows, message", [
+    ({"Time": [0.0, 1e5]}, "Missing average_topography"),
+    ({"Time": [1.0, 1e5], "average_topography": [1500.0, 1750.0]}, "t=0"),
+    ({"Time": [0.0, 1e5], "average_topography": [np.nan, 1750.0]}, "t=0"),
+    ({"Time": [0.0, 1e5], "average_topography": [1500.0, np.nan]}, "t=100000 yr"),
+])
+def test_average_topography_correction_requires_summary_values(rows, message):
+    with pytest.raises(ValueError, match=message):
+        post_process._average_topography_correction(pd.DataFrame(rows), 1)

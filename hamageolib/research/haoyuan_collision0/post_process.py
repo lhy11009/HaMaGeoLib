@@ -2363,9 +2363,33 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
     Case_Options_2d.SummaryCaseVtuStepExport(Case_Options_2d.summary_file)
 
 
+def _average_topography_correction(summary, snapshot_idx):
+    """Return the initial minus snapshot mean elevation from the case summary."""
+    if "average_topography" not in summary:
+        raise ValueError(
+            "Missing average_topography in the case summary. "
+            "Regenerate the summary with include_topography=True."
+        )
+    initial = summary.loc[summary["Time"] == 0, "average_topography"]
+    if initial.empty or not np.isfinite(initial.iloc[0]):
+        raise ValueError(
+            "Missing finite average_topography at t=0. "
+            "Regenerate the initial snapshot summary with include_topography=True."
+        )
+    current = summary.loc[snapshot_idx, "average_topography"]
+    if not np.isfinite(current):
+        time = summary.loc[snapshot_idx, "Time"]
+        raise ValueError(
+            f"Missing finite average_topography at t={time:g} yr. "
+            "Regenerate that snapshot summary with include_topography=True."
+        )
+    return initial.iloc[0] - current
+
+
 def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*,
                                     time_interval=0.5e6,
-                                    prep_dir="."):
+                                    prep_dir=".",
+                                    correct_average_topography=False):
     # Plot variables
     topo_lim = [-5000, 5000]
     topo_tick_interval = 1000.0
@@ -2390,7 +2414,12 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
                         time_interval=time_interval)
     sea_level = Case_Options_2d.options["SEA_LEVEL"]
-    topography = topography - sea_level
+    average_correction = (
+        _average_topography_correction(Case_Options_2d.summary_df, idx)
+        if correct_average_topography else 0.0
+    )
+    elevation_offset = average_correction - sea_level
+    topography = topography + elevation_offset
 
     # read additional inputs from processing the fastscape outputs
     fastscape_hz_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
@@ -2413,10 +2442,10 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
         fastscape_x = data[:, column_idx]
 
         column_idx = fastscape_hz_header_dict["topography_min"]
-        fastscape_topography_min = data[:, column_idx] - sea_level
+        fastscape_topography_min = data[:, column_idx] + elevation_offset
 
         column_idx = fastscape_hz_header_dict["topography_max"]
-        fastscape_topography_max = data[:, column_idx] - sea_level
+        fastscape_topography_max = data[:, column_idx] + elevation_offset
     
     # Plot settings
     # Rule of thumbs:
@@ -2485,7 +2514,8 @@ def plot_topography_full_domain_fastscape(local_dir_2d, Case_Options_2d, _time,*
 
 def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
                                     time_interval=0.5e6,
-                                    prep_dir="."):
+                                    prep_dir=".",
+                                    correct_average_topography=False):
     # Plot variables
     topo_lim = [-5000, 5000]
     topo_tick_interval = 1000.0
@@ -2516,7 +2546,12 @@ def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
                         time_interval=time_interval)
     sea_level = Case_Options_2d.options["SEA_LEVEL"]
-    topography = topography - sea_level
+    average_correction = (
+        _average_topography_correction(Case_Options_2d.summary_df, idx)
+        if correct_average_topography else 0.0
+    )
+    elevation_offset = average_correction - sea_level
+    topography = topography + elevation_offset
     
     #  Extract shortening data
     dimention_ratio_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
@@ -2649,7 +2684,8 @@ def plot_topography_trench_centered(local_dir_2d, Case_Options_2d, _time,*,
 
 def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
                                     time_interval=0.5e6,
-                                    prep_dir="."):
+                                    prep_dir=".",
+                                    correct_average_topography=False):
     # Plot variables
     topo_lim = [-5000, 5000]
     topo_tick_interval = 1000.0
@@ -2679,7 +2715,12 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
                         time_interval=time_interval)
     sea_level = Case_Options_2d.options["SEA_LEVEL"]
-    topography = topography - sea_level
+    average_correction = (
+        _average_topography_correction(Case_Options_2d.summary_df, idx)
+        if correct_average_topography else 0.0
+    )
+    elevation_offset = average_correction - sea_level
+    topography = topography + elevation_offset
     
     #  Extract shortening data
     dimention_ratio_file = os.path.join(local_dir_2d, "pyvista_outputs", "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
@@ -2729,10 +2770,10 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
         fastscape_x = data[:, column_idx]
 
         column_idx = fastscape_hz_header_dict["topography_min"]
-        fastscape_topography_min = data[:, column_idx] - sea_level
+        fastscape_topography_min = data[:, column_idx] + elevation_offset
 
         column_idx = fastscape_hz_header_dict["topography_max"]
-        fastscape_topography_max = data[:, column_idx] - sea_level
+        fastscape_topography_max = data[:, column_idx] + elevation_offset
     
 
     # Plot settings
