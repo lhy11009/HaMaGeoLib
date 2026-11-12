@@ -226,6 +226,16 @@ def test_two_stage_notebook_named_outputs(tmp_path):
     source = "".join(next(c for c in cells if c.get("id") == "two-stage-creation")["source"])
     base = tmp_path / "base_case"
     shutil.copytree(FIXTURE / "base_case", base)
+    # The copy script is planned without any checkpoint files on this machine.
+    (base / "output/log.txt").write_text(
+        "-- . version 3.2.0-pre\n"
+        "*** Timestep 49:  t=900000 years, dt=10000 years\n"
+        "*** Snapshot output/restart/00001/ created!\n"
+        "*** Timestep 50:  t=1000000 years, dt=10000 years\n"
+        "*** Timestep 99:  t=1900000 years, dt=10000 years\n"
+        "*** Snapshot output/restart/00002/ created!\n"
+        "*** Timestep 100:  t=2000000 years, dt=10000 years\n"
+    )
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and isinstance(node.targets[0], ast.Name):
@@ -246,3 +256,8 @@ def test_two_stage_notebook_named_outputs(tmp_path):
     with (base / f"case_two_stage_{name}.prm").open() as stream:
         prm = parse_parameters_to_dict(stream, format_entry=True)
     assert prm["Output directory"] == f"output_{name}"
+    script = base / f"copy_restart_{name}.sh"
+    assert script.is_file()
+    assert f"output_{name}/restart" in script.read_text()
+    assert "output/restart/00002" in script.read_text()
+    assert not (base / "output/restart").exists()
