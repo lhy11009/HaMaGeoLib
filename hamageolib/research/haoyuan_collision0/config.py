@@ -205,6 +205,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if use_all or "erosion_sediment_reference_density" in use_keys:
             if variables["erosion_sediment_reference_density"] > 0.0:
                 case_name += "_ESD%.2e" % variables["erosion_sediment_reference_density"]
+        if use_all or "erosion_sediment_use_upper_crust_plasticity" in use_keys:
+            if variables.get("erosion_sediment_use_upper_crust_plasticity", False):
+                case_name += "_ESUCP"
         if use_all or "use_reflective_left_right" in use_keys:
             if variables["use_reflective_left_right"]:
                 case_name += "_RLR"
@@ -3584,6 +3587,7 @@ class FastScapeRule(Rule):
                 "initial_topograph_fileout_migration", "include_initial_topography_mesh_deformation",
                 "include_marine_component", "sand_transport_coefficient", "silt_transport_coefficient",
                 "silt_fraction", "sea_level", "erosion_sediment_reference_density",
+                "erosion_sediment_use_upper_crust_plasticity",
                 "use_reflective_left_right", "use_ghost_nodes"]
 
     defaults = {
@@ -3617,6 +3621,7 @@ class FastScapeRule(Rule):
         "silt_fraction": 0.5,
         "sea_level": 0.0,
         "erosion_sediment_reference_density": -1.0,
+        "erosion_sediment_use_upper_crust_plasticity": False,
         "use_reflective_left_right": False,
         "use_ghost_nodes": False
     }
@@ -3641,6 +3646,7 @@ class FastScapeRule(Rule):
                          "silt_fraction": "Fraction of sediment leaving the continent that is silt.",
                          "sea_level": "Sea level in meters relative to the undeformed ASPECT surface; zero leaves the PRM unchanged.",
                          "erosion_sediment_reference_density": "Reference density of the first phase of erosion sediment. A negative value retains the sediment density.",
+                         "erosion_sediment_use_upper_crust_plasticity": "Copy first-phase friction angle and cohesion from crust_upper to sediment1; retain sediment creep and deeper phases.",
                          "use_reflective_left_right": "Use reflective rather than fixed FastScape left and right boundaries.",
                          "use_ghost_nodes": "Use ghost nodes at the FastScape boundaries."
                          }
@@ -3680,6 +3686,7 @@ class FastScapeRule(Rule):
         silt_fraction = config["silt_fraction"]
         sea_level = config["sea_level"]
         erosion_sediment_reference_density = config["erosion_sediment_reference_density"]
+        use_upper_crust_plasticity = config["erosion_sediment_use_upper_crust_plasticity"]
         use_reflective_left_right = config["use_reflective_left_right"]
         use_ghost_nodes = config["use_ghost_nodes"]
 
@@ -3697,6 +3704,11 @@ class FastScapeRule(Rule):
             erosion_sediment_reference_density <= 0.0 or (include_fastscape and add_erosion_sediment),
             ValueError,
             "Erosion sediment reference density requires erosion sediment",
+        )
+        my_assert(
+            not use_upper_crust_plasticity or (include_fastscape and add_erosion_sediment),
+            ValueError,
+            "Upper-crust plasticity requires FastScape and erosion sediment",
         )
 
         # First check only one of these options are selected.
@@ -3780,6 +3792,16 @@ class FastScapeRule(Rule):
             # To add a sediment composition from erosion, copy the setup of the sediment composition otherwise.
             if add_erosion_sediment:
                 duplicate_composition_from_prm(prm_dict, "sediment", "sediment1")
+
+                if use_upper_crust_plasticity:
+                    plasticity = prm_dict["Material model"]["Visco Plastic"]
+                    phases = parse_composition_entry(plasticity["Prefactors for dislocation creep"])
+                    my_assert("crust_upper" in phases, ValueError,
+                              "Upper-crust plasticity requires the crust_upper composition")
+                    for entry in ("Angles of internal friction", "Cohesions"):
+                        values = parse_composition_entry_with_phases(plasticity[entry], instance=phases)
+                        values["sediment1"][0] = values["crust_upper"][0]
+                        plasticity[entry] = format_composition_entry(values)
 
                 if erosion_sediment_reference_density > 0.0:
                     material_dict = prm_dict["Material model"]["Multicomponent compressible"]
