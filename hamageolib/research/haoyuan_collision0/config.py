@@ -147,9 +147,6 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
         if (use_all or "customize_ridge" in use_keys) and \
             (variables["customize_ridge"]):
             case_name += "_CR"
-            if (use_all or "customize_ridge_composition_remapping" in use_keys) and \
-                (variables["customize_ridge_composition_remapping"]):
-                case_name += "_CRC"
             if (use_all or "customize_ridge_taper_length" in use_keys) and \
                 (variables["customize_ridge_taper_length"]>0.0):
                 case_name += "_CRT%.2e" % (variables["customize_ridge_taper_length"])
@@ -2752,7 +2749,7 @@ class CornerRule(Rule):
                 "customize_ridge", "chapman_model_surface_heatflux",
                 "customize_corner_temperature_fix", "customize_corner_temperature_fix_width", "customize_corner_temperature_fix_depth",
                 "customize_corner_composition", "customize_corner_composition_width", "customize_corner_composition_depth",
-                "customize_ridge_composition_remapping", "customize_ridge_taper_length",
+                "customize_ridge_taper_length",
                 "continent_taper_sediment_thickness", "continent_taper_upper_crust_thickness", "continent_taper_lower_crust_thickness",
                 "include_boundary_flow", "customize_corner_viscosity_as_minimum"]
     
@@ -2772,7 +2769,6 @@ class CornerRule(Rule):
                 "customize_corner_composition": False,
                 "customize_corner_composition_width": 600e3,
                 "customize_corner_composition_depth": 100e3,
-                "customize_ridge_composition_remapping": False,
                 "customize_ridge_taper_length": 0.0,
                 "continent_taper_sediment_thickness": 4e3,
                 "continent_taper_upper_crust_thickness": 3.5e3,
@@ -2792,7 +2788,6 @@ viscosity is being prescribed in the region",
                          "customize_corner_composition": "Whether to customize the corner composition to the initial composition",
                          "customize_corner_composition_width": "Width of the prescribed corner composition region",
                          "customize_corner_composition_depth": "Depth of the prescribed corner composition region",
-                         "customize_ridge_composition_remapping": "Whether to remap composition from background to oceanic compositions",
                          "customize_ridge_taper_length": "Create tapering near the ridge region from the subduction continents.",
                          "continent_taper_sediment_thickness": "This value is reused to prescribe the tapered sediment thickness if that applies.",
                         "continent_taper_upper_crust_thickness": "This value is reused to prescribe tapered upper crust thickness if that applies",
@@ -3207,9 +3202,10 @@ viscosity is being prescribed in the region",
                     "Remap composition": "true",
                     "From composition function": {
                         "Variable names": "x, y",
-                        "Function constants": "ymax = %de3, Dharz = %.1fe3" % \
-                            (context["domain_depth"]/1e3, slab_layer_depths[4]/1e3),
-                        "Function expression": "(y > ymax - Dharz)? %d: -1" % (background_idx)
+                        "Function constants": "ymax = %de3, Dharz = %.1fe3, xleft = %ge3, xright = %ge3" % \
+                            (domain_depth/1e3, slab_layer_depths[4]/1e3,
+                             customize_corner_width/1e3, (domain_length-customize_corner_width)/1e3),
+                        "Function expression": "((y > ymax - Dharz) && ((x < xleft) || (x > xright)))? %d: -1" % (background_idx)
                     },
                     "To composition function": {
                         "Variable names": "x, y",

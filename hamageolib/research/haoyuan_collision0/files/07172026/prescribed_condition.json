@@ -145,6 +145,5 @@
   "include_boundary_flow": true,
   "upper_crust_scaling_factor": 1.0,
   "customize_corner_composition": false,
-  "customize_ridge_composition_remapping": false,
   "customize_no_incision_width": 0.0
 }

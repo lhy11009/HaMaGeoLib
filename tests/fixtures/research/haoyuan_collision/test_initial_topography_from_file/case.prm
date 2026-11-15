@@ -129,8 +129,8 @@ subsection Particles
         set Remap composition = true
         subsection From composition function
             set Variable names = x, y
-            set Function constants = ymax = 2000e3, Dharz = 39.2e3
-            set Function expression = (y > ymax - Dharz)? 7: -1.0
+            set Function constants = ymax = 2000e3, Dharz = 39.2e3, xleft = 700e3, xright = 4800e3
+            set Function expression = ((y > ymax - Dharz) && ((x < xleft) || (x > xright)))? 7: -1.0
         end
         subsection To composition function
             set Variable names = x, y
