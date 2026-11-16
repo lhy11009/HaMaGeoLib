@@ -11,6 +11,7 @@ from scipy.interpolate import interp1d, NearestNDInterpolator
 from scipy.spatial import cKDTree
 from hamageolib.core.post_process import PYVISTA_PROCESS, PYVISTA_PROCESS_WORKFLOW_ERROR
 from hamageolib.utils.exception_handler import my_assert
+from hamageolib.utils.case_options import resample_time_series_df
 from hamageolib.utils.interp_utilities import KNNInterpolatorND
 from hamageolib.utils.nump_utilities import assert_finite
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
@@ -2252,6 +2253,7 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
                           graphical_step_min=None,
                           graphical_step_max=None,
                           one_vtu_step=None,
+                          time_interval=None,
                           include_particles=False,
                           include_topography=False,
                           include_fastscape=False,
@@ -2288,7 +2290,13 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
 
     one_vtu_step : int, optional
         If specified, process only this graphical output step. When provided,
-        ``graphical_step_min`` and ``graphical_step_max`` are ignored.
+        step bounds and time resampling are ignored.
+
+    time_interval : float, optional
+        Positive finite model-time spacing in years. After applying step
+        bounds, select snapshots nearest regularly spaced times starting at
+        the first eligible snapshot. Repeated selections are processed once.
+        None processes every eligible step. The complete summary is retained.
 
     include_particles : bool, optional
         Whether to load and process particle data associated with each VTU
@@ -2319,6 +2327,8 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
     None
     """
 
+    if time_interval is not None and (not np.isfinite(time_interval) or time_interval <= 0):
+        raise ValueError("time_interval must be positive and finite, or None")
     graphical_steps_np = Case_Options_2d.summary_df["Vtu step"].to_numpy()
     graphical_steps = None
     if one_vtu_step is not None:
@@ -2333,7 +2343,10 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
         if graphical_step_max is not None:
             mask &= (graphical_steps_np < graphical_step_max)
         
-        graphical_steps = [int(step) for step in graphical_steps_np[mask]]
+        selected = Case_Options_2d.summary_df.loc[mask]
+        if time_interval is not None and not selected.empty:
+            selected = resample_time_series_df(selected, time_interval).drop_duplicates("Vtu step")
+        graphical_steps = [int(step) for step in selected["Vtu step"]]
     
     
     first_stage_summary = None

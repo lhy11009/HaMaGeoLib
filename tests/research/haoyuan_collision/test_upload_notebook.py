@@ -9,6 +9,11 @@ import pytest
 
 from hamageolib.research.haoyuan_collision0.post_process import collision_stage_paths
 
+ANIMATIONS = ["full_domain", "trench_centered", "orogen", "full_domain_fastscape_start1Myr_end2Myr"] + [
+    f"{kind}_start1Myr_end2Myr_interval0.2Myr"
+    for kind in ["full_domain", "full_domain_fastscape", "trench_centered", "orogen"]
+]
+
 
 @pytest.mark.parametrize("tag", [None, "St20.0Ma_Cv4.00e-02_Sp2.00e-02"])
 def test_upload_cell(tmp_path, tag):
@@ -32,7 +37,7 @@ def test_upload_cell(tmp_path, tag):
         f'{paths["image_directory"]}/slab_morphology.png': "slab",
         "doc/doc.md": "documentation",
     }
-    for animation in ["full_domain", "trench_centered", "orogen", "full_domain_fastscape_start1Myr_end2Myr"]:
+    for animation in ANIMATIONS:
         files[f'{paths["image_directory"]}/animation/{animation}.avi'] = animation
     for name in ["log.txt", "statistics", "original.prm"]:
         files[f'{paths["output_directory"]}/{name}'] = f"selected {name}"
@@ -56,7 +61,7 @@ def test_upload_cell(tmp_path, tag):
         f"statistics{suffix}.png": "statistics plot", f"runtime{suffix}.png": "runtime plot",
         f"slab_morphology{suffix}.png": "slab", f"doc{suffix}.md": "documentation",
     }
-    for animation in ["full_domain", "trench_centered", "orogen", "full_domain_fastscape_start1Myr_end2Myr"]:
+    for animation in ANIMATIONS:
         expected[f"{animation}{suffix}.avi"] = animation
     if tag:
         for name in ["log.txt", "statistics", "original.prm"]:

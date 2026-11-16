@@ -31,6 +31,7 @@ graphical_step_max = None
 # if this is set to None, then loop all steps
 # if this is set to a number, only execute one step
 one_vtu_step = None
+time_interval = None  # years; e.g. 1e6 selects approximately every 1 Myr after step bounds
 
 include_particles = False  # include particles in post-processing
 include_fastscape = True # include fastscape files
@@ -44,6 +45,7 @@ process_all_vtu_steps(local_dir_2d, Case_Options_2d,
                       graphical_step_min=graphical_step_min,
                       graphical_step_max=graphical_step_max,
                       one_vtu_step=one_vtu_step,
+                      time_interval=time_interval,
                       include_particles=include_particles,
                       include_topography=include_topography,
                       include_fastscape=include_fastscape,
