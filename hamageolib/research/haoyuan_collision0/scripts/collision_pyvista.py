@@ -21,7 +21,7 @@ local_dir_2d = os.path.join(local_Collision_dir,
 # A tag reads case_two_stage_{tag}.prm and output_{tag}, using the shared case.wb.
 # Results go to pyvista_outputs_{tag} and summary_{tag}.csv.
 second_stage_tag = None  # Read case.prm and output for the original stage.
-second_stage_tag = "St20.0Ma_Cv4.00e-02_Sp2.00e-02"
+# second_stage_tag = "St20.0Ma_Cv4.00e-02_Sp2.00e-02"
 
 # if min and max steps are given, then only perform analysis for steps in between,
 # otherwise, loop for all the visualization steps
@@ -31,9 +31,9 @@ graphical_step_max = None
 # if this is set to None, then loop all steps
 # if this is set to a number, only execute one step
 one_vtu_step = None
-time_interval = None  # years; e.g. 1e6 selects approximately every 1 Myr after step bounds
+time_interval = 5e5  # years; e.g. 1e6 selects approximately every 1 Myr after step bounds
 
-include_particles = False  # include particles in post-processing
+include_particles = True  # include particles in post-processing
 include_fastscape = True # include fastscape files
 include_topography = True # include topography in post-processing
 analyze_shortening = False # include shortening in post-processing
