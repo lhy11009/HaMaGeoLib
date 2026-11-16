@@ -396,3 +396,79 @@ with source/destination arguments and the same `--chunk-min-longitude`,
 `--chunk-max-longitude` and `--longitude-shift-deg` options. The existing combined
 `generate_retreat_case` options and `trench_retreat_m=None` remain available for
 backwards compatibility.
+
+### Transfer collision outputs at a time interval
+
+Generate a manifest **on the source machine**, without copying simulation data:
+
+```bash
+python -m hamageolib.utils.transfer_manifest /path/to/case \
+  --interval 0.5e6 \
+  --families solution particles topography fastscape \
+  --destination /path/to/new-transfer-manifest
+```
+
+`--families` selects any combination of these outputs; the default is `solution`.
+Particles are included only when explicitly selected. Restart files are excluded.
+The interval, optional `--start`, and optional `--end` use the output metadata's
+native time units: use `0.5e6` for half a million years when the case outputs years.
+Check the case's `Use years in output instead of seconds` setting before selecting
+an interval. The tool does not convert between years and seconds.
+
+Each family is sampled independently at the nearest available time, starting at
+its first output (or `--start`). Bounds are inclusive; ties choose the later time.
+Repeated selections are copied once. Only full intervals through the upper bound
+are requested; the final snapshot is not added automatically. The JSON audit
+reports target time, actual time, time offset and file path for each selected
+snapshot. Multiple `output*` directories are sampled separately.
+
+Solution and particle PVD collections provide their time mapping. Referenced
+PVTU/PVTP pieces are included in full. Topography files `topography.%05d` and
+FastScape files `Topography%07d.vtk` use simulation timesteps from `statistics`
+when no family PVD is available. A FastScape PVD, when present, can describe
+other FastScape VTK outputs as well. Multiple family PVD files are reported as
+ambiguous rather than guessed. Missing requested families and missing referenced
+pieces fail before the manifest is written. This currently supports VTK particle
+outputs described by PVD, rather than HDF5 or ASCII particle output.
+
+The generated directory contains `transfer_files.txt`, `selection.json`, and
+filtered PVD files under `output*/`. Small parameter files, statistics and logs
+are also selected. Source files are never modified. Use a new manifest directory
+outside the case so it cannot be mistaken for simulation output.
+
+For local-to-laptop transfers, first copy the manifest directory to the laptop,
+then run there (replace the example paths with your project configuration):
+
+```bash
+rsync -av ucd:/path/to/new-transfer-manifest/ ./transfer-manifest/
+mkdir -p /mnt/d/raw_data/case
+rsync -av --files-from=./transfer-manifest/transfer_files.txt \
+  ucd:/path/to/case/ /mnt/d/raw_data/case/
+rsync -av --include='*/' --include='*.pvd' --exclude='*' \
+  ./transfer-manifest/ /mnt/d/raw_data/case/
+```
+
+The final command installs the filtered collections so ParaView lists only the
+selected snapshots. Omit it if you want to retain existing destination
+collections. Add `--dry-run` to inspect either data-copy command first. These
+commands do not delete previously transferred destination files.
+
+The same functions can be used in the collision notebook:
+
+```python
+from hamageolib.utils.transfer_manifest import build_manifest, write_manifest
+
+manifest = build_manifest(
+    case_dir, 0.5e6,
+    families=("solution", "particles", "topography", "fastscape"),
+)
+# Inspect requested and actual times before exporting.
+import pandas as pd
+display_table = pd.DataFrame(manifest["selections"])
+write_manifest(manifest, manifest_dir)
+```
+
+To also generate `transfer.sh` with quoted commands, supply all three options:
+`--source 'SSH_ALIAS:/path/to/case' --target '/destination/case'`
+`--receiver-manifest './transfer-manifest'`. The manifest directory must first
+be copied to that receiver location. The generated script is never executed.
