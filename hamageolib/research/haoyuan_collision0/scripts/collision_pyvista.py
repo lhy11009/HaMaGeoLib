@@ -25,8 +25,8 @@ second_stage_tag = "St20.0Ma_Cv4.00e-02_Sp2.00e-02"
 
 # if min and max steps are given, then only perform analysis for steps in between,
 # otherwise, loop for all the visualization steps
-graphical_step_min = 210
-graphical_step_max = 212
+graphical_step_min = None
+graphical_step_max = None
 
 # if this is set to None, then loop all steps
 # if this is set to a number, only execute one step
