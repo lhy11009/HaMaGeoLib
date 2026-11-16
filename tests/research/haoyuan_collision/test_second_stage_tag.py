@@ -16,6 +16,39 @@ FIXTURE = Path(__file__).parents[2] / "fixtures/research/haoyuan_collision/test_
 
 
 @pytest.mark.parametrize("tag", [None, TAG])
+@pytest.mark.parametrize("plot_time, matched_time, inherited", [
+    (1.995e6, 1.99e6, True), (1.995e6, 2e6, False),
+    (2.001e6, 2.001e6, True), (3e6, 3e6, False),
+])
+def test_topography_routes_by_matched_stage(tmp_path, tag, plot_time, matched_time, inherited):
+    from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
+
+    summary = pd.DataFrame({"Vtu step": [0], "Vtu snapshot": [7], "Time": [matched_time], "Time step number": [42]})
+    selected_output = tmp_path / (f"output_{tag}" if tag else "output")
+    source_output = "output" if tag is None or inherited else f"output_{tag}"
+    options = CASE_OPTIONS_TWOD.__new__(CASE_OPTIONS_TWOD)
+    options.second_stage_tag = tag
+    options.case_dir = str(tmp_path)
+    options.output_dir = str(selected_output)
+    options.idict = {"Checkpointing": {"Resume time": "2e6"}}
+    options.summary_df = summary
+    options.options = {}
+    options.visualization_df = pd.DataFrame({
+        "Vtu step": [7], "Time step number": [42],
+        "Visualization file name": [f"{source_output}/solution/solution-00007"],
+    })
+    options.resample_visualization_df = lambda interval: summary
+    # Distinct data in both locations detects accidental reads from either stage.
+    for output, elevation in [(tmp_path / "output", 10.), (tmp_path / f"output_{TAG}", 20.)]:
+        (output / "topography").mkdir(parents=True)
+        np.savetxt(output / "topography/topography.00042", [[0, 0, elevation], [1, 0, elevation]])
+    x, topo = post_process.read_topography_data(str(tmp_path), options, plot_time)
+    expected = 10. if tag is None or inherited else 20.
+    np.testing.assert_array_equal(x, [0, 1])
+    np.testing.assert_array_equal(topo, [expected, expected])
+
+
+@pytest.mark.parametrize("tag", [None, TAG])
 @pytest.mark.parametrize("one_step", [None, 0, 1])
 def test_processing_reuses_first_stage_summary(tmp_path, monkeypatch, tag, one_step):
     from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD

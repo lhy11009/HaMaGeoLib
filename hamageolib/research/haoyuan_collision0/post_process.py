@@ -1942,6 +1942,10 @@ def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
     1e4 years, reads the corresponding topography file, and returns the
     horizontal coordinate and topography arrays.
 
+    For tagged two-stage cases, the matched snapshot's recorded visualization
+    path determines the output directory. This includes inherited checkpoint
+    outputs whose times may exceed the requested resume time.
+
     Parameters
     ----------
     local_dir_2d : str
@@ -2000,8 +2004,13 @@ def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
 
     time_step = Case_Options_2d.summary_df.loc[idx, "Time step number"]
     
-    topography_file = os.path.join(
-        getattr(Case_Options_2d, "output_dir", os.path.join(local_dir_2d, "output")), "topography", "topography.%05d" % time_step)
+    output_dir = getattr(Case_Options_2d, "output_dir", os.path.join(local_dir_2d, "output"))
+    if getattr(Case_Options_2d, "second_stage_tag", None) is not None:
+        snapshot = Case_Options_2d.summary_df.loc[idx, "Vtu snapshot"]
+        visualization_file = Case_Options_2d.retrieve_visualization_file(snapshot)
+        output_dir = os.path.normpath(os.path.join(
+            local_dir_2d, os.path.dirname(visualization_file), ".."))
+    topography_file = os.path.join(output_dir, "topography", "topography.%05d" % time_step)
 
     my_assert(os.path.isfile(topography_file), FileExistsError, "%s doesn't exist." % topography_file)
 
