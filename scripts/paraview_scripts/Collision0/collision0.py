@@ -380,7 +380,7 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times, timesteps):
         if FOO00:
             filein = os.path.join("PYVISTA_DIRECTORY", "%05d/final_%05d.vtu" % (snapshot, snapshot)) 
             if not os.path.isfile(filein):
-                raise FileExistsError("%s doesn't exist. Needs to run pyvista workflow first.")
+                raise FileExistsError("%s doesn't exist. Needs to run pyvista workflow first." % filein)
             XMLUnstructuredGridReader(registrationName='solution-%05d' % snapshot, FileName=[filein])
         else:
             filein = os.path.join(visualization_dir, "solution-%05d.pvtu" %snapshot) 
