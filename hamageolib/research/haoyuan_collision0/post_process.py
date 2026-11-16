@@ -2003,7 +2003,7 @@ def read_topography_data(local_dir_2d, Case_Options_2d, plot_time_p, *,
     topography_file = os.path.join(
         getattr(Case_Options_2d, "output_dir", os.path.join(local_dir_2d, "output")), "topography", "topography.%05d" % time_step)
 
-    assert(os.path.isfile(topography_file))
+    my_assert(os.path.isfile(topography_file), FileExistsError, "%s doesn't exist." % topography_file)
 
     # Extract data
     data = np.loadtxt(topography_file, comments="#")
