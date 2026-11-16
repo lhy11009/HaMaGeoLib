@@ -16,6 +16,47 @@ FIXTURE = Path(__file__).parents[2] / "fixtures/research/haoyuan_collision/test_
 
 
 @pytest.mark.parametrize("tag", [None, TAG])
+@pytest.mark.parametrize("one_step", [None, 0, 1])
+def test_processing_reuses_first_stage_summary(tmp_path, monkeypatch, tag, one_step):
+    from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
+
+    options = CASE_OPTIONS_TWOD.__new__(CASE_OPTIONS_TWOD)
+    options.second_stage_tag = tag
+    options.idict = {"Checkpointing": {"Resume time": "2e6"}}
+    options.pp_dir = str(tmp_path)
+    options.summary_file = str(tmp_path / f"summary_{tag}.csv")
+    options.summary_df = pd.DataFrame({
+        "Vtu step": [0, 1, 2], "Time": [1e6, 2e6, 3e6],
+        "slab_depth": [np.nan] * 3,
+    })
+    original = options.summary_df.copy()
+    original["slab_depth"] = [10., 20., 30.]
+    original["extra_diagnostic"] = [4., 5., 6.]
+    original.to_csv(tmp_path / "summary.csv", index=False)
+    source_bytes = (tmp_path / "summary.csv").read_bytes()
+    options.get_pvtu_step = lambda step: step
+    processed = []
+
+    def process(case, step, opts, **kwargs):
+        processed.append(step)
+        return {"slab_depth": 99.}
+
+    monkeypatch.setattr(post_process, "ProcessVtuFileTwoDStep", process)
+    post_process.process_all_vtu_steps(str(tmp_path), options, one_vtu_step=one_step)
+    selected = [0, 1, 2] if one_step is None else [one_step]
+    assert processed == ([s for s in selected if s != 0] if tag else selected)
+    if 0 in selected:
+        assert options.summary_df.loc[0, "slab_depth"] == (10. if tag else 99.)
+        if tag:
+            assert options.summary_df.loc[0, "extra_diagnostic"] == 4.
+    else:
+        assert np.isnan(options.summary_df.loc[0, "slab_depth"])
+    if one_step is None:
+        assert options.summary_df.loc[1:, "slab_depth"].tolist() == [99., 99.]
+    assert (tmp_path / "summary.csv").read_bytes() == source_bytes
+
+
+@pytest.mark.parametrize("tag", [None, TAG])
 def test_stage_case_options_and_summary(tmp_path, tag):
     case = tmp_path / "case"
     shutil.copytree(FIXTURE, case)

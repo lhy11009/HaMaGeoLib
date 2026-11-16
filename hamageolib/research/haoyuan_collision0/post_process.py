@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import pandas as pd
 import time
 import math
 import pyvista as pv
@@ -2256,6 +2257,11 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
     post-processing quantities, updates the case summary table, and writes
     the updated summary file to disk.
 
+    For tagged second stages, selected steps before Checkpointing / Resume
+    time reuse the matching row from summary.csv in the post-processing
+    directory instead of reading VTU data. Missing or ambiguous source rows
+    raise an error. Steps at the resume time are processed normally.
+
     Parameters
     ----------
     dir_2d : str
@@ -2321,11 +2327,29 @@ def process_all_vtu_steps(dir_2d, Case_Options_2d, *,
         graphical_steps = [int(step) for step in graphical_steps_np[mask]]
     
     
+    first_stage_summary = None
+    resume_time = 0.0
+    if getattr(Case_Options_2d, "second_stage_tag", None) is not None:
+        resume_time = float(Case_Options_2d.idict.get("Checkpointing", {}).get("Resume time", 0.0))
+
     # Processing pyvista
     for step in graphical_steps:
     # while True: # debug
         # step = 0 # debug
     
+        row = Case_Options_2d.summary_df.loc[Case_Options_2d.summary_df["Vtu step"] == step]
+        if resume_time > 0.0 and len(row) == 1 and row["Time"].iloc[0] < resume_time:
+            if first_stage_summary is None:
+                first_stage_summary = pd.read_csv(os.path.join(Case_Options_2d.pp_dir, "summary.csv"))
+            source = first_stage_summary.loc[first_stage_summary["Vtu step"] == step]
+            if len(source) != 1 or source["Time"].iloc[0] != row["Time"].iloc[0]:
+                raise ValueError(f"summary.csv must contain one matching first-stage row for VTU step {step}")
+            for key, value in source.iloc[0].items():
+                if key not in Case_Options_2d.summary_df.columns:
+                    Case_Options_2d.summary_df[key] = np.nan
+                Case_Options_2d.SummaryCaseVtuStepUpdateValue(key, step, value)
+            continue
+
         pvtu_step = Case_Options_2d.get_pvtu_step(step)
         outputs = ProcessVtuFileTwoDStep(dir_2d, pvtu_step, Case_Options_2d, 
                                          include_particles=include_particles, 
