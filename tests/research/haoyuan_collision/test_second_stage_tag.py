@@ -197,6 +197,7 @@ def test_tagged_suture_plot_reads_selected_stage(tmp_path, monkeypatch, plot_nam
 
     summary = pd.DataFrame({
         "Time": [0.], "Vtu step": [0], "trench_center_50": [1000.],
+        "suture_shallow_x": [1500.],
         "lower_plate_deformation": [0.], "upper_plate_deformation": [0.],
     })
     summary.attrs["Time between graphical output"] = 1e5
@@ -217,6 +218,7 @@ def test_tagged_suture_plot_reads_selected_stage(tmp_path, monkeypatch, plot_nam
     monkeypatch.setattr(Figure, "savefig", lambda fig, *a, **kw: figures.append(fig))
     try:
         getattr(post_process, plot_name)(str(tmp_path), options, 0.)
-        assert any(np.all(np.asarray(line.get_xdata()) == 0.5) for line in figures[0].axes[0].lines)
+        marker = 0. if plot_name == "plot_topography_orogen" else 0.5
+        assert any(np.all(np.asarray(line.get_xdata()) == marker) for line in figures[0].axes[0].lines)
     finally:
         plt.close("all")

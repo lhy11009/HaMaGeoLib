@@ -4,6 +4,18 @@ from hamageolib.utils.case_options import CASE_OPTIONS as CASE_OPTIONS_BASE
 from hamageolib.research.haoyuan_2d_subduction.legacy_tools import COMPOSITION
 from hamageolib.utils.aspect.prm_wb_utils import find_WB_feature_by_name
 
+
+def shallowest_suture_x(x, depths):
+    """Return X (meters) at the shallowest finite profile point, or NaN."""
+    if x is None or depths is None:
+        return np.nan
+    x, depths = np.asarray(x), np.asarray(depths)
+    valid = np.isfinite(x) & np.isfinite(depths)
+    if not np.any(valid):
+        return np.nan
+    return float(x[valid][np.argmin(depths[valid])])
+
+
 class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
     '''
     Class: CASE_OPTIONS_TWOD
@@ -106,8 +118,48 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
         # todo_pin
         new_columns = ["slab_depth", "dip_100", "dip_300", "trench_center", "trench_center_50", 
                        "sp_velocity", "ov_velocity", "lower_plate_deformation", "upper_plate_deformation",
-                       "trench_initial_X", "trench_50_initial_X", "average_topography"]
+                       "trench_initial_X", "trench_50_initial_X", "average_topography",
+                       "suture_shallow_x"]
 
         for col in new_columns:
             if col not in self.summary_df.columns:
                 self.summary_df[col] = np.nan    
+
+    def backfill_suture_shallow_x(self, *, export=False):
+        """Fill missing summary values from existing suture VTP profiles.
+
+        Uses snapshot numbers and recorded stage paths, including inherited
+        first-stage outputs in tagged cases. Existing finite values are kept;
+        absent or wholly invalid profiles leave NaN. Depth is taken from the
+        saved ``depth`` field, or from vertical coordinates for older files.
+        No simulation VTU or particle files are read. Returns the number filled.
+
+        After prepare_case_option_2d(...), call
+        ``options.backfill_suture_shallow_x(export=True)`` to save the selected
+        stage's summary CSV; the default updates only the in-memory summary.
+        """
+        import pyvista as pv
+
+        if "suture_shallow_x" not in self.summary_df:
+            self.summary_df["suture_shallow_x"] = np.nan
+        filled = 0
+        for index, row in self.summary_df.iterrows():
+            if np.isfinite(row["suture_shallow_x"]):
+                continue
+            snapshot = int(row["Vtu snapshot"])
+            directory = self.pyvista_dir
+            if getattr(self, "second_stage_tag", None) is not None:
+                self.retrieve_visualization_file(snapshot)
+                directory = self.options["PYVISTA_DIRECTORY"]
+            filename = os.path.join(directory, f"{snapshot:05d}", f"suture_{snapshot:05d}.vtp")
+            if not os.path.isfile(filename):
+                continue
+            profile = pv.read(filename)
+            depths = profile["depth"] if "depth" in profile.point_data else -profile.points[:, 1]
+            value = shallowest_suture_x(profile.points[:, 0], depths)
+            if np.isfinite(value):
+                self.summary_df.at[index, "suture_shallow_x"] = value
+                filled += 1
+        if export:
+            self.SummaryCaseVtuStepExport(self.summary_file)
+        return filled

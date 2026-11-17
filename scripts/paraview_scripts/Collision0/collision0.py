@@ -532,8 +532,8 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         # Camera position is adjusted relative to the position of the right and top boundary
         # todo_height
         renderView1.InteractionMode = '2D'
-        renderView1.CameraPosition = [round(TRENCH_CENTER / 100e3) * 100e3, TOP-148468.75, 17717371.391353175]
-        renderView1.CameraFocalPoint = [round(TRENCH_CENTER / 100e3) * 100e3, TOP-148468.75, 0.0]
+        renderView1.CameraPosition = [SUTURE_SHALLOW_X, TOP-148468.75, 17717371.391353175]
+        renderView1.CameraFocalPoint = [SUTURE_SHALLOW_X, TOP-148468.75, 0.0]
         renderView1.CameraParallelScale = 179491.639356  # scale to a 2000 km domain
         
     else:

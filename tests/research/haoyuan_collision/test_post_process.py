@@ -94,6 +94,8 @@ def test_case_summary_average_topography(tmp_path, monkeypatch, include_topograp
     process_all_vtu_steps(str(tmp_path), options, include_topography=include_topography)
 
     summary = pd.read_csv(options.summary_file)
+    assert "suture_shallow_x" in summary
+    assert summary["suture_shallow_x"].isna().all()
     assert "average_topography" in summary.columns
     if include_topography:
         np.testing.assert_allclose(summary["average_topography"], [200., 400.])

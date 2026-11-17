@@ -27,6 +27,7 @@ def test_topography_plots_relative_to_sea_level(
     summary = pd.DataFrame({
         "Time": [0.0, 1e5], "Vtu step": [0, 1], "trench_center_50": [1000.0, 1000.0],
         "lower_plate_deformation": [0.0, 0.0], "upper_plate_deformation": [0.0, 0.0],
+        "suture_shallow_x": [1500., 1500.],
     })
     if corrected_time is not None:
         summary["average_topography"] = [1500.0, 1750.0]
@@ -57,9 +58,14 @@ def test_topography_plots_relative_to_sea_level(
         ax = figures[0].axes[0]
         offset = float(sea_level or 0.0) + (250.0 if corrected_time == 1e5 else 0.0)
         np.testing.assert_allclose(ax.lines[0].get_ydata(), original - offset)
+        if plot_name == "plot_topography_orogen":
+            np.testing.assert_allclose(ax.lines[0].get_xdata(), (x - 1500.) / 1e3)
         if plot_name != "plot_topography_trench_centered":
-            np.testing.assert_allclose(ax.lines[1].get_ydata(), original - 100 - offset)
-            np.testing.assert_allclose(ax.lines[2].get_ydata(), original + 100 - offset)
+            fastscape_lines = [line for line in ax.lines if line.get_label().startswith("Topo (fastscape")]
+            np.testing.assert_allclose(fastscape_lines[0].get_ydata(), original - 100 - offset)
+            np.testing.assert_allclose(fastscape_lines[1].get_ydata(), original + 100 - offset)
+            if plot_name == "plot_topography_orogen":
+                np.testing.assert_allclose(fastscape_lines[0].get_xdata(), (x - 1500.) / 1e3)
         assert ax.get_ylabel() == "Elevation above sea level (m)"
         np.testing.assert_array_equal(topography, original)
         assert fastscape.read_bytes() == original_file

@@ -16,7 +16,7 @@ from hamageolib.utils.interp_utilities import KNNInterpolatorND
 from hamageolib.utils.nump_utilities import assert_finite
 from hamageolib.utils.handy_shortcuts_haoyuan import func_name
 from hamageolib.utils.plot_helper import scale_matplotlib_params
-from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
+from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD, shallowest_suture_x
 from hamageolib.utils.pyvista_utilities import get_corner_point_ids
 
 
@@ -1605,6 +1605,9 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     
         # extract the final output file
         ProcessCollision.extract_additionals(upper_lower_plate=upper_lower_plate)
+        if upper_lower_plate:
+            outputs["suture_shallow_x"] = shallowest_suture_x(
+                ProcessCollision.suture_profile_x, ProcessCollision.suture_profile_depths)
 
     # analyze shortening in continental crust
     if analyze_shortening:
@@ -1634,6 +1637,15 @@ def ProcessVtuFileTwoDStep(case_path, pvtu_step, Case_Options, *,
     
 
     return outputs
+
+
+def orogen_suture_center(summary, index):
+    """Return the finite shallow suture X used by orogen cameras and profiles."""
+    if "suture_shallow_x" not in summary or not np.isfinite(summary.loc[index, "suture_shallow_x"]):
+        raise ValueError(
+            "Missing finite suture_shallow_x for the orogen snapshot. "
+            "Run particle post-processing or backfill_suture_shallow_x(export=True), then reload the summary.")
+    return float(summary.loc[index, "suture_shallow_x"])
 
 
 def GenerateParaviewScript(case_path, Case_Options, ofile_list, additional_options={}, **kwargs):
@@ -1666,6 +1678,12 @@ def GenerateParaviewScript(case_path, Case_Options, ofile_list, additional_optio
             Case_Options.read_contents(paraview_script)  # this part combines two scripts
         # Update additional options
         Case_Options.options.update(additional_options)
+        if Case_Options.options.get("PLOT_TYPE") == "orogen":
+            steps = Case_Options.options["GRAPHICAL_STEPS"]
+            if len(steps) != 1:
+                raise ValueError("Generate orogen scripts one snapshot at a time to select the suture center.")
+            index = Case_Options.summary_df.index[Case_Options.summary_df["Vtu step"] == steps[0]][0]
+            Case_Options.options["SUTURE_SHALLOW_X"] = orogen_suture_center(Case_Options.summary_df, index)
         if animation:
             Case_Options.options["ANIMATION"] = "True"
         # Generate scripts
@@ -2728,13 +2746,12 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     idx = (Case_Options_2d.summary_df["Time"] - _time).abs().idxmin()
 
     # get additional information
-    vtu_step = Case_Options_2d.summary_df.loc[idx, "Vtu step"]
-    trench_center = Case_Options_2d.summary_df.loc[idx, "trench_center_50"]
+    vtu_step = int(Case_Options_2d.summary_df.loc[idx, "Vtu snapshot"] if "Vtu snapshot" in Case_Options_2d.summary_df
+                   else Case_Options_2d.summary_df.loc[idx, "Vtu step"])
+    suture_center = orogen_suture_center(Case_Options_2d.summary_df, idx)
     lower_plate_deformation =  Case_Options_2d.summary_df.loc[idx, "lower_plate_deformation"]
     upper_plate_deformation =  Case_Options_2d.summary_df.loc[idx, "upper_plate_deformation"]
 
-    my_assert((not np.isnan(trench_center)), ValueError, 
-              "trench_center is nan, this means it's not properly processed\n")
 
     # read topography data
     x, topography = read_topography_data(local_dir_2d, Case_Options_2d, _time,
@@ -2746,9 +2763,12 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     )
     elevation_offset = average_correction - sea_level
     topography = topography + elevation_offset
-    
+
+    pyvista_dir = Case_Options_2d.options.get("PYVISTA_DIRECTORY",
+        getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")))
+
     #  Extract shortening data
-    dimention_ratio_file = os.path.join(getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")), "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
+    dimention_ratio_file = os.path.join(pyvista_dir, "%05d" % vtu_step, "dimention_ratio_%05d.txt" % vtu_step)
 
     data_dr = None
     x_dr = None
@@ -2764,18 +2784,8 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
         mask_dr = ~np.isnan(dimention_ratio)
         deformation_ratio = dimention_ratio - 1.0
 
-    # Extract suture data
-    suture_file = os.path.join(getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")), "%05d" % vtu_step, "suture_%05d.vtp" % vtu_step)
-
-    grid_su = None
-    suture_shallow_point = None
-    if os.path.isfile(suture_file):
-
-        grid_su = pv.read(suture_file)
-        suture_shallow_point = grid_su.points[0]
-
     # read additional inputs from processing the fastscape outputs
-    fastscape_hz_file = os.path.join(getattr(Case_Options_2d, "pyvista_dir", os.path.join(local_dir_2d, "pyvista_outputs")), "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
+    fastscape_hz_file = os.path.join(pyvista_dir, "%05d" % vtu_step, "fastscape_%05d.txt" % vtu_step)
     fastscape_hz_header_dict = None
     fastscape_x = None
     fastscape_topography_min = None
@@ -2799,11 +2809,11 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
 
         column_idx = fastscape_hz_header_dict["topography_max"]
         fastscape_topography_max = data[:, column_idx] + elevation_offset
-    
+
 
     # Plot settings
     # Rule of thumbs:
-    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0
     # 2. Set five major ticks for each axis
     scaling_factor = 1.0  # scale factor of plot
     font_scaling_multiplier = 1.0 # extra scaling multiplier for font
@@ -2830,46 +2840,45 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     fig, ax = plt.subplots(figsize=[6.4, 1.2])
     ax_twinx = ax.twinx()
 
-    x_migrated = x - trench_center
+    x_migrated = x - suture_center
     mask = ((x_migrated > -300e3) & (x_migrated < 300e3))
-    
+
     ax.plot((x_migrated[mask])/1e3, topography[mask], color=default_colors[0])
 
-    # plot the dimention ratio 
+    # plot the dimention ratio
     if os.path.isfile(dimention_ratio_file):
-        x_dr_migrated = x_dr - trench_center
+        x_dr_migrated = x_dr - suture_center
         ax_twinx.plot(x_dr_migrated/1e3, deformation_ratio, color=default_colors[1])
 
     # plot the suture
-    if os.path.isfile(suture_file):
-        x_suture_migrated = suture_shallow_point[0]-trench_center
-        ax.axvline(x_suture_migrated/1e3, color="k", linestyle="--")
+    x_suture_migrated = 0.0
+    ax.axvline(x_suture_migrated/1e3, color="k", linestyle="--")
 
-        ax.text(x_suture_migrated/1e3, topo_lim[0] - 100.0,
-            "S",
-            ha="center", va="center"
-            )
-            
-        ax.text(x_suture_migrated/1e3 + 100.0, topo_lim[0] + 1000.0,
-            "upper = \n%.2e m" % upper_plate_deformation,
-            ha="center", va="center", alpha=0.5
-            )
-            
-        ax.text(x_suture_migrated/1e3 - 100.0, topo_lim[0] + 1000.0,
-            "lower = \n%.2e m" % lower_plate_deformation,
-            ha="center", va="center", alpha=0.5
-            )
+    ax.text(x_suture_migrated/1e3, topo_lim[0] - 100.0,
+        "S",
+        ha="center", va="center"
+        )
+
+    ax.text(x_suture_migrated/1e3 + 100.0, topo_lim[0] + 1000.0,
+        "upper = \n%.2e m" % upper_plate_deformation,
+        ha="center", va="center", alpha=0.5
+        )
+
+    ax.text(x_suture_migrated/1e3 - 100.0, topo_lim[0] + 1000.0,
+        "lower = \n%.2e m" % lower_plate_deformation,
+        ha="center", va="center", alpha=0.5
+        )
     # plot the fastscape data
     if fastscape_topography_min is not None:
-        ax.plot((fastscape_x-trench_center)/1e3, fastscape_topography_min, 
+        ax.plot((fastscape_x-suture_center)/1e3, fastscape_topography_min,
                 linewidth=1, linestyle="--", color=default_colors[1], label="Topo (fastscape min)")
     if fastscape_topography_max is not None:
-        ax.plot((fastscape_x-trench_center)/1e3, fastscape_topography_max, 
+        ax.plot((fastscape_x-suture_center)/1e3, fastscape_topography_max,
                 linewidth=1, linestyle="-.", color=default_colors[2], label="Topo (fastscape max)")
 
     # Plot settings
     # Rule of thumbs:
-    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0 
+    # 1. Set the limit to something like 5.0, 10.0 or 50.0, 100.0
 
     ax.set_xlim([-300, 300])
     # ax.tick_params(axis='x', which='both',  # erase the x axis
@@ -2893,7 +2902,7 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
 
     ax.grid()
 
-    # plot the dimention ratio 
+    # plot the dimention ratio
     if os.path.isfile(dimention_ratio_file):
         ax_twinx.set_ylim(deformation_ratio_lim)
         ax_twinx.set_ylabel("Deformation Ratio", color=default_colors[1])
@@ -2904,7 +2913,7 @@ def plot_topography_orogen(local_dir_2d, Case_Options_2d, _time,*,
     fig_path = os.path.join(prep_dir, "topography_%s_t%.4e" % (plot_type, time_rounded))
     fig.savefig(fig_path + ".png")
     print("Saved figure %s" % (fig_path + ".png"))
-    
+
     fig.savefig(fig_path + ".pdf")
     print("Saved figure %s" % (fig_path + ".pdf"))
 
