@@ -77,6 +77,7 @@ def set_density_plot(sourceDisplay):
     rescale_transfer_function_combined(field, 3000.0, 4000.0)
     fieldLUT = GetColorTransferFunction(field)
     fieldLUT.ApplyPreset("SCM_bilbao", True)
+    fieldLUT.InvertTransferFunction()
     return field, fieldLUT
 
 
