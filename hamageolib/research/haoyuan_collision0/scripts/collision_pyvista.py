@@ -15,7 +15,7 @@ assert(os.path.isdir(local_Collision_dir))
 # Options
 # one_vtu_step - if this option is not None, only execute one step
 local_dir_2d = os.path.join(local_Collision_dir,
-                            "collision_setup39/C_PE5.00e+06_WLF2.0e-02_SA100.0_Kf3.00e-07_marine_SeaL1.50e+03_GN"
+                            "collision_setup39/C_PE5.00e+06_WLF2.0e-02_SA100.0_CA_Kf3.00e-07_marine_SeaL1.50e+03_ESUCP_GN"
                             )
 # Select the stage with this option alone; do not include the "output_" prefix.
 # A tag reads case_two_stage_{tag}.prm and output_{tag}, using the shared case.wb.
