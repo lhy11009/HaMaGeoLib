@@ -77,6 +77,24 @@ class CASE_OPTIONS_TWOD(CASE_OPTIONS_BASE):
         self.options["CONTINENT_COMPOSITIONS"] = ['crust_upper', 'crust_lower']
         self.options["OCEANIC_CRUST_COMPOSITIONS"] = ['gabbro', 'MORB']
 
+    def retrieve_visualization_file(self, visualization_snapshot_step):
+        """Select raw and processed inputs from the snapshot's recorded stage.
+
+        Tagged runs inherit snapshots from output/ even when their times exceed
+        the requested resume time. Their PyVista inputs belong to the original
+        stage as well; generated scripts and images retain their tagged paths.
+        """
+        filename = super().retrieve_visualization_file(visualization_snapshot_step)
+        if getattr(self, "second_stage_tag", None) is not None:
+            source_output = os.path.normpath(os.path.join(
+                self.case_dir, os.path.dirname(filename), ".."))
+            original_output = os.path.normpath(os.path.join(self.case_dir, "output"))
+            self.options["PYVISTA_DIRECTORY"] = (
+                os.path.join(self.pp_dir, "pyvista_outputs")
+                if source_output == original_output else self.pyvista_dir
+            )
+        return filename
+
     def SummaryCaseVtuStep(self, ifile=None):
         '''
         Summary case result

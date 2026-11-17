@@ -15,6 +15,38 @@ TAG = "St2.0Ma_Cv4.00e-02_Sp2.00e-02"
 FIXTURE = Path(__file__).parents[2] / "fixtures/research/haoyuan_collision/test_two_stage_setup/base_case"
 
 
+def test_tagged_script_sources_follow_snapshot_stage(tmp_path):
+    from hamageolib.research.haoyuan_collision0.case_options import CASE_OPTIONS_TWOD
+
+    options = CASE_OPTIONS_TWOD.__new__(CASE_OPTIONS_TWOD)
+    options.case_dir = str(tmp_path / "case")
+    options.pp_dir = str(tmp_path / "postprocess")
+    options.second_stage_tag = TAG
+    options.pyvista_dir = str(Path(options.pp_dir) / f"pyvista_outputs_{TAG}")
+    options.options = {"IMAGE_DIRECTORY": f"img_{TAG}"}
+    options.summary_df = pd.DataFrame({
+        "Vtu snapshot": [190, 200, 201], "Time step number": [2739, 2847, 2859],
+    })
+    options.visualization_df = pd.DataFrame({
+        "Vtu step": [190, 200, 201], "Time step number": [2739, 2847, 2859],
+        "Visualization file name": [
+            "output/solution/solution-00190", "output/solution/solution-00200",
+            f"output_{TAG}/solution/solution-00201",
+        ],
+    })
+    # Switch back to an inherited snapshot after a second-stage snapshot too.
+    for snapshot in [190, 200, 201, 190]:
+        options.options["PYVISTA_DIRECTORY"] = options.pyvista_dir  # Interpret resets this.
+        options.retrieve_visualization_file(snapshot)
+        expected = Path(options.pp_dir) / (f"pyvista_outputs_{TAG}" if snapshot == 201 else "pyvista_outputs")
+        options.read_contents(str(Path(__file__).parents[3] / "scripts/paraview_scripts/Collision0/collision0.py"))
+        options.substitute()
+        assert f'os.path.join("{expected}", "%05d/final_%05d.vtu"' in options.contents
+        assert f'os.path.join("{expected}", "%05d/suture_%05d.vtp"' in options.contents
+        assert f'os.path.join("{expected}", "%05d/pin_lines_%05d.vtp"' in options.contents
+        assert options.options["IMAGE_DIRECTORY"] == f"img_{TAG}"
+
+
 @pytest.mark.parametrize("tag", [None, TAG])
 @pytest.mark.parametrize("plot_time, matched_time, inherited", [
     (1.995e6, 1.99e6, True), (1.995e6, 2e6, False),
@@ -29,6 +61,8 @@ def test_topography_routes_by_matched_stage(tmp_path, tag, plot_time, matched_ti
     options = CASE_OPTIONS_TWOD.__new__(CASE_OPTIONS_TWOD)
     options.second_stage_tag = tag
     options.case_dir = str(tmp_path)
+    options.pp_dir = str(tmp_path)
+    options.pyvista_dir = str(tmp_path / f"pyvista_outputs_{tag}")
     options.output_dir = str(selected_output)
     options.idict = {"Checkpointing": {"Resume time": "2e6"}}
     options.summary_df = summary
