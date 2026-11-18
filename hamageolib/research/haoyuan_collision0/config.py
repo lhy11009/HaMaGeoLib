@@ -29,6 +29,9 @@ def CaseNameFromVariables(variables:dict, *, prefix="", use_all=True, use_keys=[
     # First add the prefix
     case_name = prefix
 
+    if (use_all or "sediments_use_upper_crust_PT" in use_keys) and variables.get("sediments_use_upper_crust_PT", False):
+        case_name += "_SedUCPT"
+
     # Geometry
     if use_all or "domain_depth" in use_keys:
         # As the first options, append _ if prefix is given
@@ -3235,18 +3238,25 @@ class PhaseTransitionRule(Rule):
     Provided configuration parameters:
 
     """
-    requires = ["include_phase_transition", "PT_config_file"]
+    requires = ["include_phase_transition", "PT_config_file", "sediments_use_upper_crust_PT"]
     
     defaults = {"include_phase_transition": False,
+                "sediments_use_upper_crust_PT": False,
                 "PT_config_file": "hamageolib/research/haoyuan_collision0/files/HeFESTo/phases_fit_04242026.json"}
 
-    requires_comments = {}
+    requires_comments = {"sediments_use_upper_crust_PT":
+                         "Use crust_upper phase transitions and thermodynamics for sediment and sediment1 in Multicomponent compressible; leave Visco Plastic unchanged."}
     
     provides = []
 
     def apply(self, config, prm_dict, wb_dict, context):
 
         include_phase_transition = config["include_phase_transition"]
+        use_upper_crust = config["sediments_use_upper_crust_PT"]
+        my_assert(isinstance(use_upper_crust, bool), ValueError,
+                  "sediments_use_upper_crust_PT must be a boolean")
+        my_assert(not use_upper_crust or include_phase_transition, ValueError,
+                  "sediments_use_upper_crust_PT requires include_phase_transition")
         PT_config_file = config["PT_config_file"]
         config_path = os.path.join(package_root, PT_config_file)
 
@@ -3264,8 +3274,7 @@ class PhaseTransitionRule(Rule):
         cp_ref = p_dict["cp_ref"]
 
         # configuration for phase transitions
-        # the options for gabbro and sediments are copied from
-        # the MORB composition
+        # Gabbro follows MORB; sediments optionally follow crust_upper.
         p_depth_dict = p_dict["p_depth_dict"]
         
         p_width_dict = p_dict["p_width_dict"]
@@ -3279,9 +3288,14 @@ class PhaseTransitionRule(Rule):
         list_of_dict = [p_depth_dict, p_width_dict, p_temperature_dict, p_slope_dict, p_density_dict]
         if type(beta_ref) == dict:
             list_of_dict += [T_ref, alpha_ref, beta_ref, cp_ref, Kp]
+        names = parse_entry_as_list(prm_dict.get("Compositional fields", {}).get("Names of fields", ""))
         for foo_dict in list_of_dict:
             foo_dict["gabbro"] = foo_dict["MORB"]
-            foo_dict["sediment"] = foo_dict["MORB"]
+            foo_dict["sediment"] = deepcopy(foo_dict["crust_upper" if use_upper_crust else "MORB"])
+            # FastScapeRule later duplicates sediment when creating sediment1.
+            # Also handle templates that already contain the erosion composition.
+            if use_upper_crust and "sediment1" in names:
+                foo_dict["sediment1"] = deepcopy(foo_dict["crust_upper"])
 
         if include_phase_transition:
 
