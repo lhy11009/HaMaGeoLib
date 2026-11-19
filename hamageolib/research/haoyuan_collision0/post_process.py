@@ -23,6 +23,25 @@ from hamageolib.utils.pyvista_utilities import get_corner_point_ids
 SCRIPT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "../../..", "scripts")
 
 
+def save_composition_indicator_legend(filename):
+    """Create the animation legend, including purple erosion sediment."""
+    from matplotlib.patches import Patch
+
+    labels = ["Asthenosphere", "Upper crust (sp)", "Lower crust (sp)",
+              "Oceanic crust", "Sea floor sediment", "Lithosphere",
+              "Upper crust (ov)", "Lower crust (ov)", "New sediment"]
+    colors = [(0.4039, 0.8000, 0.9294), (0.8118, 0.8157, 0.8235),
+              (0.9294, 0.4000, 0.4667), (0.784, 0.353, 0.0), (1.0, 0.706, 0.314),
+              (0.1451, 0.5373, 0.2588), (0.63, 0.605, 0.615), (0.70, 0.30, 0.35),
+              (0.557, 0.267, 0.678)]
+    fig = plt.figure(figsize=(2.5, 3.0), dpi=200)
+    fig.legend(handles=[Patch(facecolor=color, label=label) for color, label in zip(colors, labels)],
+               loc="center", frameon=False, fontsize=9)
+    fig.savefig(filename, transparent=True)
+    plt.close(fig)
+    return str(filename)
+
+
 class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
 
     def __init__(self, data_dir, options, *,
@@ -1424,7 +1443,10 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
         """
     
         # stack compositions → shape (n_points, N)
-        arrays = [self.grid[f] for f in self.composition_names]
+        names = list(self.composition_names)
+        if "sediment1" in self.grid.point_data and "sediment1" not in names:
+            names.append("sediment1")
+        arrays = [self.grid[f] for f in names]
         comp_data = np.column_stack(arrays)
     
         # compute residual background
@@ -1455,6 +1477,7 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
             5 : lithosphere (background, low T)
             6 : overriding plate upper crust
             7 : overriding plate lower crust
+            8 : erosion-derived sediment (sediment1), when present
     
         Attributes added:
             self.grid.point_data['composition_indicator']
@@ -1491,6 +1514,12 @@ class PYVISTA_PROCESS_COLLISION(PYVISTA_PROCESS):
                 self.grid['sediment'],
                 lithosphere_field
             ]
+
+        if "sediment1" in self.grid.point_data:
+            # Reserve 6 and 7 for overriding crust, even without particle labels.
+            while len(arrays) < 8:
+                arrays.append(np.zeros_like(T))
+            arrays.append(self.grid["sediment1"])
     
         data = np.column_stack(arrays)
     

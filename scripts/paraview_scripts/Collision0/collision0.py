@@ -420,8 +420,14 @@ def twod_workflow(pv_output_dir, visualization_dir, steps, times, timesteps):
 
 
 def plot_twod_basic(source_name, _time, pv_output_dir):
-        
+
+    # Reclassify sediment1 even for final VTU files made by older post-processing.
     _source = FindSource(source_name)
+    _source.UpdatePipeline()
+    point_fields = _source.PointData.keys()
+    if "sediment1" in point_fields or "composition_indicator" not in point_fields:
+        source_name = add_composition_indicator(source_name)
+        _source = FindSource(source_name)
 
     lut = GetColorTransferFunction("composition_indicator")
 
@@ -437,6 +443,7 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         "5", "Lithosphere",
         "6", "Upper crust (ov)",
         "7", "Lower crust (ov)",
+        "8", "New sediment",
     ]
 
     lut.IndexedColors = [
@@ -448,6 +455,7 @@ def plot_twod_basic(source_name, _time, pv_output_dir):
         0.1451, 0.5373, 0.2588,
         0.63, 0.605, 0.615,
         0.70, 0.30, 0.35,
+        0.557, 0.267, 0.678,  # sediment1: purple (#8E44AD)
     ]
 
     # programmable_sourceDisplay.ColorArrayName = ["POINTS", "composition_indicator"]
@@ -775,10 +783,12 @@ def add_composition_indicator(source_name):
     source = FindSource(source_name)
 
     # create a new 'Programmable Filter'
-    programmableFilter1 = ProgrammableFilter(registrationName='Programmable_comp', Input=source)
+    output_name = source_name + '_composition'
+    programmableFilter1 = ProgrammableFilter(registrationName=output_name, Input=source)
     
     # Properties modified on programmableFilter1
     programmableFilter1.Script = """
+import builtins
 import numpy as np
 from vtk.util.numpy_support import vtk_to_numpy, numpy_to_vtk
 
@@ -791,7 +801,10 @@ pd = input0.GetPointData()
 
 # ---- composition arrays ----
 arrays = []
-for name in CONTINENT_COMPOSITIONS:
+split_fields = ['sp_crust_upper', 'sp_crust_lower', 'ov_crust_upper', 'ov_crust_lower']
+split_crust = builtins.all(pd.GetArray(name) is not None for name in split_fields)
+crust_fields = split_fields[:2] if split_crust else CONTINENT_COMPOSITIONS
+for name in crust_fields:
     arr = pd.GetArray(name)
     if arr is None:
         raise RuntimeError(f"Missing array: {name}")
@@ -799,7 +812,7 @@ for name in CONTINENT_COMPOSITIONS:
 
 # ---- oceanic crust: sum up the value
 oceanic_crust_compositions = OCEANIC_CRUST_COMPOSITIONS
-arr = vtk_to_numpy(pd.GetArray(oceanic_crust_compositions[0]))
+arr = vtk_to_numpy(pd.GetArray(oceanic_crust_compositions[0])).copy()
 for name in oceanic_crust_compositions[1:]:
     arr += vtk_to_numpy(pd.GetArray(name))
 arrays.append(arr)
@@ -811,7 +824,11 @@ arrays.append(vtk_to_numpy(arr))
 data = np.vstack(arrays).T
 
 # ---- background ----
-sum_composition = np.sum(data, axis=1)
+sediment1_array = pd.GetArray('sediment1')
+sediment1 = vtk_to_numpy(sediment1_array) if sediment1_array is not None else np.zeros(data.shape[0])
+sum_composition = np.sum(data, axis=1) + sediment1
+if split_crust:
+    sum_composition += vtk_to_numpy(pd.GetArray('ov_crust_upper')) + vtk_to_numpy(pd.GetArray('ov_crust_lower'))
 background = np.clip(1.0 - sum_composition, 0.0, 1.0)
 
 # ---- split background by temperature ----
@@ -823,10 +840,14 @@ cold_bg = background * (T < LITHOSPHERE_TEMPERATURE)
 warm_bg = background * (T >= LITHOSPHERE_TEMPERATURE)
 
 # ---- full classification matrix ----
+overriding = (np.column_stack([vtk_to_numpy(pd.GetArray(name)) for name in split_fields[2:]])
+              if split_crust else np.zeros((data.shape[0], 2)))
 data_with_bg = np.hstack([
     warm_bg[:, None],
     data,
-    cold_bg[:, None]
+    cold_bg[:, None],
+    overriding,
+    sediment1[:, None],
 ])
 
 # ---- argmax ----
@@ -837,6 +858,7 @@ vtk_arr = numpy_to_vtk(indicator.astype(np.int32))
 vtk_arr.SetName("composition_indicator")
 output.GetPointData().AddArray(vtk_arr)
 """
+    return output_name
 
 def setup_fastscape(source_i):
     """
